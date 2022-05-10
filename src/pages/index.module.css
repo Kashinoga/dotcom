@@ -1,0 +1,39 @@
+/**
+ * CSS files with the .module.css suffix will be treated as CSS modules
+ * and scoped locally.
+ */
+
+[data-theme='light'] {
+  --color-primary: #ffcc33;
+  --color-text: rgb(255, 255, 255);
+}
+
+[data-theme='dark'] {
+  --color-primary: #a38328;
+  --color-text: rgb(227, 227, 227);
+}
+
+.heroBanner {
+  color: var(--color-text);
+  padding: 4rem 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+@media screen and (max-width: 996px) {
+  .heroBanner {
+    padding: 2rem;
+  }
+}
+
+.heroCTA {
+  background-color: var(--color-primary);
+  color: var(--ifm-header-color);
+}
+
+.buttons {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
