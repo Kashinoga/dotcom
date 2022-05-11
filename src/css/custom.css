@@ -42,11 +42,16 @@
   --ifm-color-primary-lightest: #3cad6e;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+
+  --color-primary: #3355ff;
+  --color-secondary: #ffcc33;
+  --color-tertiary: #55ff99;
+  --color-links: #3355ff;
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme='dark'] {
-  --ifm-color-primary: #2f39a2;
+  --ifm-color-primary: #ffcc33;
   --ifm-color-primary-dark: #21af90;
   --ifm-color-primary-darker: #1fa588;
   --ifm-color-primary-darkest: #1a8870;
@@ -54,8 +59,26 @@
   --ifm-color-primary-lighter: #32d8b4;
   --ifm-color-primary-lightest: #4fddbf;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+
+  --color-primary-dark: #2f39a2;
+  --color-secondary: #a38328;
+  --color-tertiary: #3ea264;
+  --color-links: #ffcc33;
 }
 
+::selection {
+  background: var(--color-tertiary);
+}
+
+/* a {
+  color: var(--color-links);
+} */
+
+/* Footer */
 .footer__links {
   text-align: center;
+}
+
+.footer__link-item:hover {
+  color: var(--color-links);
 }

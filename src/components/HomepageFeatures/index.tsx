@@ -34,7 +34,7 @@ const FeatureList: FeatureItem[] = [
   },
   {
     title: 'Project Starbloom',
-    Svg: require('@site/static/img/undraw_teamwork_hpdk.svg').default,
+    Svg: require('@site/static/img/undraw_flowers_vx06.svg').default,
     description: (
       <>
         An in-house tabletop roleplaying game project.
@@ -52,9 +52,9 @@ function Feature({ title, Svg, description, link }: FeatureItem) {
       </div>
       <div className="text--center padding-horiz--md">
         {/* <h3>{title}</h3> */}
-        <div className={styles.buttons}>
+        <div className={clsx(styles.featureButton)}>
           <Link
-            className="button button--secondary button--lg"
+            className="button button--secondary button--lg featureButton"
             to={link}>
             {title}
           </Link>

@@ -73,7 +73,7 @@ const config = {
         id: 'tldr',
         path: 'tldr',
         routeBasePath: 'tldr',
-        sidebarPath: require.resolve('./sidebars.js'),
+        sidebarPath: require.resolve('./sidebarTldr.js'),
       },
     ],
   ],
@@ -90,7 +90,7 @@ const config = {
         items: [
           // { to: '/blog', label: 'Blog', position: 'left' },
           {
-            to: '/projects/',
+            to: '/projects',
             position: 'left',
             label: 'Projects',
           },
@@ -113,14 +113,14 @@ const config = {
         ],
       },
       footer: {
-        style: 'dark',
+        style: 'light',
         links: [
           {
             title: 'Projects',
             items: [
               {
                 label: 'All Projects',
-                to: '/projects/intro',
+                to: '/projects',
               },
             ],
           },

@@ -4,16 +4,19 @@
  */
 
 [data-theme='light'] {
-  --color-primary: #ffcc33;
+  --color-primary: #3355ff;
+  --color-secondary: #ffcc33;
   --color-text: rgb(255, 255, 255);
 }
 
 [data-theme='dark'] {
-  --color-primary: #a38328;
+  --color-primary: #2f39a2;
+  --color-secondary: #a38328;
   --color-text: rgb(227, 227, 227);
 }
 
 .heroBanner {
+  background-color: var(--color-primary);
   color: var(--color-text);
   padding: 4rem 0;
   text-align: center;
@@ -28,7 +31,7 @@
 }
 
 .heroCTA {
-  background-color: var(--color-primary);
+  background-color: var(--color-secondary);
   color: var(--ifm-header-color);
 }
 
