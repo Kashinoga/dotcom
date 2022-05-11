@@ -32,13 +32,17 @@ const config = {
       'classic',
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
-        docs: {
-          sidebarPath: require.resolve('./sidebars.js'),
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
-        },
+        // docs: {
+        //   routeBasePath: 'docs',
+        //   path: 'docs',
+        //   sidebarPath: require.resolve('./sidebars.js'),
+        //   lastVersion: 'current',
+        //   onlyIncludeVersions: ['current'],
+        //   // Please change this to your repo.
+        //   // Remove this to remove the "edit this page" links.
+        //   editUrl:
+        //     'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
+        // },
         blog: {
           showReadingTime: true,
           // Please change this to your repo.
@@ -53,6 +57,27 @@ const config = {
     ],
   ],
 
+  plugins: [
+    [
+      '@docusaurus/plugin-content-docs',
+      {
+        id: 'projects',
+        path: 'projects',
+        routeBasePath: 'projects',
+        sidebarPath: require.resolve('./sidebarProjects.js'),
+      },
+    ],
+    [
+      '@docusaurus/plugin-content-docs',
+      {
+        id: 'tldr',
+        path: 'tldr',
+        routeBasePath: 'tldr',
+        sidebarPath: require.resolve('./sidebars.js'),
+      },
+    ],
+  ],
+
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
@@ -63,29 +88,39 @@ const config = {
           src: 'img/icons8-bandage-100-333333-f3f3f3-3355ff-333333.png',
         },
         items: [
+          // { to: '/blog', label: 'Blog', position: 'left' },
           {
-            type: 'doc',
-            docId: 'intro',
+            to: '/projects/',
             position: 'left',
             label: 'Projects',
           },
-          { to: '/blog', label: 'Blog', position: 'left' },
           {
-            href: 'https://github.com/facebook/docusaurus',
-            label: 'GitHub',
-            position: 'right',
+            to: '/tldr/intro',
+            position: 'left',
+            label: 'tl;dr',
           },
+          // {
+          //   type: 'doc',
+          //   docId: 'intro',
+          //   position: 'left',
+          //   label: 'Docs',
+          // },
+          // {
+          //   href: 'https://github.com/Kashinoga/dotcom',
+          //   label: 'GitHub',
+          //   position: 'right',
+          // },
         ],
       },
       footer: {
         style: 'dark',
         links: [
           {
-            title: 'Docs',
+            title: 'Projects',
             items: [
               {
-                label: 'Tutorial',
-                to: '/docs/intro',
+                label: 'All Projects',
+                to: '/projects/intro',
               },
             ],
           },

@@ -31,12 +31,31 @@ function HomepageCTA() {
     <header className={clsx('hero hero--primary', styles.heroBanner, styles.heroCTA)}>
       <div className="container">
         <h1>Call to Action</h1>
-        <p>Consider making a money donation to your local food bank.</p>
+        <p>Consider making a money donation (<Link to="/tldr/nonprofit/why-food-bank-money-donation">Why?</Link>) to your local food bank.</p>
         <div className={styles.buttons}>
           <Link
             className="button button--secondary button--lg"
             to="https://www.google.com/search?q=local+food+bank">
             Find a Local Food Bank
+          </Link>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function HomepageCTV() {
+  const { siteConfig } = useDocusaurusContext();
+  return (
+    <header className={clsx('hero hero--primary', styles.heroBanner)}>
+      <div className="container">
+        <h1>Call to Vote</h1>
+        <p>Prepare for local and national US elections.</p>
+        <div className={styles.buttons}>
+          <Link
+            className="button disabled button--secondary button--lg"
+            to="/">
+            Coming Soon
           </Link>
         </div>
       </div>
@@ -54,6 +73,7 @@ export default function Home(): JSX.Element {
       <main>
         <HomepageFeatures />
         <HomepageCTA />
+        <HomepageCTV />
       </main>
     </Layout>
   );
