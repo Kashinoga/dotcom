@@ -30,8 +30,9 @@ function HomepageCTA() {
   return (
     <header className={clsx('hero hero--primary', styles.heroBanner, styles.heroCTA)}>
       <div className="container">
-        <h1>Call to Action</h1>
-        <p>Consider making a money donation (<Link to="/tldr/nonprofit/why-food-bank-money-donation">Why?</Link>) to your local food bank. The button below opens an external link to Google Maps that searches for nearby donation centers.</p>
+        <h1>Featured Call to Action</h1>
+        <h2>Local Food Banks</h2>
+        <p>Consider making a money donation (<Link to="/tldr/nonprofit/why-food-bank-money-donation">Why?</Link>) to your local food bank.</p>
         <div className={styles.buttons}>
           <Link
             className="button button--secondary button--lg"
@@ -49,7 +50,8 @@ function HomepageCTV() {
   return (
     <header className={clsx('hero hero--primary', styles.heroBanner)}>
       <div className="container">
-        <h1>Call to Vote</h1>
+        <h1>Featured Call to Vote</h1>
+        <h2>2022 Elections</h2>
         <p>Prepare for local and national US elections.</p>
         <div className={styles.buttons}>
           <Link

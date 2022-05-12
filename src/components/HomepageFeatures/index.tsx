@@ -42,6 +42,26 @@ const FeatureList: FeatureItem[] = [
     ),
     link: '/projects/project-starbloom/intro'
   },
+  {
+    title: 'CTA',
+    Svg: require('@site/static/img/undraw_people_re_8spw.svg').default,
+    description: (
+      <>
+        A local effort to promote charitable acts.
+      </>
+    ),
+    link: '/projects/project-starbloom/intro'
+  },
+  {
+    title: 'CTV',
+    Svg: require('@site/static/img/undraw_voting_nvu7.svg').default,
+    description: (
+      <>
+        A local effort to promote political acts.
+      </>
+    ),
+    link: '/projects/project-starbloom/intro'
+  },
 ];
 
 function Feature({ title, Svg, description, link }: FeatureItem) {
@@ -69,7 +89,7 @@ export default function HomepageFeatures(): JSX.Element {
   return (
     <section className={styles.features}>
       <div className="container">
-        <div className="row">
+        <div className={clsx(styles.row)}>
           {FeatureList.map((props, idx) => (
             <Feature key={idx} {...props} />
           ))}

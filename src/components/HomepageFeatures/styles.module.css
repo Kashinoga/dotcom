@@ -13,3 +13,9 @@
 .featureButton {
   margin: var(--ifm-paragraph-margin-bottom) 0 var(--ifm-paragraph-margin-bottom);
 }
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
