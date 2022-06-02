@@ -8,6 +8,6 @@ A personal worldbuilding project for use in tabletop roleplaying games, short st
 
 :::caution
 
-This is a work in progress and no preview is currently available.
+This is a work in progress and no public preview is currently available.
 
 :::

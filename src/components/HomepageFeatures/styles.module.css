@@ -19,3 +19,8 @@
   flex-wrap: wrap;
   justify-content: center;
 }
+
+.inDevelopmentText {
+  color: #ff3350;
+  font-style: italic;
+}

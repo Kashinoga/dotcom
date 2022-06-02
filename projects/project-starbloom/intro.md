@@ -8,6 +8,6 @@ An in-house tabletop roleplaying game project.
 
 :::caution
 
-This is a work in progress and no preview is currently available.
+This is a work in progress and no public preview is currently available.
 
 :::

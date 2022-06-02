@@ -57,7 +57,7 @@ function HomepageCTV() {
           <Link
             className="button disabled button--secondary button--lg"
             to="/">
-            Coming Soon
+            In Development
           </Link>
         </div>
       </div>

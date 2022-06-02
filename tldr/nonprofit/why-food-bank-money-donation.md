@@ -5,7 +5,11 @@ authors: [andrew-nguyen]
 tags: [tldr, nonprofit]
 ---
 
-tl;dr: Food banks have connections that allow them to stretch a dollar more than a typical consumer could.
+# Why should I make a money donation to food banks?
+
+# tl;dr
+
+Food banks have connections that allow them to stretch a dollar more than a typical consumer could.
 
 # References
 - Feeding America: https://www.feedingamerica.org/hunger-blog/donating-food-food-bank-consider-cash-instead-canned-goods

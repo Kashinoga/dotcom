@@ -24,7 +24,13 @@ const sidebars = {
             items: [
                 'nonprofit/why-food-bank-money-donation'
             ]
-        },
+        }, {
+            type: 'category',
+            label: 'Politics',
+            items: [
+                'politics/voting'
+            ]
+        }
     ],
 };
 
