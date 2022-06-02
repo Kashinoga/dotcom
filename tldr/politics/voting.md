@@ -9,9 +9,14 @@ tags: [tldr, politics]
 
 # tl;dr
 
-1. Are you regitered to vote in your state of residency? If not, then register in your state:
-    - Iowa: https://voterready.iowa.gov/resource/register/
-2. Is it time to vote? Check your state:
+1. Are you registered to vote in your state of residency?
+    <details>
+        <summary>Iowa</summary>
+        <p>
+            Check your registration status and register at: <a href="https://sos.iowa.gov/elections/voterinformation/voterregistration.html">Iowa Secretary of State: Voter Registration</a>
+        </p>
+    </details>
+2. Is it time to vote?
 <details>
     <summary>Iowa</summary>
     <p>
@@ -39,7 +44,7 @@ tags: [tldr, politics]
         <summary>Iowa</summary>
         <b>In Person, Mail</b>
             <p>
-                TBD
+                Wherever! Just make sure that you can send and receive snail mail... See the next step on how to vote by mail.
             </p>
         <b>In Person, Absentee</b>
         <p>
@@ -53,7 +58,23 @@ tags: [tldr, politics]
 4. How do I vote?
     <details>
         <summary>Iowa</summary>
+        <b>In Person, Mail</b>
+            <p>
+                <ul>
+                    <li>1. Download and fill out <a href="https://sos.iowa.gov/elections/pdf/absenteeballotapp.pdf">the request form</a></li>
+                    <li>2. Send in your completed request form to <a href="https://sos.iowa.gov/elections/auditors/auditorslist.html">your county auditor</a></li>
+                    <li>3. Receive your ballot from your county auditor</li>
+                    <li>4. Fill in your ballot</li>
+                    <li>5. Return your ballot to your county auditor (either by mail or in person)</li>
+                </ul>
+            </p>
         <b>In Person, Absentee</b>
+        <p>
+            In-person absentee voting for the June 7 Primary Election is available Wednesday, May 18 – Monday, June 6. You can vote in your county auditor’s office or at an appropriate satellite location, if available.
+        </p>
+        <p>
+            Make sure you bring in an appropriate ID as if you were voting in person on election day.
+        </p>
         <b>In Person, Election Day</b>
         <p>
             <ul>
@@ -76,4 +97,5 @@ tags: [tldr, politics]
     </details>
 
 # References
+- https://sos.iowa.gov/
 - https://voterready.iowa.gov/
