@@ -28,7 +28,7 @@ const sidebars = {
             type: 'category',
             label: 'Politics',
             items: [
-                'politics/voting'
+                'politics/how-do-i-vote'
             ]
         }
     ],
