@@ -1,0 +1,144 @@
+:root {
+	--max-width: 720px;
+
+	--background-color: white;
+	--text-color: black;
+	--text-color-inverted: white;
+
+	--gap: 0.2em;
+	--margin: 1em;
+	--padding: 1em;
+	--padding-small: 0.8em;
+	--padding-smaller: 0.6em;
+	--padding-smallest: 0.4em;
+
+	--border: 1px solid black;
+	--border-big: 0.2em solid black;
+
+	--border-radius: 2em;
+
+	--highlight-0: yellow;
+	--highlight-1: springgreen;
+	--highlight-2: hotpink;
+
+	--quote: aqua;
+}
+
+[data-theme='dark'] {
+	--background-color: black;
+	--text-color: white;
+	--text-color-inverted: black;
+
+	--border: 1px solid white;
+	--border-big: 0.2em solid white;
+
+	/* --highlight-0: olive;
+	--highlight-1: darkolivegreen;
+	--highlight-2: darkmagenta;
+
+	--quote: darkblue; */
+
+	.highlight,
+	.highlight-2,
+	.highlight-3,
+	.quote {
+		color: var(--text-color-inverted);
+	}
+}
+
+@font-face {
+	font-family: 'Noto Sans';
+	font-optical-sizing: auto;
+	font-weight: 400;
+	font-style: normal;
+	font-variation-settings: 'wdth' 100;
+	src: url('/fonts/Noto_Sans/NotoSans-VariableFont_wdth\,wght.ttf') format('truetype-variations');
+}
+
+@font-face {
+	font-family: 'Noto Color Emoji';
+	font-weight: 400;
+	font-style: normal;
+	src: url('/fonts/Noto_Color_Emoji/NotoColorEmoji-Regular.ttf') format('truetype-variations');
+}
+
+body {
+	margin: var(--margin);
+	font-family: 'Noto Sans', 'Noto Color Emoji', sans-serif;
+	background-color: var(--background-color);
+	color: var(--text-color);
+}
+
+.container {
+	display: flex;
+	max-width: var(--max-width);
+}
+
+.content {
+	padding-right: var(--padding);
+	border-right: var(--border);
+}
+
+.margin {
+	padding-left: var(--padding);
+}
+
+/* Buttons */
+
+button {
+	background: none;
+	color: var(--text-color);
+	border: none;
+	/* border-radius: var(--border-radius); */
+	/* padding: var(--padding-smallest); */
+	padding-block: 0;
+	padding-inline: 0;
+}
+
+button a {
+	color: var(--text-color);
+	text-decoration: none;
+}
+
+.toggleDarkMode {
+	cursor: pointer;
+}
+
+/* Nav */
+
+nav {
+    width: fit-content;
+	display: flex;
+	/* gap: var(--gap); */
+    padding-left: var(--padding);
+    padding-right: var(--padding);
+	padding-bottom: var(--padding);
+    border-bottom: var(--border);
+}
+
+nav .no-gap {
+	margin-right: 0;
+}
+
+/* Text */
+.highlight {
+	font-weight: bold;
+	background-color: var(--highlight-0);
+	color: var(--text-color);
+	padding: var(--gap);
+}
+
+.highlight-2 {
+	background-color: var(--highlight-1);
+}
+
+.highlight-3 {
+	background-color: var(--highlight-2);
+}
+
+.quote {
+	background-color: var(--quote);
+	color: var(--text-color-faded);
+	border-left: var(--border-big);
+	padding: var(--gap);
+}
