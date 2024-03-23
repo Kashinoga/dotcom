@@ -187,6 +187,7 @@
 	select {
 		appearance: button;
 		background-color: var(--global-background-color);
+		color: var(--text-color);
 		background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 12 12' enable-background:'new -1 -1 12 12;' xml:space='preserve'> <path fill='%23FFFFFF' d='M9.293,0l-3.147,3.147L.5,5.707l3.646,3.646L9,12l3.147-3.147L12.707,5.707Z'>");
 		background-position: center right;
 		background-repeat: no-repeat;
