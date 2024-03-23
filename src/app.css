@@ -1,5 +1,6 @@
 :root {
 	--max-width-ultra: 1080px;
+	--max-width-pro: 900px;
 	--max-width: 720px;
 	--min-wdith: 720px;
 
@@ -72,13 +73,14 @@ body {
 
 .container {
 	display: flex;
-	max-width: var(--max-width);
+	max-width: var(--max-width-pro);
 	min-width: var(--min-wdith);
 }
 
 .content {
 	padding-right: var(--padding);
 	border-right: var(--border);
+	max-width: var(--max-width);
 	min-width: var(--min-wdith);
 }
 
@@ -109,9 +111,7 @@ button a {
 
 nav {
 	display: flex;
-	max-width: var(--max-width-ultra);
-	padding-left: var(--padding);
-	padding-right: var(--padding);
+	max-width: var(--max-width-pro);
 	padding-bottom: var(--padding);
 	border-bottom: var(--border);
 }

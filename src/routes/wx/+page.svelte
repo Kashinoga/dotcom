@@ -97,7 +97,13 @@
 	<div class="content">
 		<h1>🌦️ WX</h1>
 
-		<select id="state-select" bind:value={selectedState} on:change={getWeatherData}
+		<p>Data provided by your <span class="highlight">local sorceress</span><sup>[1]</sup>.</p>
+
+		<select
+			id="stateSelect"
+			class="stateSelect"
+			bind:value={selectedState}
+			on:change={getWeatherData}
 			>\
 			<option disabled>Select a State</option>
 			{#each statesOfAmerica as state}
@@ -142,9 +148,14 @@
 			<p>Error: {error.message}</p>
 		{/await}
 	</div>
+	<div class="margin"><p><sub><sup>[1]</sup> The National Weather Service.</sub></p></div>
 </div>
 
 <style>
+	.stateSelect {
+		width: 100%;
+	}
+
 	.weatherDatumContainer {
 		border-top: var(--border);
 	}
@@ -160,11 +171,17 @@
 
 	.areaDescText {
 		flex-grow: 1;
+		padding-bottom: 0;
+		margin-block-start: 0;
+		margin-block-end: 0;
+		padding: var(--padding);
+		padding-bottom: 0;
 	}
 
 	.areaDescCopyButton {
 		border-left: var(--border);
-		padding: var(--padding);
+		padding-left: var(--padding);
+		padding-right: var(--padding);
 	}
 
 	select {
