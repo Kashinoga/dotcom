@@ -1,5 +1,6 @@
 :root {
 	--max-width: 720px;
+	--min-wdith: 720px;
 
 	--background-color: white;
 	--text-color: black;
@@ -12,16 +13,21 @@
 	--padding-smaller: 0.6em;
 	--padding-smallest: 0.4em;
 
-	--border: 1px solid black;
+	--border: 1px solid rgba(0, 0, 0, 0.2);
 	--border-big: 0.2em solid black;
 
 	--border-radius: 2em;
 
-	--highlight-0: yellow;
-	--highlight-1: springgreen;
-	--highlight-2: hotpink;
+	--yellow: #ffdc00;
+	--green: #01ff70;
+	--blue: #7fdbff;
+	--gray: #dddddd;
 
-	--quote: aqua;
+	--highlight-0: var(--yellow);
+	--highlight-1: var(--green);
+	--highlight-2: var(--blue);
+
+	--quote: var(--gray);
 }
 
 [data-theme='dark'] {
@@ -31,12 +37,6 @@
 
 	--border: 1px solid white;
 	--border-big: 0.2em solid white;
-
-	/* --highlight-0: olive;
-	--highlight-1: darkolivegreen;
-	--highlight-2: darkmagenta;
-
-	--quote: darkblue; */
 
 	.highlight,
 	.highlight-2,
@@ -72,11 +72,13 @@ body {
 .container {
 	display: flex;
 	max-width: var(--max-width);
+	min-width: var(--min-wdith);
 }
 
 .content {
 	padding-right: var(--padding);
 	border-right: var(--border);
+	min-width: var(--min-wdith);
 }
 
 .margin {
@@ -89,8 +91,6 @@ button {
 	background: none;
 	color: var(--text-color);
 	border: none;
-	/* border-radius: var(--border-radius); */
-	/* padding: var(--padding-smallest); */
 	padding-block: 0;
 	padding-inline: 0;
 }
@@ -107,13 +107,11 @@ button a {
 /* Nav */
 
 nav {
-    width: fit-content;
 	display: flex;
-	/* gap: var(--gap); */
-    padding-left: var(--padding);
-    padding-right: var(--padding);
+	padding-left: var(--padding);
+	padding-right: var(--padding);
 	padding-bottom: var(--padding);
-    border-bottom: var(--border);
+	border-bottom: var(--border);
 }
 
 nav .no-gap {
