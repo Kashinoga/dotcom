@@ -12,6 +12,7 @@
 
 	--gap: 1em;
 	--margin: 1em;
+	--padding-big: 2em;
 	--padding: 1em;
 	--padding-small: 0.2em;
 
@@ -106,12 +107,6 @@ body {
 	}
 }
 
-@media (min-width: 760px) {
-	.container {
-		/* max-width: var(--width-medium); */
-	}
-}
-
 .margin {
 	border-top: var(--border);
 }
@@ -168,7 +163,7 @@ h5 {
 ul {
 	margin-block-start: var(--margin);
 	margin-block-end: var(--margin);
-	padding-inline-start: var(--padding);
+	padding-inline-start: var(--padding-big);
 }
 
 .highlight {

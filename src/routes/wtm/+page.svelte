@@ -13,7 +13,10 @@
 				<div class="cards">
 					{#each $eatAndDrinkInventory as inventoryItem}
 						<div class="card">
-							<h4>{inventoryItem.name}</h4>
+							<div class="cardLabel">
+								<h4 class="cardName">{inventoryItem.name}</h4>
+								<span class="highlight">{inventoryItem.roots}</span>
+							</div>
 							<ul>
 								<li>{inventoryItem.cuisine}</li>
 								<li>{inventoryItem.address}</li>
@@ -34,30 +37,46 @@
 	}
 
 	.states h3,
-	.states h4 {
-		/* margin: 0; */
+	h4 {
 		border-bottom: var(--border);
 	}
 
 	.state {
-		border-bottom: var(--border);
+		/* border-bottom: var(--border); */
 		padding-bottom: var(--padding);
 	}
 
 	.cards {
 		display: flex;
+		flex-direction: row;
+		flex-wrap: wrap;
 		gap: var(--gap);
 	}
 
 	.card {
-		width: fit-content;
 		padding: var(--padding);
 		border: var(--border);
 		border-radius: var(--border-radius);
 	}
 
 	.card h4,
-	.card ul {
-		margin: 0;
+	ul {
+		margin-top: 0;
+		margin-bottom: 0;
+	}
+
+	@media (min-width: 760px) {
+		.cards {
+			flex-wrap: nowrap;
+		}
+	}
+
+	.cardLabel {
+		display: flex;
+		align-items: center;
+	}
+
+	.cardName {
+		flex-grow: 1;
 	}
 </style>

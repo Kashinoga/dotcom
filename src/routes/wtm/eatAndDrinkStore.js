@@ -3,6 +3,7 @@ import { writable } from 'svelte/store';
 const inventory = [
 	{
 		state: 'Iowa',
+		roots: 'Local',
 		name: 'Good Eatins',
 		cuisine: 'Southern',
 		address: '2811 SE 14th St, Des Moines, IA 50320',
@@ -10,6 +11,7 @@ const inventory = [
 	},
 	{
 		state: 'Iowa',
+		roots: 'Local',
 		name: "Tacos Mariana's",
 		cuisine: 'Mexican',
 		address: '1305 University Ave, Des Moines, IA 50314',
