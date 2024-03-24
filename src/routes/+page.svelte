@@ -23,9 +23,7 @@
 
 		<p>
 			<span class="quote"
-				>"I will root for you, all the time." —Anime Girl, <i
-					>Moments of Stevie's Time in the Universe</i
-				></span
+				>"I will root for you, all the time." —Anime Girl, <i>Moments in the Universe</i></span
 			>
 		</p>
 	</div>

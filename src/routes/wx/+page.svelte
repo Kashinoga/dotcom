@@ -100,7 +100,9 @@
 	<div class="content">
 		<h1>🌦️ WX</h1>
 
-		<p>Data provided by your <span class="highlight">local sorceress</span><sup>[1]</sup>.</p>
+		<p>
+			The forecast is provided by your <span class="highlight">local sorceress</span><sup>[1]</sup>.
+		</p>
 
 		<select
 			id="stateSelect"
@@ -121,7 +123,7 @@
 		{:then}
 			<div class="weatherDatumContainer">
 				{#if featuresLength > 0}
-					<p>
+					<p class="weatherPerson">
 						<span class="quote">"Peer into the cauldron. It's fresh as of..."</span>
 					</p>
 					<p class="weatherDatumUpdated">
@@ -177,8 +179,15 @@
 		border-bottom: var(--border);
 	}
 
+	.weatherPerson {
+		text-align: center;
+	}
+
 	.weatherDatumUpdated {
-		text-align: right;
+		/* text-align: right; */
+		text-align: center;
+		border-bottom: var(--border);
+		padding-bottom: var(--padding);
 	}
 
 	.areaDesc {
@@ -192,22 +201,21 @@
 		margin-block-start: 0;
 		margin-block-end: 0;
 		padding: var(--padding);
+		padding-left: 0;
 		padding-bottom: 0;
+		text-align: left;
 	}
 
 	.areaDescCopyButton {
 		cursor: grab;
 		border-left: var(--border);
 		padding-left: var(--padding);
-		padding-right: var(--padding);
-	}
-
-	.areaDescCopyButton:hover {
-		box-shadow: rgba(255, 255, 255, 0.06) 0px 0px 40px 0px inset;
+		padding-right: 0;
 	}
 
 	.NWSheadline {
-		text-align: right;
+		/* text-align: right; */
+		text-align: left;
 	}
 
 	select {
