@@ -10,17 +10,15 @@
 	--text-color: black;
 	--text-color-inverted: white;
 
-	--gap: 0.2em;
+	--gap: 1em;
 	--margin: 1em;
 	--padding: 1em;
-	--padding-small: 0.8em;
-	--padding-smaller: 0.6em;
-	--padding-smallest: 0.4em;
+	--padding-small: 0.2em;
 
 	--border: 1px solid rgba(0, 0, 0, 0.2);
 	--border-big: 0.2em solid black;
 
-	--border-radius: 2em;
+	--border-radius: 8px;
 
 	--yellow: #ffdc00;
 	--green: #01ff70;
@@ -158,11 +156,26 @@ nav .no-gap {
 }
 
 /* Text */
+h1,
+h2,
+h3,
+h4,
+h5 {
+	margin-top: var(--margin);
+	margin-bottom: var(--margin);
+}
+
+ul {
+	margin-block-start: var(--margin);
+	margin-block-end: var(--margin);
+	padding-inline-start: var(--padding);
+}
+
 .highlight {
 	font-weight: bold;
 	background-color: var(--highlight-0);
 	color: var(--text-color);
-	padding: var(--gap);
+	padding: var(--padding-small);
 }
 
 .highlight-2 {
@@ -177,5 +190,5 @@ nav .no-gap {
 	background-color: var(--quote);
 	color: var(--text-color-faded);
 	border-left: var(--border-big);
-	padding: var(--gap);
+	padding: var(--padding-small);
 }
