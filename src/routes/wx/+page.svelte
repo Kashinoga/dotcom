@@ -60,7 +60,8 @@
 	let weatherDatum = {
 		title: '',
 		NWSheadline: '',
-		areaDesc: ''
+		areaDesc: '',
+		updated: ''
 	};
 
 	let weatherData: { [key: string]: string }[] = [];
@@ -77,10 +78,12 @@
 				weatherDatum = {
 					title: weatherDataResponse.title,
 					NWSheadline: weatherDataResponse.features[index].properties.parameters.NWSheadline,
-					areaDesc: weatherDataResponse.features[index].properties.areaDesc
+					areaDesc: weatherDataResponse.features[index].properties.areaDesc,
+					updated: new Date(weatherDataResponse.updated).toString()
 				};
 				weatherData = [...weatherData, weatherDatum];
 			}
+			console.log(weatherData);
 		}
 	}
 
@@ -118,6 +121,12 @@
 		{:then}
 			<div class="weatherDatumContainer">
 				{#if featuresLength > 0}
+					<p>
+						<span class="quote">"Peer into the cauldron. It's fresh as of..."</span>
+					</p>
+					<p class="weatherDatumUpdated">
+						<span class="highlight highlight-2">{weatherDatum.updated}</span>
+					</p>
 					{#each weatherData as weatherDatum, index}
 						<div class="weatherDatum">
 							<div class="areaDesc">
@@ -139,9 +148,13 @@
 						</div>
 					{/each}
 				{:else if selectedState !== 'Select a State'}
-					<p>No available alerts.</p>
+					<p>
+						The <span class="highlight">sorceress</span> remains silent. There are no available alerts.
+					</p>
 				{:else}
-					<p>Please select a State.</p>
+					<p>
+						<span class="highlight">She</span> awaits your selection with disinterest.
+					</p>
 				{/if}
 			</div>
 		{:catch error}
@@ -164,6 +177,10 @@
 		border-bottom: var(--border);
 	}
 
+	.weatherDatumUpdated {
+		text-align: right;
+	}
+
 	.areaDesc {
 		display: flex;
 		font-weight: bold;
@@ -179,13 +196,22 @@
 	}
 
 	.areaDescCopyButton {
+		cursor: grab;
 		border-left: var(--border);
 		padding-left: var(--padding);
 		padding-right: var(--padding);
 	}
 
+	.areaDescCopyButton:hover {
+		box-shadow: rgba(255, 255, 255, 0.06) 0px 0px 40px 0px inset;
+	}
+
+	.NWSheadline {
+		text-align: right;
+	}
+
 	select {
-		appearance: button;
+		cursor: pointer;
 		background-color: var(--global-background-color);
 		color: var(--text-color);
 		background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 12 12' enable-background:'new -1 -1 12 12;' xml:space='preserve'> <path fill='%23FFFFFF' d='M9.293,0l-3.147,3.147L.5,5.707l3.646,3.646L9,12l3.147-3.147L12.707,5.707Z'>");
@@ -196,5 +222,14 @@
 		border-left: var(--border);
 		padding: var(--padding);
 		margin-bottom: var(--margin);
+	}
+
+	option {
+		background-color: var(--background-color);
+		color: var(--text-color);
+	}
+
+	option:disabled {
+		color: var(--text-color);
 	}
 </style>
