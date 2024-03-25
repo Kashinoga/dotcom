@@ -12,8 +12,8 @@
 		</div>
 	</div>
 	<div class="margin">
-		<p><sub><sup>[1]</sup> Third place, third place, third place!</sub></p>
-		<p><sub><sup>[2]</sup> Nothing to it. <i>Mostly</i>.</sub></p>
+		<p><sub><sup>[1]</sup>Third place, third place, third place!</sub></p>
+		<p><sub><sup>[2]</sup>Nothing to it. <i>Mostly</i>.</sub></p>
 	</div>
 </div>
 

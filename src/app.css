@@ -12,14 +12,16 @@
 
 	--gap: 1em;
 	--margin: 1em;
-	--padding-big: 2em;
+
+	--padding-big: 1.2em;
 	--padding: 1em;
-	--padding-small: 0.2em;
+	--padding-small: 0.4em;
+	--padding-smaller: 0.2em;
 
 	--border: 1px solid rgba(0, 0, 0, 0.2);
 	--border-big: 0.2em solid black;
 
-	--border-radius: 8px;
+	--border-radius: 1em;
 
 	--yellow: #ffdc00;
 	--green: #01ff70;
@@ -29,8 +31,9 @@
 	--highlight-0: var(--yellow);
 	--highlight-1: var(--green);
 	--highlight-2: var(--blue);
+	--highlight-q: var(--yellow);
 
-	--quote: var(--yellow);
+	--highlight-percent: 80%;
 }
 
 [data-theme='dark'] {
@@ -44,10 +47,12 @@
 	.highlight,
 	.highlight-2,
 	.highlight-3,
-	.quote {
+	.highlight-q {
 		color: var(--text-color-inverted);
 	}
 }
+
+/* Fonts */
 
 @font-face {
 	font-family: 'Noto Sans';
@@ -64,6 +69,8 @@
 	font-style: normal;
 	src: url('/fonts/Noto_Color_Emoji/NotoColorEmoji-Regular.ttf') format('truetype-variations');
 }
+
+/* Body */
 
 body {
 	margin: var(--margin);
@@ -107,6 +114,8 @@ body {
 	}
 }
 
+/* Margin */
+
 .margin {
 	border-top: var(--border);
 }
@@ -114,8 +123,14 @@ body {
 @media (min-width: 760px) {
 	.margin {
 		border-top: none;
+		padding-top: var(--padding);
 		padding-left: var(--padding);
 	}
+}
+
+.margin p {
+	margin-top: 0;
+	margin-bottom: 0;
 }
 
 /* Buttons */
@@ -151,11 +166,18 @@ nav .no-gap {
 }
 
 /* Text */
+
+a {
+	color: var(--text-color);
+}
+
 h1,
 h2,
 h3,
 h4,
 h5 {
+	margin-block-start: 0;
+	margin-block-end: 0;
 	margin-top: var(--margin);
 	margin-bottom: var(--margin);
 }
@@ -168,22 +190,21 @@ ul {
 
 .highlight {
 	font-weight: bold;
-	background-color: var(--highlight-0);
+	/* background-color: var(--highlight-0); */
+	background-color: color-mix(in srgb, var(--highlight-0) var(--highlight-percent), transparent);
 	color: var(--text-color);
 	padding: var(--padding-small);
+	border-radius: var(--border-radius);
 }
 
 .highlight-2 {
-	background-color: var(--highlight-1);
+	background-color: color-mix(in srgb, var(--highlight-1) var(--highlight-percent), transparent);
 }
 
 .highlight-3 {
-	background-color: var(--highlight-2);
+	background-color: color-mix(in srgb, var(--highlight-2) var(--highlight-percent), transparent);
 }
 
-.quote {
-	background-color: var(--quote);
-	color: var(--text-color-faded);
-	border-left: var(--border-big);
-	padding: var(--padding-small);
+.hightlight-q {
+	background-color: color-mix(in srgb, var(--highlight-q) var(--highlight-percent), transparent);
 }

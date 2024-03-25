@@ -6,7 +6,7 @@
 
 		<p>
 			This is <span class="highlight">Kashinoga</span>. My virtual
-			<span class="highlight highlight-2">home</span>.
+			<span class="highlight highlight-3">home</span>.
 		</p>
 
 		<p>
@@ -22,12 +22,12 @@
 		<p>I hope you enjoy your time.</p>
 
 		<p>
-			<span class="quote"
-				>"I will root for you, all the time." —Anime Girl, <i>Moments in the Universe</i></span
-			>
+			<span class="highlight highlight-q">"I will root for you, all the time."</span> —Anime Girl,
+			<i>Moments in the Universe</i><sup>[2]</sup>
 		</p>
 	</div>
 	<div class="margin">
-		<p><sub><sup>[1]</sup> They're not <i>all</i> fun.</sub></p>
+		<p><sub><sup>[1]</sup>They're not <i>all</i> fun.</sub></p>
+		<p><sub><sup>[2]</sup>Why does this sound like Porter Robinson's "Cheerleeder"?</sub></p>
 	</div>
 </div>

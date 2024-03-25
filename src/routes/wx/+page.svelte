@@ -124,7 +124,7 @@
 			<div class="weatherDatumContainer">
 				{#if featuresLength > 0}
 					<p class="weatherPerson">
-						<span class="quote">"Peer into the cauldron. It's fresh as of..."</span>
+						<span class="highlight highlight-q">"Peer into the cauldron. It's fresh as of..."</span>
 					</p>
 					<p class="weatherDatumUpdated">
 						<span class="highlight highlight-2">{weatherDatum.updated}</span>
@@ -163,7 +163,7 @@
 			<p>Error: {error.message}</p>
 		{/await}
 	</div>
-	<div class="margin"><p><sub><sup>[1]</sup> The National Weather Service.</sub></p></div>
+	<div class="margin"><p><sub><sup>[1]</sup>The National Weather Service.</sub></p></div>
 </div>
 
 <style>
