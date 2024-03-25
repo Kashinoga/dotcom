@@ -44,7 +44,7 @@
 						{/if}
 					{/each}
 				</div>
-				<h3>Entertainment 🎥</h3>
+				<h3>Entertainment 🍿</h3>
 				<div class="cards">
 					{#each $entertainmentInventory as inventoryItem}
 						{#if inventoryItem.state == 'Iowa'}
