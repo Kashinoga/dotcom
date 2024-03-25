@@ -73,7 +73,7 @@
 		<div class="states">
 			<div class="state">
 				<h2 id="Minnesota">Minnesota ❄️</h2>
-				<h3>Eat and Drink</h3>
+				<h3>Eat and Drink 😋</h3>
 				<div class="cards">
 					{#each $eatAndDrinkInventory as inventoryItem}
 						{#if inventoryItem.state == 'Minnesota'}
@@ -96,7 +96,7 @@
 						{/if}
 					{/each}
 				</div>
-				<h3>Entertainment 🎥</h3>
+				<h3>Entertainment 🍿</h3>
 				<div class="cards">
 					{#each $entertainmentInventory as inventoryItem}
 						{#if inventoryItem.state == 'Minnesota'}

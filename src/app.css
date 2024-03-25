@@ -159,10 +159,6 @@ nav {
 	border-bottom: var(--border);
 }
 
-nav .no-gap {
-	margin-right: 0;
-}
-
 /* Text */
 
 a {
