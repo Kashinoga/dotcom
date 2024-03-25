@@ -32,28 +32,7 @@
 		<div class="cardsContainer">
 			<h3 id="eatAndDrink">Eat and Drink</h3>
 			<div class="cards">
-				{#each $eatAndDrinkInventory as inventoryItem}
-					<div class="card">
-						<div class="cardLabel">
-							<h4 class="cardName">{inventoryItem.name}</h4>
-							{#if inventoryItem.roots == 'Local'}
-								<span class="highlight highlight-2">{inventoryItem.roots}</span>
-							{:else}
-								<span class="highlight highlight-3">{inventoryItem.roots}</span>
-							{/if}
-						</div>
-						<ul>
-							<li>{inventoryItem.cuisine}</li>
-							<li>{inventoryItem.address}</li>
-							<li><a href={inventoryItem.website}>{inventoryItem.website}</a></li>
-							<li>{inventoryItem.phone}</li>
-						</ul>
-					</div>
-				{/each}
-			</div>
-			<h3 id="entertainment">Entertainment</h3>
-			<div class="cards">
-				{#each $entertainmentInventory as inventoryItem}
+				{#each $eatAndDrinkInventory.sort((a, b) => a.name.localeCompare(b.name)) as inventoryItem}
 					<div class="card">
 						<div class="cardLabel">
 							<h4 class="cardName">{inventoryItem.name}</h4>
@@ -66,8 +45,33 @@
 						<ul>
 							<li>{inventoryItem.type}</li>
 							<li>{inventoryItem.address}</li>
-							<li><a href={inventoryItem.website}>{inventoryItem.website}</a></li>
-							<li>{inventoryItem.phone}</li>
+							<li>
+								<a href="http://maps.apple.com/?q={inventoryItem.name}">Apple ↗️</a>
+								<a href="http://maps.google.com/?q={inventoryItem.name}">Google ↗️</a>
+							</li>
+						</ul>
+					</div>
+				{/each}
+			</div>
+			<h3 id="entertainment">Entertainment</h3>
+			<div class="cards">
+				{#each $entertainmentInventory.sort( (a, b) => a.name.localeCompare(b.name) ) as inventoryItem}
+					<div class="card">
+						<div class="cardLabel">
+							<h4 class="cardName">{inventoryItem.name}</h4>
+							{#if inventoryItem.roots == 'Local'}
+								<span class="highlight highlight-2">{inventoryItem.roots}</span>
+							{:else}
+								<span class="highlight highlight-3">{inventoryItem.roots}</span>
+							{/if}
+						</div>
+						<ul>
+							<li>{inventoryItem.type}</li>
+							<li>{inventoryItem.address}</li>
+							<li>
+								<a href="http://maps.apple.com/?q={inventoryItem.name}">Apple ↗️</a>
+								<a href="http://maps.google.com/?q={inventoryItem.name}">Google ↗️</a>
+							</li>
 						</ul>
 					</div>
 				{/each}
