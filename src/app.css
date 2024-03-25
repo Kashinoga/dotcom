@@ -19,7 +19,6 @@
 	--padding-smaller: 0.2em;
 
 	--border: 1px solid rgba(0, 0, 0, 0.2);
-	--border-big: 0.2em solid black;
 
 	--border-radius: 1em;
 
@@ -37,12 +36,11 @@
 }
 
 [data-theme='dark'] {
-	--background-color: black;
+	--background-color: #222;
 	--text-color: white;
 	--text-color-inverted: black;
 
 	--border: 1px solid rgba(255, 255, 255, 0.2);
-	--border-big: 0.2em solid white;
 
 	.highlight,
 	.highlight-2,
