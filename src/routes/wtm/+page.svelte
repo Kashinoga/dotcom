@@ -1,8 +1,6 @@
 <script>
-	import { statesOfAmericaInventory } from './unitedStatesStore';
-	import { eatAndDrinkInventory } from './eatAndDrinkStore';
-	import { entertainmentInventory } from './entertainmentStore';
 	import './wtm.css';
+	import { statesOfAmericaInventory } from './unitedStatesStore';
 </script>
 
 <div class="container">

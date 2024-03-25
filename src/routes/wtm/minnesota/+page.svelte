@@ -1,6 +1,8 @@
 <script>
-	import { eatAndDrinkInventory } from '../eatAndDrinkStore';
-	import { entertainmentInventory } from '../entertainmentStore';
+	import '../wtm.css';
+	import { categoryInventory } from '../categoryStore';
+	import { eatAndDrinkInventory } from './eatAndDrinkStore';
+	import { entertainmentInventory } from './entertainmentStore';
 </script>
 
 <div class="container">
@@ -17,55 +19,58 @@
 			<a class="contentItem" href="/wtm">👈 Back</a>
 		</div>
 
-		<div class="states">
-			<div class="state">
-				<h2 id="Minnesota">Minnesota ❄️</h2>
-				<h3>Eat and Drink 😋</h3>
-				<div class="cards">
-					{#each $eatAndDrinkInventory as inventoryItem}
-						{#if inventoryItem.state == 'Minnesota'}
-							<div class="card">
-								<div class="cardLabel">
-									<h4 class="cardName">{inventoryItem.name}</h4>
-									{#if inventoryItem.roots == 'Local'}
-										<span class="highlight highlight-2">{inventoryItem.roots}</span>
-									{:else}
-										<span class="highlight highlight-3">{inventoryItem.roots}</span>
-									{/if}
-								</div>
-								<ul>
-									<li>{inventoryItem.cuisine}</li>
-									<li>{inventoryItem.address}</li>
-									<li><a href={inventoryItem.website}>{inventoryItem.website}</a></li>
-									<li>{inventoryItem.phone}</li>
-								</ul>
-							</div>
-						{/if}
-					{/each}
-				</div>
-				<h3>Entertainment 🍿</h3>
-				<div class="cards">
-					{#each $entertainmentInventory as inventoryItem}
-						{#if inventoryItem.state == 'Minnesota'}
-							<div class="card">
-								<div class="cardLabel">
-									<h4 class="cardName">{inventoryItem.name}</h4>
-									{#if inventoryItem.roots == 'Local'}
-										<span class="highlight highlight-2">{inventoryItem.roots}</span>
-									{:else}
-										<span class="highlight highlight-3">{inventoryItem.roots}</span>
-									{/if}
-								</div>
-								<ul>
-									<li>{inventoryItem.type}</li>
-									<li>{inventoryItem.address}</li>
-									<li><a href={inventoryItem.website}>{inventoryItem.website}</a></li>
-									<li>{inventoryItem.phone}</li>
-								</ul>
-							</div>
-						{/if}
-					{/each}
-				</div>
+		<h2>Minnesota ❄️</h2>
+		<div class="tableOfContents">
+			{#each $categoryInventory as category}
+				<a class="contentItem" href="#{category.id}">
+					{category.name}
+					{category.emoji}
+				</a>
+			{/each}
+		</div>
+
+		<div class="cardsContainer">
+			<h3 id="eatAndDrink">Eat and Drink</h3>
+			<div class="cards">
+				{#each $eatAndDrinkInventory as inventoryItem}
+					<div class="card">
+						<div class="cardLabel">
+							<h4 class="cardName">{inventoryItem.name}</h4>
+							{#if inventoryItem.roots == 'Local'}
+								<span class="highlight highlight-2">{inventoryItem.roots}</span>
+							{:else}
+								<span class="highlight highlight-3">{inventoryItem.roots}</span>
+							{/if}
+						</div>
+						<ul>
+							<li>{inventoryItem.cuisine}</li>
+							<li>{inventoryItem.address}</li>
+							<li><a href={inventoryItem.website}>{inventoryItem.website}</a></li>
+							<li>{inventoryItem.phone}</li>
+						</ul>
+					</div>
+				{/each}
+			</div>
+			<h3 id="entertainment">Entertainment</h3>
+			<div class="cards">
+				{#each $entertainmentInventory as inventoryItem}
+					<div class="card">
+						<div class="cardLabel">
+							<h4 class="cardName">{inventoryItem.name}</h4>
+							{#if inventoryItem.roots == 'Local'}
+								<span class="highlight highlight-2">{inventoryItem.roots}</span>
+							{:else}
+								<span class="highlight highlight-3">{inventoryItem.roots}</span>
+							{/if}
+						</div>
+						<ul>
+							<li>{inventoryItem.type}</li>
+							<li>{inventoryItem.address}</li>
+							<li><a href={inventoryItem.website}>{inventoryItem.website}</a></li>
+							<li>{inventoryItem.phone}</li>
+						</ul>
+					</div>
+				{/each}
 			</div>
 		</div>
 	</div>

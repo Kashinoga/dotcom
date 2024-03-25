@@ -22,11 +22,8 @@ h2 {
 	padding: var(--padding-small);
 }
 
-.states {
-	border-top: var(--border);
-}
-
-.state {
+.state,
+.cardsContainer {
 	/* border-bottom: var(--border); */
 	padding-bottom: var(--padding);
 }
