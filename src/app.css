@@ -90,11 +90,13 @@ body {
 .container {
 	display: flex;
 	flex-direction: column;
+	margin-top: var(--margin);
 }
 
 @media (min-width: 760px) {
 	.container {
 		flex-direction: row;
+		margin-top: 0;
 		max-width: var(--width-large);
 		min-width: var(--width-medium);
 	}
