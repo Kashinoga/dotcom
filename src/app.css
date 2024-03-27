@@ -145,11 +145,8 @@ body {
 	align-items: flex-start;
 }
 
-.marginPills-Margin {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--gap-small);
-	padding-bottom: 0;
+.marginPills-bar {
+	flex-direction: row;
 }
 
 @media (min-width: 900px) {
@@ -162,10 +159,6 @@ body {
 	.marginPills-bar {
 		display: none;
 	}
-
-	.marginPills-Margin {
-		padding-bottom: var(--padding);
-	}
 }
 
 .marginPills button {
@@ -175,6 +168,12 @@ body {
 	border-radius: var(--border-radius);
 	font-size: 1em;
 	background-color: var(--background-color);
+}
+
+.navPills {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--gap-small);
 }
 
 /* Buttons */
