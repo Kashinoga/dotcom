@@ -1,14 +1,8 @@
-h2 {
-	border-top: var(--border);
-	border-bottom: var(--border);
-	padding-top: var(--padding);
-	padding-bottom: var(--padding);
-}
-
 .tableOfContents {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--gap);
+	margin-top: var(--margin);
 	margin-bottom: var(--margin);
 }
 

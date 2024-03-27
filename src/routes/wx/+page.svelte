@@ -98,7 +98,7 @@
 
 <div class="container">
 	<div class="content">
-		<h1>🌦️ WX</h1>
+		<h1 class="h1-first">🌦️ WX</h1>
 
 		<p>
 			The forecast is provided by your <span class="highlight">local sorceress</span><sup>[1]</sup>.
