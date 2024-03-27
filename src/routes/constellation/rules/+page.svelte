@@ -8,7 +8,9 @@
 		instructions on how to move the story forward.
 
 		<h3>Adventure Mode</h3>
+		<p>Coming soon.</p>
 		<h3>Contest Mode</h3>
+		<p>Coming soon.</p>
 	</div>
 	<div class="margin"></div>
 </div>
