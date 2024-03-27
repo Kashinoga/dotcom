@@ -5,7 +5,7 @@
 
 		<p><span class="highlight highlight-1">Fun is fun. Rules are rules. Fun over rules.</span></p>
 
-		<h2>Getting Started</h2>
+		<h2 id="gettingStarted">Prologue: Getting Started</h2>
 		<h3>What do we need?</h3>
 		<ol>
 			<li>Friends (2-4 recommended)</li>
@@ -16,12 +16,12 @@
 		<h3>How do we play?</h3>
 		<ol>
 			<li>Designate one friend as the Game Master (GM); the rest are Players</li>
-			<li>Each Player must Create a Character</li>
+			<li>Each Player must create a character, a.k.a. Player Character (PC)</li>
 			<li>The GM must prepare a Storyhook</li>
-			<li>Everyone must review the Rules</li>
 			<li>Play!</li>
 		</ol>
-		<h3>How do we Create a Character?</h3>
+		<h2>Act I: Create a Character</h2>
+		<h3>How do we create a character?</h3>
 		<ul>
 			<li>
 				<a href="constellation/create-a-character">Create a Character</a>
@@ -48,8 +48,9 @@
 				<li>Consider the amount of commitment required from everyone in order to participate</li>
 			</ol>
 		</ol>
-		<h3>What are the rules?</h3>
-		<ul><li><a href="constellation/rules">Rules</a></li></ul>
+		<h2>Act II: Play the Game</h2>
+		<h3>How does the game play?</h3>
+		<ul><li><a href="constellation/play-the-game">Play the Game</a></li></ul>
 		<h3>What do we do as a Player?</h3>
 		<ol>
 			<li>Create a Character</li>
@@ -58,7 +59,7 @@
 		</ol>
 		<h3>What do we do as the Game Master?</h3>
 		<ol>
-			<li>Learn about each of the Players' Characters (PCs)</li>
+			<li>Learn about each of the Player Characters</li>
 			<li>Create a Storyhook</li>
 			<li>Guide the Story</li>
 		</ol>
