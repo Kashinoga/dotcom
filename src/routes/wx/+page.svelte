@@ -163,7 +163,9 @@
 			<p>Error: {error.message}</p>
 		{/await}
 	</div>
-	<div class="margin"><p><sub><sup>[1]</sup>The National Weather Service.</sub></p></div>
+	<div class="margin">
+		<div class="marginPills"><p><sub><sup>[1]</sup>The National Weather Service.</sub></p></div>
+	</div>
 </div>
 
 <style>

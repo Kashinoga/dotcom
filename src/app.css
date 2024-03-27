@@ -35,6 +35,10 @@
 	--highlight-q: var(--yellow);
 
 	--highlight-percent: 80%;
+
+	--table-background-color: #f2f2f2;
+
+	--font-family: 'Noto Sans', 'Noto Color Emoji', sans-serif;
 }
 
 [data-theme='dark'] {
@@ -43,6 +47,8 @@
 	--text-color-inverted: black;
 
 	--border: 1px solid rgba(255, 255, 255, 0.2);
+
+	--table-background-color: #282828;
 
 	.highlight,
 	.highlight-2,
@@ -85,7 +91,7 @@ body {
 	margin-top: var(--margin);
 }
 
-@media (min-width: 760px) {
+@media (min-width: 900px) {
 	.container {
 		flex-direction: row;
 		margin-top: 0;
@@ -96,9 +102,10 @@ body {
 
 .content {
 	min-width: var(--width-smallest);
+	padding-bottom: var(--padding);
 }
 
-@media (min-width: 760px) {
+@media (min-width: 900px) {
 	.content {
 		max-width: var(--width-medium);
 		min-width: var(--width-medium);
@@ -114,7 +121,7 @@ body {
 	border-top: var(--border);
 }
 
-@media (min-width: 760px) {
+@media (min-width: 900px) {
 	.margin {
 		border-top: none;
 		padding: var(--padding);
@@ -127,6 +134,49 @@ body {
 	margin-bottom: 0;
 }
 
+.marginPills {
+	display: flex;
+	flex-wrap: wrap;
+	flex-direction: column;
+	gap: var(--gap-small);
+	cursor: pointer;
+	padding-top: var(--padding);
+	padding-bottom: var(--padding);
+	align-items: flex-start;
+}
+
+.marginPills-Margin {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--gap-small);
+	padding-bottom: 0;
+}
+
+@media (min-width: 900px) {
+	.marginPills {
+		padding-top: 0;
+		position: sticky;
+		top: var(--padding);
+	}
+
+	.marginPills-bar {
+		display: none;
+	}
+
+	.marginPills-Margin {
+		padding-bottom: var(--padding);
+	}
+}
+
+.marginPills button {
+	cursor: pointer;
+	padding: var(--padding-small);
+	border: var(--border);
+	border-radius: var(--border-radius);
+	font-size: 1em;
+	background-color: var(--background-color);
+}
+
 /* Buttons */
 
 button {
@@ -135,6 +185,7 @@ button {
 	border: none;
 	padding-block: 0;
 	padding-inline: 0;
+	font-family: var(--font-family);
 }
 
 button a {
@@ -177,6 +228,11 @@ ul {
 	border-radius: var(--border-radius);
 }
 
+.highlight a {
+	text-decoration: none;
+	color: var(--text-color-inverted);
+}
+
 .highlight-2 {
 	background-color: color-mix(in srgb, var(--highlight-1) var(--highlight-percent), transparent);
 }
@@ -187,4 +243,33 @@ ul {
 
 .hightlight-q {
 	background-color: color-mix(in srgb, var(--highlight-q) var(--highlight-percent), transparent);
+}
+
+/* Tables */
+table {
+	width: 100%;
+	border-collapse: collapse;
+	border: var(--border);
+}
+
+th,
+td {
+	border: var(--border);
+	padding: var(--padding-small);
+}
+
+thead > tr > th {
+	background-color: var(--table-background-color);
+}
+
+tbody > tr > th {
+	background-color: var(--table-background-color);
+}
+
+tbody > tr > th {
+	text-align: right;
+}
+
+tbody > tr > td {
+	text-align: left;
 }

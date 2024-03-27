@@ -27,7 +27,11 @@
 		</p>
 	</div>
 	<div class="margin">
-		<p><sub><sup>[1]</sup>They're not <i>all</i> fun.</sub></p>
-		<p><sub><sup>[2]</sup>Why does this sound like Porter Robinson's "Cheerleeder"?</sub></p>
+		<div class="marginPills">
+			<div class="superPills">
+				<p><sub><sup>[1]</sup>They're not <i>all</i> fun.</sub></p>
+				<p><sub><sup>[2]</sup>Why does this sound like Porter Robinson's "Cheerleeder"?</sub></p>
+			</div>
+		</div>
 	</div>
 </div>

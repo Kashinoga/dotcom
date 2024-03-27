@@ -52,7 +52,7 @@
 		border-bottom-right-radius: var(--border-radius);
 	}
 
-	@media (min-width: 760px) {
+	@media (min-width: 900px) {
 		.breadcrumb {
 			width: fit-content;
 			padding: var(--padding);

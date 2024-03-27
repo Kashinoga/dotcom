@@ -8,15 +8,17 @@
 		<h2 id="gettingStarted">Prologue: Getting Started</h2>
 		<h3>What do we need?</h3>
 		<ol>
-			<li>Friends (2-4 recommended)</li>
-			<li>One tarot deck</li>
-			<li>One twenty-sided (d20) die per friend</li>
+			<li>Friends</li>
+			<ol><li>Anywhere from 2-4 friends are recommended</li></ol>
+			<li>One tarot deck for everyone</li>
+			<ol><li>Friends may use their personal decks</li></ol>
+			<li>One twenty-sided die (d20) per friend</li>
 			<li>A pen and paper per friend</li>
 		</ol>
 		<h3>How do we play?</h3>
 		<ol>
 			<li>Designate one friend as the Game Master (GM); the rest are Players</li>
-			<li>Each Player must create a character, a.k.a. Player Character (PC)</li>
+			<li>Each Player must create a character, a.k.a. a Player Character (PC)</li>
 			<li>The GM must prepare a Storyhook</li>
 			<li>Play!</li>
 		</ol>
@@ -24,7 +26,9 @@
 		<h3>How do we create a character?</h3>
 		<ul>
 			<li>
-				<a href="constellation/create-a-character">Create a Character</a>
+				<span class="highlight highlight-1">
+					<a href="constellation/create-a-character">Create a Character</a></span
+				>
 			</li>
 		</ul>
 		<h3>How do we prepare a Storyhook?</h3>
@@ -50,7 +54,13 @@
 		</ol>
 		<h2>Act II: Play the Game</h2>
 		<h3>How does the game play?</h3>
-		<ul><li><a href="constellation/play-the-game">Play the Game</a></li></ul>
+		<ul>
+			<li>
+				<span class="highlight highlight-1">
+					<a href="constellation/play-the-game">Play the Game</a></span
+				>
+			</li>
+		</ul>
 		<h3>What do we do as a Player?</h3>
 		<ol>
 			<li>Create a Character</li>
@@ -64,5 +74,9 @@
 			<li>Guide the Story</li>
 		</ol>
 	</div>
-	<div class="margin"><p><sub><sup>[α]</sup>Initial alpha release.</sub></p></div>
+	<div class="margin">
+		<div class="marginPills">
+			<div class="superPills"><p><sub><sup>[α]</sup>Initial alpha release.</sub></p></div>
+		</div>
+	</div>
 </div>

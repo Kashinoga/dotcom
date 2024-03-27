@@ -2,8 +2,7 @@
 	import '../app.css';
 	import NavBar from '$lib/NavBar/NavBar.svelte';
 	import { onMount } from 'svelte';
-	import BreadCrumb from '$lib/BreadCrumb/BreadCrumb.svelte';
-	import { page } from '$app/stores';
+	import { scrollToTop } from '$lib/utils';
 
 	onMount(() => {
 		const preferredDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
@@ -18,5 +17,4 @@
 
 <NavBar></NavBar>
 <!-- <BreadCrumb /> -->
-
 <slot />

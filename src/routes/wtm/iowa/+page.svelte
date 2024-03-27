@@ -3,6 +3,7 @@
 	import { categoryInventory } from '../categoryStore';
 	import { eatAndDrinkInventory } from './eatAndDrinkStore';
 	import { entertainmentInventory } from './entertainmentStore';
+	import { scrollToTop } from '$lib/utils';
 </script>
 
 <div class="container">
@@ -16,14 +17,6 @@
 		</p>
 
 		<h2>Iowa 🌽</h2>
-		<div class="tableOfContents">
-			{#each $categoryInventory as category}
-				<a class="contentItem" href="#{category.id}">
-					{category.name}
-					{category.emoji}
-				</a>
-			{/each}
-		</div>
 
 		<div class="cardsContainer">
 			<h3 id="eatAndDrink">Eat and Drink</h3>
@@ -75,6 +68,21 @@
 		</div>
 	</div>
 	<div class="margin">
-		<p><sub><sup>[0]</sup>The States' emojis are not a generalization. <i>Mostly</i>.</sub></p>
+		<div class="marginPills">
+			<div class="navPills">
+				<button on:click={scrollToTop}>Back to Top ⬆️</button>
+				{#each $categoryInventory as category}
+					<a class="contentItem" href="#{category.id}"
+						><button>
+							{category.name}
+							{category.emoji}
+						</button>
+					</a>
+				{/each}
+			</div>
+			<div class="superPills">
+				<p><sub><sup>[0]</sup>The States' emojis are not a generalization. <i>Mostly</i>.</sub></p>
+			</div>
+		</div>
 	</div>
 </div>

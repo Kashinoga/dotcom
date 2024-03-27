@@ -15,17 +15,21 @@
 
 		<h2>United States of America 🇺🇸</h2>
 
-		<div class="tableOfContents">
+		<div class="marginPills">
 			{#each $statesOfAmericaInventory as state}
 				{#if state.enabled == 'true'}
 					<a class="contentItem" href="/wtm/{state.name.toLowerCase()}"
-						>{state.name} {state.emoji}</a
+						><button>{state.name} {state.emoji}</button></a
 					>
 				{/if}
 			{/each}
 		</div>
 	</div>
 	<div class="margin">
-		<p><sub><sup>[0]</sup>The States' emojis are not a generalization. <i>Mostly</i>.</sub></p>
+		<div class="marginPills">
+			<div class="superPills">
+				<p><sub><sup>[0]</sup>The States' emojis are not a generalization. <i>Mostly</i>.</sub></p>
+			</div>
+		</div>
 	</div>
 </div>

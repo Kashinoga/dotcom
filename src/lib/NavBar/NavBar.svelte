@@ -17,7 +17,11 @@
 </nav>
 
 <style>
-	@media (min-width: 760px) {
+	nav a {
+		font-family: var(--font-family);
+	}
+
+	@media (min-width: 900px) {
 		nav {
 			max-width: var(--width-large);
 			border-bottom: var(--border);
@@ -33,7 +37,7 @@
 		border-radius: var(--border-radius);
 	}
 
-	@media (min-width: 760px) {
+	@media (min-width: 900px) {
 		.nav-items {
 			width: fit-content;
 			padding: var(--padding);
