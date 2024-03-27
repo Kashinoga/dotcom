@@ -16,13 +16,15 @@
 		<h2>United States of America 🇺🇸</h2>
 
 		<div class="marginPills">
-			{#each $statesOfAmericaInventory as state}
-				{#if state.enabled == 'true'}
-					<a class="contentItem" href="/wtm/{state.name.toLowerCase()}"
-						><button>{state.name} {state.emoji}</button></a
-					>
-				{/if}
-			{/each}
+			<div class="navPills">
+				{#each $statesOfAmericaInventory as state}
+					{#if state.enabled == 'true'}
+						<a class="contentItem" href="/wtm/{state.name.toLowerCase()}"
+							><button>{state.name} {state.emoji}</button></a
+						>
+					{/if}
+				{/each}
+			</div>
 		</div>
 	</div>
 	<div class="margin">

@@ -14,6 +14,7 @@
 	--gap: 1em;
 	--margin-small: 0.2em;
 	--margin: 1em;
+	--margin-fab-clear: 2em;
 
 	--padding-big: 1.2em;
 	--padding: 1em;
@@ -56,6 +57,10 @@
 	.highlight-q {
 		color: var(--text-color-inverted);
 	}
+}
+
+html {
+	scroll-behavior: smooth;
 }
 
 /* Fonts */
@@ -119,6 +124,7 @@ body {
 
 .margin {
 	border-top: var(--border);
+	margin-bottom: var(--margin-fab-clear);
 }
 
 @media (min-width: 900px) {
@@ -176,6 +182,24 @@ body {
 	gap: var(--gap-small);
 }
 
+.fab {
+	cursor: pointer;
+	position: fixed;
+	bottom: var(--margin-small);
+	right: var(--margin-small);
+	font-size: x-large;
+	border: var(--border);
+	border-radius: var(--border-radius);
+	padding: var(--padding-small);
+	background-color: var(--background-color);
+}
+
+@media (min-width: 900px) {
+	.fab {
+		display: none;
+	}
+}
+
 /* Buttons */
 
 button {
@@ -196,6 +220,10 @@ button a {
 
 a {
 	color: var(--text-color);
+}
+
+a[href^='#'] {
+	scroll-behavior: smooth;
 }
 
 h1,

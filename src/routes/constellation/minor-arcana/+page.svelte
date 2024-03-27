@@ -7,19 +7,18 @@
 		tarotMinorWisdom,
 		tarotMinorCharisma
 	} from './minorArcanaStore';
+
+	function scrollToBottom() {
+		window.scrollTo({
+			top: document.documentElement.scrollHeight,
+			behavior: 'smooth'
+		});
+	}
 </script>
 
 <div class="container">
 	<div class="content">
 		<h1 class="h1-first">🤏 Minor Arcana</h1>
-
-		<div class="marginPills marginPills-bar">
-			{#each $tarotMinorSuites as suite}
-				<a class="contentItem" href="./minor-arcana/#{suite.name.toLowerCase()}"
-					><button>{suite.name} {suite.emoji}</button></a
-				>
-			{/each}
-		</div>
 
 		<h2 id="strength">Strength 💪</h2>
 
@@ -103,6 +102,8 @@
 			</div>
 		</div>
 	</div>
+
+	<button class="fab" on:click={scrollToBottom}>📑</button>
 </div>
 
 <style>

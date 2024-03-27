@@ -2,7 +2,7 @@
 	import '../app.css';
 	import NavBar from '$lib/NavBar/NavBar.svelte';
 	import { onMount } from 'svelte';
-	import { scrollToTop } from '$lib/utils';
+	import { beforeNavigate } from '$app/navigation';
 
 	onMount(() => {
 		const preferredDarkMode = window.matchMedia('(prefers-color-scheme: dark)');

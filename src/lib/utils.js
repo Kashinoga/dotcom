@@ -1,3 +1,13 @@
 export function scrollToTop() {
-	document.documentElement.scrollTop = 0;
+	window.scrollTo({
+		top: 0,
+		behavior: 'smooth'
+	});
+}
+
+export function scrollToBottom() {
+	window.scrollTo({
+		top: document.documentElement.scrollHeight,
+		behavior: 'smooth'
+	});
 }
