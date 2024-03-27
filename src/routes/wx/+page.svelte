@@ -175,23 +175,13 @@
 		width: 100%;
 	}
 
-	.weatherDatumContainer {
-		border-top: var(--border);
-	}
-
 	.weatherDatum {
 		border-top: var(--border);
 	}
 
-	.weatherPerson {
-		text-align: center;
-	}
-
+	.weatherPerson,
 	.weatherDatumUpdated {
-		/* text-align: right; */
 		text-align: center;
-		/* border-bottom: var(--border); */
-		/* padding-bottom: var(--padding); */
 	}
 
 	.areaDesc {
@@ -204,7 +194,7 @@
 		padding-bottom: 0;
 		margin-block-start: 0;
 		margin-block-end: 0;
-		padding: var(--padding);
+		padding: var(--padding-small);
 		padding-left: 0;
 		text-align: left;
 	}
@@ -212,12 +202,11 @@
 	.areaDescCopyButton {
 		cursor: grab;
 		border-left: var(--border);
-		padding-left: var(--padding);
+		padding-left: var(--padding-small);
 		padding-right: 0;
 	}
 
 	.NWSheadline {
-		/* text-align: right; */
 		text-align: left;
 	}
 
@@ -225,14 +214,9 @@
 		cursor: pointer;
 		background-color: var(--global-background-color);
 		color: var(--text-color);
-		background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-1 -1 12 12' enable-background:'new -1 -1 12 12;' xml:space='preserve'> <path fill='%23FFFFFF' d='M9.293,0l-3.147,3.147L.5,5.707l3.646,3.646L9,12l3.147-3.147L12.707,5.707Z'>");
-		background-position: center right;
-		background-repeat: no-repeat;
-		background-size: contain;
-		border: none;
-		border-left: var(--border);
+		border: var(--border);
+		border-radius: var(--border-radius);
 		padding: var(--padding);
-		margin-bottom: var(--margin);
 	}
 
 	option {

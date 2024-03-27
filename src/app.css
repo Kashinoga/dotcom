@@ -79,14 +79,6 @@ body {
 	color: var(--text-color);
 }
 
-/* @media (max-width: 760px) {
-	.container {
-		display: flex;
-		max-width: var(--max-width-pro);
-		min-width: var(--min-i);
-	}
-} */
-
 .container {
 	display: flex;
 	flex-direction: column;
@@ -112,7 +104,6 @@ body {
 		min-width: var(--width-medium);
 		padding: var(--padding);
 		padding-left: 0;
-		/* padding-right: var(--padding); */
 		border-right: var(--border);
 	}
 }
@@ -180,7 +171,6 @@ ul {
 
 .highlight {
 	font-weight: bold;
-	/* background-color: var(--highlight-0); */
 	background-color: color-mix(in srgb, var(--highlight-0) var(--highlight-percent), transparent);
 	color: var(--text-color);
 	padding: var(--padding-small);

@@ -4,13 +4,10 @@
 
 <nav>
 	<div class="nav-items">
-		<div class="nav-hero">
+		<div class="nav-buttons">
 			<button>
 				<a href="/" data-sveltekit-replaceState>💖 Kashinoga</a>
 			</button>
-		</div>
-
-		<div class="nav-buttons">
 			<ThemeSwitcher></ThemeSwitcher>
 			<button>
 				<a href="/menu" data-sveltekit-replaceState>🍔 Menu</a>
@@ -20,9 +17,6 @@
 </nav>
 
 <style>
-	/* nav {
-	} */
-
 	@media (min-width: 760px) {
 		nav {
 			max-width: var(--width-large);
