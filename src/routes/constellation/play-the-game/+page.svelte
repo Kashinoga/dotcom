@@ -1,7 +1,6 @@
 <div class="container">
 	<div class="content">
-		<h1 class="h1-first">🧬 Rules</h1>
-		<p>Fun is fun. Rules are rules. Fun over rules.</p>
+		<h1 class="h1-first">🎭 Act II: Play the Game</h1>
 
 		<h2>Game Modes</h2>
 		The game is governed by game modes. These game modes help us to structure play, and they provide
