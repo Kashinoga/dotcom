@@ -3,7 +3,7 @@
 		<div class="items">
 			<a href="/constellation">
 				<div class="item">
-					<h1 class="h1-first">🪄 Constellation</h1>
+					<h1 class="h1-first">🪄 Constellation<sup>[α]</sup></h1>
 					<p>
 						An in-house
 						<span class="highlight highlight-2">tabletop roleplaying game</span>.
@@ -29,6 +29,7 @@
 		</div>
 	</div>
 	<div class="margin">
+		<p><sub><sup>[α]</sup>Initial alpha release.</sub></p>
 		<p><sub><sup>[1]</sup>Third place, third place, third place!</sub></p>
 		<p><sub><sup>[2]</sup>Nothing to it. <i>Mostly</i>.</sub></p>
 	</div>
