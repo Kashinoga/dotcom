@@ -1,9 +1,9 @@
 <div class="container">
 	<div class="content">
-		<h1 class="h1-first">🪄 Constellation</h1>
+		<h1 class="h1-first">🪄 Constellation<sup>[α]</sup></h1>
 		<p>A tabletop roleplaying game where a group of stars come together to tell a story.</p>
 
-		<p>Fun is fun. Rules are rules. Fun over rules.</p>
+		<p><span class="highlight highlight-1">Fun is fun. Rules are rules. Fun over rules.</span></p>
 
 		<h2>Getting Started</h2>
 		<h3>What do we need?</h3>
@@ -63,5 +63,5 @@
 			<li>Guide the Story</li>
 		</ol>
 	</div>
-	<div class="margin"></div>
+	<div class="margin"><p><sub><sup>[α]</sup>Initial alpha release.</sub></p></div>
 </div>
