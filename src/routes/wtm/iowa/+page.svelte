@@ -7,17 +7,13 @@
 
 <div class="container">
 	<div class="content">
-		<h1>🧭 What's the Move for Iowa 🌽</h1>
+		<h1 class="h1-first">🧭 What's the Move</h1>
 
 		<p>
 			A curated selection of <span class="highlight highlight-3">where to eat</span>,
 			<span class="highlight highlight-3">places to see</span>, and
 			<span class="highlight highlight-3">things to do</span>.
 		</p>
-
-		<div class="tableOfContents">
-			<a class="contentItem" href="/wtm">👈 Back</a>
-		</div>
 
 		<h2>Iowa 🌽</h2>
 		<div class="tableOfContents">
