@@ -167,6 +167,10 @@
 </div>
 
 <style>
+	h2 {
+		margin: 0;
+	}
+
 	.stateSelect {
 		width: 100%;
 	}
@@ -176,7 +180,7 @@
 	}
 
 	.weatherDatum {
-		border-bottom: var(--border);
+		border-top: var(--border);
 	}
 
 	.weatherPerson {
@@ -186,8 +190,8 @@
 	.weatherDatumUpdated {
 		/* text-align: right; */
 		text-align: center;
-		border-bottom: var(--border);
-		padding-bottom: var(--padding);
+		/* border-bottom: var(--border); */
+		/* padding-bottom: var(--padding); */
 	}
 
 	.areaDesc {
@@ -202,7 +206,6 @@
 		margin-block-end: 0;
 		padding: var(--padding);
 		padding-left: 0;
-		padding-bottom: 0;
 		text-align: left;
 	}
 
