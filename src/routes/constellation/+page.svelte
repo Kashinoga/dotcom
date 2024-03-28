@@ -24,13 +24,11 @@
 		</ol>
 		<h2>Act I: Create a Character</h2>
 		<h3>How do we create a character?</h3>
-		<ul>
-			<li>
-				<span class="highlight highlight-1">
-					<a href="constellation/create-a-character">Create a Character</a></span
-				>
-			</li>
-		</ul>
+		<p>
+			<span class="highlight highlight-3">
+				<a href="constellation/create-a-character">Create a Character</a></span
+			>
+		</p>
 		<h3>How do we prepare a Storyhook?</h3>
 		<ol>
 			<li>What is a Storyhook?</li>
@@ -54,13 +52,11 @@
 		</ol>
 		<h2>Act II: Play the Game</h2>
 		<h3>How does the game play?</h3>
-		<ul>
-			<li>
-				<span class="highlight highlight-1">
-					<a href="constellation/play-the-game">Play the Game</a></span
-				>
-			</li>
-		</ul>
+		<p>
+			<span class="highlight highlight-3"
+				><a href="constellation/play-the-game">Play the Game</a></span
+			>
+		</p>
 		<h3>What do we do as a Player?</h3>
 		<ol>
 			<li>Create a Character</li>
