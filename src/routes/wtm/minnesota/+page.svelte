@@ -3,7 +3,7 @@
 	import { categoryInventory } from '../categoryStore';
 	import { eatAndDrinkInventory } from './eatAndDrinkStore';
 	import { entertainmentInventory } from './entertainmentStore';
-	import { scrollToTop } from '$lib/utils';
+	import { scrollToBottom, scrollToTop } from '$lib/utils';
 </script>
 
 <div class="container">
@@ -85,4 +85,5 @@
 			</div>
 		</div>
 	</div>
+	<button class="fab" on:click={scrollToBottom}>📑</button>
 </div>

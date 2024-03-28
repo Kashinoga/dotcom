@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { scrollToBottom } from '$lib/utils';
+
 	let statesOfAmerica = [
 		{ name: 'Alabama', abbreviation: 'AL' },
 		{ name: 'Alaska', abbreviation: 'AK' },
@@ -166,6 +168,7 @@
 	<div class="margin">
 		<div class="marginPills"><p><sub><sup>[1]</sup>The National Weather Service.</sub></p></div>
 	</div>
+	<button class="fab" on:click={scrollToBottom}>📑</button>
 </div>
 
 <style>
