@@ -8,98 +8,115 @@ export let tarotMinorSuites = writable([
 ]);
 
 export let tarotMinorStrength = writable([
-	{
-		name: 'Ace of Swords',
-		number: 'Ace',
-		suite: 'Swords',
-		attribute: 'Strength',
-		meaning: 'Unbreakable Will, Focused Power, Decisive Action'
-	},
-	{
-		name: 'Joker of Swords',
-		number: 'Joker',
-		suite: 'Swords',
-		attribute: 'Strength',
-		meaning: 'Uncontrolled Force, Raw Potential, Disruptive Change'
-	},
-	{
-		name: 'Two of Swords',
-		number: 'Two',
-		suite: 'Swords',
-		attribute: 'Strength',
-		meaning: 'Inner Conflict, Balanced Forces, Stalemate'
-	},
-	{
-		name: 'Three of Swords',
-		number: 'Three',
-		suite: 'Swords',
-		attribute: 'Strength',
-		meaning: 'Piercing Pain, Resilience, Strength Through Hardship'
-	},
-	{
-		name: 'Four of Swords',
-		number: 'Four',
-		suite: 'Swords',
-		attribute: 'Strength',
-		meaning: 'Fortitude, Regrouping, Renewed Strength'
-	},
-	{
-		name: 'Five of Swords',
-		number: 'Five',
-		suite: 'Swords',
-		attribute: 'Strength',
-		meaning: 'Forceful Action, Cunning Tactic, Merciless Victory'
-	},
-	{
-		name: 'Six of Swords',
-		number: 'Six',
-		suite: 'Swords',
-		attribute: 'Strength',
-		meaning: 'Courageous Journey, Strength in Transition, Letting Go with Resolve'
-	},
-	{
-		name: 'Seven of Swords',
-		number: 'Seven',
-		suite: 'Swords',
-		attribute: 'Strength',
-		meaning: 'Cunning Strategy, Resourcefulness Under Pressure, Mental Fortitude'
-	},
-	{
-		name: 'Eight of Swords',
-		number: 'Eight',
-		suite: 'Swords',
-		attribute: 'Strength',
-		meaning: 'Limited Options, Strength in Adaptability, Finding Inner Resolve'
-	},
-	{
-		name: 'Nine of Swords',
-		number: 'Nine',
-		suite: 'Swords',
-		attribute: 'Strength',
-		meaning: 'Facing Inner Demons, Mental Resilience, Overcoming Self-Doubt'
-	},
-	{
-		name: 'Ten of Swords',
-		number: 'Ten',
-		suite: 'Swords',
-		attribute: 'Strength',
-		meaning: 'Overwhelming Defeat, Crushing Blow, Strength to Rebuild'
-	},
-	{
-		name: 'Queen of Swords',
-		number: 'Queen',
-		suite: 'Swords',
-		attribute: 'Strength',
-		meaning: 'Unwavering Conviction, Intellectual Strength, Sharpened Judgment'
-	},
-	{
-		name: 'King of Swords',
-		number: 'King',
-		suite: 'Swords',
-		attribute: 'Strength',
-		meaning: 'Commanding Presence, Strategic Control, Unrelenting Will'
-	}
+	{ name: 'Ace of Swords', meaning: 'Clarity, Intellectual Brilliance, and New Beginnings' },
+	{ name: 'Two of Swords', meaning: 'Indecision, Inner Conflict, and Stalemate' },
+	{ name: 'Three of Swords', meaning: 'Broken Heart, Betrayal, and Loss' },
+	{ name: 'Four of Swords', meaning: 'Meditation, Rest, and Retreat' },
+	{ name: 'Five of Swords', meaning: 'Conflict, Defeat, and Competition' },
+	{ name: 'Six of Swords', meaning: 'Change, Journey, and Travel' },
+	{ name: 'Seven of Swords', meaning: 'Deception, Secrecy, and Betrayal' },
+	{ name: 'Eight of Swords', meaning: 'Imprisonment, Limitation, and Restriction' },
+	{ name: 'Nine of Swords', meaning: 'Anxiety, Fear, and Nightmares' },
+	{ name: 'Ten of Swords', meaning: 'Despair, Pain, and Loss' },
+	{ name: 'Page of Swords', meaning: 'Intellect, Messenger, and News' },
+	{ name: 'Knight of Swords', meaning: 'Ambition, Competition, and Adventure' },
+	{ name: 'Queen of Swords', meaning: 'Intelligence, Independence, and Wisdom' },
+	{ name: 'King of Swords', meaning: 'Logic, Reason, and Power' }
 ]);
+
+// export let tarotMinorStrength = writable([
+// 	{
+// 		name: 'Ace of Swords',
+// 		number: 'Ace',
+// 		suite: 'Swords',
+// 		attribute: 'Strength',
+// 		meaning: 'Unbreakable Will, Focused Power, Decisive Action'
+// 	},
+// 	{
+// 		name: 'Joker of Swords',
+// 		number: 'Joker',
+// 		suite: 'Swords',
+// 		attribute: 'Strength',
+// 		meaning: 'Uncontrolled Force, Raw Potential, Disruptive Change'
+// 	},
+// 	{
+// 		name: 'Two of Swords',
+// 		number: 'Two',
+// 		suite: 'Swords',
+// 		attribute: 'Strength',
+// 		meaning: 'Inner Conflict, Balanced Forces, Stalemate'
+// 	},
+// 	{
+// 		name: 'Three of Swords',
+// 		number: 'Three',
+// 		suite: 'Swords',
+// 		attribute: 'Strength',
+// 		meaning: 'Piercing Pain, Resilience, Strength Through Hardship'
+// 	},
+// 	{
+// 		name: 'Four of Swords',
+// 		number: 'Four',
+// 		suite: 'Swords',
+// 		attribute: 'Strength',
+// 		meaning: 'Fortitude, Regrouping, Renewed Strength'
+// 	},
+// 	{
+// 		name: 'Five of Swords',
+// 		number: 'Five',
+// 		suite: 'Swords',
+// 		attribute: 'Strength',
+// 		meaning: 'Forceful Action, Cunning Tactic, Merciless Victory'
+// 	},
+// 	{
+// 		name: 'Six of Swords',
+// 		number: 'Six',
+// 		suite: 'Swords',
+// 		attribute: 'Strength',
+// 		meaning: 'Courageous Journey, Strength in Transition, Letting Go with Resolve'
+// 	},
+// 	{
+// 		name: 'Seven of Swords',
+// 		number: 'Seven',
+// 		suite: 'Swords',
+// 		attribute: 'Strength',
+// 		meaning: 'Cunning Strategy, Resourcefulness Under Pressure, Mental Fortitude'
+// 	},
+// 	{
+// 		name: 'Eight of Swords',
+// 		number: 'Eight',
+// 		suite: 'Swords',
+// 		attribute: 'Strength',
+// 		meaning: 'Limited Options, Strength in Adaptability, Finding Inner Resolve'
+// 	},
+// 	{
+// 		name: 'Nine of Swords',
+// 		number: 'Nine',
+// 		suite: 'Swords',
+// 		attribute: 'Strength',
+// 		meaning: 'Facing Inner Demons, Mental Resilience, Overcoming Self-Doubt'
+// 	},
+// 	{
+// 		name: 'Ten of Swords',
+// 		number: 'Ten',
+// 		suite: 'Swords',
+// 		attribute: 'Strength',
+// 		meaning: 'Overwhelming Defeat, Crushing Blow, Strength to Rebuild'
+// 	},
+// 	{
+// 		name: 'Queen of Swords',
+// 		number: 'Queen',
+// 		suite: 'Swords',
+// 		attribute: 'Strength',
+// 		meaning: 'Unwavering Conviction, Intellectual Strength, Sharpened Judgment'
+// 	},
+// 	{
+// 		name: 'King of Swords',
+// 		number: 'King',
+// 		suite: 'Swords',
+// 		attribute: 'Strength',
+// 		meaning: 'Commanding Presence, Strategic Control, Unrelenting Will'
+// 	}
+// ]);
 
 export let tarotMinorIntelligence = writable([
 	{

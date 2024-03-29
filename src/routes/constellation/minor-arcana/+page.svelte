@@ -32,7 +32,7 @@
 			<tbody>
 				{#each $tarotMinorStrength as card}
 					<tr>
-						<th scope="row">{card.number}</th>
+						<th scope="row">{card.name}</th>
 						<td>{card.meaning}</td>
 					</tr>
 				{/each}
