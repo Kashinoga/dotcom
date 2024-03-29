@@ -1,6 +1,5 @@
 <script>
-	import BackToTop from '$lib/Margin/BackToTop.svelte';
-	import FloatingActionButton from '$lib/FloatingActionButton/FloatingActionButton.svelte';
+	import MarginNav from '$lib/Margin/MarginNav.svelte';
 </script>
 
 <div class="container">
@@ -58,7 +57,7 @@
 	<div class="margin">
 		<div class="marginPills">
 			<div class="navPills">
-				<BackToTop></BackToTop>
+				<MarginNav></MarginNav>
 			</div>
 		</div>
 	</div>

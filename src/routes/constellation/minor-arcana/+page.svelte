@@ -1,6 +1,5 @@
 <script>
-	import FloatingActionButton from '$lib/FloatingActionButton/FloatingActionButton.svelte';
-	import BackToTop from '$lib/Margin/BackToTop.svelte';
+	import MarginNav from '$lib/Margin/MarginNav.svelte';
 	import {
 		tarotMinorSuites,
 		tarotMinorStrength,
@@ -87,9 +86,9 @@
 	<div class="margin">
 		<div class="marginPills">
 			<div class="navPills">
-				<BackToTop></BackToTop>
+				<MarginNav></MarginNav>
 				{#each $tarotMinorSuites as suite}
-					<a class="contentItem" href="./minor-arcana/#{suite.name.toLowerCase()}"
+					<a class="pill" href="./minor-arcana/#{suite.name.toLowerCase()}"
 						><button>{suite.name} {suite.emoji}</button></a
 					>
 				{/each}

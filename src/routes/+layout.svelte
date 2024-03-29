@@ -2,7 +2,6 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import NavBar from '$lib/NavBar/NavBar.svelte';
-	import Margin from '$lib/Margin/Margin.svelte';
 	import FloatingActionButton from '$lib/FloatingActionButton/FloatingActionButton.svelte';
 
 	onMount(() => {

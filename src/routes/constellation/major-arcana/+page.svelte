@@ -1,7 +1,6 @@
 <script>
-	import { scrollToBottom, scrollToTop } from '$lib/utils';
 	import { majorArcana } from './majorArcanaStore';
-	import BackToTop from '$lib/Margin/BackToTop.svelte';
+	import MarginNav from '$lib/Margin/MarginNav.svelte';
 </script>
 
 <div class="container">
@@ -28,10 +27,8 @@
 	<div class="margin">
 		<div class="marginPills">
 			<div class="navPills">
-				<BackToTop></BackToTop>
+				<MarginNav></MarginNav>
 			</div>
 		</div>
 	</div>
-
-	<button class="fab" on:click={scrollToBottom}>📑</button>
 </div>

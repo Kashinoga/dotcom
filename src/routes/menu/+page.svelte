@@ -1,5 +1,5 @@
 <script>
-	import BackToTop from '$lib/Margin/BackToTop.svelte';
+	import MarginNav from '$lib/Margin/MarginNav.svelte';
 </script>
 
 <div class="container">
@@ -35,7 +35,7 @@
 	<div class="margin">
 		<div class="marginPills">
 			<div class="navPills">
-				<BackToTop></BackToTop>
+				<MarginNav></MarginNav>
 			</div>
 			<div class="superPills">
 				<p><sub><sup>[α]</sup>Initial alpha release.</sub></p>
@@ -52,6 +52,13 @@
 		text-decoration: none;
 	}
 
+	.item {
+		padding: var(--padding);
+		background-color: var(--background-color-light);
+		border: var(--border);
+		border-radius: var(--border-radius);
+	}
+
 	.items {
 		display: flex;
 		flex-wrap: wrap;
@@ -60,10 +67,6 @@
 
 	.items a {
 		flex-grow: 1;
-		border-bottom: var(--border);
-		padding: var(--padding);
-		border: var(--border);
-		border-radius: var(--border-radius);
 	}
 
 	.item h1 {

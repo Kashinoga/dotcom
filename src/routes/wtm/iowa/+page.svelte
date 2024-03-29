@@ -3,8 +3,7 @@
 	import { categoryInventory } from '../categoryStore';
 	import { eatAndDrinkInventory } from './eatAndDrinkStore';
 	import { entertainmentInventory } from './entertainmentStore';
-	import { scrollToTop } from '$lib/utils';
-	import BackToTop from '$lib/Margin/BackToTop.svelte';
+	import MarginNav from '$lib/Margin/MarginNav.svelte';
 </script>
 
 <div class="container">
@@ -71,14 +70,14 @@
 	<div class="margin">
 		<div class="marginPills">
 			<div class="navPills">
-				<BackToTop></BackToTop>
+				<MarginNav></MarginNav>
 				{#each $categoryInventory as category}
-					<a class="contentItem" href="#{category.id}"
-						><button>
+					<button class="pill">
+						<a href="#{category.id}">
 							{category.name}
-							{category.emoji}
-						</button>
-					</a>
+							{category.emoji}</a
+						>
+					</button>
 				{/each}
 			</div>
 			<div class="superPills">

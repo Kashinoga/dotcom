@@ -1,5 +1,5 @@
 <script>
-	import BackToTop from '$lib/Margin/BackToTop.svelte';
+	import MarginNav from '$lib/Margin/MarginNav.svelte';
 </script>
 
 <div class="container">
@@ -76,7 +76,7 @@
 	</div>
 	<div class="margin">
 		<div class="marginPills">
-			<BackToTop></BackToTop>
+			<MarginNav></MarginNav>
 			<div class="superPills"><p><sub><sup>[α]</sup>Initial alpha release.</sub></p></div>
 		</div>
 	</div>

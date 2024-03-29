@@ -1,6 +1,6 @@
 <script>
 	import '../wtm.css';
-	import BackToTop from '$lib/Margin/BackToTop.svelte';
+	import MarginNav from '$lib/Margin/MarginNav.svelte';
 	import { categoryInventory } from '../categoryStore';
 	import { eatAndDrinkInventory } from './eatAndDrinkStore';
 	import { entertainmentInventory } from './entertainmentStore';
@@ -70,14 +70,14 @@
 	<div class="margin">
 		<div class="marginPills">
 			<div class="navPills">
-				<BackToTop></BackToTop>
+				<MarginNav></MarginNav>
 				{#each $categoryInventory as category}
-					<a class="contentItem" href="#{category.id}"
-						><button>
+					<button class="pill">
+						<a href="#{category.id}">
 							{category.name}
 							{category.emoji}
-						</button>
-					</a>
+						</a>
+					</button>
 				{/each}
 			</div>
 			<div class="superPills">

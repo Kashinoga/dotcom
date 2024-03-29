@@ -10,11 +10,11 @@
 	}
 </script>
 
-<button class="toggleDarkMode" on:click={toggleDarkMode}>💡Mode</button>
+<button on:click={toggleDarkMode}>💡Mode</button>
 
 <style>
-	.toggleDarkMode {
+	/* .toggleDarkMode {
 		cursor: pointer;
 		font-size: medium;
-	}
+	} */
 </style>
