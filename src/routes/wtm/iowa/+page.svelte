@@ -4,6 +4,7 @@
 	import { eatAndDrinkInventory } from './eatAndDrinkStore';
 	import { entertainmentInventory } from './entertainmentStore';
 	import { scrollToTop } from '$lib/utils';
+	import BackToTop from '$lib/Margin/BackToTop.svelte';
 </script>
 
 <div class="container">
@@ -70,7 +71,7 @@
 	<div class="margin">
 		<div class="marginPills">
 			<div class="navPills">
-				<button on:click={scrollToTop}>Back to Top ⬆️</button>
+				<BackToTop></BackToTop>
 				{#each $categoryInventory as category}
 					<a class="contentItem" href="#{category.id}"
 						><button>

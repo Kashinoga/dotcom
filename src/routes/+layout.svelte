@@ -1,8 +1,9 @@
 <script>
 	import '../app.css';
-	import NavBar from '$lib/NavBar/NavBar.svelte';
 	import { onMount } from 'svelte';
-	import { beforeNavigate } from '$app/navigation';
+	import NavBar from '$lib/NavBar/NavBar.svelte';
+	import Margin from '$lib/Margin/Margin.svelte';
+	import FloatingActionButton from '$lib/FloatingActionButton/FloatingActionButton.svelte';
 
 	onMount(() => {
 		const preferredDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
@@ -17,4 +18,6 @@
 
 <NavBar></NavBar>
 <!-- <BreadCrumb /> -->
+
+<FloatingActionButton></FloatingActionButton>
 <slot />

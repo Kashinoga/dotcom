@@ -1,5 +1,6 @@
 <script>
-	import { scrollToBottom, scrollToTop } from '$lib/utils';
+	import BackToTop from '$lib/Margin/BackToTop.svelte';
+	import FloatingActionButton from '$lib/FloatingActionButton/FloatingActionButton.svelte';
 </script>
 
 <div class="container">
@@ -57,9 +58,8 @@
 	<div class="margin">
 		<div class="marginPills">
 			<div class="navPills">
-				<button on:click={scrollToTop}>Back to Top ⬆️</button>
+				<BackToTop></BackToTop>
 			</div>
 		</div>
 	</div>
-	<button class="fab" on:click={scrollToBottom}>📑</button>
 </div>

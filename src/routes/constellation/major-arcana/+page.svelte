@@ -1,6 +1,7 @@
 <script>
 	import { scrollToBottom, scrollToTop } from '$lib/utils';
 	import { majorArcana } from './majorArcanaStore';
+	import BackToTop from '$lib/Margin/BackToTop.svelte';
 </script>
 
 <div class="container">
@@ -27,7 +28,7 @@
 	<div class="margin">
 		<div class="marginPills">
 			<div class="navPills">
-				<button on:click={scrollToTop}>Back to Top ⬆️</button>
+				<BackToTop></BackToTop>
 			</div>
 		</div>
 	</div>

@@ -1,3 +1,7 @@
+<script>
+	import BackToTop from '$lib/Margin/BackToTop.svelte';
+</script>
+
 <div class="container">
 	<div class="content">
 		<div class="items">
@@ -30,6 +34,9 @@
 	</div>
 	<div class="margin">
 		<div class="marginPills">
+			<div class="navPills">
+				<BackToTop></BackToTop>
+			</div>
 			<div class="superPills">
 				<p><sub><sup>[α]</sup>Initial alpha release.</sub></p>
 				<p><sub><sup>[1]</sup>Third place, third place, third place!</sub></p>

@@ -1,5 +1,6 @@
 <script>
-	import { scrollToTop } from '$lib/utils';
+	import FloatingActionButton from '$lib/FloatingActionButton/FloatingActionButton.svelte';
+	import BackToTop from '$lib/Margin/BackToTop.svelte';
 	import {
 		tarotMinorSuites,
 		tarotMinorStrength,
@@ -7,13 +8,6 @@
 		tarotMinorWisdom,
 		tarotMinorCharisma
 	} from './minorArcanaStore';
-
-	function scrollToBottom() {
-		window.scrollTo({
-			top: document.documentElement.scrollHeight,
-			behavior: 'smooth'
-		});
-	}
 </script>
 
 <div class="container">
@@ -93,7 +87,7 @@
 	<div class="margin">
 		<div class="marginPills">
 			<div class="navPills">
-				<button on:click={scrollToTop}>Back to Top ⬆️</button>
+				<BackToTop></BackToTop>
 				{#each $tarotMinorSuites as suite}
 					<a class="contentItem" href="./minor-arcana/#{suite.name.toLowerCase()}"
 						><button>{suite.name} {suite.emoji}</button></a
@@ -102,8 +96,6 @@
 			</div>
 		</div>
 	</div>
-
-	<button class="fab" on:click={scrollToBottom}>📑</button>
 </div>
 
 <style>

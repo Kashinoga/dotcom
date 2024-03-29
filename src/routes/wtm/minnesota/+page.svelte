@@ -1,9 +1,9 @@
 <script>
 	import '../wtm.css';
+	import BackToTop from '$lib/Margin/BackToTop.svelte';
 	import { categoryInventory } from '../categoryStore';
 	import { eatAndDrinkInventory } from './eatAndDrinkStore';
 	import { entertainmentInventory } from './entertainmentStore';
-	import { scrollToTop } from '$lib/utils';
 </script>
 
 <div class="container">
@@ -70,7 +70,7 @@
 	<div class="margin">
 		<div class="marginPills">
 			<div class="navPills">
-				<button on:click={scrollToTop}>Back to Top ⬆️</button>
+				<BackToTop></BackToTop>
 				{#each $categoryInventory as category}
 					<a class="contentItem" href="#{category.id}"
 						><button>

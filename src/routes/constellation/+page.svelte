@@ -1,3 +1,7 @@
+<script>
+	import BackToTop from '$lib/Margin/BackToTop.svelte';
+</script>
+
 <div class="container">
 	<div class="content">
 		<h1 class="h1-first">🪄 Constellation<sup>[α]</sup></h1>
@@ -72,6 +76,7 @@
 	</div>
 	<div class="margin">
 		<div class="marginPills">
+			<BackToTop></BackToTop>
 			<div class="superPills"><p><sub><sup>[α]</sup>Initial alpha release.</sub></p></div>
 		</div>
 	</div>

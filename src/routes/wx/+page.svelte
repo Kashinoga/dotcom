@@ -1,4 +1,6 @@
 <script lang="ts">
+	import BackToTop from '$lib/Margin/BackToTop.svelte';
+
 	let statesOfAmerica = [
 		{ name: 'Alabama', abbreviation: 'AL' },
 		{ name: 'Alaska', abbreviation: 'AK' },
@@ -164,7 +166,12 @@
 		{/await}
 	</div>
 	<div class="margin">
-		<div class="marginPills"><p><sub><sup>[1]</sup>The National Weather Service.</sub></p></div>
+		<div class="marginPills">
+			<div class="navPills">
+				<BackToTop></BackToTop>
+			</div>
+			<div class="superPills"><p><sub><sup>[1]</sup>The National Weather Service.</sub></p></div>
+		</div>
 	</div>
 </div>
 
