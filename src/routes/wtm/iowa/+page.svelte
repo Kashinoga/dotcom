@@ -73,12 +73,12 @@
 			<div class="navPills">
 				<BackToTop></BackToTop>
 				{#each $categoryInventory as category}
-					<a class="contentItem" href="#{category.id}"
-						><button>
+					<button class="pill">
+						<a href="#{category.id}">
 							{category.name}
-							{category.emoji}
-						</button>
-					</a>
+							{category.emoji}</a
+						>
+					</button>
 				{/each}
 			</div>
 			<div class="superPills">

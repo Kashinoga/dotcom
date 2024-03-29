@@ -89,7 +89,7 @@
 			<div class="navPills">
 				<BackToTop></BackToTop>
 				{#each $tarotMinorSuites as suite}
-					<a class="contentItem" href="./minor-arcana/#{suite.name.toLowerCase()}"
+					<a class="pill" href="./minor-arcana/#{suite.name.toLowerCase()}"
 						><button>{suite.name} {suite.emoji}</button></a
 					>
 				{/each}

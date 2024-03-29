@@ -1,5 +1,13 @@
 <script>
-	import ThemeSwitcher from '$lib/ThemeSwitcher/ThemeSwitcher.svelte';
+	function toggleDarkMode() {
+		let darkMode = document.documentElement.getAttribute('data-theme');
+
+		if (darkMode == 'light') {
+			document.documentElement.setAttribute('data-theme', 'dark');
+		} else {
+			document.documentElement.setAttribute('data-theme', 'light');
+		}
+	}
 </script>
 
 <nav>
@@ -7,7 +15,7 @@
 		<button>
 			<a href="/" data-sveltekit-replaceState>💖 Kashinoga</a>
 		</button>
-		<ThemeSwitcher></ThemeSwitcher>
+		<button on:click={toggleDarkMode}>💡Mode</button>
 		<button>
 			<a href="/menu" data-sveltekit-replaceState>🍔 Menu</a>
 		</button>
@@ -20,15 +28,24 @@
 	}
 
 	nav {
-		/* position: sticky; */
-		/* top: var(--margin); */
-		background-color: var(--background-color);
+		margin-bottom: var(--margin);
+
+		padding-bottom: var(--padding);
+
+		border-bottom: var(--border);
 	}
 
 	@media (min-width: 900px) {
 		nav {
 			position: unset;
 			max-width: var(--width-large);
+
+			background: none;
+
+			margin-bottom: 0;
+
+			padding-bottom: 0;
+
 			border: 0;
 			border-radius: 0;
 			border-bottom: var(--border);
@@ -36,12 +53,19 @@
 	}
 
 	.nav-items {
-		justify-content: space-evenly;
-		padding: var(--padding-small);
 		display: flex;
 		gap: var(--gap-small);
+	}
+
+	.nav-items button {
+		background-color: var(--background-color-light);
+
+		padding: var(--padding-small);
+
 		border: var(--border);
 		border-radius: var(--border-radius);
+
+		font-size: small;
 	}
 
 	@media (min-width: 900px) {

@@ -52,6 +52,13 @@
 		text-decoration: none;
 	}
 
+	.item {
+		padding: var(--padding);
+		background-color: var(--background-color-light);
+		border: var(--border);
+		border-radius: var(--border-radius);
+	}
+
 	.items {
 		display: flex;
 		flex-wrap: wrap;
@@ -60,10 +67,6 @@
 
 	.items a {
 		flex-grow: 1;
-		border-bottom: var(--border);
-		padding: var(--padding);
-		border: var(--border);
-		border-radius: var(--border-radius);
 	}
 
 	.item h1 {

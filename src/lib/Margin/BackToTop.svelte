@@ -2,4 +2,13 @@
 	import { scrollToTop } from '$lib/utils';
 </script>
 
-<div class="navPills"><button on:click={scrollToTop}>Back to Top ⬆️</button></div>
+<button class="pill" on:click={scrollToTop}>Back to Top ⬆️</button>
+
+<style>
+	/* button {
+		background-color: var(--background-color-light);
+		padding: var(--padding);
+		border: var(--border);
+		border-radius: var(--border-radius);
+	} */
+</style>

@@ -2,16 +2,19 @@
 	--width-largest: 1080px;
 	--width-large: 900px;
 	--width-medium: 720px;
-	--width-small: 480px;
+	--width: 480px;
 	--width-smaller: 360px;
 	--width-smallest: 240px;
 
 	--background-color: white;
+	--background-color-light: #f2f2f2;
+
 	--text-color: black;
 	--text-color-inverted: white;
 
 	--gap-small: 0.2em;
 	--gap: 1em;
+
 	--margin-small: 0.2em;
 	--margin: 1em;
 	--margin-fab-clear: 4em;
@@ -43,7 +46,9 @@
 }
 
 [data-theme='dark'] {
-	--background-color: #222;
+	--background-color: #080808;
+	--background-color-light: #101010;
+
 	--text-color: white;
 	--text-color-inverted: black;
 
@@ -148,13 +153,11 @@ body {
 .container {
 	display: flex;
 	flex-direction: column;
-	margin-top: var(--margin);
 }
 
 @media (min-width: 900px) {
 	.container {
 		flex-direction: row;
-		margin-top: 0;
 		max-width: var(--width-large);
 		min-width: var(--width-medium);
 	}
@@ -190,37 +193,28 @@ body {
 	}
 }
 
-.margin p {
-	margin-top: 0;
-	margin-bottom: 0;
-}
-
 .marginPills {
 	display: flex;
 	flex-wrap: wrap;
 	flex-direction: column;
 	gap: var(--gap-small);
-	cursor: pointer;
-	padding-top: var(--padding);
-	padding-bottom: var(--padding);
 	align-items: flex-start;
+
+	cursor: pointer;
+
+	margin-top: var(--margin);
+	margin-bottom: var(--margin);
 }
 
 @media (min-width: 900px) {
 	.marginPills {
-		padding-top: 0;
 		position: sticky;
 		top: var(--margin);
-	}
-}
 
-.marginPills button {
-	cursor: pointer;
-	padding: var(--padding-small);
-	border: var(--border);
-	border-radius: var(--border-radius);
-	font-size: 1em;
-	background-color: var(--background-color);
+		margin-top: 0;
+
+		padding-top: 0;
+	}
 }
 
 .navPills {
@@ -229,16 +223,33 @@ body {
 	gap: var(--gap-small);
 }
 
-.fab {
-	cursor: pointer;
-	position: fixed;
-	bottom: var(--margin);
-	right: var(--margin);
-	font-size: x-large;
+.superPills p {
+	margin-top: var(--margin-small);
+	margin-bottom: var(--margin-small);
+}
+
+.superPills p:first-child {
+	margin-top: 0;
+}
+
+@media (min-width: 900px) {
+	.superPills p {
+		margin-top: var(--margin);
+		margin-bottom: var(--margin);
+	}
+}
+
+.pill {
+	background-color: var(--background-color-light);
+
+	padding: var(--padding-small);
+
 	border: var(--border);
 	border-radius: var(--border-radius);
-	padding: var(--padding-small);
-	background-color: var(--background-color);
+
+	cursor: pointer;
+
+	font-size: small;
 }
 
 @media (min-width: 900px) {
@@ -261,6 +272,12 @@ button {
 button a {
 	color: var(--text-color);
 	text-decoration: none;
+}
+
+button:disabled {
+	background-color: var(--background-color);
+
+	cursor: not-allowed;
 }
 
 /* Tables */
