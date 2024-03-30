@@ -4,7 +4,7 @@
 
 <div class="container">
 	<div class="content">
-		<h1 >🪄 Constellation<sup>[α]</sup></h1>
+		<h1>🪄 Constellation<sup>[α]</sup></h1>
 		<p>A tabletop roleplaying game where a group of stars come together to tell a story.</p>
 
 		<p><span class="highlight highlight-1">Fun is fun. Rules are rules. Fun over rules.</span></p>

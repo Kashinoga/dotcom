@@ -16,7 +16,7 @@
 
 <div class="container">
 	<div class="content">
-		<h1 >🤏 Minor Arcana</h1>
+		<h1>🤏 Minor Arcana</h1>
 
 		<h2 id={strengthSuite.id}>{strengthSuite.emoji} {strengthSuite.name}</h2>
 

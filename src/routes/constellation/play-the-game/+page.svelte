@@ -4,7 +4,7 @@
 
 <div class="container">
 	<div class="content">
-		<h1 >🎭 Act II</h1>
+		<h1>🎭 Act II</h1>
 
 		<h2>Play the Game</h2>
 		<p>
@@ -34,13 +34,21 @@
 			These set of cards represent the enduring marks, shapes, and scars left by many of life's
 			challenges.
 		</p>
-		<p><span class="highlight highlight-3"><a href="./major-arcana">Major Arcana</a></span></p>
+		<p>
+			<span class="highlight highlight-3"
+				><a href="./play-the-game/major-arcana">Major Arcana</a></span
+			>
+		</p>
 
 		<h3>Minor Arcana</h3>
 		<p>
 			These set of cards represent the fleeting highs, lows, and the many facets of everyday life.
 		</p>
-		<p><span class="highlight highlight-3"><a href="./minor-arcana">Minor Arcana</a></span></p>
+		<p>
+			<span class="highlight highlight-3"
+				><a href="./play-the-game/minor-arcana">Minor Arcana</a></span
+			>
+		</p>
 
 		<h2>Game Modes</h2>
 		<p>
