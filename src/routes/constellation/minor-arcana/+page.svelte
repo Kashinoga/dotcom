@@ -7,13 +7,18 @@
 		tarotMinorWisdom,
 		tarotMinorCharisma
 	} from './minorArcanaStore';
+
+	let strengthSuite = $tarotMinorSuites[0];
+	let intelligenceSuite = $tarotMinorSuites[1];
+	let wisdomSuite = $tarotMinorSuites[2];
+	let charismaSuite = $tarotMinorSuites[3];
 </script>
 
 <div class="container">
 	<div class="content">
-		<h1 class="h1-first">🤏 Minor Arcana</h1>
+		<h1 >🤏 Minor Arcana</h1>
 
-		<h2 id="strength">Strength 💪</h2>
+		<h2 id={strengthSuite.id}>{strengthSuite.emoji} {strengthSuite.name}</h2>
 
 		<table>
 			<thead>
@@ -31,7 +36,7 @@
 				{/each}
 			</tbody>
 		</table>
-		<h2 id="intelligence">Intelligence 🧠</h2>
+		<h2 id={intelligenceSuite.id}>{intelligenceSuite.emoji} {intelligenceSuite.name}</h2>
 		<table>
 			<thead>
 				<tr>
@@ -48,7 +53,7 @@
 				{/each}
 			</tbody>
 		</table>
-		<h2 id="wisdom">Wisdom 🦉</h2>
+		<h2 id={wisdomSuite.id}>{wisdomSuite.emoji} {wisdomSuite.name}</h2>
 		<table>
 			<thead>
 				<tr>
@@ -65,7 +70,7 @@
 				{/each}
 			</tbody>
 		</table>
-		<h2 id="charisma">Charisma 🎯</h2>
+		<h2 id={charismaSuite.id}>{charismaSuite.emoji} {charismaSuite.name}</h2>
 		<table>
 			<thead>
 				<tr>
@@ -88,8 +93,9 @@
 			<div class="navPills">
 				<MarginNav></MarginNav>
 				{#each $tarotMinorSuites as suite}
-					<a class="pill" href="./minor-arcana/#{suite.name.toLowerCase()}"
-						><button>{suite.name} {suite.emoji}</button></a
+					<button class="pill">
+						<a href="./minor-arcana/#{suite.name.toLowerCase()}">{suite.emoji} {suite.name}</a
+						></button
 					>
 				{/each}
 			</div>

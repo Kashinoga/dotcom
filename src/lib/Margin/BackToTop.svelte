@@ -2,4 +2,4 @@
 	import { scrollToTop } from '$lib/utils';
 </script>
 
-<button class="pill" on:click={scrollToTop}>Back to Top ⬆️</button>
+<button class="pill" on:click={scrollToTop}>⬆️ Back to Top</button>

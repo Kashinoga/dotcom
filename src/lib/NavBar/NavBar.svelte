@@ -64,8 +64,6 @@
 
 		border: var(--border);
 		border-radius: var(--border-radius);
-
-		font-size: small;
 	}
 
 	@media (min-width: 900px) {

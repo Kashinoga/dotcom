@@ -81,7 +81,7 @@
 					title: weatherDataResponse.title,
 					NWSheadline: weatherDataResponse.features[index].properties.parameters.NWSheadline,
 					areaDesc: weatherDataResponse.features[index].properties.areaDesc,
-					updated: new Date(weatherDataResponse.updated).toString()
+					updated: new Date(weatherDataResponse.updated).toLocaleString()
 				};
 				weatherData = [...weatherData, weatherDatum];
 			}
@@ -100,7 +100,7 @@
 
 <div class="container">
 	<div class="content">
-		<h1 class="h1-first">🌦️ WX</h1>
+		<h1 >🌦️ WX</h1>
 
 		<p>
 			The forecast is provided by your <span class="highlight">local sorceress</span><sup>[1]</sup>.
@@ -129,7 +129,7 @@
 						<span class="highlight highlight-q">"Peer into the cauldron. It's fresh as of..."</span>
 					</p>
 					<p class="weatherDatumUpdated">
-						<span class="highlight highlight-2">{weatherDatum.updated}</span>
+						<span class="highlight highlight-2">{weatherDatum.updated}<sup>[2]</sup></span>
 					</p>
 					{#each weatherData as weatherDatum, index}
 						<div class="weatherDatum">
@@ -170,7 +170,12 @@
 			<div class="navPills">
 				<MarginNav></MarginNav>
 			</div>
-			<div class="superPills"><p><sub><sup>[1]</sup>The National Weather Service.</sub></p></div>
+			<div class="superPills">
+				<p><sub><sup>[1]</sup>The National Weather Service.</sub></p>
+				{#if featuresLength > 0}
+					<p><sub><sup>[2]</sup>Wow, so specific!</sub></p>
+				{/if}
+			</div>
 		</div>
 	</div>
 </div>

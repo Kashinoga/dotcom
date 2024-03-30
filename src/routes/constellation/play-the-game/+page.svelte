@@ -4,7 +4,7 @@
 
 <div class="container">
 	<div class="content">
-		<h1 class="h1-first">🎭 Act II</h1>
+		<h1 >🎭 Act II</h1>
 
 		<h2>Play the Game</h2>
 		<p>

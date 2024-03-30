@@ -7,7 +7,7 @@
 		<div class="items">
 			<a href="/constellation">
 				<div class="item">
-					<h1 class="h1-first">🪄 Constellation<sup>[α]</sup></h1>
+					<h1 >🪄 Constellation<sup>[α]</sup></h1>
 					<p>
 						An in-house
 						<span class="highlight highlight-2">tabletop roleplaying game</span>.
@@ -16,7 +16,7 @@
 			>
 			<a href="/wtm">
 				<div class="item">
-					<h1 class="h1-first">🧭 What's the Move</h1>
+					<h1 >🧭 What's the Move</h1>
 
 					<p>
 						A collection of <span class="highlight highlight-2">things to do</span><sup>[1]</sup>.
@@ -25,7 +25,7 @@
 			>
 			<a href="/wx">
 				<div class="item">
-					<h1 class="h1-first">🌦️ WX</h1>
+					<h1 >🌦️ WX</h1>
 
 					<p>A simple<sup>[2]</sup> <span class="highlight highlight-2">weather app</span>.</p>
 				</div>

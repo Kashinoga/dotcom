@@ -1,10 +1,10 @@
 import { writable } from 'svelte/store';
 
 export let tarotMinorSuites = writable([
-	{ name: 'Strength', emoji: '💪' },
-	{ name: 'Intelligence', emoji: '🧠' },
-	{ name: 'Wisdom', emoji: '🦉' },
-	{ name: 'Charisma', emoji: '🎯' }
+	{ id: 'strength', name: 'Strength', emoji: '💪' },
+	{ id: 'intelligence', name: 'Intelligence', emoji: '🧠' },
+	{ id: 'wisdom', name: 'Wisdom', emoji: '🦉' },
+	{ id: 'charisma', name: 'Charisma', emoji: '🎯' }
 ]);
 
 export let tarotMinorStrength = writable([

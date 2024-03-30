@@ -5,7 +5,7 @@
 
 <div class="container">
 	<div class="content">
-		<h1 class="h1-first">🖐️ Major Arcana</h1>
+		<h1 >🖐️ Major Arcana</h1>
 		<table>
 			<thead>
 				<tr>
