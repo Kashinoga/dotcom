@@ -12,21 +12,21 @@
 
 <nav>
 	<div class="nav-items">
-		<button>
+		<a href="/" data-sveltekit-replaceState>💖 Kashinoga</a>
+		<button on:click={toggleDarkMode}>💡Mode</button>
+		<a href="/menu" data-sveltekit-replaceState>🍔 Menu</a>
+
+		<!-- <button>
 			<a href="/" data-sveltekit-replaceState>💖 Kashinoga</a>
 		</button>
 		<button on:click={toggleDarkMode}>💡Mode</button>
 		<button>
 			<a href="/menu" data-sveltekit-replaceState>🍔 Menu</a>
-		</button>
+		</button> -->
 	</div>
 </nav>
 
 <style>
-	nav a {
-		font-family: var(--font-family);
-	}
-
 	nav {
 		margin-bottom: var(--margin);
 
@@ -38,7 +38,7 @@
 	@media (min-width: 900px) {
 		nav {
 			position: unset;
-			max-width: var(--width-large);
+			max-width: var(--width-larger);
 
 			background: none;
 
@@ -57,15 +57,6 @@
 		gap: var(--gap-small);
 	}
 
-	.nav-items button {
-		background-color: var(--background-color-light);
-
-		padding: var(--padding-small);
-
-		border: var(--border);
-		border-radius: var(--border-radius);
-	}
-
 	@media (min-width: 900px) {
 		.nav-items {
 			width: fit-content;
@@ -78,7 +69,36 @@
 		}
 	}
 
+	nav a {
+		background: none;
+		background-color: var(--background-color-light);
+
+		color: var(--text-color);
+
+		border: var(--border);
+		border-radius: var(--border-radius);
+
+		padding-block: 0;
+		padding-inline: 0;
+		padding: var(--padding-small);
+
+		text-decoration: none;
+	}
+
 	nav button {
+		background: none;
+		background-color: var(--background-color-light);
+
+		color: var(--text-color);
+
+		border: var(--border);
+		border-radius: var(--border-radius);
+
+		padding-block: 0;
+		padding-inline: 0;
+		padding: var(--padding-small);
+
 		font-size: medium;
+		text-decoration: none;
 	}
 </style>

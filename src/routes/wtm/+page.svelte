@@ -6,7 +6,7 @@
 
 <div class="container">
 	<div class="content">
-		<h1 >🧭 What's the Move</h1>
+		<h1>🧭 What's the Move</h1>
 
 		<p>
 			A curated selection of <span class="highlight highlight-3">where to eat</span>,
@@ -21,9 +21,7 @@
 				{#each $statesOfAmericaInventory as state}
 					{#if state.enabled == 'true'}
 						{#if state.emoji != ''}
-							<button class="pill"
-								><a href="/wtm/{state.name.toLowerCase()}">{state.name} {state.emoji}</a></button
-							>
+							<a href="/wtm/{state.name.toLowerCase()}">{state.name} {state.emoji}</a>
 						{:else}
 							<button disabled class="pill">{state.name} {state.emoji}</button>
 						{/if}

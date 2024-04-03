@@ -1,5 +1,5 @@
 :root {
-	--width-largest: 1080px;
+	--width-larger: 1080px;
 	--width-large: 900px;
 	--width-medium: 720px;
 	--width: 480px;
@@ -154,7 +154,7 @@ body {
 @media (min-width: 900px) {
 	.container {
 		flex-direction: row;
-		max-width: var(--width-large);
+		max-width: var(--width-larger);
 		min-width: var(--width-medium);
 	}
 }
@@ -184,8 +184,8 @@ body {
 @media (min-width: 900px) {
 	.margin {
 		border-top: none;
-		padding: var(--padding);
-		padding-right: 0;
+
+		margin: var(--padding);
 	}
 }
 
@@ -195,8 +195,6 @@ body {
 	flex-direction: column;
 	gap: var(--gap-small);
 	align-items: flex-start;
-
-	cursor: pointer;
 
 	margin-top: var(--margin);
 	margin-bottom: var(--margin);
@@ -219,6 +217,22 @@ body {
 	gap: var(--gap-small);
 
 	margin-bottom: var(--margin);
+}
+
+.navPills a {
+	background: none;
+	background-color: var(--background-color-light);
+
+	color: var(--text-color);
+
+	border: var(--border);
+	border-radius: var(--border-radius);
+
+	padding-block: 0;
+	padding-inline: 0;
+	padding: var(--padding-small);
+
+	text-decoration: none;
 }
 
 .superPills p {

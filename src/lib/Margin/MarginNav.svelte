@@ -1,5 +1,5 @@
 <script>
-	import BackToTop from '$lib/Margin/BackToTop.svelte';
+	import BackToTop from './BackToTop.svelte';
 	import GoToBottom from './GoToBottom.svelte';
 </script>
 

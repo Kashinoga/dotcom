@@ -1,6 +1,9 @@
 .cards {
 	display: grid;
 	gap: var(--gap);
+
+	margin-top: var(--margin);
+	margin-bottom: var(--margin);
 }
 
 @media (min-width: 900px) {
@@ -15,9 +18,6 @@
 	padding: var(--padding);
 	border: var(--border);
 	border-radius: var(--border-radius);
-
-	margin-top: var(--margin);
-	margin-bottom: var(--margin);
 }
 
 .card h4,
