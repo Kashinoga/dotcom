@@ -93,10 +93,7 @@
 			<div class="navPills">
 				<MarginNav></MarginNav>
 				{#each $tarotMinorSuites as suite}
-					<button class="pill">
-						<a href="./minor-arcana/#{suite.name.toLowerCase()}">{suite.emoji} {suite.name}</a
-						></button
-					>
+					<a href="./minor-arcana/#{suite.name.toLowerCase()}">{suite.emoji} {suite.name}</a>
 				{/each}
 			</div>
 		</div>

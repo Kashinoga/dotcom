@@ -76,12 +76,10 @@
 			<div class="navPills">
 				<MarginNav></MarginNav>
 				{#each $categoryInventory as category}
-					<button class="pill">
-						<a href="#{category.id}">
-							{category.emoji}
-							{category.name}
-						</a>
-					</button>
+					<a href="#{category.id}">
+						{category.emoji}
+						{category.name}
+					</a>
 				{/each}
 			</div>
 			<div class="superPills">
