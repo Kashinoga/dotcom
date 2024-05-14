@@ -12,17 +12,11 @@
 
 <nav>
 	<div class="nav-items">
-		<a href="/" data-sveltekit-replaceState>💖 Kashinoga</a>
-		<button on:click={toggleDarkMode}>💡Mode</button>
-		<a href="/menu" data-sveltekit-replaceState>🍔 Menu</a>
+		<a href="/">💖 Kashinoga</a>
 
-		<!-- <button>
-			<a href="/" data-sveltekit-replaceState>💖 Kashinoga</a>
-		</button>
 		<button on:click={toggleDarkMode}>💡Mode</button>
-		<button>
-			<a href="/menu" data-sveltekit-replaceState>🍔 Menu</a>
-		</button> -->
+
+		<a href="/menu">🍔 Menu</a>
 	</div>
 </nav>
 
