@@ -92,7 +92,8 @@
 		padding-inline: 0;
 		padding: var(--padding-small);
 
-		font-size: medium;
+		font-size: unset;
+		font-weight: unset;
 		text-decoration: none;
 	}
 </style>

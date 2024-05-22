@@ -70,7 +70,7 @@ html {
 
 /* Fonts */
 
-@font-face {
+/* @font-face {
 	font-family: 'Noto Sans';
 	font-optical-sizing: auto;
 	font-weight: 1 1000;
@@ -84,6 +84,20 @@ html {
 	font-weight: 1 1000;
 	font-style: normal;
 	src: url('/fonts/Noto_Color_Emoji/NotoColorEmoji-Regular.ttf') format('truetype-variations');
+} */
+
+/* 
+<uniquifier>: Use a unique and descriptive class name
+<weight>: Use a value from 100 to 900
+*/
+
+.noto-sans-font {
+	font-family: 'Noto Sans', sans-serif;
+	font-optical-sizing: auto;
+	font-weight: 400;
+	font-style: normal;
+	font-variation-settings: 'wdth' 100;
+	src: url('/fonts/Noto_Sans/NotoSans-VariableFont_wdth\,wght.ttf') format('truetype-variations');
 }
 
 /* Text */
@@ -141,7 +155,7 @@ ul {
 
 body {
 	margin: var(--margin);
-	font-family: 'Noto Sans', 'Noto Color Emoji', sans-serif;
+	/* font-family: 'Noto Sans', 'Noto Color Emoji', sans-serif; '*/
 	background-color: var(--background-color);
 	color: var(--text-color);
 }
