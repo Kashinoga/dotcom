@@ -163,6 +163,7 @@ body {
 .container {
 	display: flex;
 	flex-direction: column;
+	margin: auto;
 }
 
 @media (min-width: 900px) {
