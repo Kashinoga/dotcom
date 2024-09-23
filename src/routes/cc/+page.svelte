@@ -129,6 +129,11 @@
 				<li>If the answer's "yes" to any of these questions, then Pluto's constipated</li>
 				<ul>
 					<li>
+						Give him <span class="highlight highlight-2">lactulose</span>, found in the
+						<span class="highlight highlight-3">kitchen drink cabinet</span>; the instructions are
+						on the bottle
+					</li>
+					<li>
 						See if the medicine helps him within a few hours; if not, please contact me and prepare
 						to book a vet visit
 					</li>
