@@ -153,7 +153,7 @@
 			<div class="navPills">
 				<MarginNav></MarginNav>
 				{#each $navMoji as suite}
-					<a href="./minor-arcana/#{suite.name.toLowerCase()}">{suite.emoji} {suite.name}</a>
+					<a href="#{suite.name.toLowerCase()}">{suite.emoji} {suite.name}</a>
 				{/each}
 			</div>
 		</div>
