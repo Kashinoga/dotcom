@@ -90,11 +90,16 @@
 				<li>One tube for both cats, once in the afternoon</li>
 			</ul>
 			<li>
-				Their <span class="highlight highlight-2">food bowls</span>, food, and snacks are in the
+				Their <span class="highlight highlight-2">food bowls</span>,
+				<span class="highlight highlight-2">food</span>, and
+				<span class="highlight highlight-2">snacks</span>
+				are in the
 				<span class="highlight highlight-3">kitchen</span>
 			</li>
 			<li>
-				Their <span class="highlight highlight-2">water bowls</span> are in the kitchen and in the
+				Their <span class="highlight highlight-2">water bowls</span> are in the
+				<span class="highlight highlight-3">kitchen</span>
+				and in the
 				<span class="highlight highlight-3">living room</span>
 				<ul>
 					<li>Please ensure that each is filled with water</li>
