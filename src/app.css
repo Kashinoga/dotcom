@@ -28,6 +28,7 @@
 
 	--border-radius: 1em;
 
+	--red: #ff4136;
 	--yellow: #ffdc00;
 	--green: #01ff70;
 	--blue: #7fdbff;
@@ -36,6 +37,7 @@
 	--highlight-0: var(--yellow);
 	--highlight-1: var(--green);
 	--highlight-2: var(--blue);
+	--highlight-red: var(--red);
 	--highlight-q: var(--yellow);
 
 	--highlight-percent: 80%;
@@ -137,6 +139,10 @@ ul {
 .highlight a {
 	color: black;
 	text-decoration: none;
+}
+
+.highlight-red {
+	background-color: color-mix(in srgb, var(--highlight-red) var(--highlight-percent), transparent);
 }
 
 .highlight-2 {
