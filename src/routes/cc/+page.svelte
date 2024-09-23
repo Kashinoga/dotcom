@@ -121,16 +121,13 @@
 					<li>Is he peeing, has peed, but is still straining to poop?</li>
 					<li>Is he yowling, laying on his side, and straining to poop?</li>
 				</ul>
-				<ul>Pluto's constipated</ul>
-				<li>
-					Give him <span class="highlight highlight-2">lactulose</span>, found in the
-					<span class="highlight highlight-3">kitchen drink cabinet</span>; the instructions are on
-					the bottle
-				</li>
-				<li>
-					See if the medicine helps him within a few hours; if not, please contact me and prepare to
-					book a vet visit
-				</li>
+				<li>If the answer's "yes" to any of these questions, then Pluto's constipated</li>
+				<ul>
+					<li>
+						See if the medicine helps him within a few hours; if not, please contact me and prepare
+						to book a vet visit
+					</li>
+				</ul>
 			</ol>
 			<li>Willow has severe anxiety</li>
 			<ol>
