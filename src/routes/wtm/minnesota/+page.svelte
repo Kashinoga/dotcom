@@ -1,5 +1,4 @@
 <script>
-	import '../wtm.css';
 	import MarginNav from '$lib/Margin/MarginNav.svelte';
 	import { categoryInventory } from '../categoryStore';
 	import { eatAndDrinkInventory } from './eatAndDrinkStore';

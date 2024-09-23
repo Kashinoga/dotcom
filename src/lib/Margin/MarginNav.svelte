@@ -1,7 +1,7 @@
 <script>
-	import BackToTop from './BackToTop.svelte';
+	import GoToTop from './GoToTop.svelte';
 	import GoToBottom from './GoToBottom.svelte';
 </script>
 
-<BackToTop></BackToTop>
+<GoToTop></GoToTop>
 <GoToBottom></GoToBottom>

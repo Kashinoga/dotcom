@@ -1,5 +1,4 @@
 <script>
-	import '../wtm.css';
 	import { categoryInventory } from '../categoryStore';
 	import { eatAndDrinkInventory } from './eatAndDrinkStore';
 	import { entertainmentInventory } from './entertainmentStore';

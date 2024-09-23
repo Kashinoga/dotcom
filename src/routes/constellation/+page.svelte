@@ -74,10 +74,22 @@
 			<li>Guide the Story</li>
 		</ol>
 	</div>
-	<div class="margin">
+
+	<!-- <div class="margin">
 		<div class="marginPills">
 			<MarginNav></MarginNav>
 			<div class="superPills"><p><sub><sup>[α]</sup>Initial alpha release.</sub></p></div>
+		</div>
+	</div> -->
+
+	<div class="margin">
+		<div class="marginPills">
+			<div class="navPills">
+				<MarginNav></MarginNav>
+			</div>
+			<div class="superPills">
+				<p><sub><sup>[α]</sup>Initial alpha release.</sub></p>
+			</div>
 		</div>
 	</div>
 </div>

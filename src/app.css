@@ -27,6 +27,7 @@
 	--border: 1px solid rgba(0, 0, 0, 0.2);
 
 	--border-radius: 1em;
+	--border-radius-half: 0.4em;
 
 	--red: #ff4136;
 	--yellow: #ffdc00;
@@ -340,4 +341,46 @@ tbody > tr > th {
 
 tbody > tr > td {
 	text-align: left;
+}
+
+/* Cards */
+.cards {
+	display: grid;
+	gap: var(--gap);
+
+	margin-top: var(--margin);
+	margin-bottom: var(--margin);
+}
+
+@media (min-width: 900px) {
+	.cards {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+.card {
+	background-color: var(--background-color-light);
+
+	padding: var(--padding);
+	border: var(--border);
+	border-radius: var(--border-radius);
+}
+
+.card h4,
+ul {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+.cardLabel {
+	display: flex;
+	align-items: center;
+}
+
+.cardLabel .highlight {
+	border-radius: var(--border-radius-half);
+}
+
+.cardName {
+	flex-grow: 1;
 }
