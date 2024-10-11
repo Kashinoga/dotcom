@@ -248,7 +248,7 @@ body {
 	color: var(--text-color);
 
 	border: var(--border);
-	border-radius: var(--border-radius);
+	border-radius: var(--border-radius-half);
 
 	padding-block: 0;
 	padding-inline: 0;
@@ -279,7 +279,7 @@ body {
 	padding: var(--padding-small);
 
 	border: var(--border);
-	border-radius: var(--border-radius);
+	border-radius: var(--border-radius-half);
 
 	cursor: pointer;
 

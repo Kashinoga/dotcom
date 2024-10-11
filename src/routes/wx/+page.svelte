@@ -228,7 +228,7 @@
 		background-color: var(--global-background-color);
 		color: var(--text-color);
 		border: var(--border);
-		border-radius: var(--border-radius);
+		border-radius: var(--border-radius-half);
 		padding: var(--padding);
 	}
 

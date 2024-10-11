@@ -69,7 +69,7 @@
 		color: var(--text-color);
 
 		border: var(--border);
-		border-radius: var(--border-radius);
+		border-radius: var(--border-radius-half);
 
 		padding-block: 0;
 		padding-inline: 0;
@@ -85,7 +85,7 @@
 		color: var(--text-color);
 
 		border: var(--border);
-		border-radius: var(--border-radius);
+		border-radius: var(--border-radius-half);
 
 		padding-block: 0;
 		padding-inline: 0;
