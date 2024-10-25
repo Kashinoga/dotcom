@@ -20,9 +20,9 @@
 				{#each $statesOfAmericaInventory as state}
 					{#if state.enabled == 'true'}
 						{#if state.emoji != ''}
-							<a href="/wtm/{state.name.toLowerCase()}">{state.name} {state.emoji}</a>
+							<a href="/wtm/{state.name.toLowerCase()}">{state.emoji} {state.name} </a>
 						{:else}
-							<button disabled class="pill">{state.name} {state.emoji}</button>
+							<button disabled class="pill">{state.emoji} {state.name} </button>
 						{/if}
 					{/if}
 				{/each}

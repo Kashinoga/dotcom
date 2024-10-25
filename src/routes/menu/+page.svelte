@@ -5,15 +5,6 @@
 <div class="container">
 	<div class="content">
 		<div class="items">
-			<a href="/constellation">
-				<div class="item">
-					<h1>🪄 Constellation<sup>[α]</sup></h1>
-					<p>
-						An in-house
-						<span class="highlight highlight-2">tabletop roleplaying game</span>.
-					</p>
-				</div></a
-			>
 			<a href="/wtm">
 				<div class="item">
 					<h1>🧭 What's the Move</h1>
