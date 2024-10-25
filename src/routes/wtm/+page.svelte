@@ -5,27 +5,33 @@
 
 <div class="container">
 	<div class="content">
-		<h1>🧭 What's the Move</h1>
+		<div class="sections">
+			<div class="section">
+				<h1>🧭 What's the Move</h1>
 
-		<p>
-			A curated selection of <span class="highlight highlight-3">where to eat</span>,
-			<span class="highlight highlight-3">places to see</span>, and
-			<span class="highlight highlight-3">things to do</span>.
-		</p>
+				<p>
+					A curated selection of <span class="highlight highlight-3">where to eat</span>,
+					<span class="highlight highlight-3">places to see</span>, and
+					<span class="highlight highlight-3">things to do</span>.
+				</p>
+			</div>
 
-		<h2>United States of America<sup>[1, 1a, 1b]</sup> 🇺🇸</h2>
+			<div class="section">
+				<h2>United States of America<sup>[1, 1a, 1b]</sup> 🇺🇸</h2>
 
-		<div class="marginPills">
-			<div class="navPills">
-				{#each $statesOfAmericaInventory as state}
-					{#if state.enabled == 'true'}
-						{#if state.emoji != ''}
-							<a href="/wtm/{state.name.toLowerCase()}">{state.emoji} {state.name} </a>
-						{:else}
-							<button disabled class="pill">{state.emoji} {state.name} </button>
-						{/if}
-					{/if}
-				{/each}
+				<div class="marginPills">
+					<div class="navPills">
+						{#each $statesOfAmericaInventory as state}
+							{#if state.enabled == 'true'}
+								{#if state.emoji != ''}
+									<a href="/wtm/{state.name.toLowerCase()}">{state.emoji} {state.name} </a>
+								{:else}
+									<button disabled class="pill">{state.emoji} {state.name} </button>
+								{/if}
+							{/if}
+						{/each}
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>

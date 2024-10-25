@@ -212,10 +212,6 @@ body {
 	flex-grow: 1;
 }
 
-.sections a {
-	flex-grow: 1;
-}
-
 .section h1 {
 	margin: 0;
 }
@@ -243,7 +239,7 @@ body {
 	align-items: flex-start;
 
 	margin-top: var(--margin);
-	margin-bottom: var(--margin);
+	/* margin-bottom: var(--margin); */
 }
 
 @media (min-width: 900px) {
@@ -262,7 +258,7 @@ body {
 	flex-wrap: wrap;
 	gap: var(--gap-small);
 
-	margin-bottom: var(--margin);
+	/* margin-bottom: var(--margin); */
 }
 
 .navPills a {
@@ -336,6 +332,26 @@ button:disabled {
 	background-color: var(--background-color);
 
 	cursor: not-allowed;
+}
+
+/* Select */
+
+select {
+	cursor: pointer;
+	background-color: var(--background-color);
+	color: var(--text-color);
+	border: var(--border);
+	border-radius: var(--border-radius-half);
+	padding: var(--padding);
+}
+
+option {
+	background-color: var(--background-color);
+	color: var(--text-color);
+}
+
+option:disabled {
+	color: var(--text-color);
 }
 
 /* Table */

@@ -99,72 +99,80 @@
 
 <div class="container">
 	<div class="content">
-		<h1>🌦️ WX</h1>
+		<div class="sections">
+			<div class="section">
+				<h1>🌦️ WX</h1>
 
-		<p>A simple <span class="highlight highlight-2">weather app</span>.</p>
+				<p>A simple <span class="highlight highlight-2">weather app</span>.</p>
 
-		<p>
-			The forecast is provided by your <span class="highlight">local sorceress</span><sup>[1]</sup>.
-		</p>
+				<p>
+					The forecast is provided by your <span class="highlight">local sorceress</span><sup
+						>[1]</sup
+					>.
+				</p>
 
-		<select
-			id="stateSelect"
-			class="stateSelect"
-			bind:value={selectedState}
-			on:change={getWeatherData}
-			>\
-			<option disabled>Select a State</option>
-			{#each statesOfAmerica as state}
-				<option value={state.abbreviation}>
-					{state.name}
-				</option>
-			{/each}
-		</select>
-
-		{#await getWeatherData()}
-			<p>Loading...</p>
-		{:then}
-			<div class="weatherDatumContainer">
-				{#if featuresLength > 0}
-					<p class="weatherPerson">
-						<span class="highlight highlight-q">"Peer into the cauldron. It's fresh as of..."</span>
-					</p>
-					<p class="weatherDatumUpdated">
-						<span class="highlight highlight-2">{weatherDatum.updated}<sup>[2]</sup></span>
-					</p>
-					{#each weatherData as weatherDatum, index}
-						<div class="weatherDatum">
-							<div class="areaDesc">
-								<p class="areaDescText">
-									📍 {weatherDatum.areaDesc}
-								</p>
-								<button
-									class="areaDescCopyButton"
-									on:click={() =>
-										copyToClipboard(weatherDatum.areaDesc + '\n\n' + weatherDatum.NWSheadline)}
-									><h2>📑</h2></button
-								>
-							</div>
-							<div class="NWSheadline">
-								<p>
-									{weatherDatum.NWSheadline}
-								</p>
-							</div>
-						</div>
+				<select
+					id="stateSelect"
+					class="stateSelect"
+					bind:value={selectedState}
+					on:change={getWeatherData}
+					>\
+					<option disabled>Select a State</option>
+					{#each statesOfAmerica as state}
+						<option value={state.abbreviation}>
+							{state.name}
+						</option>
 					{/each}
-				{:else if selectedState !== 'Select a State'}
-					<p>
-						The <span class="highlight">sorceress</span> remains silent. There are no available alerts.
-					</p>
-				{:else}
-					<p>
-						<span class="highlight">She</span> awaits your selection with disinterest.
-					</p>
-				{/if}
+				</select>
+
+				{#await getWeatherData()}
+					<p>Loading...</p>
+				{:then}
+					<div class="weatherDatumContainer">
+						{#if featuresLength > 0}
+							<p class="weatherPerson">
+								<span class="highlight highlight-q"
+									>"Peer into the cauldron. It's fresh as of..."</span
+								>
+							</p>
+							<p class="weatherDatumUpdated">
+								<span class="highlight highlight-q">{weatherDatum.updated}<sup>[2]</sup></span>
+							</p>
+							{#each weatherData as weatherDatum, index}
+								<div class="weatherDatum">
+									<div class="areaDesc">
+										<p class="areaDescText">
+											📍 {weatherDatum.areaDesc}
+										</p>
+										<button
+											class="areaDescCopyButton"
+											on:click={() =>
+												copyToClipboard(weatherDatum.areaDesc + '\n\n' + weatherDatum.NWSheadline)}
+											><h2>📑</h2></button
+										>
+									</div>
+									<div class="NWSheadline">
+										<p>
+											📰 {weatherDatum.NWSheadline}
+										</p>
+									</div>
+								</div>
+							{/each}
+						{:else if selectedState !== 'Select a State'}
+							<p>
+								The <span class="highlight">sorceress</span> remains silent. There are no available alerts.
+							</p>
+						{:else}
+							<p>
+								<span class="highlight">She</span> awaits your selection with disinterest.
+							</p>
+						{/if}
+					</div>
+				{:catch error}
+					<p>Error: {error.message}</p>
+				{/await}
 			</div>
-		{:catch error}
-			<p>Error: {error.message}</p>
-		{/await}
+		</div>
 	</div>
 	<div class="margin">
 		<div class="marginPills">
@@ -192,11 +200,7 @@
 
 	.weatherDatum {
 		border-top: var(--border);
-	}
-
-	.weatherPerson,
-	.weatherDatumUpdated {
-		text-align: center;
+		padding-bottom: var(--padding);
 	}
 
 	.areaDesc {
@@ -206,10 +210,9 @@
 
 	.areaDescText {
 		flex-grow: 1;
-		padding-bottom: 0;
 		margin-block-start: 0;
 		margin-block-end: 0;
-		padding: var(--padding-small);
+		padding: var(--padding);
 		padding-left: 0;
 		text-align: left;
 	}
@@ -217,29 +220,10 @@
 	.areaDescCopyButton {
 		cursor: grab;
 		border-left: var(--border);
-		padding-left: var(--padding-small);
-		padding-right: 0;
+		padding: var(--padding);
 	}
 
 	.NWSheadline {
 		text-align: left;
-	}
-
-	select {
-		cursor: pointer;
-		background-color: var(--global-background-color);
-		color: var(--text-color);
-		border: var(--border);
-		border-radius: var(--border-radius-half);
-		padding: var(--padding);
-	}
-
-	option {
-		background-color: var(--background-color);
-		color: var(--text-color);
-	}
-
-	option:disabled {
-		color: var(--text-color);
 	}
 </style>
