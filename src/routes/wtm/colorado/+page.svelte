@@ -10,7 +10,7 @@
 
 <div class="container">
 	<div class="content">
-		<h1>🧭 What's the Move for Iowa</h1>
+		<h1>🧭 What's the Move for Colorado</h1>
 
 		<p>
 			A curated selection of <span class="highlight highlight-3">where to eat</span>,

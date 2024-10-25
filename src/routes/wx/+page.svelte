@@ -101,6 +101,8 @@
 	<div class="content">
 		<h1>🌦️ WX</h1>
 
+		<p>A simple <span class="highlight highlight-2">weather app</span>.</p>
+
 		<p>
 			The forecast is provided by your <span class="highlight">local sorceress</span><sup>[1]</sup>.
 		</p>
