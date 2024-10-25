@@ -1,6 +1,10 @@
+<svelte:head>
+	<title>Kashinoga</title>
+</svelte:head>
+
 <div class="container">
 	<div class="content">
-		<h1 class="h1-first">✨ Hi.</h1>
+		<h1>✨ Hi.</h1>
 
 		<p>My name is <span class="highlight">Andrew</span>.</p>
 

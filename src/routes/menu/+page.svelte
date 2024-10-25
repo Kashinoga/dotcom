@@ -1,27 +1,24 @@
+<script>
+	import MarginNav from '$lib/Margin/MarginNav.svelte';
+</script>
+
 <div class="container">
 	<div class="content">
 		<div class="items">
-			<a href="/constellation">
-				<div class="item">
-					<h1 class="h1-first">🪄 Constellation<sup>[α]</sup></h1>
-					<p>
-						An in-house
-						<span class="highlight highlight-2">tabletop roleplaying game</span>.
-					</p>
-				</div></a
-			>
 			<a href="/wtm">
 				<div class="item">
-					<h1 class="h1-first">🧭 What's the Move</h1>
+					<h1>🧭 What's the Move</h1>
 
 					<p>
-						A collection of <span class="highlight highlight-2">things to do</span><sup>[1]</sup>.
+						A curated selection of <span class="highlight highlight-3">where to eat</span>,
+						<span class="highlight highlight-3">places to see</span>, and
+						<span class="highlight highlight-3">things to do</span>.
 					</p>
 				</div></a
 			>
 			<a href="/wx">
 				<div class="item">
-					<h1 class="h1-first">🌦️ WX</h1>
+					<h1>🌦️ WX</h1>
 
 					<p>A simple<sup>[2]</sup> <span class="highlight highlight-2">weather app</span>.</p>
 				</div>
@@ -30,6 +27,9 @@
 	</div>
 	<div class="margin">
 		<div class="marginPills">
+			<div class="navPills">
+				<MarginNav></MarginNav>
+			</div>
 			<div class="superPills">
 				<p><sub><sup>[α]</sup>Initial alpha release.</sub></p>
 				<p><sub><sup>[1]</sup>Third place, third place, third place!</sub></p>
@@ -45,6 +45,13 @@
 		text-decoration: none;
 	}
 
+	.item {
+		padding: var(--padding);
+		background-color: var(--background-color-light);
+		border: var(--border);
+		border-radius: var(--border-radius);
+	}
+
 	.items {
 		display: flex;
 		flex-wrap: wrap;
@@ -53,10 +60,6 @@
 
 	.items a {
 		flex-grow: 1;
-		border-bottom: var(--border);
-		padding: var(--padding);
-		border: var(--border);
-		border-radius: var(--border-radius);
 	}
 
 	.item h1 {

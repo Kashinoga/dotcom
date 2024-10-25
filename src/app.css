@@ -1,17 +1,20 @@
 :root {
-	--width-largest: 1080px;
+	--width-larger: 1080px;
 	--width-large: 900px;
 	--width-medium: 720px;
-	--width-small: 480px;
+	--width: 480px;
 	--width-smaller: 360px;
 	--width-smallest: 240px;
 
 	--background-color: white;
+	--background-color-light: #f2f2f2;
+
 	--text-color: black;
 	--text-color-inverted: white;
 
-	--gap-small: 0.2em;
+	--gap-small: 0.4em;
 	--gap: 1em;
+
 	--margin-small: 0.2em;
 	--margin: 1em;
 	--margin-fab-clear: 4em;
@@ -24,7 +27,9 @@
 	--border: 1px solid rgba(0, 0, 0, 0.2);
 
 	--border-radius: 1em;
+	--border-radius-half: 0.4em;
 
+	--red: #ff4136;
 	--yellow: #ffdc00;
 	--green: #01ff70;
 	--blue: #7fdbff;
@@ -33,6 +38,7 @@
 	--highlight-0: var(--yellow);
 	--highlight-1: var(--green);
 	--highlight-2: var(--blue);
+	--highlight-red: var(--red);
 	--highlight-q: var(--yellow);
 
 	--highlight-percent: 80%;
@@ -43,7 +49,9 @@
 }
 
 [data-theme='dark'] {
-	--background-color: #222;
+	--background-color: #080808;
+	--background-color-light: #101010;
+
 	--text-color: white;
 	--text-color-inverted: black;
 
@@ -65,10 +73,10 @@ html {
 
 /* Fonts */
 
-@font-face {
+/* @font-face {
 	font-family: 'Noto Sans';
 	font-optical-sizing: auto;
-	font-weight: 400;
+	font-weight: 1 1000;
 	font-style: normal;
 	font-variation-settings: 'wdth' 100;
 	src: url('/fonts/Noto_Sans/NotoSans-VariableFont_wdth\,wght.ttf') format('truetype-variations');
@@ -76,9 +84,23 @@ html {
 
 @font-face {
 	font-family: 'Noto Color Emoji';
-	font-weight: 400;
+	font-weight: 1 1000;
 	font-style: normal;
 	src: url('/fonts/Noto_Color_Emoji/NotoColorEmoji-Regular.ttf') format('truetype-variations');
+} */
+
+/* 
+<uniquifier>: Use a unique and descriptive class name
+<weight>: Use a value from 100 to 900
+*/
+
+.noto-sans-font {
+	font-family: 'Noto Sans', sans-serif;
+	font-optical-sizing: auto;
+	font-weight: 400;
+	font-style: normal;
+	font-variation-settings: 'wdth' 100;
+	src: url('/fonts/Noto_Sans/NotoSans-VariableFont_wdth\,wght.ttf') format('truetype-variations');
 }
 
 /* Text */
@@ -101,10 +123,6 @@ h5 {
 	margin-bottom: var(--margin-small);
 }
 
-.h1-first {
-	margin-top: 0;
-}
-
 ul {
 	margin-block-start: var(--margin);
 	margin-block-end: var(--margin);
@@ -120,8 +138,12 @@ ul {
 }
 
 .highlight a {
+	color: black;
 	text-decoration: none;
-	color: var(--text-color-inverted);
+}
+
+.highlight-red {
+	background-color: color-mix(in srgb, var(--highlight-red) var(--highlight-percent), transparent);
 }
 
 .highlight-2 {
@@ -140,7 +162,7 @@ ul {
 
 body {
 	margin: var(--margin);
-	font-family: 'Noto Sans', 'Noto Color Emoji', sans-serif;
+	/* font-family: 'Noto Sans', 'Noto Color Emoji', sans-serif; '*/
 	background-color: var(--background-color);
 	color: var(--text-color);
 }
@@ -148,14 +170,13 @@ body {
 .container {
 	display: flex;
 	flex-direction: column;
-	margin-top: var(--margin);
+	margin: auto;
 }
 
 @media (min-width: 900px) {
 	.container {
 		flex-direction: row;
-		margin-top: 0;
-		max-width: var(--width-large);
+		max-width: var(--width-larger);
 		min-width: var(--width-medium);
 	}
 }
@@ -185,14 +206,9 @@ body {
 @media (min-width: 900px) {
 	.margin {
 		border-top: none;
-		padding: var(--padding);
-		padding-right: 0;
-	}
-}
 
-.margin p {
-	margin-top: 0;
-	margin-bottom: 0;
+		margin: var(--padding);
+	}
 }
 
 .marginPills {
@@ -200,45 +216,74 @@ body {
 	flex-wrap: wrap;
 	flex-direction: column;
 	gap: var(--gap-small);
-	cursor: pointer;
-	padding-top: var(--padding);
-	padding-bottom: var(--padding);
 	align-items: flex-start;
+
+	margin-top: var(--margin);
+	margin-bottom: var(--margin);
 }
 
 @media (min-width: 900px) {
 	.marginPills {
-		padding-top: 0;
 		position: sticky;
 		top: var(--margin);
-	}
-}
 
-.marginPills button {
-	cursor: pointer;
-	padding: var(--padding-small);
-	border: var(--border);
-	border-radius: var(--border-radius);
-	font-size: 1em;
-	background-color: var(--background-color);
+		margin-top: 0;
+
+		padding-top: 0;
+	}
 }
 
 .navPills {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--gap-small);
+
+	margin-bottom: var(--margin);
 }
 
-.fab {
-	cursor: pointer;
-	position: fixed;
-	bottom: var(--margin);
-	right: var(--margin);
-	font-size: x-large;
+.navPills a {
+	background: none;
+	background-color: var(--background-color-light);
+
+	color: var(--text-color);
+
 	border: var(--border);
-	border-radius: var(--border-radius);
+	border-radius: var(--border-radius-half);
+
+	padding-block: 0;
+	padding-inline: 0;
 	padding: var(--padding-small);
-	background-color: var(--background-color);
+
+	text-decoration: none;
+}
+
+.superPills p {
+	margin-top: var(--margin-small);
+	margin-bottom: var(--margin-small);
+}
+
+.superPills p:first-child {
+	margin-top: 0;
+}
+
+@media (min-width: 900px) {
+	.superPills p {
+		margin-top: var(--margin);
+		margin-bottom: var(--margin);
+	}
+}
+
+.pill {
+	background-color: var(--background-color-light);
+
+	padding: var(--padding-small);
+
+	border: var(--border);
+	border-radius: var(--border-radius-half);
+
+	cursor: pointer;
+
+	font-size: medium;
 }
 
 @media (min-width: 900px) {
@@ -261,6 +306,12 @@ button {
 button a {
 	color: var(--text-color);
 	text-decoration: none;
+}
+
+button:disabled {
+	background-color: var(--background-color);
+
+	cursor: not-allowed;
 }
 
 /* Tables */
@@ -290,4 +341,46 @@ tbody > tr > th {
 
 tbody > tr > td {
 	text-align: left;
+}
+
+/* Cards */
+.cards {
+	display: grid;
+	gap: var(--gap);
+
+	margin-top: var(--margin);
+	margin-bottom: var(--margin);
+}
+
+@media (min-width: 900px) {
+	.cards {
+		grid-template-columns: repeat(2, 1fr);
+	}
+}
+
+.card {
+	background-color: var(--background-color-light);
+
+	padding: var(--padding);
+	border: var(--border);
+	border-radius: var(--border-radius);
+}
+
+.card h4,
+ul {
+	margin-top: 0;
+	margin-bottom: 0;
+}
+
+.cardLabel {
+	display: flex;
+	align-items: center;
+}
+
+.cardLabel .highlight {
+	border-radius: var(--border-radius-half);
+}
+
+.cardName {
+	flex-grow: 1;
 }

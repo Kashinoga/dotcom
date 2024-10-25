@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { scrollToBottom } from '$lib/utils';
+	import MarginNav from '$lib/Margin/MarginNav.svelte';
 
 	let statesOfAmerica = [
 		{ name: 'Alabama', abbreviation: 'AL' },
@@ -81,11 +82,10 @@
 					title: weatherDataResponse.title,
 					NWSheadline: weatherDataResponse.features[index].properties.parameters.NWSheadline,
 					areaDesc: weatherDataResponse.features[index].properties.areaDesc,
-					updated: new Date(weatherDataResponse.updated).toString()
+					updated: new Date(weatherDataResponse.updated).toLocaleString()
 				};
 				weatherData = [...weatherData, weatherDatum];
 			}
-			console.log(weatherData);
 		}
 	}
 
@@ -100,7 +100,9 @@
 
 <div class="container">
 	<div class="content">
-		<h1 class="h1-first">🌦️ WX</h1>
+		<h1>🌦️ WX</h1>
+
+		<p>A simple <span class="highlight highlight-2">weather app</span>.</p>
 
 		<p>
 			The forecast is provided by your <span class="highlight">local sorceress</span><sup>[1]</sup>.
@@ -129,7 +131,7 @@
 						<span class="highlight highlight-q">"Peer into the cauldron. It's fresh as of..."</span>
 					</p>
 					<p class="weatherDatumUpdated">
-						<span class="highlight highlight-2">{weatherDatum.updated}</span>
+						<span class="highlight highlight-2">{weatherDatum.updated}<sup>[2]</sup></span>
 					</p>
 					{#each weatherData as weatherDatum, index}
 						<div class="weatherDatum">
@@ -166,7 +168,17 @@
 		{/await}
 	</div>
 	<div class="margin">
-		<div class="marginPills"><p><sub><sup>[1]</sup>The National Weather Service.</sub></p></div>
+		<div class="marginPills">
+			<div class="navPills">
+				<MarginNav></MarginNav>
+			</div>
+			<div class="superPills">
+				<p><sub><sup>[1]</sup>The National Weather Service.</sub></p>
+				{#if featuresLength > 0}
+					<p><sub><sup>[2]</sup>Wow, so specific!</sub></p>
+				{/if}
+			</div>
+		</div>
 	</div>
 	<button class="fab" on:click={scrollToBottom}>📑</button>
 </div>
@@ -220,7 +232,7 @@
 		background-color: var(--global-background-color);
 		color: var(--text-color);
 		border: var(--border);
-		border-radius: var(--border-radius);
+		border-radius: var(--border-radius-half);
 		padding: var(--padding);
 	}
 

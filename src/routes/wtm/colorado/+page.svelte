@@ -1,9 +1,8 @@
 <script>
-	import MarginNav from '$lib/Margin/MarginNav.svelte';
 	import { categoryInventory } from '../categoryStore';
 	import { eatAndDrinkInventory } from './eatAndDrinkStore';
 	import { entertainmentInventory } from './entertainmentStore';
-	import { scrollToBottom, scrollToTop } from '$lib/utils';
+	import MarginNav from '$lib/Margin/MarginNav.svelte';
 
 	let eatAndDrinkCategory = $categoryInventory[0];
 	let entertainmentCategory = $categoryInventory[1];
@@ -11,7 +10,7 @@
 
 <div class="container">
 	<div class="content">
-		<h1>🧭 What's the Move for Minnesota</h1>
+		<h1>🧭 What's the Move for Colorado</h1>
 
 		<p>
 			A curated selection of <span class="highlight highlight-3">where to eat</span>,
@@ -76,10 +75,12 @@
 			<div class="navPills">
 				<MarginNav></MarginNav>
 				{#each $categoryInventory as category}
+					<!-- <button class="pill"> -->
 					<a href="#{category.id}">
 						{category.emoji}
 						{category.name}
 					</a>
+					<!-- </button> -->
 				{/each}
 			</div>
 			<div class="superPills">
@@ -87,5 +88,4 @@
 			</div>
 		</div>
 	</div>
-	<button class="fab" on:click={scrollToBottom}>📑</button>
 </div>

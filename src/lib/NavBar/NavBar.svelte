@@ -1,34 +1,44 @@
 <script>
-	import ThemeSwitcher from '$lib/ThemeSwitcher/ThemeSwitcher.svelte';
+	function toggleDarkMode() {
+		let darkMode = document.documentElement.getAttribute('data-theme');
+
+		if (darkMode == 'light') {
+			document.documentElement.setAttribute('data-theme', 'dark');
+		} else {
+			document.documentElement.setAttribute('data-theme', 'light');
+		}
+	}
 </script>
 
 <nav>
 	<div class="nav-items">
-		<button>
-			<a href="/" data-sveltekit-replaceState>💖 Kashinoga</a>
-		</button>
-		<ThemeSwitcher></ThemeSwitcher>
-		<button>
-			<a href="/menu" data-sveltekit-replaceState>🍔 Menu</a>
-		</button>
+		<a href="/">💖 Kashinoga</a>
+
+		<button on:click={toggleDarkMode}>💡Mode</button>
+
+		<a href="/menu">🍔 Menu</a>
 	</div>
 </nav>
 
 <style>
-	nav a {
-		font-family: var(--font-family);
-	}
-
 	nav {
-		/* position: sticky; */
-		/* top: var(--margin); */
-		background-color: var(--background-color);
+		margin: auto;
+		margin-bottom: var(--margin);
+		padding-bottom: var(--padding);
+		border-bottom: var(--border);
 	}
 
 	@media (min-width: 900px) {
 		nav {
 			position: unset;
-			max-width: var(--width-large);
+			max-width: var(--width-larger);
+
+			background: none;
+
+			margin-bottom: 0;
+
+			padding-bottom: 0;
+
 			border: 0;
 			border-radius: 0;
 			border-bottom: var(--border);
@@ -36,12 +46,8 @@
 	}
 
 	.nav-items {
-		justify-content: space-evenly;
-		padding: var(--padding-small);
 		display: flex;
 		gap: var(--gap-small);
-		border: var(--border);
-		border-radius: var(--border-radius);
 	}
 
 	@media (min-width: 900px) {
@@ -56,7 +62,37 @@
 		}
 	}
 
+	nav a {
+		background: none;
+		background-color: var(--background-color-light);
+
+		color: var(--text-color);
+
+		border: var(--border);
+		border-radius: var(--border-radius-half);
+
+		padding-block: 0;
+		padding-inline: 0;
+		padding: var(--padding-small);
+
+		text-decoration: none;
+	}
+
 	nav button {
-		font-size: medium;
+		background: none;
+		background-color: var(--background-color-light);
+
+		color: var(--text-color);
+
+		border: var(--border);
+		border-radius: var(--border-radius-half);
+
+		padding-block: 0;
+		padding-inline: 0;
+		padding: var(--padding-small);
+
+		font-size: unset;
+		font-weight: unset;
+		text-decoration: none;
 	}
 </style>

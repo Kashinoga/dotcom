@@ -1,11 +1,11 @@
 <script>
-	import './wtm.css';
+	import MarginNav from '$lib/Margin/MarginNav.svelte';
 	import { statesOfAmericaInventory } from './unitedStatesStore';
 </script>
 
 <div class="container">
 	<div class="content">
-		<h1 class="h1-first">🧭 What's the Move</h1>
+		<h1>🧭 What's the Move</h1>
 
 		<p>
 			A curated selection of <span class="highlight highlight-3">where to eat</span>,
@@ -19,9 +19,11 @@
 			<div class="navPills">
 				{#each $statesOfAmericaInventory as state}
 					{#if state.enabled == 'true'}
-						<a class="contentItem" href="/wtm/{state.name.toLowerCase()}"
-							><button>{state.name} {state.emoji}</button></a
-						>
+						{#if state.emoji != ''}
+							<a href="/wtm/{state.name.toLowerCase()}">{state.emoji} {state.name} </a>
+						{:else}
+							<button disabled class="pill">{state.emoji} {state.name} </button>
+						{/if}
 					{/if}
 				{/each}
 			</div>
@@ -29,8 +31,18 @@
 	</div>
 	<div class="margin">
 		<div class="marginPills">
+			<div class="navPills">
+				<MarginNav></MarginNav>
+			</div>
 			<div class="superPills">
 				<p><sub><sup>[0]</sup>The States' emojis are not a generalization. <i>Mostly</i>.</sub></p>
+				<p><sub><sup>[0a]</sup>The States without an emoji are coming soon!</sub></p>
+				<p>
+					<sub
+						><sup>[0b]</sup>The States not listed at all are just more exploration opportunities. No
+						hard feelings.</sub
+					>
+				</p>
 			</div>
 		</div>
 	</div>
