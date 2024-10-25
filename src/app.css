@@ -6,7 +6,7 @@
 	--width-smaller: 360px;
 	--width-smallest: 240px;
 
-	--background-color: white;
+	--background-color: #e8e8e8;
 	--background-color-light: #f2f2f2;
 
 	--text-color: black;
@@ -26,7 +26,7 @@
 
 	--border: 1px solid rgba(0, 0, 0, 0.2);
 
-	--border-radius: 1em;
+	--border-radius: 0.8em;
 	--border-radius-half: 0.4em;
 
 	--red: #ff4136;
@@ -50,14 +50,14 @@
 
 [data-theme='dark'] {
 	--background-color: #080808;
-	--background-color-light: #101010;
+	--background-color-light: #121212;
 
 	--text-color: white;
 	--text-color-inverted: black;
 
 	--border: 1px solid rgba(255, 255, 255, 0.2);
 
-	--table-background-color: #282828;
+	--table-background-color: #121212;
 
 	.highlight,
 	.highlight-2,
@@ -71,7 +71,7 @@ html {
 	scroll-behavior: smooth;
 }
 
-/* Fonts */
+/* Font */
 
 /* @font-face {
 	font-family: 'Noto Sans';
@@ -196,6 +196,30 @@ body {
 	}
 }
 
+/* section */
+
+.sections {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--gap);
+}
+
+.section {
+	padding: var(--padding);
+	background-color: var(--background-color-light);
+	border: var(--border);
+	border-radius: var(--border-radius);
+	flex-grow: 1;
+}
+
+.sections a {
+	flex-grow: 1;
+}
+
+.section h1 {
+	margin: 0;
+}
+
 /* Margin */
 
 .margin {
@@ -292,7 +316,7 @@ body {
 	}
 }
 
-/* Buttons */
+/* Button */
 
 button {
 	background: none;
@@ -314,7 +338,7 @@ button:disabled {
 	cursor: not-allowed;
 }
 
-/* Tables */
+/* Table */
 table {
 	width: 100%;
 	border-collapse: collapse;
@@ -343,7 +367,7 @@ tbody > tr > td {
 	text-align: left;
 }
 
-/* Cards */
+/* Card */
 .cards {
 	display: grid;
 	gap: var(--gap);

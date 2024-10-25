@@ -13,7 +13,7 @@
 			<span class="highlight highlight-3">things to do</span>.
 		</p>
 
-		<h2>United States of America 🇺🇸</h2>
+		<h2>United States of America<sup>[1, 1a, 1b]</sup> 🇺🇸</h2>
 
 		<div class="marginPills">
 			<div class="navPills">
@@ -35,11 +35,11 @@
 				<MarginNav></MarginNav>
 			</div>
 			<div class="superPills">
-				<p><sub><sup>[0]</sup>The States' emojis are not a generalization. <i>Mostly</i>.</sub></p>
-				<p><sub><sup>[0a]</sup>The States without an emoji are coming soon!</sub></p>
+				<p><sub><sup>[1]</sup>The States' emojis are not a generalization. <i>Mostly</i>.</sub></p>
+				<p><sub><sup>[1a]</sup>The States without an emoji are coming soon!</sub></p>
 				<p>
 					<sub
-						><sup>[0b]</sup>The States not listed at all are just more exploration opportunities. No
+						><sup>[1b]</sup>The States not listed at all are just more exploration opportunities. No
 						hard feelings.</sub
 					>
 				</p>
