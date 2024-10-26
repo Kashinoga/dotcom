@@ -13,9 +13,7 @@
 		<h1>🧭 What's the Move for Colorado</h1>
 
 		<p>
-			A curated selection of <span class="highlight highlight-3">where to eat</span>,
-			<span class="highlight highlight-3">places to see</span>, and
-			<span class="highlight highlight-3">things to do</span>.
+			<i>We're pretty chill, but like... Uhm...</i>
 		</p>
 
 		<div class="cardsContainer">

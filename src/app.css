@@ -344,11 +344,16 @@ button:disabled {
 
 select {
 	cursor: pointer;
+
 	background-color: var(--background-color);
 	color: var(--text-color);
+
 	border: var(--border);
 	border-radius: var(--border-radius-half);
+
 	padding: var(--padding);
+
+	min-height: 2em;
 }
 
 option {

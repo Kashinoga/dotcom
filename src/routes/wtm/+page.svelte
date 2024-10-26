@@ -18,6 +18,7 @@
 
 			<div class="section">
 				<h2>United States of America<sup>[1, 1a, 1b]</sup> 🇺🇸</h2>
+				<p><i>We're trying our best.</i></p>
 
 				<div class="marginPills">
 					<div class="navPills">
