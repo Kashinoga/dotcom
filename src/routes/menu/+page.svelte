@@ -5,12 +5,23 @@
 <div class="container">
 	<div class="content">
 		<div class="sections">
+			<a href="/inthewood">
+				<div class="section">
+					<h1>⛺ InTheWood</h1>
+
+					<p>
+						A <span class="highlight highlight-2">game</span> about
+						<span class="highlight highlight-3">the outdoors</span>.
+					</p>
+				</div>
+			</a>
 			<a href="/wtm">
 				<div class="section">
 					<h1>🧭 What's the Move</h1>
 
 					<p>
-						A curated selection of <span class="highlight highlight-3">where to eat</span>,
+						A curated <span class="highlight highlight-2">selection</span> of
+						<span class="highlight highlight-3">where to eat</span>,
 						<span class="highlight highlight-3">places to see</span>, and
 						<span class="highlight highlight-3">things to do</span>.
 					</p>

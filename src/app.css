@@ -322,11 +322,22 @@ body {
 
 button {
 	background: none;
+	background-color: var(--background-color-light);
+
 	color: var(--text-color);
-	border: none;
+
+	border: var(--border);
+	border-radius: var(--border-radius-half);
+
 	padding-block: 0;
 	padding-inline: 0;
+
+	padding: var(--padding-small);
+
 	font-family: var(--font-family);
+	font-size: unset;
+	font-weight: unset;
+	text-decoration: none;
 }
 
 button a {
@@ -338,6 +349,10 @@ button:disabled {
 	background-color: var(--background-color);
 
 	cursor: not-allowed;
+}
+
+button:hover {
+	cursor: pointer;
 }
 
 /* Select */

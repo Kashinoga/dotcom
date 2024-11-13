@@ -77,22 +77,4 @@
 
 		text-decoration: none;
 	}
-
-	nav button {
-		background: none;
-		background-color: var(--background-color-light);
-
-		color: var(--text-color);
-
-		border: var(--border);
-		border-radius: var(--border-radius-half);
-
-		padding-block: 0;
-		padding-inline: 0;
-		padding: var(--padding-small);
-
-		font-size: unset;
-		font-weight: unset;
-		text-decoration: none;
-	}
 </style>
