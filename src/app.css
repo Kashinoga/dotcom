@@ -353,7 +353,7 @@ select {
 
 	padding: var(--padding);
 
-	line-height: 1em;
+	line-height: 2em;
 }
 
 option {
