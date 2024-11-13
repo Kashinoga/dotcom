@@ -352,7 +352,7 @@ select {
 	border-radius: var(--border-radius-half);
 
 	padding: var(--padding);
-
+	font-size: 1em;
 	line-height: 2em;
 }
 
