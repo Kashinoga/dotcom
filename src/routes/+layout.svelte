@@ -5,6 +5,8 @@
 
 	import NavBar from '$lib/NavBar/NavBar.svelte';
 	import FloatingActionButton from '$lib/FloatingActionButton/FloatingActionButton.svelte';
+	/** @type {{children?: import('svelte').Snippet}} */
+	let { children } = $props();
 
 	onMount(() => {
 		const preferredDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
@@ -19,4 +21,4 @@
 
 <NavBar></NavBar>
 <FloatingActionButton></FloatingActionButton>
-<slot />
+{@render children?.()}

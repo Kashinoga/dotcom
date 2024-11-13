@@ -14,7 +14,7 @@
 	<div class="nav-items">
 		<a href="/">💖 Kashinoga</a>
 
-		<button on:click={toggleDarkMode}>💡Mode</button>
+		<button onclick={toggleDarkMode}>💡Mode</button>
 
 		<a href="/menu">🍔 Menu</a>
 	</div>

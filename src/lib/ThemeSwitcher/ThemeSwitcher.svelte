@@ -10,7 +10,7 @@
 	}
 </script>
 
-<button on:click={toggleDarkMode}>💡Mode</button>
+<button onclick={toggleDarkMode}>💡Mode</button>
 
 <style>
 	/* .toggleDarkMode {

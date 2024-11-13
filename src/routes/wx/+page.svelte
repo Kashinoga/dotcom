@@ -54,22 +54,22 @@
 		{ name: 'Wyoming', abbreviation: 'WY' }
 	];
 
-	let selectedState = 'Select a State';
+	let selectedState = $state('Select a State');
 
 	let weatherDataResponse;
-	let featuresLength = 0;
+	let featuresLength = $state(0);
 
-	let weatherDatum = {
+	let weatherDatum = $state({
 		title: '',
 		NWSheadline: '',
 		areaDesc: '',
 		updated: ''
-	};
+	});
 
-	let weatherData: { [key: string]: string }[] = [];
+	let weatherData: { [key: string]: string }[] = $state([]);
 
 	async function getWeatherData() {
-		weatherData = [];
+		// weatherData = [];
 		if (selectedState != 'Select a State') {
 			let url = 'https://api.weather.gov/alerts/active/area/' + selectedState;
 			const response = await fetch(url);
@@ -115,7 +115,7 @@
 					id="stateSelect"
 					class="stateSelect"
 					bind:value={selectedState}
-					on:change={getWeatherData}
+					onchange={getWeatherData}
 					>\
 					<option disabled>Select a State</option>
 					{#each statesOfAmerica as state}
@@ -146,7 +146,7 @@
 										</p>
 										<button
 											class="areaDescCopyButton"
-											on:click={() =>
+											onclick={() =>
 												copyToClipboard(weatherDatum.areaDesc + '\n\n' + weatherDatum.NWSheadline)}
 											><h2>📑</h2></button
 										>
