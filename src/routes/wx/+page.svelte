@@ -100,11 +100,12 @@
 <div class="container">
 	<div class="content">
 		<div class="sections">
-			<div class="section">
+			<div class="section section-100">
 				<h1>🌦️ WX</h1>
 
 				<p>A simple <span class="highlight highlight-2">weather app</span>.</p>
-
+			</div>
+			<div class="section">
 				<p>
 					The forecast is provided by your <span class="highlight">local sorceress</span><sup
 						>[1]</sup
@@ -136,7 +137,7 @@
 								>
 							</p>
 							<p class="weatherDatumUpdated">
-								<span class="highlight highlight-q">{weatherDatum.updated}<sup>[2]</sup></span>
+								{weatherDatum.updated}<sup>[2]</sup>
 							</p>
 							{#each weatherData as weatherDatum, index}
 								<div class="weatherDatum">
