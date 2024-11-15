@@ -25,6 +25,7 @@
 	--padding-smaller: 0.2em;
 
 	--border: 1px solid rgba(0, 0, 0, 0.2);
+	--border-dotted: 1px dotted rgba(0, 0, 0, 0.2);
 
 	--border-radius: 0.8em;
 	--border-radius-half: 0.4em;
@@ -201,7 +202,7 @@ body {
 		min-width: var(--width-medium);
 		padding: var(--padding);
 		padding-left: 0;
-		border-right: var(--border);
+		border-right: var(--border-dotted);
 	}
 }
 
@@ -236,7 +237,7 @@ body {
 /* Margin */
 
 .margin {
-	border-top: var(--border);
+	border-top: var(--border-dotted);
 	margin-bottom: var(--margin-fab-clear);
 }
 
@@ -423,7 +424,7 @@ tbody > tr > td {
 }
 
 .card {
-	background-color: var(--background-color-light);
+	background-color: var(--background-color);
 
 	padding: var(--padding);
 	border: var(--border);
