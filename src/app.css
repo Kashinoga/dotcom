@@ -171,6 +171,9 @@ body {
 	/* font-family: 'Noto Sans', 'Noto Color Emoji', sans-serif; '*/
 	background-color: var(--background-color);
 	color: var(--text-color);
+
+	/* background: linear-gradient(180deg, var(--yellow), var(--white));
+	height: 100vh; */
 }
 
 .container {

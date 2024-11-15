@@ -33,7 +33,7 @@
 			position: unset;
 			max-width: var(--width-larger);
 
-			background: none;
+			/* background: none; */
 
 			margin-bottom: 0;
 
@@ -62,22 +62,7 @@
 		}
 	}
 
-	nav a {
-		background: none;
-		background-color: var(--background-color-light);
-
-		color: var(--text-color);
-
-		border: var(--border);
-		border-radius: var(--border-radius-half);
-
-		padding-block: 0;
-		padding-inline: 0;
-		padding: var(--padding-small);
-
-		text-decoration: none;
-	}
-
+	nav a,
 	nav button {
 		background: none;
 		background-color: var(--background-color-light);
@@ -90,9 +75,17 @@
 		padding-block: 0;
 		padding-inline: 0;
 		padding: var(--padding-small);
+	}
 
+	nav a {
+		text-decoration: none;
+	}
+
+	nav button {
 		font-size: unset;
 		font-weight: unset;
 		text-decoration: none;
+
+		cursor: pointer;
 	}
 </style>
