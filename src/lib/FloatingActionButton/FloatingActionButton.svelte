@@ -11,7 +11,7 @@
 		padding: var(--padding-small);
 
 		border: var(--border);
-		border-radius: var(--border-radius);
+		border-radius: var(--border-radius-half);
 
 		position: fixed;
 
@@ -21,5 +21,7 @@
 		font-size: x-large;
 
 		cursor: pointer;
+
+		z-index: 9001;
 	}
 </style>

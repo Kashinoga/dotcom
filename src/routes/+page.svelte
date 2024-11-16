@@ -29,8 +29,9 @@
 			</div>
 			<div class="section section-grow">
 				<p>
-					"I will root for you, all the time." —<span class="highlight">Anime Girl</span>, Moments
-					in the Universe<sup>[2]</sup>
+					<span class="highlight highlight-q">"I will root for you, all the time."</span> —<span
+						class="highlight">Anime Girl</span
+					>, Moments in the Universe<sup>[2]</sup>
 				</p>
 			</div>
 		</div>
