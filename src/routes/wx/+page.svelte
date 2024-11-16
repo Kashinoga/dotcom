@@ -117,7 +117,7 @@
 					class="stateSelect"
 					bind:value={selectedState}
 					onchange={getWeatherData}
-					>\
+				>
 					<option disabled>Select a State</option>
 					{#each statesOfAmerica as state}
 						<option value={state.abbreviation}>
