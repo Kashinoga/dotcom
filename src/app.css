@@ -340,8 +340,8 @@ button {
 
 	color: var(--text-color);
 
-	border: var(--border);
-	border-radius: var(--border-radius-half);
+	border: none;
+	/* border-radius: var(--border-radius-half); */
 
 	padding-block: 0;
 	padding-inline: 0;
