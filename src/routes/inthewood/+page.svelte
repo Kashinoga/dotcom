@@ -37,7 +37,7 @@
 		<div class="section section-100">
 			<div class="logs">
 				<div class="log log-adventure">
-					<div class="log-title">Adventure Log</div>
+					<div class="title">Adventure Log</div>
 					<div class="log-messages">
 						<div class="log-adventure-message">
 							<span>Hi!</span>
@@ -52,7 +52,7 @@
 				</div>
 
 				<div class="log log-session">
-					<div class="log-title">Session Log</div>
+					<div class="title">Session Log</div>
 					<div class="log-messages" bind:this={container}>
 						{#each $sessionLog as sessionLogMessage}
 							<div class="log-session-message">
@@ -64,34 +64,19 @@
 			</div>
 		</div>
 
-		<div class="section">
+		<div class="section section-100">
+			<div class="location">
+				<div class="title">Location</div>
+			</div>
+		</div>
+
+		<div class="section section-100">
 			<div class="equipment">
 				<div class="equip">
-					<div class="equip-title">Hands</div>
+					<div class="title">Hands</div>
 					<div class="equip-actions">
 						<div class="actions">
 							<button class="action" on:click={handsAction}>Gather</button>
-							<button class="action">Hunt</button>
-							<button class="action">Hunt</button>
-
-							<button class="action">Hunt</button>
-
-							<button class="action">Hunt</button>
-
-							<button class="action">Hunt</button>
-
-							<button class="action">Hunt</button>
-							<button class="action">Hunt</button>
-							<button class="action">Hunt</button>
-							<button class="action">Hunt</button>
-							<button class="action">Hunt</button>
-							<button class="action">Hunt</button>
-							<button class="action">Hunt</button>
-							<button class="action">Hunt</button>
-							<button class="action">Hunt</button>
-							<button class="action">Hunt</button>
-							<button class="action">Hunt</button>
-
 							<button class="action">Hunt</button>
 						</div>
 						<div class="items">
@@ -156,8 +141,8 @@
 		align-content: end;
 	}
 
-	.log-title {
-		/* flex-grow: 1; */
+	.title {
+		flex-grow: 1;
 		align-content: start;
 		font-weight: bold;
 		border-bottom: var(--border-dotted);
@@ -172,6 +157,15 @@
 		height: 10em;
 
 		overflow-y: auto;
+	}
+
+	.location {
+		border: var(--border);
+		border-radius: var(--border-radius);
+
+		padding: var(--padding);
+
+		background-color: var(--white);
 	}
 
 	.equipment {
@@ -192,7 +186,7 @@
 		flex-direction: column;
 	}
 
-	.equip-title {
+	/* .title {
 		flex-grow: 1;
 
 		font-weight: bold;
@@ -200,7 +194,7 @@
 		border-bottom: var(--border-dotted);
 
 		padding-bottom: var(--padding);
-	}
+	} */
 
 	.equip-actions {
 		display: flex;
