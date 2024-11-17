@@ -29,68 +29,70 @@
 </script>
 
 <div class="container">
-	<div class="sections">
-		<div class="section section-100">
-			<h1>{icon.content} {title.content}</h1>
-		</div>
+	<div class="content">
+		<div class="sections">
+			<div class="section section-100">
+				<h1>{icon.content} {title.content}</h1>
+			</div>
 
-		<div class="section section-100">
-			<div class="logs">
-				<div class="log log-adventure">
-					<div class="title">Adventure Log</div>
-					<div class="log-messages">
-						<div class="log-adventure-message">
-							<span>Hi!</span>
+			<div class="section section-100">
+				<div class="logs">
+					<div class="log log-adventure">
+						<div class="title">Adventure Log</div>
+						<div class="log-messages">
+							<div class="log-adventure-message">
+								<span>Hi!</span>
+							</div>
+							<div class="log-adventure-message">
+								<span>Welcome to InTheWood!</span>
+							</div>
+							<div class="log-adventure-message">
+								<span>This is a very early release.</span>
+							</div>
 						</div>
-						<div class="log-adventure-message">
-							<span>Welcome to InTheWood!</span>
-						</div>
-						<div class="log-adventure-message">
-							<span>This is a very early release.</span>
+					</div>
+
+					<div class="log log-session">
+						<div class="title">Session Log</div>
+						<div class="log-messages" bind:this={container}>
+							{#each $sessionLog as sessionLogMessage}
+								<div class="log-session-message">
+									<span>{sessionLogMessage.message}</span>
+								</div>
+							{/each}
 						</div>
 					</div>
 				</div>
+			</div>
 
-				<div class="log log-session">
-					<div class="title">Session Log</div>
-					<div class="log-messages" bind:this={container}>
-						{#each $sessionLog as sessionLogMessage}
-							<div class="log-session-message">
-								<span>{sessionLogMessage.message}</span>
-							</div>
-						{/each}
-					</div>
+			<div class="section section-100">
+				<div class="location">
+					<div class="title">Location</div>
 				</div>
 			</div>
-		</div>
 
-		<div class="section section-100">
-			<div class="location">
-				<div class="title">Location</div>
-			</div>
-		</div>
-
-		<div class="section section-100">
-			<div class="equipment">
-				<div class="equip">
-					<div class="title">Hands</div>
-					<div class="equip-actions">
-						<div class="actions">
-							<button class="action" on:click={handsAction}>Gather</button>
-							<button class="action">Hunt</button>
-						</div>
-						<div class="items">
-							<div class="item">
-								<select
-									><option disabled>Select a Left-Hand Item</option>
-									<option value="axe"> Basic Axe </option></select
-								>
+			<div class="section section-100">
+				<div class="equipment">
+					<div class="equip">
+						<div class="title">Hands</div>
+						<div class="equip-actions">
+							<div class="actions">
+								<button class="action" on:click={handsAction}>Gather</button>
+								<button class="action">Hunt</button>
 							</div>
-							<div class="item">
-								<select
-									><option disabled>Select a Right-Hand Item</option>
-									<option value="axe"> Basic Axe </option></select
-								>
+							<div class="items">
+								<div class="item">
+									<select
+										><option disabled>Select a Left-Hand Item</option>
+										<option value="axe"> Basic Axe </option></select
+									>
+								</div>
+								<div class="item">
+									<select
+										><option disabled>Select a Right-Hand Item</option>
+										<option value="axe"> Basic Axe </option></select
+									>
+								</div>
 							</div>
 						</div>
 					</div>
@@ -101,11 +103,13 @@
 </div>
 
 <style>
+	.content {
+		border-right: none;
+	}
+
 	.sections {
 		display: flex;
 		flex-grow: 1;
-
-		padding-top: var(--padding);
 	}
 
 	.section-100 {
