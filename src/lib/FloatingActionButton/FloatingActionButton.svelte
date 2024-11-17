@@ -24,5 +24,9 @@
 		cursor: pointer;
 
 		z-index: 9001;
+
+		width: 2em;
+		height: 2em;
+		line-height: 1em;
 	}
 </style>
