@@ -6,12 +6,13 @@
 
 <style>
 	.fab {
-		background-color: var(--background-color-light);
+		background-color: color-mix(in srgb, var(--background-color-light) 2%, transparent);
+		backdrop-filter: blur(0.2em);
 
 		padding: var(--padding-small);
 
 		border: var(--border);
-		border-radius: var(--border-radius-half);
+		border-radius: 2em;
 
 		position: fixed;
 
