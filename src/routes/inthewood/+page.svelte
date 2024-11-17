@@ -1,9 +1,31 @@
 <script>
+	import { onMount } from 'svelte';
 	import { inTheWood } from './inTheWoodStore';
-	import { handsAction, sessionLog } from './sessionLogStore';
+	import { sessionLog } from './sessionLogStore';
 
 	let icon = $inTheWood[0];
 	let title = $inTheWood[1];
+
+	export function handsAction() {
+		const newSessionLogMessage = { id: 2, message: 'Hands: Gather' };
+		sessionLog.update((currentLog) => [...currentLog, newSessionLogMessage]);
+		scrollToBottom();
+	}
+
+	/**
+	 * @type {HTMLDivElement}
+	 */
+	let container;
+
+	function scrollToBottom() {
+		if (container) {
+			container.scrollTop = container.scrollHeight;
+		}
+	}
+
+	onMount(() => {
+		scrollToBottom();
+	});
 </script>
 
 <div class="container">
@@ -31,7 +53,7 @@
 
 				<div class="log log-session">
 					<div class="log-title">Session Log</div>
-					<div class="log-messages">
+					<div class="log-messages" bind:this={container}>
 						{#each $sessionLog as sessionLogMessage}
 							<div class="log-session-message">
 								<span>{sessionLogMessage.message}</span>
@@ -49,6 +71,27 @@
 					<div class="equip-actions">
 						<div class="actions">
 							<button class="action" on:click={handsAction}>Gather</button>
+							<button class="action">Hunt</button>
+							<button class="action">Hunt</button>
+
+							<button class="action">Hunt</button>
+
+							<button class="action">Hunt</button>
+
+							<button class="action">Hunt</button>
+
+							<button class="action">Hunt</button>
+							<button class="action">Hunt</button>
+							<button class="action">Hunt</button>
+							<button class="action">Hunt</button>
+							<button class="action">Hunt</button>
+							<button class="action">Hunt</button>
+							<button class="action">Hunt</button>
+							<button class="action">Hunt</button>
+							<button class="action">Hunt</button>
+							<button class="action">Hunt</button>
+							<button class="action">Hunt</button>
+
 							<button class="action">Hunt</button>
 						</div>
 						<div class="items">
@@ -86,15 +129,22 @@
 
 	.logs {
 		display: flex;
+		flex-direction: column;
 		flex-grow: 1;
 		flex-wrap: wrap;
 		gap: var(--gap-small);
 	}
 
+	@media (min-width: 900px) {
+		.logs {
+			flex-direction: row;
+		}
+	}
+
 	.log {
 		display: flex;
 		flex-direction: column;
-		flex-grow: 1;
+		flex: 1;
 
 		border: var(--border);
 		border-radius: var(--border-radius);
@@ -103,10 +153,7 @@
 
 		background-color: var(--white);
 
-		height: 10em;
-
 		align-content: end;
-		overflow-y: auto;
 	}
 
 	.log-title {
@@ -120,6 +167,11 @@
 	.log-messages {
 		align-content: end;
 		flex-grow: 1;
+		margin-top: var(--margin);
+
+		height: 10em;
+
+		overflow-y: auto;
 	}
 
 	.equipment {
@@ -142,29 +194,60 @@
 
 	.equip-title {
 		flex-grow: 1;
+
 		font-weight: bold;
+
 		border-bottom: var(--border-dotted);
+
 		padding-bottom: var(--padding);
 	}
 
 	.equip-actions {
 		display: flex;
+		flex-direction: column;
+		gap: var(--gap-small);
+
 		margin-top: var(--margin);
+	}
+
+	@media (min-width: 900px) {
+		.equip-actions {
+			flex-direction: row;
+		}
 	}
 
 	.actions {
 		display: flex;
-		gap: var(--gap-small);
-		border-right: var(--border-dotted);
-		padding-right: var(--padding);
+		flex-direction: column;
 		flex-grow: 1;
+		flex-wrap: wrap;
+		gap: var(--gap-small);
+	}
+
+	@media (min-width: 900px) {
+		.actions {
+			flex-direction: row;
+
+			border-right: var(--border-dotted);
+
+			padding-right: var(--padding);
+		}
 	}
 
 	.items {
 		display: flex;
+		flex-direction: column;
 		gap: var(--gap-small);
-		align-items: center;
-		padding-left: var(--padding);
+	}
+
+	@media (min-width: 900px) {
+		.items {
+			flex-direction: row;
+		}
+	}
+
+	.items select {
+		width: 100%;
 	}
 
 	button {
