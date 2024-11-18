@@ -68,6 +68,10 @@
 			<div class="section section-100">
 				<div class="location">
 					<div class="title">Location</div>
+					<select>
+						<option disabled>Select a Location</option>
+						<option>Basecamp</option></select
+					>
 				</div>
 			</div>
 
@@ -104,6 +108,10 @@
 
 <style>
 	.content {
+		max-width: unset;
+
+		padding-right: unset;
+
 		border-right: none;
 	}
 
@@ -140,7 +148,7 @@
 
 		padding: var(--padding);
 
-		background-color: var(--white);
+		background-color: var(--background-color-section);
 
 		align-content: end;
 	}
@@ -148,15 +156,19 @@
 	.title {
 		flex-grow: 1;
 		align-content: start;
+
 		font-weight: bold;
+
 		border-bottom: var(--border-dotted);
+
 		padding-bottom: var(--padding);
+
+		margin-bottom: var(--margin);
 	}
 
 	.log-messages {
 		align-content: end;
 		flex-grow: 1;
-		margin-top: var(--margin);
 
 		height: 10em;
 
@@ -169,7 +181,7 @@
 
 		padding: var(--padding);
 
-		background-color: var(--white);
+		background-color: var(--background-color-section);
 	}
 
 	.equipment {
@@ -181,7 +193,7 @@
 
 		padding: var(--padding);
 
-		background-color: var(--white);
+		background-color: var(--background-color-section);
 	}
 
 	.equip {
@@ -204,8 +216,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--gap-small);
-
-		margin-top: var(--margin);
 	}
 
 	@media (min-width: 900px) {
