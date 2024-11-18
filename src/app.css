@@ -8,19 +8,20 @@
 
 	--background-color: #e8e8e8;
 	--background-color-light: #f2f2f2;
+	--background-color-section: white;
 
 	--text-color: black;
 	--text-color-inverted: white;
 
 	--gap-small: 0.4em;
-	--gap: 1em;
+	--gap: 0.8em;
 
 	--margin-small: 0.2em;
 	--margin: 1em;
 	--margin-fab-clear: 4em;
 
 	--padding-big: 1.2em;
-	--padding: 1em;
+	--padding: 0.8em;
 	--padding-small: 0.4em;
 	--padding-smaller: 0.2em;
 
@@ -54,11 +55,13 @@
 [data-theme='dark'] {
 	--background-color: #080808;
 	--background-color-light: #121212;
+	--background-color-section: black;
 
 	--text-color: white;
 	--text-color-inverted: black;
 
 	--border: 1px solid rgba(255, 255, 255, 0.2);
+	--border-dotted: 1px dotted rgba(255, 255, 255, 0.2);
 
 	--table-background-color: #121212;
 
@@ -175,6 +178,8 @@ body {
 
 	/* background: linear-gradient(180deg, var(--yellow), var(--white));
 	height: 100vh; */
+
+	touch-action: manipulation;
 }
 
 .container {
@@ -336,11 +341,22 @@ body {
 
 button {
 	background: none;
+	background-color: var(--background-color-light);
+
 	color: var(--text-color);
+
 	border: none;
+	/* border-radius: var(--border-radius-half); */
+
 	padding-block: 0;
 	padding-inline: 0;
+
+	padding: var(--padding-small);
+
 	font-family: var(--font-family);
+	font-size: unset;
+	font-weight: unset;
+	text-decoration: none;
 }
 
 button a {
@@ -352,6 +368,10 @@ button:disabled {
 	background-color: var(--background-color);
 
 	cursor: not-allowed;
+}
+
+button:hover {
+	cursor: pointer;
 }
 
 /* Select */
@@ -411,7 +431,7 @@ tbody > tr > td {
 /* Card */
 .cards {
 	display: grid;
-	gap: var(--gap);
+	gap: var(--gap-small);
 
 	margin-top: var(--margin);
 	/* margin-bottom: var(--margin); */
