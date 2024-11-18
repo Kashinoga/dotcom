@@ -178,6 +178,8 @@ body {
 
 	/* background: linear-gradient(180deg, var(--yellow), var(--white));
 	height: 100vh; */
+
+	touch-action: manipulation;
 }
 
 .container {
