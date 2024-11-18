@@ -1,15 +1,26 @@
 <script>
 	import { onMount } from 'svelte';
 	import { inTheWood } from './inTheWoodStore';
+	import { adventureLog } from './adventureLogStore';
 	import { sessionLog } from './sessionLogStore';
 
 	let icon = $inTheWood[0];
 	let title = $inTheWood[1];
 
+	let isDisabled = false;
+
+	function handleClick() {
+		isDisabled = true; // Disable the button
+		setTimeout(() => {
+			isDisabled = false; // Re-enable the button after 4 seconds
+		}, 4000);
+	}
+
 	export function handsAction() {
-		const newSessionLogMessage = { id: 2, message: 'Hands: Gather' };
+		const newSessionLogMessage = { id: 2, message: 'You [Gather] with your [Hands]...' };
 		sessionLog.update((currentLog) => [...currentLog, newSessionLogMessage]);
 		scrollToBottom();
+		handleClick();
 	}
 
 	/**
@@ -39,16 +50,13 @@
 				<div class="logs">
 					<div class="log log-adventure">
 						<div class="title">Adventure Log</div>
+
 						<div class="log-messages">
-							<div class="log-adventure-message">
-								<span>Hi!</span>
-							</div>
-							<div class="log-adventure-message">
-								<span>Welcome to InTheWood!</span>
-							</div>
-							<div class="log-adventure-message">
-								<span>This is a very early release.</span>
-							</div>
+							{#each $adventureLog as adventureLogMessage}
+								<div class="log-adventure-message">
+									<span>{adventureLogMessage.message}</span>
+								</div>
+							{/each}
 						</div>
 					</div>
 
@@ -81,7 +89,10 @@
 						<div class="title">Hands</div>
 						<div class="equip-actions">
 							<div class="actions">
-								<button class="action" on:click={handsAction}>Gather</button>
+								<button class="action" on:click={handsAction} disabled={isDisabled}
+									>{isDisabled ? 'Gathering...' : 'Gather'}
+									<div class="loading-bar"></div></button
+								>
 								<button class="action">Hunt</button>
 							</div>
 							<div class="items">
@@ -240,6 +251,36 @@
 
 			padding-right: var(--padding);
 		}
+	}
+
+	.action {
+		position: relative; /* Allows positioning of child elements */
+		cursor: pointer;
+		overflow: hidden; /* Ensures the loading bar stays inside the button */
+	}
+
+	.action:disabled {
+		cursor: not-allowed;
+		background-color: #6c757d;
+	}
+
+	.loading-bar {
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		height: 4px;
+		background: #00ffcc;
+		width: 0;
+		transition: width 4s linear;
+	}
+
+	.action:disabled .loading-bar {
+		width: 100%;
+	}
+
+	.action:not(:disabled) .loading-bar {
+		transition: width 0.2s linear; /* Instantly resets when button is re-enabled */
+		width: 0; /* Resets width immediately */
 	}
 
 	.items {
