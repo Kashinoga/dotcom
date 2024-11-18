@@ -257,11 +257,13 @@
 		position: relative; /* Allows positioning of child elements */
 		cursor: pointer;
 		overflow: hidden; /* Ensures the loading bar stays inside the button */
+
+		width: 8em;
 	}
 
 	.action:disabled {
 		cursor: not-allowed;
-		background-color: #6c757d;
+		background-color: var(--background-color);
 	}
 
 	.loading-bar {
@@ -269,7 +271,7 @@
 		bottom: 0;
 		left: 0;
 		height: 4px;
-		background: #00ffcc;
+		background: var(--green);
 		width: 0;
 		transition: width 4s linear;
 	}
@@ -279,7 +281,7 @@
 	}
 
 	.action:not(:disabled) .loading-bar {
-		transition: width 0.2s linear; /* Instantly resets when button is re-enabled */
+		transition: none; /* Instantly resets when button is re-enabled */
 		width: 0; /* Resets width immediately */
 	}
 
