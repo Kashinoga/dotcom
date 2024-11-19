@@ -42,8 +42,11 @@
 <div class="container">
 	<div class="content">
 		<div class="sections">
-			<div class="section section-100">
-				<h1>{icon.content} {title.content}</h1>
+			<div class="section section-100 hero">
+				<div class="hero-title">
+					<h1>{icon.content} {title.content}</h1>
+				</div>
+				<div class="hero-version">v.0.2-alpha</div>
 			</div>
 
 			<div class="section section-100">
@@ -133,6 +136,17 @@
 
 	.section-100 {
 		flex-basis: 100%;
+	}
+
+	.hero {
+		display: flex;
+		align-items: center;
+	}
+
+	.hero-title {
+		flex-grow: 1;
+		border-right: var(--border-dotted);
+		margin-right: var(--margin);
 	}
 
 	.logs {
@@ -257,8 +271,12 @@
 		position: relative; /* Allows positioning of child elements */
 		cursor: pointer;
 		overflow: hidden; /* Ensures the loading bar stays inside the button */
+	}
 
-		width: 8em;
+	@media (min-width: 900px) {
+		.action {
+			width: 8em;
+		}
 	}
 
 	.action:disabled {
