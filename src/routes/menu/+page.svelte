@@ -7,20 +7,24 @@
 		<div class="sections">
 			<a href="/wtm">
 				<div class="section">
-					<h1>🧭 What's the Move</h1>
+					<div class="paper">
+						<h1>🧭 What's the Move</h1>
 
-					<p>
-						A curated selection of <span class="highlight highlight-3">where to eat</span>,
-						<span class="highlight highlight-3">places to see</span>, and
-						<span class="highlight highlight-3">things to do</span>.
-					</p>
-				</div></a
-			>
+						<p>
+							A curated selection of <span class="highlight highlight-3">where to eat</span>,
+							<span class="highlight highlight-3">places to see</span>, and
+							<span class="highlight highlight-3">things to do</span>.
+						</p>
+					</div>
+				</div>
+			</a>
 			<a href="/wx">
 				<div class="section">
-					<h1>🌦️ WX</h1>
+					<div class="paper">
+						<h1>🌦️ WX</h1>
 
-					<p>A simple<sup>[2]</sup> <span class="highlight highlight-2">weather app</span>.</p>
+						<p>A simple<sup>[2]</sup> <span class="highlight highlight-2">weather app</span>.</p>
+					</div>
 				</div>
 			</a>
 		</div>

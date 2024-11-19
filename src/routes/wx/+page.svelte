@@ -101,77 +101,83 @@
 	<div class="content">
 		<div class="sections">
 			<div class="section section-100">
-				<h1>🌦️ WX</h1>
+				<div class="paper">
+					<h1>🌦️ WX</h1>
 
-				<p>A simple <span class="highlight highlight-2">weather app</span>.</p>
+					<p>A simple <span class="highlight highlight-2">weather app</span>.</p>
+				</div>
 			</div>
 			<div class="section">
-				<p>
-					The forecast is provided by your <span class="highlight">local sorceress</span><sup
-						>[1]</sup
-					>.
-				</p>
+				<div class="paper">
+					<p>
+						The forecast is provided by your <span class="highlight">local sorceress</span><sup
+							>[1]</sup
+						>.
+					</p>
 
-				<select
-					id="stateSelect"
-					class="stateSelect"
-					bind:value={selectedState}
-					onchange={getWeatherData}
-					>\
-					<option disabled>Select a State</option>
-					{#each statesOfAmerica as state}
-						<option value={state.abbreviation}>
-							{state.name}
-						</option>
-					{/each}
-				</select>
+					<select
+						id="stateSelect"
+						class="stateSelect"
+						bind:value={selectedState}
+						onchange={getWeatherData}
+						>\
+						<option disabled>Select a State</option>
+						{#each statesOfAmerica as state}
+							<option value={state.abbreviation}>
+								{state.name}
+							</option>
+						{/each}
+					</select>
 
-				{#await getWeatherData()}
-					<p>Loading...</p>
-				{:then}
-					<div class="weatherDatumContainer">
-						{#if featuresLength > 0}
-							<p class="weatherPerson">
-								<span class="highlight highlight-q"
-									>"Peer into the cauldron. It's fresh as of..."</span
-								>
-							</p>
-							<p class="weatherDatumUpdated">
-								{weatherDatum.updated}<sup>[2]</sup>
-							</p>
-							{#each weatherData as weatherDatum, index}
-								<div class="weatherDatum">
-									<div class="areaDesc">
-										<p class="areaDescText">
-											📍 {weatherDatum.areaDesc}
-										</p>
-										<button
-											class="areaDescCopyButton"
-											onclick={() =>
-												copyToClipboard(weatherDatum.areaDesc + '\n\n' + weatherDatum.NWSheadline)}
-											><h2>📑</h2></button
-										>
+					{#await getWeatherData()}
+						<p>Loading...</p>
+					{:then}
+						<div class="weatherDatumContainer">
+							{#if featuresLength > 0}
+								<p class="weatherPerson">
+									<span class="highlight highlight-q"
+										>"Peer into the cauldron. It's fresh as of..."</span
+									>
+								</p>
+								<p class="weatherDatumUpdated">
+									{weatherDatum.updated}<sup>[2]</sup>
+								</p>
+								{#each weatherData as weatherDatum, index}
+									<div class="weatherDatum">
+										<div class="areaDesc">
+											<p class="areaDescText">
+												📍 {weatherDatum.areaDesc}
+											</p>
+											<button
+												class="areaDescCopyButton"
+												onclick={() =>
+													copyToClipboard(
+														weatherDatum.areaDesc + '\n\n' + weatherDatum.NWSheadline
+													)}><h2>📑</h2></button
+											>
+										</div>
+										<div class="NWSheadline">
+											<p>
+												📰 {weatherDatum.NWSheadline}
+											</p>
+										</div>
 									</div>
-									<div class="NWSheadline">
-										<p>
-											📰 {weatherDatum.NWSheadline}
-										</p>
-									</div>
-								</div>
-							{/each}
-						{:else if selectedState !== 'Select a State'}
-							<p>
-								The <span class="highlight">sorceress</span> remains silent. There are no available alerts.
-							</p>
-						{:else}
-							<p>
-								<span class="highlight">She</span> awaits your selection with disinterest.
-							</p>
-						{/if}
-					</div>
-				{:catch error}
-					<p>Error: {error.message}</p>
-				{/await}
+								{/each}
+							{:else if selectedState !== 'Select a State'}
+								<p>
+									The <span class="highlight">sorceress</span> remains silent. There are no available
+									alerts.
+								</p>
+							{:else}
+								<p>
+									<span class="highlight">She</span> awaits your selection with disinterest.
+								</p>
+							{/if}
+						</div>
+					{:catch error}
+						<p>Error: {error.message}</p>
+					{/await}
+				</div>
 			</div>
 		</div>
 	</div>

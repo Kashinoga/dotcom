@@ -9,6 +9,7 @@
 	--background-color: #e8e8e8;
 	--background-color-light: #f2f2f2;
 	--background-color-section: white;
+	--background-color-binary: var(--white);
 
 	--text-color: black;
 	--text-color-inverted: white;
@@ -56,6 +57,7 @@
 	--background-color: #080808;
 	--background-color-light: #121212;
 	--background-color-section: black;
+	--background-color-binary: var(--black);
 
 	--text-color: white;
 	--text-color-inverted: black;
@@ -444,7 +446,7 @@ tbody > tr > td {
 }
 
 .card {
-	background-color: var(--background-color);
+	background-color: var(--background-color-binary);
 
 	padding: var(--padding);
 	border: var(--border);
@@ -468,4 +470,12 @@ ul {
 
 .cardName {
 	flex-grow: 1;
+}
+
+.paper {
+	background-color: var(--background-color-binary);
+
+	padding: var(--padding);
+	border: var(--border);
+	border-radius: var(--border-radius);
 }

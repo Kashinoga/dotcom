@@ -12,8 +12,10 @@
 	<div class="content">
 		<div class="sections">
 			<div class="section">
-				<h1>🧭 What's the Move for Minnesota</h1>
-				<h2><i>You think about us a lot.</i></h2>
+				<div class="paper">
+					<h1>🧭 What's the Move for Minnesota</h1>
+					<h2><i>You think about us a lot.</i></h2>
+				</div>
 			</div>
 
 			<div class="section">
