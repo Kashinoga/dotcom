@@ -2,8 +2,7 @@
 	import { onMount } from 'svelte';
 	import { inTheWood } from './inTheWoodStore';
 	import { adventureLog } from './adventureLogStore';
-	import { sessionLog } from './sessionLogStore';
-
+	import { addRandomMessageToSessionLog, sessionLog } from './sessionLogStore';
 	import { playerInventory } from './playerInventoryStore';
 
 	let icon = $inTheWood[0];
@@ -13,22 +12,23 @@
 
 	function handleClick() {
 		isDisabled = true; // Disable the button
+
 		setTimeout(() => {
 			isDisabled = false; // Re-enable the button after 4 seconds
 		}, 4000);
 	}
 
 	async function handsAction() {
-		const newSessionLogMessage0 = { id: 0, message: 'You [Gather] with your [Hands]...' };
-		const newSessionLogMessage1 = { id: 1, message: 'You found something interesting!' };
+		const newSessionLogMessage0 = { id: 1, message: 'You found something interesting!' };
 
-		sessionLog.update((currentLog) => [...currentLog, newSessionLogMessage0]);
+		addRandomMessageToSessionLog();
+
 		scrollToBottom();
 		handleClick();
 
 		await delay(4000);
 
-		sessionLog.update((currentLog) => [...currentLog, newSessionLogMessage1]);
+		sessionLog.update((currentLog) => [...currentLog, newSessionLogMessage0]);
 		scrollToBottom();
 	}
 
@@ -258,16 +258,6 @@
 		flex-grow: 1;
 		flex-direction: column;
 	}
-
-	/* .title {
-		flex-grow: 1;
-
-		font-weight: bold;
-
-		border-bottom: var(--border-dotted);
-
-		padding-bottom: var(--padding);
-	} */
 
 	.equip-actions {
 		display: flex;
