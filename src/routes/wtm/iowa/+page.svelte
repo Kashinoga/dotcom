@@ -12,9 +12,11 @@
 	<div class="content">
 		<div class="sections">
 			<div class="section">
-				<h1>🧭 What's the Move for Iowa</h1>
+				<div class="paper">
+					<h1>🧭 What's the Move for Iowa</h1>
 
-				<h2><i>More than corn.</i></h2>
+					<h2><i>More than corn.</i></h2>
+				</div>
 			</div>
 
 			<div class="section">
