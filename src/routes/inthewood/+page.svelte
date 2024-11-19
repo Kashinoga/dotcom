@@ -14,8 +14,8 @@
 		isDisabled = true; // Disable the button
 
 		setTimeout(() => {
-			isDisabled = false; // Re-enable the button after 4 seconds
-		}, 4000);
+			isDisabled = false;
+		}, 1000);
 	}
 
 	async function handsAction() {
@@ -26,7 +26,7 @@
 		scrollToBottom();
 		handleClick();
 
-		await delay(4000);
+		await delay(1000);
 
 		sessionLog.update((currentLog) => [...currentLog, newSessionLogMessage0]);
 		scrollToBottom();
@@ -58,11 +58,13 @@
 <div class="container">
 	<div class="content">
 		<div class="sections">
-			<div class="section section-100 hero">
-				<div class="hero-title">
-					<h1>{icon.content} {title.content}</h1>
+			<div class="section section-100">
+				<div class="hero paper">
+					<div class="hero-title">
+						<h1>{icon.content} {title.content}</h1>
+					</div>
+					<div class="hero-version">v.0.2-a</div>
 				</div>
-				<div class="hero-version">v.0.2-a</div>
 			</div>
 
 			<div class="section section-100">
@@ -313,7 +315,7 @@
 		height: 4px;
 		background: var(--green);
 		width: 0;
-		transition: width 4s linear;
+		transition: width 1s linear;
 	}
 
 	.action:disabled .loading-bar {

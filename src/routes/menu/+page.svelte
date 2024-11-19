@@ -7,12 +7,14 @@
 		<div class="sections">
 			<a href="/inthewood">
 				<div class="section">
-					<h1>⛺ InTheWood</h1>
+					<div class="paper">
+						<h1>⛺ InTheWood</h1>
 
-					<p>
-						A <span class="highlight highlight-2">game</span> about
-						<span class="highlight highlight-3">the outdoors</span>.
-					</p>
+						<p>
+							A <span class="highlight highlight-2">game</span> about
+							<span class="highlight highlight-3">the outdoors</span>.
+						</p>
+					</div>
 				</div>
 			</a>
 			<a href="/wtm">
