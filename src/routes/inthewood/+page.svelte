@@ -4,6 +4,8 @@
 	import { adventureLog } from './adventureLogStore';
 	import { sessionLog } from './sessionLogStore';
 
+	import { playerInventory } from './playerInventoryStore';
+
 	let icon = $inTheWood[0];
 	let title = $inTheWood[1];
 
@@ -16,11 +18,18 @@
 		}, 4000);
 	}
 
-	export function handsAction() {
-		const newSessionLogMessage = { id: 2, message: 'You [Gather] with your [Hands]...' };
-		sessionLog.update((currentLog) => [...currentLog, newSessionLogMessage]);
+	async function handsAction() {
+		const newSessionLogMessage0 = { id: 0, message: 'You [Gather] with your [Hands]...' };
+		const newSessionLogMessage1 = { id: 1, message: 'You found something interesting!' };
+
+		sessionLog.update((currentLog) => [...currentLog, newSessionLogMessage0]);
 		scrollToBottom();
 		handleClick();
+
+		await delay(4000);
+
+		sessionLog.update((currentLog) => [...currentLog, newSessionLogMessage1]);
+		scrollToBottom();
 	}
 
 	/**
@@ -37,6 +46,13 @@
 	onMount(() => {
 		scrollToBottom();
 	});
+
+	/**
+	 * @param {number | undefined} ms
+	 */
+	function delay(ms) {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
 </script>
 
 <div class="container">
@@ -102,14 +118,26 @@
 								<div class="item">
 									<select
 										><option disabled>Select a Left-Hand Item</option>
-										<option value="axe"> Basic Axe </option></select
-									>
+										<optgroup label="Starting Items">
+											{#each $playerInventory as item}
+												<option>
+													{item.name}
+												</option>
+											{/each}
+										</optgroup>
+									</select>
 								</div>
 								<div class="item">
 									<select
 										><option disabled>Select a Right-Hand Item</option>
-										<option value="axe"> Basic Axe </option></select
-									>
+										<optgroup label="Starting Items">
+											{#each $playerInventory as item}
+												<option>
+													{item.name}
+												</option>
+											{/each}
+										</optgroup>
+									</select>
 								</div>
 							</div>
 						</div>
@@ -319,6 +347,7 @@
 		}
 	}
 
+	.location select,
 	.items select {
 		width: 100%;
 	}
