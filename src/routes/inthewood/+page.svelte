@@ -46,7 +46,7 @@
 				<div class="hero-title">
 					<h1>{icon.content} {title.content}</h1>
 				</div>
-				<div class="hero-version">v.0.2-alpha</div>
+				<div class="hero-version">v.0.2-a</div>
 			</div>
 
 			<div class="section section-100">
@@ -147,6 +147,10 @@
 		flex-grow: 1;
 		border-right: var(--border-dotted);
 		margin-right: var(--margin);
+	}
+
+	.hero-version {
+		text-align: center;
 	}
 
 	.logs {
