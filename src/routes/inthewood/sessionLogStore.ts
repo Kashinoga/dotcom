@@ -7,8 +7,11 @@ interface Message {
 	message: string;
 }
 
+// Define some initial messages
+const initialMessages: Message[] = [{ id: 0, message: 'You are feeling refreshed.' }];
+
 // Create the sessionLog store with the Message type
-export const sessionLog = writable<Message[]>([]);
+export const sessionLog = writable<Message[]>(initialMessages);
 
 // Create a derived store to pull messages from the messages store
 export const sessionLogDerived = derived(messages, ($messages) => {
