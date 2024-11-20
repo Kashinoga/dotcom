@@ -8,6 +8,7 @@
 		sessionLog
 	} from './sessionLogStore';
 	import { playerInventory } from './playerInventoryStore';
+	import { backpack } from './backpackStore';
 
 	let icon = $inTheWood[0];
 	let title = $inTheWood[1];
@@ -140,16 +141,15 @@
 			</div>
 
 			<div class="section section-100">
-				<div class="pockets">
-					<div class="title">Pockets</div>
-					<select>
-						<option disabled>Select a Left-Pocket Item</option>
-						<option>Sand</option></select
-					>
-					<select>
-						<option disabled>Select a Right-Pocket Item</option>
-						<option>Sand</option></select
-					>
+				<div class="backpack">
+					<div class="title">Backpack</div>
+					<div class="backpack-items">
+						{#each $playerInventory as item}
+							<div class="backpack-item">
+								{item.name}
+							</div>
+						{/each}
+					</div>
 				</div>
 			</div>
 
@@ -352,7 +352,7 @@
 		}
 	}
 
-	.pockets {
+	.backpack {
 		border: var(--border);
 		border-radius: var(--border-radius);
 
@@ -361,10 +361,16 @@
 		background-color: var(--background-color-section);
 	}
 
-	@media (min-width: 900px) {
-		.pockets {
-			flex-direction: row;
-		}
+	.backpack-items {
+		display: flex;
+		gap: var(--gap-small);
+	}
+
+	.backpack-item {
+		border: var(--border);
+		border-radius: var(--border-radius);
+
+		padding: var(--padding);
 	}
 
 	.location {
@@ -376,8 +382,8 @@
 		background-color: var(--background-color-section);
 	}
 
-	.location select,
-	.items select {
+	.items select,
+	.location select {
 		width: 100%;
 	}
 </style>
