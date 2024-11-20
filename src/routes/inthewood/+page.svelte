@@ -2,7 +2,11 @@
 	import { onMount } from 'svelte';
 	import { inTheWood } from './inTheWoodStore';
 	import { adventureLog } from './adventureLogStore';
-	import { addRandomMessageToSessionLog, sessionLog } from './sessionLogStore';
+	import {
+		addRandomGatherMessageToSessionLog,
+		addRandomMessageToSessionLog,
+		sessionLog
+	} from './sessionLogStore';
 	import { playerInventory } from './playerInventoryStore';
 
 	let icon = $inTheWood[0];
@@ -19,8 +23,6 @@
 	}
 
 	async function handsAction() {
-		const newSessionLogMessage0 = { id: 1, message: 'You found something interesting!' };
-
 		addRandomMessageToSessionLog();
 
 		scrollToBottom();
@@ -28,7 +30,7 @@
 
 		await delay(1000);
 
-		sessionLog.update((currentLog) => [...currentLog, newSessionLogMessage0]);
+		addRandomGatherMessageToSessionLog();
 		scrollToBottom();
 	}
 
@@ -95,16 +97,6 @@
 			</div>
 
 			<div class="section section-100">
-				<div class="location">
-					<div class="title">Location</div>
-					<select>
-						<option disabled>Select a Location</option>
-						<option>Basecamp</option></select
-					>
-				</div>
-			</div>
-
-			<div class="section section-100">
 				<div class="equipment">
 					<div class="equip">
 						<div class="title">Hands</div>
@@ -146,6 +138,30 @@
 					</div>
 				</div>
 			</div>
+
+			<div class="section section-100">
+				<div class="pockets">
+					<div class="title">Pockets</div>
+					<select>
+						<option disabled>Select a Left-Pocket Item</option>
+						<option>Sand</option></select
+					>
+					<select>
+						<option disabled>Select a Right-Pocket Item</option>
+						<option>Sand</option></select
+					>
+				</div>
+			</div>
+
+			<div class="section section-100">
+				<div class="location">
+					<div class="title">Location</div>
+					<select>
+						<option disabled>Select a Location</option>
+						<option>Basecamp</option></select
+					>
+				</div>
+			</div>
 		</div>
 	</div>
 </div>
@@ -154,6 +170,7 @@
 	.content {
 		max-width: unset;
 
+		padding-bottom: unset;
 		padding-right: unset;
 
 		border-right: none;
@@ -181,6 +198,11 @@
 
 	.hero-version {
 		text-align: center;
+	}
+
+	button {
+		border: var(--border);
+		border-radius: var(--border-radius-half);
 	}
 
 	.logs {
@@ -232,15 +254,6 @@
 		height: 10em;
 
 		overflow-y: auto;
-	}
-
-	.location {
-		border: var(--border);
-		border-radius: var(--border-radius);
-
-		padding: var(--padding);
-
-		background-color: var(--background-color-section);
 	}
 
 	.equipment {
@@ -339,13 +352,32 @@
 		}
 	}
 
+	.pockets {
+		border: var(--border);
+		border-radius: var(--border-radius);
+
+		padding: var(--padding);
+
+		background-color: var(--background-color-section);
+	}
+
+	@media (min-width: 900px) {
+		.pockets {
+			flex-direction: row;
+		}
+	}
+
+	.location {
+		border: var(--border);
+		border-radius: var(--border-radius);
+
+		padding: var(--padding);
+
+		background-color: var(--background-color-section);
+	}
+
 	.location select,
 	.items select {
 		width: 100%;
-	}
-
-	button {
-		border: var(--border);
-		border-radius: var(--border-radius-half);
 	}
 </style>
