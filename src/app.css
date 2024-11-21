@@ -208,8 +208,9 @@ body {
 	.content {
 		max-width: var(--width-medium);
 		min-width: var(--width-medium);
-		padding: var(--padding);
+		padding: var(--padding-small);
 		padding-left: 0;
+		padding-top: var(--padding);
 		border-right: var(--border-dotted);
 	}
 }
@@ -219,7 +220,7 @@ body {
 .sections {
 	display: flex;
 	flex-wrap: wrap;
-	gap: var(--gap-small);
+	gap: var(--gap);
 }
 
 .sections a {
