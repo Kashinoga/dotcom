@@ -23,8 +23,8 @@
 <style>
 	nav {
 		margin: auto;
-		margin-bottom: var(--margin);
-		padding-bottom: var(--padding);
+		margin-bottom: var(--margin-half);
+		padding-bottom: var(--padding-small);
 		border-bottom: var(--border);
 	}
 

@@ -363,6 +363,7 @@
 
 	.backpack-items {
 		display: flex;
+		flex-wrap: wrap;
 		gap: var(--gap-small);
 	}
 
