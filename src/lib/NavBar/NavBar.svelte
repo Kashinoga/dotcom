@@ -23,11 +23,9 @@
 <style>
 	nav {
 		margin: auto;
-		margin-bottom: var(--margin-half);
 
-		padding-bottom: var(--padding-small);
-
-		/* padding-top: var(--padding-small); */
+		padding-bottom: var(--padding);
+		padding-top: var(--padding);
 
 		border-bottom: var(--border);
 	}
@@ -39,8 +37,8 @@
 
 			margin-bottom: 0;
 
-			padding-bottom: var(--padding-small);
-			padding-top: var(--padding-small);
+			padding-bottom: var(--padding);
+			padding-top: var(--padding);
 
 			border: 0;
 			border-radius: 0;
@@ -56,10 +54,7 @@
 	@media (min-width: 900px) {
 		.nav-items {
 			width: fit-content;
-			padding: var(--padding-small);
-			padding-top: 0;
-			padding-left: 0;
-			padding-right: 0;
+			padding-right: 0; */
 			border: 0;
 			border-radius: 0;
 		}

@@ -14,12 +14,13 @@
 	--text-color: black;
 	--text-color-inverted: white;
 
+	--gap-smaller: 0.2em;
 	--gap-small: 0.4em;
 	--gap: 0.8em;
 
 	--margin-small: 0.2em;
 	--margin-half: 0.4em;
-	--margin: 1em;
+	--margin: 0.8em;
 	--margin-fab-clear: 4em;
 
 	--padding-big: 1.2em;
@@ -175,6 +176,7 @@ ul {
 
 body {
 	margin: var(--margin-half);
+	margin-top: 0;
 	/* font-family: 'Noto Sans', 'Noto Color Emoji', sans-serif; '*/
 	background-color: var(--background-color);
 	color: var(--text-color);
@@ -202,6 +204,7 @@ body {
 .content {
 	min-width: var(--width-smallest);
 	padding-bottom: var(--padding);
+	padding-top: var(--padding);
 }
 
 @media (min-width: 900px) {
@@ -209,6 +212,7 @@ body {
 		max-width: var(--width-medium);
 		min-width: var(--width-medium);
 		padding: var(--padding-small);
+		padding-bottom: var(--padding);
 		padding-left: 0;
 		padding-top: var(--padding);
 		border-right: var(--border-dotted);
@@ -254,7 +258,9 @@ body {
 	.margin {
 		border-top: none;
 
-		margin: var(--padding);
+		margin: var(--margin);
+		margin-left: var(--margin-half);
+		margin-right: var(--margin-half);
 	}
 }
 
@@ -435,7 +441,7 @@ tbody > tr > td {
 /* Card */
 .cards {
 	display: grid;
-	gap: var(--gap-small);
+	gap: var(--gap-smaller);
 
 	margin-top: var(--margin);
 	/* margin-bottom: var(--margin); */
