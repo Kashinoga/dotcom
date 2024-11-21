@@ -328,7 +328,7 @@
 		height: 4px;
 		background: var(--green);
 		width: 0;
-		transition: width 1s linear;
+		transition: width 1s cubic-bezier(0.785, 0.135, 0.15, 0.86);
 	}
 
 	.action:disabled .loading-bar {
