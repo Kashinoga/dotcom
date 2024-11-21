@@ -23,8 +23,12 @@
 <style>
 	nav {
 		margin: auto;
-		margin-bottom: var(--margin);
-		padding-bottom: var(--padding);
+		margin-bottom: var(--margin-half);
+
+		padding-bottom: var(--padding-small);
+
+		/* padding-top: var(--padding-small); */
+
 		border-bottom: var(--border);
 	}
 
@@ -33,11 +37,10 @@
 			position: unset;
 			max-width: var(--width-larger);
 
-			/* background: none; */
-
 			margin-bottom: 0;
 
-			padding-bottom: 0;
+			padding-bottom: var(--padding-small);
+			padding-top: var(--padding-small);
 
 			border: 0;
 			border-radius: 0;
@@ -53,7 +56,7 @@
 	@media (min-width: 900px) {
 		.nav-items {
 			width: fit-content;
-			padding: var(--padding);
+			padding: var(--padding-small);
 			padding-top: 0;
 			padding-left: 0;
 			padding-right: 0;
@@ -64,6 +67,9 @@
 
 	nav a,
 	nav button {
+		flex-grow: 1;
+		text-align: center;
+
 		background: none;
 		background-color: var(--background-color-light);
 
