@@ -15,6 +15,10 @@
 		if (metaTag) {
 			metaTag.setAttribute('content', color);
 		}
+
+		// Change background color for iOS Safari
+		document.documentElement.style.backgroundColor = color;
+		document.body.style.backgroundColor = color;
 	}
 
 	function toggleDarkMode() {
