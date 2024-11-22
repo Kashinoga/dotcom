@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { scrollToTop, scrollToBottom } from '$lib/utils';
+	import { page } from '$app/stores'; // Correct import for $page
+	import { scrollToBottom, scrollToTop } from '$lib/utils';
 	import { onMount } from 'svelte';
 
 	let isAtBottom = false;
@@ -23,8 +24,16 @@
 		// Add event listener to detect scroll position
 		window.addEventListener('scroll', handleScroll);
 
+		// Recalculate the scroll position whenever the page changes
+		const unsubscribe = page.subscribe(() => {
+			checkIfAtBottom();
+		});
+
 		// Cleanup the event listener on component destroy
-		return () => window.removeEventListener('scroll', handleScroll);
+		return () => {
+			window.removeEventListener('scroll', handleScroll);
+			unsubscribe();
+		};
 	});
 
 	// Handle scroll events
