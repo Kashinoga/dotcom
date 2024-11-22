@@ -106,8 +106,6 @@
 
 					<p>A simple <span class="highlight highlight-2">weather app</span>.</p>
 				</div>
-			</div>
-			<div class="section">
 				<div class="paper">
 					<p>
 						The forecast is provided by your <span class="highlight">local sorceress</span><sup
@@ -178,19 +176,6 @@
 						<p>Error: {error.message}</p>
 					{/await}
 				</div>
-			</div>
-		</div>
-	</div>
-	<div class="margin">
-		<div class="marginPills">
-			<div class="navPills">
-				<MarginNav></MarginNav>
-			</div>
-			<div class="superPills">
-				<p><sub><sup>[1]</sup>The National Weather Service.</sub></p>
-				{#if featuresLength > 0}
-					<p><sub><sup>[2]</sup>Wow, so specific!</sub></p>
-				{/if}
 			</div>
 		</div>
 	</div>

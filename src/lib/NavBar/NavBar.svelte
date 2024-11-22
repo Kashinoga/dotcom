@@ -1,4 +1,6 @@
 <script>
+	import { page } from '$app/stores';
+
 	function toggleDarkMode() {
 		let darkMode = document.documentElement.getAttribute('data-theme');
 
@@ -12,81 +14,76 @@
 
 <nav>
 	<div class="nav-items">
-		<a href="/">💖 Kashinoga</a>
+		<a href="/" class={$page.url.pathname === '/' ? 'active' : ''}>Kashinoga</a>
 
-		<button onclick={toggleDarkMode}>💡Mode</button>
+		<button onclick={toggleDarkMode}>Mode</button>
 
-		<a href="/menu">🍔 Menu</a>
+		<a href="/menu" class={$page.url.pathname === '/menu' ? 'active' : ''}>Menu</a>
 	</div>
 </nav>
 
 <style>
 	nav {
-		margin: auto;
+		/* display: flex; */
+		background-color: var(--background);
+		/* margin: 0 auto; */
 
-		padding-bottom: var(--padding);
-		padding-top: var(--padding);
+		padding: var(--padding);
 
-		border-bottom: var(--border);
+		/* border-bottom: var(--border); */
 	}
 
 	@media (min-width: 900px) {
 		nav {
-			position: unset;
-			max-width: var(--width-larger);
+			/* position: unset; */
 
-			margin-bottom: 0;
+			/* margin-bottom: 0; */
 
-			padding-bottom: var(--padding);
-			padding-top: var(--padding);
+			/* padding-bottom: var(--padding); */
+			/* padding-top: var(--padding); */
 
-			border: 0;
-			border-radius: 0;
-			border-bottom: var(--border);
+			/* border: 0; */
+			/* border-radius: 0; */
+			/* border-bottom: var(--border); */
 		}
 	}
 
 	.nav-items {
 		display: flex;
-		gap: var(--gap-small);
+		gap: var(--gap);
+		margin: 0 auto;
+
+		max-width: 1060px;
+
+		/* padding-left: 0.4em; */
+		/* padding-right: 0.4em; */
 	}
 
 	@media (min-width: 900px) {
 		.nav-items {
-			width: fit-content;
-			padding-right: 0; */
-			border: 0;
-			border-radius: 0;
+			/* margin: 0 auto; */
 		}
 	}
 
-	nav a,
-	nav button {
-		flex-grow: 1;
-		text-align: center;
+	a,
+	button {
+		display: inline-flex; /* Ensure consistency */
+		align-items: center; /* Vertically aligns content inside */
+		text-decoration: none; /* Remove underline for links */
+		font: inherit; /* Use the same font for both */
+		padding: 0; /* Normalize padding */
+		margin: 0; /* Normalize margin */
+		border: none; /* Remove button borders */
+		background: none; /* Remove button background */
 
-		background: none;
-		background-color: var(--background-color-light);
+		padding-bottom: var(--padding-small);
+		/* min-width: fit-content;
+		min-height: fit-content; */
 
-		color: var(--text-color);
-
-		border: var(--border);
-		border-radius: var(--border-radius-half);
-
-		padding-block: 0;
-		padding-inline: 0;
-		padding: var(--padding-small);
+		border-bottom: 0.2em solid transparent;
 	}
 
-	nav a {
-		text-decoration: none;
-	}
-
-	nav button {
-		font-size: unset;
-		font-weight: unset;
-		text-decoration: none;
-
-		cursor: pointer;
+	.active {
+		border-bottom: 0.2em solid var(--nav-blue);
 	}
 </style>

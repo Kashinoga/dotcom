@@ -2,7 +2,6 @@
 	import { categoryInventory } from '../categoryStore';
 	import { eatAndDrinkInventory } from './eatAndDrinkStore';
 	import { entertainmentInventory } from './entertainmentStore';
-	import MarginNav from '$lib/Margin/MarginNav.svelte';
 
 	let eatAndDrinkCategory = $categoryInventory[0];
 	let entertainmentCategory = $categoryInventory[1];
@@ -12,14 +11,7 @@
 	<div class="content">
 		<div class="sections">
 			<div class="section">
-				<div class="paper">
-					<h1>🧭 What's the Move for Iowa</h1>
-
-					<h2><i>More than corn.</i></h2>
-				</div>
-			</div>
-
-			<div class="section">
+				<h2>🧭 What's the Move for Iowa</h2>
 				<div class="cardsContainer">
 					<h3 id={eatAndDrinkCategory.id}>
 						{eatAndDrinkCategory.emoji}
@@ -48,9 +40,6 @@
 						{/each}
 					</div>
 				</div>
-			</div>
-
-			<div class="section">
 				<div class="cardsContainer">
 					<h3 id={entertainmentCategory.id}>
 						{entertainmentCategory.emoji}
@@ -79,24 +68,6 @@
 						{/each}
 					</div>
 				</div>
-			</div>
-		</div>
-	</div>
-	<div class="margin">
-		<div class="marginPills">
-			<div class="navPills">
-				<MarginNav></MarginNav>
-				{#each $categoryInventory as category}
-					<!-- <button class="pill"> -->
-					<a href="#{category.id}">
-						{category.emoji}
-						{category.name}
-					</a>
-					<!-- </button> -->
-				{/each}
-			</div>
-			<div class="superPills">
-				<p><sub><sup>[0]</sup>The States' emojis are not a generalization. <i>Mostly</i>.</sub></p>
 			</div>
 		</div>
 	</div>

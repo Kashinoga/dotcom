@@ -1,5 +1,4 @@
 <script>
-	import MarginNav from '$lib/Margin/MarginNav.svelte';
 	import { categoryInventory } from '../categoryStore';
 	import { eatAndDrinkInventory } from './eatAndDrinkStore';
 	import { entertainmentInventory } from './entertainmentStore';
@@ -12,13 +11,7 @@
 	<div class="content">
 		<div class="sections">
 			<div class="section">
-				<div class="paper">
-					<h1>🧭 What's the Move for Minnesota</h1>
-					<h2><i>You think about us a lot.</i></h2>
-				</div>
-			</div>
-
-			<div class="section">
+				<h2>🧭 What's the Move for Minnesota</h2>
 				<div class="cardsContainer">
 					<h3 id={eatAndDrinkCategory.id}>
 						{eatAndDrinkCategory.emoji}
@@ -47,9 +40,6 @@
 						{/each}
 					</div>
 				</div>
-			</div>
-
-			<div class="section">
 				<div class="cardsContainer">
 					<h3 id={entertainmentCategory.id}>
 						{entertainmentCategory.emoji}
@@ -78,22 +68,6 @@
 						{/each}
 					</div>
 				</div>
-			</div>
-		</div>
-	</div>
-	<div class="margin">
-		<div class="marginPills">
-			<div class="navPills">
-				<MarginNav></MarginNav>
-				{#each $categoryInventory as category}
-					<a href="#{category.id}">
-						{category.emoji}
-						{category.name}
-					</a>
-				{/each}
-			</div>
-			<div class="superPills">
-				<p><sub><sup>[0]</sup>The States' emojis are not a generalization. <i>Mostly</i>.</sub></p>
 			</div>
 		</div>
 	</div>
