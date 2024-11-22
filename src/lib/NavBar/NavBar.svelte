@@ -1,5 +1,6 @@
 <script>
 	import { page } from '$app/stores';
+	import { writable } from 'svelte/store';
 
 	function toggleDarkMode() {
 		let darkMode = document.documentElement.getAttribute('data-theme');
@@ -10,15 +11,25 @@
 			document.documentElement.setAttribute('data-theme', 'light');
 		}
 	}
+
+	export const lastActivePath = writable();
 </script>
 
 <nav>
 	<div class="nav-items">
-		<a href="/" class={$page.url.pathname === '/' ? 'active' : ''}>Kashinoga</a>
+		<a
+			href="/"
+			class={$page.url.pathname === '/' || $lastActivePath === '/' ? 'active' : ''}
+			onclick={() => lastActivePath.set('/')}>Kashinoga</a
+		>
 
 		<button onclick={toggleDarkMode}>Mode</button>
 
-		<a href="/menu" class={$page.url.pathname === '/menu' ? 'active' : ''}>Menu</a>
+		<a
+			href="/menu"
+			class={$page.url.pathname === '/menu' || $lastActivePath === '/menu' ? 'active' : ''}
+			onclick={() => lastActivePath.set('/menu')}>Menu</a
+		>
 	</div>
 </nav>
 
