@@ -47,7 +47,7 @@
 
 	// Set the initial theme and address bar color on page load
 	onMount(() => {
-		const savedTheme = localStorage.getItem('theme') || 'light'; // Default to light if no saved theme
+		const savedTheme = localStorage.getItem('theme') || 'dark'; // Default to light if no saved theme
 		document.documentElement.setAttribute('data-theme', savedTheme);
 		lastActivePath.set($page.url.pathname); // Sync the store with the current path
 
