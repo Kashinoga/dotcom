@@ -1,5 +1,6 @@
 <script>
 	import { page } from '$app/stores';
+	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 
 	// Check if we're running in the browser (client-side)
@@ -39,6 +40,19 @@
 			localStorage.setItem('activePath', $lastActivePath);
 		});
 	}
+
+	// Set the initial theme and address bar color on page load
+	onMount(() => {
+		const savedTheme = localStorage.getItem('theme') || 'light'; // Default to light if no saved theme
+		document.documentElement.setAttribute('data-theme', savedTheme);
+
+		// Set address bar color based on the theme
+		if (savedTheme === 'dark') {
+			changeAddressBarColor('#292b2c'); // Dark mode address bar color
+		} else {
+			changeAddressBarColor('#f2f2f2'); // Light mode address bar color
+		}
+	});
 </script>
 
 <nav>
