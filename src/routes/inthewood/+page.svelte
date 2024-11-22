@@ -62,7 +62,7 @@
 	<div class="content">
 		<div class="sections">
 			<div class="section section-100">
-				<div class="hero paper">
+				<div class="hero">
 					<div class="hero-title">
 						<h1>{icon.content} {title.content}</h1>
 					</div>
@@ -210,7 +210,8 @@
 		flex-direction: column;
 		flex-grow: 1;
 		flex-wrap: wrap;
-		gap: var(--gap-small);
+		gap: var(--gap);
+		border-top: var(--border);
 	}
 
 	@media (min-width: 900px) {
@@ -223,15 +224,8 @@
 		display: flex;
 		flex-direction: column;
 		flex: 1;
-
-		border: var(--border);
-		border-radius: var(--border-radius);
-
-		padding: var(--padding);
-
-		background-color: var(--background-color-section);
-
-		align-content: end;
+		padding-top: var(--padding);
+		padding-bottom: var(--padding);
 	}
 
 	.title {
@@ -248,6 +242,9 @@
 	}
 
 	.log-messages {
+		background-color: var(--background);
+		padding-left: var(--padding);
+		padding-right: var(--padding);
 		align-content: end;
 		flex-grow: 1;
 
@@ -259,13 +256,9 @@
 	.equipment {
 		display: flex;
 		gap: var(--gap-small);
-
-		border: var(--border);
-		border-radius: var(--border-radius);
-
-		padding: var(--padding);
-
-		background-color: var(--background-color-section);
+		border-top: var(--border);
+		padding-top: var(--padding);
+		padding-bottom: var(--padding);
 	}
 
 	.equip {
@@ -353,12 +346,9 @@
 	}
 
 	.backpack {
-		border: var(--border);
-		border-radius: var(--border-radius);
-
-		padding: var(--padding);
-
-		background-color: var(--background-color-section);
+		border-top: var(--border);
+		padding-top: var(--padding);
+		padding-bottom: var(--padding);
 	}
 
 	.backpack-items {
@@ -375,12 +365,9 @@
 	}
 
 	.location {
-		border: var(--border);
-		border-radius: var(--border-radius);
-
-		padding: var(--padding);
-
-		background-color: var(--background-color-section);
+		border-top: var(--border);
+		padding-top: var(--padding);
+		padding-bottom: var(--padding);
 	}
 
 	.items select,
