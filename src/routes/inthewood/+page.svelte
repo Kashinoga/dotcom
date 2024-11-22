@@ -50,6 +50,11 @@
 		scrollToBottom();
 	});
 
+	// React to updates in $sessionLog
+	$: {
+		scrollToBottom(); // Ensure scrolling when $sessionLog changes
+	}
+
 	/**
 	 * @param {number | undefined} ms
 	 */
@@ -220,14 +225,6 @@
 		}
 	}
 
-	.log {
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-		padding-top: var(--padding);
-		padding-bottom: var(--padding);
-	}
-
 	.title {
 		flex-grow: 1;
 		align-content: start;
@@ -241,16 +238,21 @@
 		margin-bottom: var(--margin);
 	}
 
+	.log {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		padding-top: var(--padding);
+		padding-bottom: var(--padding);
+	}
+
 	.log-messages {
 		background-color: var(--background);
-		padding-left: var(--padding);
-		padding-right: var(--padding);
 		align-content: end;
 		flex-grow: 1;
-
 		height: 10em;
-
 		overflow-y: auto;
+		padding: var(--padding);
 	}
 
 	.equipment {
