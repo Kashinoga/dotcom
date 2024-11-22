@@ -67,7 +67,7 @@
 }
 
 [data-theme='dark'] {
-	--background: rgb(41, 43, 44);
+	--background: #292b2c;
 	--text: #dedcd9;
 
 	--background-2: #222425;
