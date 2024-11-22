@@ -314,13 +314,13 @@ body {
 	}
 }
 
-.navPills {
+.pills {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--gap-small);
 }
 
-.navPills a {
+.pills a {
 	background: none;
 	background-color: var(--background-color-light);
 
@@ -479,11 +479,10 @@ tbody > tr > td {
 }
 
 .card {
-	/* background-color: var(--background-color-binary); */
+	border-top: var(--border-dotted);
 
-	/* padding: var(--padding); */
-	/* border: var(--border); */
-	/* border-radius: var(--border-radius); */
+	padding-top: var(--padding);
+	padding-bottom: var(--padding);
 }
 
 .card h4,

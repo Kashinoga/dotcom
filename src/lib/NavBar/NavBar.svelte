@@ -5,7 +5,7 @@
 
 	// Check if we're running in the browser (client-side)
 	const isBrowser = typeof window !== 'undefined';
-	let darkMode2 = false;
+	let darkMode = false;
 
 	/**
 	 * @param {string} color
@@ -18,10 +18,10 @@
 	}
 
 	function toggleDarkMode() {
-		let darkMode = document.documentElement.getAttribute('data-theme');
-		darkMode2 = !darkMode2;
+		let dataTheme = document.documentElement.getAttribute('data-theme');
+		darkMode = !darkMode;
 
-		if (darkMode == 'light') {
+		if (dataTheme == 'light') {
 			document.documentElement.setAttribute('data-theme', 'dark');
 			changeAddressBarColor('#292b2c');
 		} else {
@@ -73,7 +73,7 @@
 
 		<div class="nav-item-right">
 			<button onclick={toggleDarkMode}>
-				{#if darkMode2}☀️{:else}🌙{/if}
+				{#if darkMode}🌙{:else}☀️{/if}
 			</button>
 		</div>
 	</div>

@@ -134,7 +134,7 @@
 										>
 									</p>
 									<p class="weatherDatumUpdated">
-										{weatherDatum.updated}<sup>[2]</sup>
+										<span class="highlight highlight-q">{weatherDatum.updated}</span>
 									</p>
 								</div>
 
@@ -191,8 +191,15 @@
 
 	.weatherPerson {
 		display: flex;
-		gap: var(--gap);
-		align-items: center;
+		flex-direction: column;
+	}
+
+	@media (min-width: 900px) {
+		.weatherPerson {
+			flex-direction: row;
+			gap: var(--gap);
+			align-items: center;
+		}
 	}
 
 	.weatherDatum {
