@@ -92,11 +92,13 @@
 					<div class="log log-session">
 						<div class="title">Session Log</div>
 						<div class="log-messages" bind:this={container}>
-							{#each $sessionLog as sessionLogMessage}
-								<div class="log-session-message">
-									<span>{sessionLogMessage.message}</span>
-								</div>
-							{/each}
+							<div class="log-messages-inner">
+								{#each $sessionLog as sessionLogMessage}
+									<div class="log-session-message">
+										<span>{sessionLogMessage.message}</span>
+									</div>
+								{/each}
+							</div>
 						</div>
 					</div>
 				</div>
