@@ -5,9 +5,11 @@
 
 	// Check if we're running in the browser (client-side)
 	const isBrowser = typeof window !== 'undefined';
+	let darkMode2 = false;
 
 	function toggleDarkMode() {
 		let darkMode = document.documentElement.getAttribute('data-theme');
+		darkMode2 = !darkMode2;
 
 		if (darkMode == 'light') {
 			document.documentElement.setAttribute('data-theme', 'dark');
@@ -40,19 +42,25 @@
 
 <nav>
 	<div class="nav-items">
-		<a
-			href="/"
-			class={$page.url.pathname === '/' || $lastActivePath === '/' ? 'active' : ''}
-			onclick={() => lastActivePath.set('/')}>Kashinoga</a
-		>
+		<div class="nav-items-left">
+			<a
+				href="/"
+				class={$page.url.pathname === '/' || $lastActivePath === '/' ? 'active' : ''}
+				onclick={() => lastActivePath.set('/')}>Kashinoga</a
+			>
 
-		<button onclick={toggleDarkMode}>Mode</button>
+			<a
+				href="/menu"
+				class={$page.url.pathname === '/menu' || $lastActivePath === '/menu' ? 'active' : ''}
+				onclick={() => lastActivePath.set('/menu')}>Menu</a
+			>
+		</div>
 
-		<a
-			href="/menu"
-			class={$page.url.pathname === '/menu' || $lastActivePath === '/menu' ? 'active' : ''}
-			onclick={() => lastActivePath.set('/menu')}>Menu</a
-		>
+		<div class="nav-item-right">
+			<button onclick={toggleDarkMode}>
+				{#if darkMode2}☀️{:else}🌙{/if}
+			</button>
+		</div>
 	</div>
 </nav>
 
@@ -97,6 +105,12 @@
 		.nav-items {
 			/* margin: 0 auto; */
 		}
+	}
+
+	.nav-items-left {
+		display: flex;
+		flex-grow: 1;
+		gap: var(--gap);
 	}
 
 	a,
