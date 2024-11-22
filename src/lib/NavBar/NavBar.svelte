@@ -45,6 +45,7 @@
 	onMount(() => {
 		const savedTheme = localStorage.getItem('theme') || 'light'; // Default to light if no saved theme
 		document.documentElement.setAttribute('data-theme', savedTheme);
+		lastActivePath.set($page.url.pathname); // Sync the store with the current path
 
 		// Set address bar color based on the theme
 		if (savedTheme === 'dark') {
@@ -60,13 +61,15 @@
 		<div class="nav-items-left">
 			<a
 				href="/"
-				class={$page.url.pathname === '/' || $lastActivePath === '/' ? 'active' : ''}
+				class={$page.url.pathname === '/' || !['/', '/menu'].includes($page.url.pathname)
+					? 'active'
+					: ''}
 				onclick={() => lastActivePath.set('/')}>Kashinoga</a
 			>
 
 			<a
 				href="/menu"
-				class={$page.url.pathname === '/menu' || $lastActivePath === '/menu' ? 'active' : ''}
+				class={$page.url.pathname === '/menu' ? 'active' : ''}
 				onclick={() => lastActivePath.set('/menu')}>Menu</a
 			>
 		</div>
