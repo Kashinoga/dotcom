@@ -1,6 +1,10 @@
 <script>
 	import { page } from '$app/stores';
+	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
+
+	// Check if we're running in the browser (client-side)
+	const isBrowser = typeof window !== 'undefined';
 
 	function toggleDarkMode() {
 		let darkMode = document.documentElement.getAttribute('data-theme');
@@ -12,7 +16,26 @@
 		}
 	}
 
-	export const lastActivePath = writable();
+	// export const lastActivePath = writable();
+
+	// Initialize store with either the value from localStorage (if available) or default to '/'
+	const savedPath = isBrowser ? localStorage.getItem('activePath') || '/' : '/';
+	export const lastActivePath = writable(savedPath);
+
+	// Update localStorage whenever the active path changes, but only on the client
+	if (isBrowser) {
+		lastActivePath.subscribe(($lastActivePath) => {
+			localStorage.setItem('activePath', $lastActivePath);
+		});
+	}
+
+	// onMount(() => {
+	// 	const currentPath = $page.url.pathname;
+	// 	// Update the last active path only if it's not already set or differs from current
+	// 	if ($lastActivePath !== currentPath) {
+	// 		lastActivePath.set(currentPath);
+	// 	}
+	// });
 </script>
 
 <nav>
