@@ -49,9 +49,9 @@
 
 		// Set address bar color based on the theme
 		if (savedTheme === 'dark') {
-			changeAddressBarColor('#222425'); // Dark mode address bar color
+			changeAddressBarColor('#292b2c'); // Dark mode address bar color
 		} else {
-			changeAddressBarColor('#ffffff'); // Light mode address bar color
+			changeAddressBarColor('#f2f2f2'); // Light mode address bar color
 		}
 	});
 </script>
