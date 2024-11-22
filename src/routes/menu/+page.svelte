@@ -6,6 +6,10 @@
 	<div class="content">
 		<div class="sections">
 			<div class="section">
+				<a href="/inthewood">
+					<h2>⛺ InTheWood</h2>
+					<p>A <span class="highlight highlight-2">game</span> about nature.</p>
+				</a>
 				<a href="/wtm">
 					<h2>🧭 What's the Move</h2>
 					<p>
