@@ -2,81 +2,51 @@
 	import { page } from '$app/stores'; // Correct import for $page
 	import { scrollToBottom, scrollToTop } from '$lib/utils';
 	import { onMount } from 'svelte';
+	import { writable } from 'svelte/store';
 
-	let isAtBottom = false;
+	let isAtBottom = writable(false);
 	let scrolling = false;
 
-	// Determine if the user is at the bottom of the page
-	function checkIfAtBottom() {
+	// Function to update the scroll state
+	export function updateScrollState() {
 		const scrollTop = window.scrollY;
 		const scrollHeight = document.documentElement.scrollHeight;
 		const clientHeight = document.documentElement.clientHeight;
 
-		// Check if we're near the bottom of the page (within a small buffer)
-		isAtBottom = scrollTop + clientHeight >= scrollHeight - 10;
+		isAtBottom.set(scrollTop + clientHeight >= scrollHeight - 10);
 	}
 
-	// Monitor scroll events
+	// Subscribe to the store
+	let isAtBottomValue: boolean;
+	const unsubscribe = isAtBottom.subscribe((value) => {
+		isAtBottomValue = value;
+	});
+
+	// Add event listeners for scroll and resize events
 	onMount(() => {
-		// Ensure the initial scroll position is checked when the page loads
-		checkIfAtBottom();
+		window.addEventListener('scroll', updateScrollState);
+		window.addEventListener('resize', updateScrollState);
 
-		// Add event listener to detect scroll position
-		window.addEventListener('scroll', handleScroll);
-
-		// Recalculate the scroll position whenever the page changes
-		const unsubscribe = page.subscribe(() => {
-			checkIfAtBottom();
-		});
-
-		// Cleanup the event listener on component destroy
+		// Cleanup on component destroy
 		return () => {
-			window.removeEventListener('scroll', handleScroll);
-			unsubscribe();
+			window.removeEventListener('scroll', updateScrollState);
+			window.removeEventListener('resize', updateScrollState);
+			unsubscribe(); // Unsubscribe when the component is destroyed
 		};
 	});
 
-	// Handle scroll events
-	function handleScroll() {
-		if (!scrolling) checkIfAtBottom(); // Only check if not in the middle of scrolling
-	}
-
-	// Smoothly scroll and ensure state updates afterward
-	async function handleFabClick() {
-		scrolling = true;
-
-		// Depending on whether we're at the bottom or not, scroll accordingly
-		if (isAtBottom) {
-			await performSmoothScroll(scrollToTop);
+	function handleClick() {
+		// Action based on the current scroll state
+		if (isAtBottomValue) {
+			window.scrollTo({ top: 0, behavior: 'smooth' });
 		} else {
-			await performSmoothScroll(scrollToBottom);
+			window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
 		}
-
-		scrolling = false;
-		checkIfAtBottom(); // Re-check the scroll state after the scroll operation
-	}
-
-	// Perform smooth scrolling and resolve once the scrolling completes
-	function performSmoothScroll(scrollFn: () => void): Promise<void> {
-		return new Promise((resolve) => {
-			scrollFn();
-			const onStop = () => {
-				// Scroll is complete when no further changes occur
-				if (
-					window.scrollY === 0 ||
-					window.scrollY + window.innerHeight >= document.documentElement.scrollHeight
-				) {
-					window.removeEventListener('scroll', onStop);
-					resolve();
-				}
-			};
-			window.addEventListener('scroll', onStop);
-		});
 	}
 </script>
 
-<button class="fab" on:click={handleFabClick}>
-	{#if isAtBottom}
+<button class="fab" on:click={handleClick}>
+	{#if isAtBottomValue}
 		⬆️
 	{:else}
 		⬇️
