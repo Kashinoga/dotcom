@@ -11,24 +11,32 @@
 		const scrollHeight = document.documentElement.scrollHeight;
 		const clientHeight = document.documentElement.clientHeight;
 
+		// Check if we're near the bottom of the page (within a small buffer)
 		isAtBottom = scrollTop + clientHeight >= scrollHeight - 10;
 	}
 
 	// Monitor scroll events
 	onMount(() => {
+		// Ensure the initial scroll position is checked when the page loads
+		checkIfAtBottom();
+
+		// Add event listener to detect scroll position
 		window.addEventListener('scroll', handleScroll);
-		checkIfAtBottom(); // Initialize state
+
+		// Cleanup the event listener on component destroy
 		return () => window.removeEventListener('scroll', handleScroll);
 	});
 
+	// Handle scroll events
 	function handleScroll() {
-		if (!scrolling) checkIfAtBottom();
+		if (!scrolling) checkIfAtBottom(); // Only check if not in the middle of scrolling
 	}
 
 	// Smoothly scroll and ensure state updates afterward
 	async function handleFabClick() {
 		scrolling = true;
 
+		// Depending on whether we're at the bottom or not, scroll accordingly
 		if (isAtBottom) {
 			await performSmoothScroll(scrollToTop);
 		} else {
@@ -36,10 +44,10 @@
 		}
 
 		scrolling = false;
-		checkIfAtBottom();
+		checkIfAtBottom(); // Re-check the scroll state after the scroll operation
 	}
 
-	// Scroll smoothly and resolve once the animation completes
+	// Perform smooth scrolling and resolve once the scrolling completes
 	function performSmoothScroll(scrollFn: () => void): Promise<void> {
 		return new Promise((resolve) => {
 			scrollFn();
