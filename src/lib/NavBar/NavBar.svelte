@@ -15,10 +15,6 @@
 		if (metaTag) {
 			metaTag.setAttribute('content', color);
 		}
-
-		// Change background color for iOS Safari
-		document.documentElement.style.backgroundColor = color;
-		document.body.style.backgroundColor = color;
 	}
 
 	function toggleDarkMode() {
@@ -53,9 +49,9 @@
 
 		// Set address bar color based on the theme
 		if (savedTheme === 'dark') {
-			changeAddressBarColor('#292b2c'); // Dark mode address bar color
+			changeAddressBarColor('#222425'); // Dark mode address bar color
 		} else {
-			changeAddressBarColor('#f2f2f2'); // Light mode address bar color
+			changeAddressBarColor('#ffffff'); // Light mode address bar color
 		}
 	});
 </script>
