@@ -102,17 +102,13 @@
 		<div class="sections">
 			<div class="section section-100">
 				<div class="paper">
-					<h1>🌦️ WX</h1>
-
+					<h2>🌦️ WX</h2>
 					<p>A simple <span class="highlight highlight-2">weather app</span>.</p>
 				</div>
 				<div class="paper">
 					<p>
-						The forecast is provided by your <span class="highlight">local sorceress</span><sup
-							>[1]</sup
-						>.
+						The forecast is provided by your <span class="highlight">local sorceress</span>.
 					</p>
-
 					<select
 						id="stateSelect"
 						class="stateSelect"
@@ -126,39 +122,42 @@
 							</option>
 						{/each}
 					</select>
-
 					{#await getWeatherData()}
 						<p>Loading...</p>
 					{:then}
 						<div class="weatherDatumContainer">
 							{#if featuresLength > 0}
-								<p class="weatherPerson">
-									<span class="highlight highlight-q"
-										>"Peer into the cauldron. It's fresh as of..."</span
-									>
-								</p>
-								<p class="weatherDatumUpdated">
-									{weatherDatum.updated}<sup>[2]</sup>
-								</p>
+								<div class="weatherPerson">
+									<p>
+										<span class="highlight highlight-q"
+											>"Peer into the cauldron. It's fresh as of..."</span
+										>
+									</p>
+									<p class="weatherDatumUpdated">
+										{weatherDatum.updated}<sup>[2]</sup>
+									</p>
+								</div>
+
 								{#each weatherData as weatherDatum, index}
 									<div class="weatherDatum">
-										<div class="areaDesc">
-											<p class="areaDescText">
-												📍 {weatherDatum.areaDesc}
-											</p>
-											<button
-												class="areaDescCopyButton"
-												onclick={() =>
-													copyToClipboard(
-														weatherDatum.areaDesc + '\n\n' + weatherDatum.NWSheadline
-													)}><h2>📑</h2></button
-											>
+										<div class="weatherMessage">
+											<div class="areaDesc">
+												<p class="areaDescText">
+													📍 {weatherDatum.areaDesc}
+												</p>
+											</div>
+											<div class="NWSheadline">
+												<p>
+													{weatherDatum.NWSheadline}
+												</p>
+											</div>
 										</div>
-										<div class="NWSheadline">
-											<p>
-												📰 {weatherDatum.NWSheadline}
-											</p>
-										</div>
+										<button
+											class="weatherMessageCopy"
+											onclick={() =>
+												copyToClipboard(weatherDatum.areaDesc + '\n\n' + weatherDatum.NWSheadline)}
+											><h2>📑</h2>
+										</button>
 									</div>
 								{/each}
 							{:else if selectedState !== 'Select a State'}
@@ -190,29 +189,43 @@
 		width: 100%;
 	}
 
+	.weatherPerson {
+		display: flex;
+		gap: var(--gap);
+		align-items: center;
+	}
+
 	.weatherDatum {
-		border-top: var(--border);
-		padding-bottom: var(--padding);
+		display: flex;
+		border-top: var(--border-dotted);
+	}
+
+	.weatherDatum:last-of-type {
+		border-bottom: var(--border-dotted);
+	}
+
+	.weatherMessage {
+		flex-grow: 1;
+		border-right: var(--border-dotted);
+		margin-top: var(--margin);
+		margin-bottom: var(--margin);
+	}
+
+	.weatherMessage:last-child {
+		border-bottom: var(--border-dotted);
 	}
 
 	.areaDesc {
-		display: flex;
 		font-weight: bold;
 	}
 
 	.areaDescText {
 		flex-grow: 1;
-		margin-block-start: 0;
-		margin-block-end: 0;
-		padding: var(--padding);
-		padding-left: 0;
-		text-align: left;
 	}
 
-	.areaDescCopyButton {
+	.weatherMessageCopy {
+		background-color: unset;
 		cursor: grab;
-		border-left: var(--border);
-		padding: var(--padding);
 	}
 
 	.NWSheadline {
