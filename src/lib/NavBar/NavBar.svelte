@@ -1,11 +1,20 @@
 <script>
 	import { page } from '$app/stores';
-	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 
 	// Check if we're running in the browser (client-side)
 	const isBrowser = typeof window !== 'undefined';
 	let darkMode2 = false;
+
+	/**
+	 * @param {string} color
+	 */
+	function changeAddressBarColor(color) {
+		const metaTag = document.querySelector('meta[name="theme-color"]');
+		if (metaTag) {
+			metaTag.setAttribute('content', color);
+		}
+	}
 
 	function toggleDarkMode() {
 		let darkMode = document.documentElement.getAttribute('data-theme');
@@ -13,12 +22,12 @@
 
 		if (darkMode == 'light') {
 			document.documentElement.setAttribute('data-theme', 'dark');
+			changeAddressBarColor('#292b2c');
 		} else {
 			document.documentElement.setAttribute('data-theme', 'light');
+			changeAddressBarColor('#f2f2f2');
 		}
 	}
-
-	// export const lastActivePath = writable();
 
 	// Initialize store with either the value from localStorage (if available) or default to '/'
 	const savedPath = isBrowser ? localStorage.getItem('activePath') || '/' : '/';
@@ -30,14 +39,6 @@
 			localStorage.setItem('activePath', $lastActivePath);
 		});
 	}
-
-	// onMount(() => {
-	// 	const currentPath = $page.url.pathname;
-	// 	// Update the last active path only if it's not already set or differs from current
-	// 	if ($lastActivePath !== currentPath) {
-	// 		lastActivePath.set(currentPath);
-	// 	}
-	// });
 </script>
 
 <nav>
