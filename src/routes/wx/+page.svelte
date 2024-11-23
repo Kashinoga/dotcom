@@ -103,11 +103,13 @@
 			<div class="section section-100">
 				<div class="paper">
 					<h2>🌦️ WX</h2>
-					<p>A simple <span class="highlight highlight-2">weather app</span>.</p>
+					<p>A simple <span class="highlight highlight-yellow">weather app</span>.</p>
 				</div>
 				<div class="paper">
 					<p>
-						The forecast is provided by your <span class="highlight">local sorceress</span>.
+						The forecast is provided by your <span class="highlight highlight-yellow"
+							>local sorceress</span
+						>.
 					</p>
 					<select
 						id="stateSelect"
@@ -129,12 +131,12 @@
 							{#if featuresLength > 0}
 								<div class="weatherPerson">
 									<p>
-										<span class="highlight highlight-q"
+										<span class="highlight highlight-quote"
 											>"Peer into the cauldron. It's fresh as of..."</span
 										>
 									</p>
 									<p class="weatherDatumUpdated">
-										<span class="highlight highlight-q">{weatherDatum.updated}</span>
+										<span class="highlight highlight-quote">{weatherDatum.updated}</span>
 									</p>
 								</div>
 
@@ -162,12 +164,12 @@
 								{/each}
 							{:else if selectedState !== 'Select a State'}
 								<p>
-									The <span class="highlight">sorceress</span> remains silent. There are no available
-									alerts.
+									The <span class="highlight highlight-yellow">sorceress</span> remains silent. There
+									are no available alerts.
 								</p>
 							{:else}
 								<p>
-									<span class="highlight">She</span> awaits your selection with disinterest.
+									<span class="highlight highlight-yellow">She</span> awaits your selection with disinterest.
 								</p>
 							{/if}
 						</div>
@@ -224,10 +226,6 @@
 
 	.areaDesc {
 		font-weight: bold;
-	}
-
-	.areaDescText {
-		flex-grow: 1;
 	}
 
 	.weatherMessageCopy {

@@ -24,7 +24,7 @@
 				<p>I hope you enjoy your time.</p>
 				<h2>☝️ Look up!</h2>
 				<p>
-					<span class="highlight highlight-q">"I will root for you, all the time."</span> —<span
+					<span class="highlight highlight-quote">"I will root for you, all the time."</span> —<span
 						class="highlight">Anime Girl</span
 					>, Moments in the Universe<sup>[2]</sup>
 				</p>
