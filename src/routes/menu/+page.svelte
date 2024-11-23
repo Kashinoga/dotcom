@@ -9,9 +9,9 @@
 				<a href="/wtm">
 					<h2>🧭 What's the Move</h2>
 					<p>
-						A curated selection of <span class="highlight highlight-yellow">where to eat</span>,
-						<span class="highlight highlight-yellow">places to see</span>, and
-						<span class="highlight highlight-yellow">things to do</span>.
+						A curated selection of <span class="highlight highlight-blue">where to eat</span>,
+						<span class="highlight highlight-blue">places to see</span>, and
+						<span class="highlight highlight-blue">things to do</span>.
 					</p>
 				</a>
 				<a href="/wx">

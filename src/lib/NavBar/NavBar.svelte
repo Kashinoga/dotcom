@@ -37,26 +37,26 @@
 		});
 	}
 
-	// Set the initial theme and address bar color on page load
-	onMount(() => {
-		// Ensure the savedTheme value is either 'light' or 'dark'
-		const savedTheme = (localStorage.getItem('theme') || 'dark') as 'light' | 'dark'; // Type assertion here
-		document.documentElement.setAttribute('data-theme', savedTheme);
-		lastActivePath.set($page.url.pathname); // Sync the store with the current path
+	// // Set the initial theme and address bar color on page load
+	// onMount(() => {
+	// 	// Ensure the savedTheme value is either 'light' or 'dark'
+	// 	const savedTheme = (localStorage.getItem('theme') || 'dark') as 'light' | 'dark'; // Type assertion here
+	// 	document.documentElement.setAttribute('data-theme', savedTheme);
+	// 	lastActivePath.set($page.url.pathname); // Sync the store with the current path
 
-		// Set initial theme color and address bar color
-		updateThemeColor(savedTheme);
+	// 	// Set initial theme color and address bar color
+	// 	updateThemeColor(savedTheme);
 
-		// Listen for changes in color scheme
-		const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-		const darkModeListener = () => updateThemeColor(darkModeMediaQuery.matches ? 'dark' : 'light');
-		darkModeMediaQuery.addEventListener('change', darkModeListener);
+	// 	// Listen for changes in color scheme
+	// 	const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+	// 	const darkModeListener = () => updateThemeColor(darkModeMediaQuery.matches ? 'dark' : 'light');
+	// 	darkModeMediaQuery.addEventListener('change', darkModeListener);
 
-		// Cleanup listener when the component is destroyed
-		return () => {
-			darkModeMediaQuery.removeEventListener('change', darkModeListener);
-		};
-	});
+	// 	// Cleanup listener when the component is destroyed
+	// 	return () => {
+	// 		darkModeMediaQuery.removeEventListener('change', darkModeListener);
+	// 	};
+	// });
 </script>
 
 <nav>
@@ -85,7 +85,7 @@
 
 <style>
 	nav {
-		background-color: var(--background);
+		background-color: var(--color-background);
 		padding: var(--padding);
 	}
 
@@ -116,7 +116,11 @@
 		border-bottom: 0.2em solid transparent;
 	}
 
+	a:hover {
+		border-bottom: 0.2em solid var(--blue);
+	}
+
 	.active {
-		border-bottom: 0.2em solid var(--nav-blue);
+		border-bottom: 0.2em solid var(--yellow);
 	}
 </style>
