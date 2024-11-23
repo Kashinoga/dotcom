@@ -6,23 +6,11 @@
 	const isBrowser = typeof window !== 'undefined';
 	let darkMode = false;
 
-	// Function to update both theme color and address bar color
-	function updateThemeColor(color: 'light' | 'dark') {
-		const metaTags = document.querySelectorAll('meta[name="theme-color"]');
-		metaTags.forEach((metaTag) => {
-			const meta = metaTag as HTMLMetaElement;
-			if (meta.media === `(prefers-color-scheme: ${color})`) {
-				meta.setAttribute('content', color === 'dark' ? '#292b2c' : '#f2f2f2');
-			}
-		});
-	}
-
 	function toggleDarkMode() {
 		const currentTheme = document.documentElement.getAttribute('data-theme');
 		darkMode = currentTheme === 'light'; // Toggle dark mode based on current theme
 
 		document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
-		updateThemeColor(darkMode ? 'dark' : 'light');
 	}
 
 	// Initialize store with either the value from localStorage (if available) or default to '/'
