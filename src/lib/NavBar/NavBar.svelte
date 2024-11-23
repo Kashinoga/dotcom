@@ -7,39 +7,23 @@
 	const isBrowser = typeof window !== 'undefined';
 	let darkMode = false;
 
-	function changeAddressBarColor(color: 'light' | 'dark') {
+	// Function to update both theme color and address bar color
+	function updateThemeColor(color: 'light' | 'dark') {
 		const metaTags = document.querySelectorAll('meta[name="theme-color"]');
 		metaTags.forEach((metaTag) => {
-			const meta = metaTag as HTMLMetaElement; // Assert the type to HTMLMetaElement
-			if (meta.media === '(prefers-color-scheme: light)' && color === 'light') {
-				meta.setAttribute('content', '#f2f2f2');
-			} else if (meta.media === '(prefers-color-scheme: dark)' && color === 'dark') {
-				meta.setAttribute('content', '#292b2c');
+			const meta = metaTag as HTMLMetaElement;
+			if (meta.media === `(prefers-color-scheme: ${color})`) {
+				meta.setAttribute('content', color === 'dark' ? '#292b2c' : '#f2f2f2');
 			}
 		});
 	}
 
-	function updateThemeColor() {
-		if (typeof window === 'undefined') return; // Ensure this runs only in the browser
-
-		const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-		const metaTag = document.querySelector('meta[name="theme-color"]');
-		if (metaTag) {
-			metaTag.setAttribute('content', isDarkMode ? '#292b2c' : '#f2f2f2');
-		}
-	}
-
 	function toggleDarkMode() {
-		let dataTheme = document.documentElement.getAttribute('data-theme');
-		darkMode = !darkMode;
+		const currentTheme = document.documentElement.getAttribute('data-theme');
+		darkMode = currentTheme === 'light'; // Toggle dark mode based on current theme
 
-		if (dataTheme == 'light') {
-			document.documentElement.setAttribute('data-theme', 'dark');
-			changeAddressBarColor('dark');
-		} else {
-			document.documentElement.setAttribute('data-theme', 'light');
-			changeAddressBarColor('light');
-		}
+		document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+		updateThemeColor(darkMode ? 'dark' : 'light');
 	}
 
 	// Initialize store with either the value from localStorage (if available) or default to '/'
@@ -55,23 +39,18 @@
 
 	// Set the initial theme and address bar color on page load
 	onMount(() => {
-		const savedTheme = localStorage.getItem('theme') || 'dark'; // Default to light if no saved theme
+		// Ensure the savedTheme value is either 'light' or 'dark'
+		const savedTheme = (localStorage.getItem('theme') || 'dark') as 'light' | 'dark'; // Type assertion here
 		document.documentElement.setAttribute('data-theme', savedTheme);
 		lastActivePath.set($page.url.pathname); // Sync the store with the current path
 
-		updateThemeColor();
+		// Set initial theme color and address bar color
+		updateThemeColor(savedTheme);
 
 		// Listen for changes in color scheme
-		const darkModeListener = (e: any) => updateThemeColor();
 		const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+		const darkModeListener = () => updateThemeColor(darkModeMediaQuery.matches ? 'dark' : 'light');
 		darkModeMediaQuery.addEventListener('change', darkModeListener);
-
-		// Set address bar color based on the theme
-		if (savedTheme === 'dark') {
-			changeAddressBarColor('dark'); // Dark mode address bar color
-		} else {
-			changeAddressBarColor('light'); // Light mode address bar color
-		}
 
 		// Cleanup listener when the component is destroyed
 		return () => {
