@@ -19,6 +19,16 @@
 		});
 	}
 
+	function updateThemeColor() {
+		const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+		const metaTag = document.querySelector('meta[name="theme-color"]');
+		if (metaTag) {
+			metaTag.setAttribute('content', isDarkMode ? '#292b2c' : '#f2f2f2');
+		}
+	}
+
+	window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateThemeColor);
+
 	function toggleDarkMode() {
 		let dataTheme = document.documentElement.getAttribute('data-theme');
 		darkMode = !darkMode;
@@ -48,6 +58,7 @@
 		const savedTheme = localStorage.getItem('theme') || 'dark'; // Default to light if no saved theme
 		document.documentElement.setAttribute('data-theme', savedTheme);
 		lastActivePath.set($page.url.pathname); // Sync the store with the current path
+		updateThemeColor();
 
 		// Set address bar color based on the theme
 		if (savedTheme === 'dark') {
