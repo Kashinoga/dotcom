@@ -10,23 +10,23 @@
 				<p>My name is <span class="highlight">Andrew</span>.</p>
 				<p>
 					This is <span class="highlight">Kashinoga</span>. My virtual
-					<span class="highlight highlight-3">home</span>.
+					<span class="highlight">home</span>.
 				</p>
 				<p>
-					Here, you'll find a <span class="highlight highlight-2">gallery of the fun things</span>
+					Here, you'll find a <span class="highlight">gallery of the fun things</span>
 					that I've built. You'll also find a
-					<span class="highlight highlight-2"
+					<span class="highlight"
 						>curation of the
-						<i>fun</i><sup>[1]</sup> things</span
+						<i>fun</i> things</span
 					>
-					that I've found <span class="highlight highlight-3">elsewhere</span>.
+					that I've found <span class="highlight">elsewhere</span>.
 				</p>
 				<p>I hope you enjoy your time.</p>
 				<h2>☝️ Look up!</h2>
 				<p>
 					<span class="highlight highlight-quote">"I will root for you, all the time."</span> —<span
 						class="highlight">Anime Girl</span
-					>, Moments in the Universe<sup>[2]</sup>
+					>, Moments in the Universe
 				</p>
 			</div>
 		</div>

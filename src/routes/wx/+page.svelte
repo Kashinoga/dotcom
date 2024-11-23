@@ -100,83 +100,79 @@
 <div class="container">
 	<div class="content">
 		<div class="sections">
-			<div class="section section-100">
-				<div class="paper">
-					<h2>🌦️ WX</h2>
-					<p>A simple <span class="highlight highlight-yellow">weather app</span>.</p>
-				</div>
-				<div class="paper">
-					<p>
-						The forecast is provided by your <span class="highlight highlight-yellow"
-							>local sorceress</span
-						>.
-					</p>
-					<select
-						id="stateSelect"
-						class="stateSelect"
-						bind:value={selectedState}
-						onchange={getWeatherData}
-						>\
-						<option disabled>Select a State</option>
-						{#each statesOfAmerica as state}
-							<option value={state.abbreviation}>
-								{state.name}
-							</option>
-						{/each}
-					</select>
-					{#await getWeatherData()}
-						<p>Loading...</p>
-					{:then}
-						<div class="weatherDatumContainer">
-							{#if featuresLength > 0}
-								<div class="weatherPerson">
-									<p>
-										<span class="highlight highlight-quote"
-											>"Peer into the cauldron. It's fresh as of..."</span
-										>
-									</p>
-									<p class="weatherDatumUpdated">
-										<span class="highlight highlight-quote">{weatherDatum.updated}</span>
-									</p>
-								</div>
+			<div class="section">
+				<h2>🌦️ WX</h2>
+				<p>A simple <span class="highlight highlight-yellow">weather app</span>.</p>
+				<p>
+					The forecast is provided by your <span class="highlight highlight-yellow"
+						>local sorceress</span
+					>.
+				</p>
+				<select
+					id="stateSelect"
+					class="stateSelect"
+					bind:value={selectedState}
+					onchange={getWeatherData}
+					>\
+					<option disabled>Select a State</option>
+					{#each statesOfAmerica as state}
+						<option value={state.abbreviation}>
+							{state.name}
+						</option>
+					{/each}
+				</select>
+				{#await getWeatherData()}
+					<p>Loading...</p>
+				{:then}
+					<div class="weatherDatumContainer">
+						{#if featuresLength > 0}
+							<div class="weatherPerson">
+								<p>
+									<span class="highlight highlight-quote"
+										>"Peer into the cauldron. It's fresh as of..."</span
+									>
+								</p>
+								<p class="weatherDatumUpdated">
+									<span class="highlight highlight-quote">{weatherDatum.updated}</span>
+								</p>
+							</div>
 
-								{#each weatherData as weatherDatum, index}
-									<div class="weatherDatum">
-										<div class="weatherMessage">
-											<div class="areaDesc">
-												<p class="areaDescText">
-													📍 {weatherDatum.areaDesc}
-												</p>
-											</div>
-											<div class="NWSheadline">
-												<p>
-													{weatherDatum.NWSheadline}
-												</p>
-											</div>
+							{#each weatherData as weatherDatum, index}
+								<div class="weatherDatum">
+									<div class="weatherMessage">
+										<div class="areaDesc">
+											<p class="areaDescText">
+												📍 {weatherDatum.areaDesc}
+											</p>
 										</div>
-										<button
-											class="weatherMessageCopy"
-											onclick={() =>
-												copyToClipboard(weatherDatum.areaDesc + '\n\n' + weatherDatum.NWSheadline)}
-											><h2>📑</h2>
-										</button>
+										<div class="NWSheadline">
+											<p>
+												{weatherDatum.NWSheadline}
+											</p>
+										</div>
 									</div>
-								{/each}
-							{:else if selectedState !== 'Select a State'}
-								<p>
-									The <span class="highlight highlight-yellow">sorceress</span> remains silent. There
-									are no available alerts.
-								</p>
-							{:else}
-								<p>
-									<span class="highlight highlight-yellow">She</span> awaits your selection with disinterest.
-								</p>
-							{/if}
-						</div>
-					{:catch error}
-						<p>Error: {error.message}</p>
-					{/await}
-				</div>
+									<button
+										class="weatherMessageCopy"
+										onclick={() =>
+											copyToClipboard(weatherDatum.areaDesc + '\n\n' + weatherDatum.NWSheadline)}
+										><h2>📑</h2>
+									</button>
+								</div>
+							{/each}
+						{:else if selectedState !== 'Select a State'}
+							<p>
+								The <span class="highlight highlight-yellow">sorceress</span> remains silent. There are
+								no available alerts.
+							</p>
+						{:else}
+							<p>
+								<span class="highlight highlight-yellow">She</span> awaits your selection with disinterest.
+							</p>
+						{/if}
+					</div>
+				{:catch error}
+					<p>Error: {error.message}</p>
+				{/await}
 			</div>
 		</div>
 	</div>

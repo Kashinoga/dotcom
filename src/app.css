@@ -6,7 +6,6 @@
 
 	--text: black;
 	--text-color: black;
-	--text-color-inverted: white;
 
 	--gap-small: 0.4em;
 	--gap: 1em;
@@ -56,8 +55,6 @@
 	--background-color-light: #121212;
 
 	--text-color: white;
-	--text-color-inverted: black;
-	--text-color-highlighted-yellow: black;
 
 	--border: 1px solid rgba(255, 255, 255, 0.2);
 	--border-dotted: 1px dotted rgba(255, 255, 255, 0.2);
@@ -107,14 +104,7 @@ ul {
 }
 
 .highlight {
-	background-color: color-mix(
-		in srgb,
-		var(--highlight-yellow) var(--highlight-percent),
-		transparent
-	);
-	color: var(--text-color-highlighted-yellow);
-	padding: var(--padding-small);
-	border-radius: var(--border-radius);
+	border-bottom: 0.2em solid var(--yellow);
 }
 
 .highlight a {
@@ -122,26 +112,19 @@ ul {
 }
 
 .highlight-red {
-	background-color: color-mix(in srgb, var(--highlight-red) var(--highlight-percent), transparent);
+	border-bottom: 0.2em solid var(--red);
 }
 
 .highlight-blue {
-	background-color: color-mix(in srgb, var(--highlight-blue) var(--highlight-percent), transparent);
-	color: var(--text-color);
+	border-bottom: 0.2em solid var(--blue);
 }
 
 .highlight-yellow {
-	background-color: color-mix(
-		in srgb,
-		var(--highlight-yellow) var(--highlight-percent),
-		transparent
-	);
-	color: var(--text-color-highlighted-yellow);
+	border-bottom: 0.2em solid var(--yellow);
 }
 
 .highlight-quote {
-	background-color: var(--highlight-quote);
-	color: var(--text-color-inverted);
+	border-bottom: 0.2em solid var(--white);
 }
 
 /* Body */

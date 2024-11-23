@@ -8,9 +8,9 @@
 			<div class="section">
 				<h2>🧭 What's the Move</h2>
 				<p>
-					A curated selection of <span class="highlight highlight-blue">where to eat</span>,
-					<span class="highlight highlight-blue">places to see</span>, and
-					<span class="highlight highlight-blue">things to do</span>.
+					A curated selection of <span class="highlight">where to eat</span>,
+					<span class="highlight">places to see</span>, and
+					<span class="highlight">things to do</span>.
 				</p>
 				<h3>United States of America</h3>
 				<div class="pills">

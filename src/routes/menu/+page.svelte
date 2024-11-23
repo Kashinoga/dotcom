@@ -16,7 +16,7 @@
 				</a>
 				<a href="/wx">
 					<h2>🌦️ WX</h2>
-					<p>A simple <span class="highlight highlight-yellow">weather app</span>.</p>
+					<p>A simple <span class="highlight highlight-blue">weather app</span>.</p>
 				</a>
 			</div>
 		</div>
