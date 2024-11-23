@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { page } from '$app/stores';
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
@@ -7,14 +7,16 @@
 	const isBrowser = typeof window !== 'undefined';
 	let darkMode = false;
 
-	/**
-	 * @param {string} color
-	 */
-	function changeAddressBarColor(color) {
-		const metaTag = document.querySelector('meta[name="theme-color"]');
-		if (metaTag) {
-			metaTag.setAttribute('content', color);
-		}
+	function changeAddressBarColor(color: 'light' | 'dark') {
+		const metaTags = document.querySelectorAll('meta[name="theme-color"]');
+		metaTags.forEach((metaTag) => {
+			const meta = metaTag as HTMLMetaElement; // Assert the type to HTMLMetaElement
+			if (meta.media === '(prefers-color-scheme: light)' && color === 'light') {
+				meta.setAttribute('content', '#f2f2f2');
+			} else if (meta.media === '(prefers-color-scheme: dark)' && color === 'dark') {
+				meta.setAttribute('content', '#292b2c');
+			}
+		});
 	}
 
 	function toggleDarkMode() {
@@ -23,10 +25,10 @@
 
 		if (dataTheme == 'light') {
 			document.documentElement.setAttribute('data-theme', 'dark');
-			changeAddressBarColor('#292b2c');
+			changeAddressBarColor('dark');
 		} else {
 			document.documentElement.setAttribute('data-theme', 'light');
-			changeAddressBarColor('#f2f2f2');
+			changeAddressBarColor('light');
 		}
 	}
 
@@ -49,9 +51,9 @@
 
 		// Set address bar color based on the theme
 		if (savedTheme === 'dark') {
-			changeAddressBarColor('#292b2c'); // Dark mode address bar color
+			changeAddressBarColor('dark'); // Dark mode address bar color
 		} else {
-			changeAddressBarColor('#f2f2f2'); // Light mode address bar color
+			changeAddressBarColor('light'); // Light mode address bar color
 		}
 	});
 </script>
