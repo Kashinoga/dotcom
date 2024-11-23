@@ -55,7 +55,15 @@
 
 			<div class="ticker-container">
 				<div class="ticker">
-					<span class="ticker-text"
+					<span
+						>Do you know about Anna's Archive? It's 📚 the largest truly open library in human
+						history. ⭐️ They mirror Sci-Hub and LibGen. They scrape and open-source Z-Lib, DuXiu,
+						and more. 📈 38,079,795+ books, 106,532,454+ papers — preserved forever. All their code
+						and data are completely open source.</span
+					>
+				</div>
+				<div class="ticker" aria-hidden="true">
+					<span
 						>Do you know about Anna's Archive? It's 📚 the largest truly open library in human
 						history. ⭐️ They mirror Sci-Hub and LibGen. They scrape and open-source Z-Lib, DuXiu,
 						and more. 📈 38,079,795+ books, 106,532,454+ papers — preserved forever. All their code
@@ -125,32 +133,44 @@
 
 	@media (min-width: 900px) {
 		.ticker-container {
-			display: unset;
-			overflow: hidden;
+			display: flex;
+			overflow-x: hidden;
 		}
 	}
 
 	.ticker {
 		display: flex;
-		animation: ticker 12s linear infinite;
+		flex: 0 0 auto;
+		gap: var(--gap);
+		animation-name: ticker;
+		animation-duration: 14s;
+		animation-timing-function: linear;
+		animation-delay: 2s;
+		animation-iteration-count: infinite;
+		animation-play-state: running;
+		animation-direction: normal;
 	}
 
-	.ticker:hover {
+	.ticker-container:hover .ticker {
 		animation-play-state: paused;
 	}
 
-	.ticker-text {
+	/* .ticker-text {
 		white-space: nowrap;
-		padding-right: 1rem;
+		padding-right: var(--padding-small);
 		color: var(--color-text-ticker);
+	} */
+
+	.ticker span {
+		padding-right: var(--padding-small);
 	}
 
 	@keyframes ticker {
 		0% {
-			transform: translatex(100%);
+			transform: translateX(0%);
 		}
 		100% {
-			transform: translatex(-300%);
+			transform: translateX(-100%);
 		}
 	}
 </style>
