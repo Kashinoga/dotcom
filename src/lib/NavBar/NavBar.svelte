@@ -66,17 +66,17 @@
 		const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 		darkModeMediaQuery.addEventListener('change', darkModeListener);
 
-		// Cleanup listener when the component is destroyed
-		return () => {
-			darkModeMediaQuery.removeEventListener('change', darkModeListener);
-		};
-
 		// Set address bar color based on the theme
 		if (savedTheme === 'dark') {
 			changeAddressBarColor('dark'); // Dark mode address bar color
 		} else {
 			changeAddressBarColor('light'); // Light mode address bar color
 		}
+
+		// Cleanup listener when the component is destroyed
+		return () => {
+			darkModeMediaQuery.removeEventListener('change', darkModeListener);
+		};
 	});
 </script>
 
