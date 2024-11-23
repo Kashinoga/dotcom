@@ -5,10 +5,24 @@
 
 	// Check if we're running in the browser (client-side)
 	const isBrowser = typeof window !== 'undefined';
-	let darkMode = false;
 
 	// Define the store to hold the theme value
 	const theme = writable<'light' | 'dark'>('light'); // Default to light
+
+	// Dynamically update the status bar theme color
+	$theme: {
+		if ($theme === 'dark') {
+			document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#292b2c');
+			document
+				.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
+				?.setAttribute('content', 'black-translucent');
+		} else {
+			document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#f2f2f2');
+			document
+				.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
+				?.setAttribute('content', 'default');
+		}
+	}
 
 	// Apply the theme to the DOM
 	function applyTheme(currentTheme: 'light' | 'dark') {
