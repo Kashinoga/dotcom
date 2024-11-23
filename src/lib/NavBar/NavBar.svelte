@@ -1,26 +1,78 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { writable } from 'svelte/store';
+	import { onMount } from 'svelte';
+	import { get, writable } from 'svelte/store';
 
 	// Check if we're running in the browser (client-side)
 	const isBrowser = typeof window !== 'undefined';
 	let darkMode = false;
 
-	// Function to update both theme color and address bar color
-	function updateThemeColor(color: 'light' | 'dark') {
-		const metaTag = document.querySelector('meta[name="theme-color"]');
-		if (metaTag) {
-			metaTag.setAttribute('content', color === 'dark' ? '#292b2c' : '#f2f2f2');
+	// // Function to update both theme color and address bar color
+	// function updateThemeColor(color: 'light' | 'dark') {
+	// 	const metaTag = document.querySelector('meta[name="theme-color"]');
+	// 	if (metaTag) {
+	// 		metaTag.setAttribute('content', color === 'dark' ? '#292b2c' : '#f2f2f2');
+	// 	}
+	// }
+
+	// function toggleDarkMode() {
+	// 	const currentTheme = document.documentElement.getAttribute('data-theme');
+	// 	darkMode = currentTheme === 'light'; // Toggle dark mode based on current theme
+
+	// 	document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+	// 	updateThemeColor(darkMode ? 'dark' : 'light');
+	// }
+
+	// Define the store to hold the theme value
+	const theme = writable<'light' | 'dark'>('light'); // Default to light
+
+	// Apply the theme to the DOM
+	function applyTheme(currentTheme: 'light' | 'dark') {
+		if (typeof document !== 'undefined') {
+			document.documentElement.setAttribute('data-theme', currentTheme);
+			const metaTag = document.querySelector('meta[name="theme-color"]');
+			if (metaTag) {
+				metaTag.setAttribute('content', currentTheme === 'dark' ? '#292b2c' : '#f2f2f2');
+			}
 		}
 	}
 
+	// Function to toggle theme
 	function toggleDarkMode() {
-		const currentTheme = document.documentElement.getAttribute('data-theme');
-		darkMode = currentTheme === 'light'; // Toggle dark mode based on current theme
-
-		document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
-		updateThemeColor(darkMode ? 'dark' : 'light');
+		const newTheme = get(theme) === 'dark' ? 'light' : 'dark';
+		theme.set(newTheme);
+		if (typeof localStorage !== 'undefined') {
+			localStorage.setItem('theme', newTheme);
+		}
 	}
+
+	// Check for saved theme in localStorage
+	onMount(() => {
+		if (typeof localStorage !== 'undefined') {
+			const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+			if (savedTheme) {
+				theme.set(savedTheme); // Use the saved theme
+			} else {
+				// Fallback to system theme if no preference is stored
+				const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+				theme.set(systemPrefersDark ? 'dark' : 'light');
+			}
+
+			// Apply the theme to the page on mount
+			applyTheme(get(theme));
+
+			// Listen for system theme changes
+			const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+			mediaQuery.addEventListener('change', (e) => {
+				if (!localStorage.getItem('theme')) {
+					theme.set(e.matches ? 'dark' : 'light');
+				}
+			});
+		}
+	});
+
+	// Subscribe to theme changes to update the DOM when it changes
+	$: applyTheme($theme);
 
 	// Initialize store with either the value from localStorage (if available) or default to '/'
 	const savedPath = isBrowser ? localStorage.getItem('activePath') || '/' : '/';
