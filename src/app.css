@@ -17,6 +17,7 @@
 	--color-text: var(--black);
 	--color-text-inverted: var(--white);
 	--color-text-faded: #dedcd9a3;
+	--color-text-ticker: #000000a3;
 
 	--gap-small: 0.4em;
 	--gap: 1em;

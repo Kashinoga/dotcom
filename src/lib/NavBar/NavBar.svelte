@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 
 	// Check if we're running in the browser (client-side)
@@ -36,27 +35,6 @@
 			localStorage.setItem('activePath', $lastActivePath);
 		});
 	}
-
-	// // Set the initial theme and address bar color on page load
-	// onMount(() => {
-	// 	// Ensure the savedTheme value is either 'light' or 'dark'
-	// 	const savedTheme = (localStorage.getItem('theme') || 'dark') as 'light' | 'dark'; // Type assertion here
-	// 	document.documentElement.setAttribute('data-theme', savedTheme);
-	// 	lastActivePath.set($page.url.pathname); // Sync the store with the current path
-
-	// 	// Set initial theme color and address bar color
-	// 	updateThemeColor(savedTheme);
-
-	// 	// Listen for changes in color scheme
-	// 	const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-	// 	const darkModeListener = () => updateThemeColor(darkModeMediaQuery.matches ? 'dark' : 'light');
-	// 	darkModeMediaQuery.addEventListener('change', darkModeListener);
-
-	// 	// Cleanup listener when the component is destroyed
-	// 	return () => {
-	// 		darkModeMediaQuery.removeEventListener('change', darkModeListener);
-	// 	};
-	// });
 </script>
 
 <nav>
@@ -74,9 +52,19 @@
 				class={$page.url.pathname === '/menu' ? 'active' : ''}
 				onclick={() => lastActivePath.set('/menu')}>Menu</a
 			>
-		</div>
-		<div class="nav-item-right">
-			<button onclick={toggleDarkMode}>
+
+			<div class="ticker-container">
+				<div class="ticker">
+					<span class="ticker-text"
+						>Do you know about Anna's Archive? It's 📚 the largest truly open library in human
+						history. ⭐️ They mirror Sci-Hub and LibGen. They scrape and open-source Z-Lib, DuXiu,
+						and more. 📈 38,079,795+ books, 106,532,454+ papers — preserved forever. All their code
+						and data are completely open source.</span
+					>
+				</div>
+			</div>
+
+			<button class="darkModeToggle" onclick={toggleDarkMode}>
 				{#if darkMode}🌙{:else}☀️{/if}
 			</button>
 		</div>
@@ -100,6 +88,12 @@
 		display: flex;
 		flex-grow: 1;
 		gap: var(--gap);
+		overflow: hidden;
+	}
+
+	.darkModeToggle {
+		flex-shrink: 0;
+		margin-left: auto;
 	}
 
 	a,
@@ -122,5 +116,41 @@
 
 	.active {
 		border-bottom: 0.2em solid var(--yellow);
+	}
+
+	/* Tickers */
+	.ticker-container {
+		display: none;
+	}
+
+	@media (min-width: 900px) {
+		.ticker-container {
+			display: unset;
+			overflow: hidden;
+		}
+	}
+
+	.ticker {
+		display: flex;
+		animation: ticker 12s linear infinite;
+	}
+
+	.ticker:hover {
+		animation-play-state: paused;
+	}
+
+	.ticker-text {
+		white-space: nowrap;
+		padding-right: 1rem;
+		color: var(--color-text-ticker);
+	}
+
+	@keyframes ticker {
+		0% {
+			transform: translatex(100%);
+		}
+		100% {
+			transform: translatex(-300%);
+		}
 	}
 </style>
