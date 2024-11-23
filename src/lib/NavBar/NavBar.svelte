@@ -7,22 +7,6 @@
 	const isBrowser = typeof window !== 'undefined';
 	let darkMode = false;
 
-	// // Function to update both theme color and address bar color
-	// function updateThemeColor(color: 'light' | 'dark') {
-	// 	const metaTag = document.querySelector('meta[name="theme-color"]');
-	// 	if (metaTag) {
-	// 		metaTag.setAttribute('content', color === 'dark' ? '#292b2c' : '#f2f2f2');
-	// 	}
-	// }
-
-	// function toggleDarkMode() {
-	// 	const currentTheme = document.documentElement.getAttribute('data-theme');
-	// 	darkMode = currentTheme === 'light'; // Toggle dark mode based on current theme
-
-	// 	document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
-	// 	updateThemeColor(darkMode ? 'dark' : 'light');
-	// }
-
 	// Define the store to hold the theme value
 	const theme = writable<'light' | 'dark'>('light'); // Default to light
 
@@ -122,7 +106,7 @@
 			</div>
 
 			<button class="darkModeToggle" onclick={toggleDarkMode}>
-				{#if darkMode}🌙{:else}☀️{/if}
+				{#if $theme === 'dark'}🌙{:else}☀️{/if}
 			</button>
 		</div>
 	</div>
