@@ -21,12 +21,12 @@
 		let dataTheme = document.documentElement.getAttribute('data-theme');
 		darkMode = !darkMode;
 
-		if (dataTheme === 'light') {
+		if (dataTheme == 'light') {
 			document.documentElement.setAttribute('data-theme', 'dark');
-			localStorage.setItem('theme', 'dark'); // Save the user's preference
+			changeAddressBarColor('#292b2c');
 		} else {
 			document.documentElement.setAttribute('data-theme', 'light');
-			localStorage.setItem('theme', 'light'); // Save the user's preference
+			changeAddressBarColor('#f2f2f2');
 		}
 	}
 
@@ -41,9 +41,18 @@
 		});
 	}
 
+	// Set the initial theme and address bar color on page load
 	onMount(() => {
-		const savedTheme = localStorage.getItem('theme') || 'light'; // Default to light
+		const savedTheme = localStorage.getItem('theme') || 'dark'; // Default to light if no saved theme
 		document.documentElement.setAttribute('data-theme', savedTheme);
+		lastActivePath.set($page.url.pathname); // Sync the store with the current path
+
+		// Set address bar color based on the theme
+		if (savedTheme === 'dark') {
+			changeAddressBarColor('#292b2c'); // Dark mode address bar color
+		} else {
+			changeAddressBarColor('#f2f2f2'); // Light mode address bar color
+		}
 	});
 </script>
 
