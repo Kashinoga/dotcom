@@ -20,14 +20,14 @@
 	}
 
 	function updateThemeColor() {
+		if (typeof window === 'undefined') return; // Ensure this runs only in the browser
+
 		const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
 		const metaTag = document.querySelector('meta[name="theme-color"]');
 		if (metaTag) {
 			metaTag.setAttribute('content', isDarkMode ? '#292b2c' : '#f2f2f2');
 		}
 	}
-
-	window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateThemeColor);
 
 	function toggleDarkMode() {
 		let dataTheme = document.documentElement.getAttribute('data-theme');
@@ -58,7 +58,18 @@
 		const savedTheme = localStorage.getItem('theme') || 'dark'; // Default to light if no saved theme
 		document.documentElement.setAttribute('data-theme', savedTheme);
 		lastActivePath.set($page.url.pathname); // Sync the store with the current path
+
 		updateThemeColor();
+
+		// Listen for changes in color scheme
+		const darkModeListener = (e: any) => updateThemeColor();
+		const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+		darkModeMediaQuery.addEventListener('change', darkModeListener);
+
+		// Cleanup listener when the component is destroyed
+		return () => {
+			darkModeMediaQuery.removeEventListener('change', darkModeListener);
+		};
 
 		// Set address bar color based on the theme
 		if (savedTheme === 'dark') {
