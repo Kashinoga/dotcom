@@ -9,20 +9,22 @@
 	// Define the store to hold the theme value
 	const theme = writable<'light' | 'dark'>('light'); // Default to light
 
-	// Dynamically update the status bar theme color
-	$theme: {
+	// Use onMount to execute the document-related code only in the browser
+	onMount(() => {
+		const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+		const statusBarMeta = document.querySelector(
+			'meta[name="apple-mobile-web-app-status-bar-style"]'
+		);
+
+		// Apply theme color meta tags
 		if ($theme === 'dark') {
-			document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#292b2c');
-			document
-				.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
-				?.setAttribute('content', 'black-translucent');
+			if (themeColorMeta) themeColorMeta.setAttribute('content', '#292b2c');
+			if (statusBarMeta) statusBarMeta.setAttribute('content', 'black-translucent');
 		} else {
-			document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#f2f2f2');
-			document
-				.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
-				?.setAttribute('content', 'default');
+			if (themeColorMeta) themeColorMeta.setAttribute('content', '#f2f2f2');
+			if (statusBarMeta) statusBarMeta.setAttribute('content', 'default');
 		}
-	}
+	});
 
 	// Apply the theme to the DOM
 	function applyTheme(currentTheme: 'light' | 'dark') {
