@@ -1,7 +1,3 @@
-<script>
-	import MarginNav from '$lib/Margin/MarginNav.svelte';
-</script>
-
 <div class="container">
 	<div class="content">
 		<div class="sections">

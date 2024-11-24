@@ -1,17 +1,27 @@
 <script>
+	import { page } from '$app/stores';
+	import { getStateName } from '../getStateName';
 	import { categoryInventory } from '../categoryStore';
 	import { eatAndDrinkInventory } from './eatAndDrinkStore';
 	import { entertainmentInventory } from './entertainmentStore';
 
 	let eatAndDrinkCategory = $categoryInventory[0];
 	let entertainmentCategory = $categoryInventory[1];
+
+	$: stateName = getStateName($page.url.pathname);
 </script>
 
 <div class="container">
 	<div class="content">
 		<div class="sections">
 			<div class="section">
-				<h2>🧭 What's the Move for Minnesota</h2>
+				<div class="title">
+					<div class="title-emoji"><h2>🧭</h2></div>
+					<div class="title-text">
+						<h2>What's the Move</h2>
+						<h3>for {stateName}</h3>
+					</div>
+				</div>
 				<div class="cardsContainer">
 					<h3 id={eatAndDrinkCategory.id}>
 						{eatAndDrinkCategory.emoji}

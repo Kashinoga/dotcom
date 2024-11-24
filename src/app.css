@@ -315,6 +315,24 @@ tbody > tr > td {
 	text-align: left;
 }
 
+.title {
+	display: flex;
+	flex-direction: row;
+	gap: var(--gap-small);
+	align-items: center;
+}
+
+.title-text {
+	border-left: var(--border-dotted);
+	padding-left: var(--padding);
+}
+
+.title h1,
+.title h2,
+.title h3 {
+	margin: 0;
+}
+
 /* Cards */
 .cards {
 	display: grid;

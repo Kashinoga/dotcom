@@ -1,11 +1,8 @@
 <script lang="ts">
-	import { page } from '$app/stores'; // Correct import for $page
-	import { scrollToBottom, scrollToTop } from '$lib/utils';
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 
 	let isAtBottom = writable(false);
-	let scrolling = false;
 
 	// Function to update the scroll state
 	export function updateScrollState() {

@@ -1,6 +1,4 @@
 <script lang="ts">
-	import MarginNav from '$lib/Margin/MarginNav.svelte';
-
 	let statesOfAmerica = [
 		{ name: 'Alabama', abbreviation: 'AL' },
 		{ name: 'Alaska', abbreviation: 'AK' },
