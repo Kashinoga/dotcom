@@ -248,6 +248,7 @@
 	@media (min-width: 900px) {
 		.weatherMessageCopy {
 			transform: rotate(90deg);
+			backface-visibility: hidden;
 		}
 	}
 
