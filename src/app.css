@@ -120,6 +120,10 @@ ul {
 	padding-inline-start: var(--padding);
 }
 
+ol {
+	overflow-wrap: anywhere;
+}
+
 /* Links */
 
 a {
