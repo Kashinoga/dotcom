@@ -359,6 +359,7 @@ tbody > tr > td {
 .card {
 	display: flex;
 	align-items: center;
+	justify-content: center;
 	border: var(--border-dotted);
 	border-radius: var(--border-radius);
 }
@@ -383,6 +384,7 @@ ul {
 }
 
 .cardLabel {
+	background: none;
 	transform: rotate(90deg);
 	backface-visibility: hidden;
 }

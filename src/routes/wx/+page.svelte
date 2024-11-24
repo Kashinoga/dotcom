@@ -122,38 +122,39 @@
 				{#await getWeatherData()}
 					<p>Loading...</p>
 				{:then}
-					<div class="weatherDatumContainer">
+					<div class="cardsContainer">
 						{#if featuresLength > 0}
-							<div class="weatherPerson">
-								<p>
-									<span class="highlight highlight-quote"
-										>"Peer into the cauldron. It's fresh as of... {weatherDatum.updated}"</span
-									>
-								</p>
-							</div>
+							<div class="cards">
+								<div class="card">
+									<div class="weatherPerson">
+										<span class="highlight highlight-quote"
+											>"Peer into the cauldron. It's fresh as of... {weatherDatum.updated}"</span
+										>
+									</div>
+								</div>
 
-							{#each weatherData as weatherDatum, index}
-								<div class="weatherDatum">
-									<div class="weatherMessage">
-										<div class="areaDesc">
-											<p class="areaDescText">
-												📍 {weatherDatum.areaDesc}
-											</p>
-										</div>
-										<div class="NWSheadline">
+								{#each weatherData as weatherDatum, index}
+									<div class="card">
+										<div class="cardInfo">
+											<div class="cardName">
+												<p>
+													📍 {weatherDatum.areaDesc}
+												</p>
+											</div>
+
 											<p>
 												{weatherDatum.NWSheadline}
 											</p>
 										</div>
+										<button
+											class="cardLabel"
+											onclick={() =>
+												copyToClipboard(weatherDatum.areaDesc + '\n\n' + weatherDatum.NWSheadline)}
+											><span>COPY</span>
+										</button>
 									</div>
-									<button
-										class="weatherMessageCopy"
-										onclick={() =>
-											copyToClipboard(weatherDatum.areaDesc + '\n\n' + weatherDatum.NWSheadline)}
-										><span>COPY</span>
-									</button>
-								</div>
-							{/each}
+								{/each}
+							</div>
 						{:else if selectedState !== 'Select a State'}
 							<p>
 								The <span class="highlight highlight-yellow">sorceress</span> remains silent. There are
@@ -180,15 +181,11 @@
 
 	.stateSelect {
 		width: 100%;
+		margin-bottom: var(--margin);
 	}
 
 	.weatherPerson {
-		display: flex;
-		flex-direction: column;
-		border: var(--border-dotted);
-		border-radius: var(--border-radius);
-		padding-left: var(--padding);
-		padding-right: var(--padding);
+		padding: var(--padding);
 	}
 
 	@media (min-width: 900px) {
