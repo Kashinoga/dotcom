@@ -2,6 +2,12 @@
 	<div class="content">
 		<div class="sections">
 			<div class="section">
+				<a href="/kb">
+					<h2>📚 Knowledge Base</h2>
+					<p>
+						A haphazard collection of <span class="highlight highlight-blue">wisdom</span>.
+					</p>
+				</a>
 				<a href="/wtm">
 					<h2>🧭 What's the Move</h2>
 					<p>
