@@ -1,10 +1,9 @@
 <script>
 	import '../app.css';
-
 	import { onMount } from 'svelte';
-
 	import NavBar from '$lib/NavBar/NavBar.svelte';
 	import FloatingActionButton from '$lib/FloatingActionButton/FloatingActionButton.svelte';
+
 	/** @type {{children?: import('svelte').Snippet}} */
 	let { children } = $props();
 
@@ -18,6 +17,10 @@
 		}
 	});
 </script>
+
+<svelte:head>
+	<title>Kashinoga</title>
+</svelte:head>
 
 <NavBar></NavBar>
 <FloatingActionButton></FloatingActionButton>

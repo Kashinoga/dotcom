@@ -106,6 +106,14 @@ h5 {
 	margin-bottom: var(--margin);
 }
 
+h2 {
+	border-bottom: var(--border-dotted);
+	padding-bottom: var(--padding-small);
+
+	/* border-top: var(--border-dotted); */
+	/* padding-top: var(--padding-small); */
+}
+
 ul {
 	margin-block-start: var(--margin);
 	margin-block-end: var(--margin);
@@ -320,6 +328,8 @@ tbody > tr > td {
 	flex-direction: row;
 	gap: var(--gap-small);
 	align-items: center;
+	border-bottom: var(--border-dotted);
+	padding-bottom: var(--padding);
 }
 
 .title-text {
@@ -331,6 +341,7 @@ tbody > tr > td {
 .title h2,
 .title h3 {
 	margin: 0;
+	border: none;
 }
 
 /* Cards */
@@ -346,10 +357,8 @@ tbody > tr > td {
 }
 
 .card {
-	border-top: var(--border-dotted);
-
-	padding-top: var(--padding);
-	padding-bottom: var(--padding);
+	border-left: var(--border-dotted);
+	padding-left: var(--padding);
 }
 
 .card h4,

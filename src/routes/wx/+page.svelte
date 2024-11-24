@@ -127,11 +127,8 @@
 							<div class="weatherPerson">
 								<p>
 									<span class="highlight highlight-quote"
-										>"Peer into the cauldron. It's fresh as of..."</span
+										>"Peer into the cauldron. It's fresh as of... {weatherDatum.updated}"</span
 									>
-								</p>
-								<p class="weatherDatumUpdated">
-									<span class="highlight highlight-quote">{weatherDatum.updated}</span>
 								</p>
 							</div>
 
@@ -153,7 +150,7 @@
 										class="weatherMessageCopy"
 										onclick={() =>
 											copyToClipboard(weatherDatum.areaDesc + '\n\n' + weatherDatum.NWSheadline)}
-										><h2>📑</h2>
+										><span>COPY</span>
 									</button>
 								</div>
 							{/each}
@@ -188,6 +185,10 @@
 	.weatherPerson {
 		display: flex;
 		flex-direction: column;
+		border: var(--border-dotted);
+		border-radius: var(--border-radius);
+		padding-left: var(--padding);
+		padding-right: var(--padding);
 	}
 
 	@media (min-width: 900px) {
@@ -198,24 +199,42 @@
 		}
 	}
 
-	.weatherDatum {
+	.weatherDatumContainer {
 		display: flex;
-		border-top: var(--border-dotted);
+		flex-direction: column;
+		padding-top: var(--padding);
+		gap: var(--gap);
 	}
 
-	.weatherDatum:last-of-type {
-		border-bottom: var(--border-dotted);
+	@media (min-width: 900px) {
+		.weatherDatumContainer {
+			display: grid;
+			grid-template-columns: auto auto;
+		}
+	}
+
+	.weatherDatum {
+		display: flex;
+		border: var(--border-dotted);
+		border-radius: var(--border-radius);
+	}
+
+	@media (min-width: 900px) {
+		.weatherDatum {
+		}
 	}
 
 	.weatherMessage {
-		flex-grow: 1;
-		border-right: var(--border-dotted);
 		margin-top: var(--margin);
 		margin-bottom: var(--margin);
+		padding-left: var(--padding);
+		padding-right: var(--padding);
+		border-right: var(--border-dotted);
 	}
 
-	.weatherMessage:last-child {
-		border-bottom: var(--border-dotted);
+	@media (min-width: 900px) {
+		.weatherMessage {
+		}
 	}
 
 	.areaDesc {
@@ -224,7 +243,12 @@
 
 	.weatherMessageCopy {
 		background-color: unset;
-		cursor: grab;
+	}
+
+	@media (min-width: 900px) {
+		.weatherMessageCopy {
+			transform: rotate(90deg);
+		}
 	}
 
 	.NWSheadline {

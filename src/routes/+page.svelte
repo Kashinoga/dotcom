@@ -1,7 +1,3 @@
-<svelte:head>
-	<title>Kashinoga</title>
-</svelte:head>
-
 <div class="container">
 	<div class="content">
 		<div class="sections">

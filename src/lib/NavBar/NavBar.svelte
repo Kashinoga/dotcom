@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { get, writable } from 'svelte/store';
+	import { writable } from 'svelte/store';
 
 	// Check if we're running in the browser (client-side)
 	const isBrowser = typeof window !== 'undefined';
@@ -22,15 +22,13 @@
 		<div class="nav-items-left">
 			<a
 				href="/"
-				class={$page.url.pathname === '/' || !['/', '/menu'].includes($page.url.pathname)
-					? 'active'
-					: ''}
-				onclick={() => lastActivePath.set('/')}>Kashinoga</a
+				class:active={$page.url.pathname === '/' || !['/', '/menu'].includes($page.url.pathname)}
+				on:click={() => lastActivePath.set('/')}>Kashinoga</a
 			>
 			<a
 				href="/menu"
-				class={$page.url.pathname === '/menu' ? 'active' : ''}
-				onclick={() => lastActivePath.set('/menu')}>Menu</a
+				class:active={$page.url.pathname === '/menu'}
+				on:click={() => lastActivePath.set('/menu')}>Menu</a
 			>
 
 			<div class="ticker-container">
@@ -75,13 +73,7 @@
 		overflow: hidden;
 	}
 
-	.darkModeToggle {
-		flex-shrink: 0;
-		margin-left: auto;
-	}
-
-	a,
-	button {
+	a {
 		display: inline-flex;
 		align-items: center;
 		text-decoration: none;
