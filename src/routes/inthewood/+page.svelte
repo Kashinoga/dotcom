@@ -1,5 +1,5 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { inTheWood } from './inTheWoodStore';
 	import { adventureLog } from './adventureLogStore';
 	import {
@@ -9,6 +9,14 @@
 	} from './sessionLogStore';
 	import { playerInventory } from './playerInventoryStore';
 	import { backpack } from './backpackStore';
+	import Modal from './Modal.svelte';
+
+	let showModal = false;
+
+	// Toggle modal visibility
+	const toggleModal = () => {
+		showModal = !showModal; // Toggle state on each click
+	};
 
 	let icon = $inTheWood[0];
 	let title = $inTheWood[1];
@@ -25,13 +33,12 @@
 
 	async function handsAction() {
 		addRandomMessageToSessionLog();
-
+		await tick(); // Wait for DOM to update
 		scrollToBottom();
 		handleClick();
-
 		await delay(1000);
-
 		addRandomGatherMessageToSessionLog();
+		await tick(); // Wait for DOM to update
 		scrollToBottom();
 	}
 
@@ -92,13 +99,11 @@
 					<div class="log log-session">
 						<div class="title">Session Log</div>
 						<div class="log-messages" bind:this={container}>
-							<div class="log-messages-inner">
-								{#each $sessionLog as sessionLogMessage}
-									<div class="log-session-message">
-										<span>{sessionLogMessage.message}</span>
-									</div>
-								{/each}
-							</div>
+							{#each $sessionLog as sessionLogMessage}
+								<div class="log-session-message">
+									<span>{sessionLogMessage.message}</span>
+								</div>
+							{/each}
 						</div>
 					</div>
 				</div>
@@ -152,10 +157,11 @@
 					<div class="title">Backpack</div>
 					<div class="backpack-items">
 						{#each $playerInventory as item}
-							<div class="backpack-item">
+							<button class="backpack-item">
 								{item.name}
-							</div>
+							</button>
 						{/each}
+						<button on:click={toggleModal}>Open Modal</button>
 					</div>
 				</div>
 			</div>
@@ -169,6 +175,8 @@
 					>
 				</div>
 			</div>
+
+			<Modal show={showModal} title="My Modal" content="This is the modal content!" />
 		</div>
 	</div>
 </div>
@@ -207,18 +215,12 @@
 		text-align: center;
 	}
 
-	button {
-		border: var(--border);
-		border-radius: var(--border-radius-half);
-	}
-
 	.logs {
 		display: flex;
 		flex-direction: column;
 		flex-grow: 1;
 		flex-wrap: wrap;
 		gap: var(--gap);
-		border-top: var(--border);
 	}
 
 	@media (min-width: 900px) {
@@ -233,7 +235,7 @@
 
 		font-weight: bold;
 
-		border-bottom: var(--border-dotted);
+		/* border-bottom: var(--border-dotted); */
 
 		padding-bottom: var(--padding);
 
@@ -244,8 +246,9 @@
 		display: flex;
 		flex-direction: column;
 		flex: 1;
-		padding-top: var(--padding);
-		padding-bottom: var(--padding);
+		padding: var(--padding);
+		border: var(--border-dotted);
+		border-radius: var(--border-radius);
 	}
 
 	.log-messages {
@@ -254,15 +257,15 @@
 		flex-grow: 1;
 		height: 10em;
 		overflow-y: auto;
-		padding: var(--padding);
 	}
 
 	.equipment {
 		display: flex;
 		gap: var(--gap-small);
 		border-top: var(--border);
-		padding-top: var(--padding);
-		padding-bottom: var(--padding);
+		padding: var(--padding);
+		border: var(--border-dotted);
+		border-radius: var(--border-radius);
 	}
 
 	.equip {
@@ -315,7 +318,7 @@
 
 	.action:disabled {
 		cursor: not-allowed;
-		background-color: var(--background-color);
+		background-color: var(--blue-hover);
 	}
 
 	.loading-bar {
@@ -351,8 +354,9 @@
 
 	.backpack {
 		border-top: var(--border);
-		padding-top: var(--padding);
-		padding-bottom: var(--padding);
+		padding: var(--padding);
+		border: var(--border-dotted);
+		border-radius: var(--border-radius);
 	}
 
 	.backpack-items {
@@ -362,16 +366,17 @@
 	}
 
 	.backpack-item {
-		border: var(--border);
+		/* border: var(--border);
 		border-radius: var(--border-radius);
 
-		padding: var(--padding);
+		padding: var(--padding); */
 	}
 
 	.location {
 		border-top: var(--border);
-		padding-top: var(--padding);
-		padding-bottom: var(--padding);
+		padding: var(--padding);
+		border: var(--border-dotted);
+		border-radius: var(--border-radius);
 	}
 
 	.items select,

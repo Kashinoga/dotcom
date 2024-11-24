@@ -242,17 +242,11 @@ a[href^='#'] {
 
 /* Buttons */
 button {
-	background: none;
-	background-color: var(--color-background);
-
-	color: var(--color-text);
-
+	background-color: var(--blue);
+	color: var(--color-text-inverted);
+	padding: var(--padding);
 	border: none;
-
-	padding-block: 0;
-	padding-inline: 0;
-
-	padding: var(--padding-small);
+	border-radius: var(--border-radius);
 
 	font-size: unset;
 	font-weight: unset;
@@ -269,7 +263,7 @@ button:disabled {
 }
 
 button:hover {
-	cursor: pointer;
+	background-color: var(--blue-hover);
 }
 
 /* Select Inputs */

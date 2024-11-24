@@ -1,4 +1,4 @@
-import { writable, derived, get } from 'svelte/store';
+import { writable, get } from 'svelte/store';
 import { gatherActionMessages, gatheredItemMessages } from './messagesStore';
 import type { Message } from './MessageInterface';
 
