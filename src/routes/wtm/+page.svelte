@@ -8,18 +8,18 @@
 			<div class="section">
 				<h2>🧭 What's the Move</h2>
 				<p>
-					A curated selection of <span class="highlight highlight-3">where to eat</span>,
-					<span class="highlight highlight-3">places to see</span>, and
-					<span class="highlight highlight-3">things to do</span>.
+					A curated selection of <span class="highlight highlight-blue">where to eat</span>,
+					<span class="highlight highlight-blue">places to see</span>, and
+					<span class="highlight highlight-blue">things to do</span>.
 				</p>
 				<h3>United States of America</h3>
 				<div class="pills">
 					{#each $statesOfAmericaInventory as state}
 						{#if state.enabled == 'true'}
 							{#if state.emoji != ''}
-								<a href="/wtm/{state.name.toLowerCase()}">{state.emoji} {state.name} </a>
+								<a href="/wtm/{state.name.toLowerCase()}"><div class="pill">{state.name}</div></a>
 							{:else}
-								<button disabled class="pill">{state.emoji} {state.name} </button>
+								<div class="pill pill-disabled">{state.name}</div>
 							{/if}
 						{/if}
 					{/each}

@@ -1,7 +1,3 @@
-<script>
-	import MarginNav from '$lib/Margin/MarginNav.svelte';
-</script>
-
 <div class="container">
 	<div class="content">
 		<div class="sections">
@@ -13,14 +9,14 @@
 				<a href="/wtm">
 					<h2>🧭 What's the Move</h2>
 					<p>
-						A curated selection of <span class="highlight highlight-3">where to eat</span>,
-						<span class="highlight highlight-3">places to see</span>, and
-						<span class="highlight highlight-3">things to do</span>.
+						A curated selection of <span class="highlight highlight-blue">where to eat</span>,
+						<span class="highlight highlight-blue">places to see</span>, and
+						<span class="highlight highlight-blue">things to do</span>.
 					</p>
 				</a>
 				<a href="/wx">
 					<h2>🌦️ WX</h2>
-					<p>A simple<sup>[2]</sup> <span class="highlight highlight-2">weather app</span>.</p>
+					<p>A simple <span class="highlight highlight-blue">weather app</span>.</p>
 				</a>
 			</div>
 		</div>

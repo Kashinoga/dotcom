@@ -1,6 +1,4 @@
 <script lang="ts">
-	import MarginNav from '$lib/Margin/MarginNav.svelte';
-
 	let statesOfAmerica = [
 		{ name: 'Alabama', abbreviation: 'AL' },
 		{ name: 'Alaska', abbreviation: 'AK' },
@@ -100,81 +98,77 @@
 <div class="container">
 	<div class="content">
 		<div class="sections">
-			<div class="section section-100">
-				<div class="paper">
-					<h2>🌦️ WX</h2>
-					<p>A simple <span class="highlight highlight-2">weather app</span>.</p>
-				</div>
-				<div class="paper">
-					<p>
-						The forecast is provided by your <span class="highlight">local sorceress</span>.
-					</p>
-					<select
-						id="stateSelect"
-						class="stateSelect"
-						bind:value={selectedState}
-						onchange={getWeatherData}
-						>\
-						<option disabled>Select a State</option>
-						{#each statesOfAmerica as state}
-							<option value={state.abbreviation}>
-								{state.name}
-							</option>
-						{/each}
-					</select>
-					{#await getWeatherData()}
-						<p>Loading...</p>
-					{:then}
-						<div class="weatherDatumContainer">
-							{#if featuresLength > 0}
-								<div class="weatherPerson">
-									<p>
-										<span class="highlight highlight-q"
-											>"Peer into the cauldron. It's fresh as of..."</span
+			<div class="section">
+				<h2>🌦️ WX</h2>
+				<p>A simple <span class="highlight highlight-yellow">weather app</span>.</p>
+				<p>
+					The forecast is provided by your <span class="highlight highlight-yellow"
+						>local sorceress</span
+					>.
+				</p>
+				<select
+					id="stateSelect"
+					class="stateSelect"
+					bind:value={selectedState}
+					onchange={getWeatherData}
+					>\
+					<option disabled>Select a State</option>
+					{#each statesOfAmerica as state}
+						<option value={state.abbreviation}>
+							{state.name}
+						</option>
+					{/each}
+				</select>
+				{#await getWeatherData()}
+					<p>Loading...</p>
+				{:then}
+					<div class="cardsContainer">
+						{#if featuresLength > 0}
+							<div class="cards">
+								<div class="card">
+									<div class="weatherPerson">
+										<span class="highlight highlight-quote"
+											>"Peer into the cauldron. It's fresh as of... {weatherDatum.updated}"</span
 										>
-									</p>
-									<p class="weatherDatumUpdated">
-										<span class="highlight highlight-q">{weatherDatum.updated}</span>
-									</p>
+									</div>
 								</div>
 
 								{#each weatherData as weatherDatum, index}
-									<div class="weatherDatum">
-										<div class="weatherMessage">
-											<div class="areaDesc">
-												<p class="areaDescText">
+									<div class="card">
+										<div class="cardInfo">
+											<div class="cardName">
+												<p>
 													📍 {weatherDatum.areaDesc}
 												</p>
 											</div>
-											<div class="NWSheadline">
-												<p>
-													{weatherDatum.NWSheadline}
-												</p>
-											</div>
+
+											<p>
+												{weatherDatum.NWSheadline}
+											</p>
 										</div>
 										<button
-											class="weatherMessageCopy"
+											class="cardLabel"
 											onclick={() =>
 												copyToClipboard(weatherDatum.areaDesc + '\n\n' + weatherDatum.NWSheadline)}
-											><h2>📑</h2>
+											><span>COPY</span>
 										</button>
 									</div>
 								{/each}
-							{:else if selectedState !== 'Select a State'}
-								<p>
-									The <span class="highlight">sorceress</span> remains silent. There are no available
-									alerts.
-								</p>
-							{:else}
-								<p>
-									<span class="highlight">She</span> awaits your selection with disinterest.
-								</p>
-							{/if}
-						</div>
-					{:catch error}
-						<p>Error: {error.message}</p>
-					{/await}
-				</div>
+							</div>
+						{:else if selectedState !== 'Select a State'}
+							<p>
+								The <span class="highlight highlight-yellow">sorceress</span> remains silent. There are
+								no available alerts.
+							</p>
+						{:else}
+							<p>
+								<span class="highlight highlight-yellow">She</span> awaits your selection with disinterest.
+							</p>
+						{/if}
+					</div>
+				{:catch error}
+					<p>Error: {error.message}</p>
+				{/await}
 			</div>
 		</div>
 	</div>
@@ -187,11 +181,11 @@
 
 	.stateSelect {
 		width: 100%;
+		margin-bottom: var(--margin);
 	}
 
 	.weatherPerson {
-		display: flex;
-		flex-direction: column;
+		padding: var(--padding);
 	}
 
 	@media (min-width: 900px) {
@@ -202,37 +196,57 @@
 		}
 	}
 
-	.weatherDatum {
+	.weatherDatumContainer {
 		display: flex;
-		border-top: var(--border-dotted);
+		flex-direction: column;
+		padding-top: var(--padding);
+		gap: var(--gap);
 	}
 
-	.weatherDatum:last-of-type {
-		border-bottom: var(--border-dotted);
+	@media (min-width: 900px) {
+		.weatherDatumContainer {
+			display: grid;
+			grid-template-columns: auto auto;
+		}
+	}
+
+	.weatherDatum {
+		display: flex;
+		border: var(--border-dotted);
+		border-radius: var(--border-radius);
+	}
+
+	@media (min-width: 900px) {
+		.weatherDatum {
+		}
 	}
 
 	.weatherMessage {
-		flex-grow: 1;
-		border-right: var(--border-dotted);
 		margin-top: var(--margin);
 		margin-bottom: var(--margin);
+		padding-left: var(--padding);
+		padding-right: var(--padding);
+		border-right: var(--border-dotted);
 	}
 
-	.weatherMessage:last-child {
-		border-bottom: var(--border-dotted);
+	@media (min-width: 900px) {
+		.weatherMessage {
+		}
 	}
 
 	.areaDesc {
 		font-weight: bold;
 	}
 
-	.areaDescText {
-		flex-grow: 1;
-	}
-
 	.weatherMessageCopy {
 		background-color: unset;
-		cursor: grab;
+	}
+
+	@media (min-width: 900px) {
+		.weatherMessageCopy {
+			transform: rotate(90deg);
+			backface-visibility: hidden;
+		}
 	}
 
 	.NWSheadline {

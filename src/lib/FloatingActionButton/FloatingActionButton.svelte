@@ -1,11 +1,8 @@
 <script lang="ts">
-	import { page } from '$app/stores'; // Correct import for $page
-	import { scrollToBottom, scrollToTop } from '$lib/utils';
 	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 
 	let isAtBottom = writable(false);
-	let scrolling = false;
 
 	// Function to update the scroll state
 	export function updateScrollState() {
@@ -67,7 +64,7 @@
 		border-radius: 2em;
 
 		/* Aesthetic Styles */
-		background-color: color-mix(in srgb, var(--background-color-light) 2%, transparent);
+		background-color: color-mix(in srgb, var(--color-background) 2%, transparent);
 		backdrop-filter: blur(0.2em);
 
 		/* Typography */

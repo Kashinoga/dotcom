@@ -3,12 +3,12 @@
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.ico" />
-		<meta name="viewport" content="width=device-width, user-scalable=no" />
-		<meta name="theme-color" content="#f2f2f2" />
-
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f2f2f2" />
+		<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#292b2c" />
 		%sveltekit.head%
 	</head>
 	<body data-sveltekit-preload-data="tap">
-		<div class="noto-sans-font" style="display: contents">%sveltekit.body%</div>
+		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

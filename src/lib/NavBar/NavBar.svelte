@@ -1,34 +1,9 @@
-<script>
+<script lang="ts">
 	import { page } from '$app/stores';
-	import { onMount } from 'svelte';
 	import { writable } from 'svelte/store';
 
 	// Check if we're running in the browser (client-side)
 	const isBrowser = typeof window !== 'undefined';
-	let darkMode = false;
-
-	/**
-	 * @param {string} color
-	 */
-	function changeAddressBarColor(color) {
-		const metaTag = document.querySelector('meta[name="theme-color"]');
-		if (metaTag) {
-			metaTag.setAttribute('content', color);
-		}
-	}
-
-	function toggleDarkMode() {
-		let dataTheme = document.documentElement.getAttribute('data-theme');
-		darkMode = !darkMode;
-
-		if (dataTheme == 'light') {
-			document.documentElement.setAttribute('data-theme', 'dark');
-			changeAddressBarColor('#292b2c');
-		} else {
-			document.documentElement.setAttribute('data-theme', 'light');
-			changeAddressBarColor('#f2f2f2');
-		}
-	}
 
 	// Initialize store with either the value from localStorage (if available) or default to '/'
 	const savedPath = isBrowser ? localStorage.getItem('activePath') || '/' : '/';
@@ -40,19 +15,6 @@
 			localStorage.setItem('activePath', $lastActivePath);
 		});
 	}
-
-	// Set the initial theme and address bar color on page load
-	onMount(() => {
-		const savedTheme = localStorage.getItem('theme') || 'light'; // Default to light if no saved theme
-		document.documentElement.setAttribute('data-theme', savedTheme);
-
-		// Set address bar color based on the theme
-		if (savedTheme === 'dark') {
-			changeAddressBarColor('#292b2c'); // Dark mode address bar color
-		} else {
-			changeAddressBarColor('#f2f2f2'); // Light mode address bar color
-		}
-	});
 </script>
 
 <nav>
@@ -60,93 +22,123 @@
 		<div class="nav-items-left">
 			<a
 				href="/"
-				class={$page.url.pathname === '/' || $lastActivePath === '/' ? 'active' : ''}
-				onclick={() => lastActivePath.set('/')}>Kashinoga</a
+				class:active={$page.url.pathname === '/' || !['/', '/menu'].includes($page.url.pathname)}
+				on:click={() => lastActivePath.set('/')}>Kashinoga</a
 			>
-
 			<a
 				href="/menu"
-				class={$page.url.pathname === '/menu' || $lastActivePath === '/menu' ? 'active' : ''}
-				onclick={() => lastActivePath.set('/menu')}>Menu</a
+				class:active={$page.url.pathname === '/menu'}
+				on:click={() => lastActivePath.set('/menu')}>Menu</a
 			>
-		</div>
 
-		<div class="nav-item-right">
-			<button onclick={toggleDarkMode}>
-				{#if darkMode}🌙{:else}☀️{/if}
-			</button>
+			<div class="ticker-container">
+				<div class="ticker">
+					<span
+						>Do you know about Anna's Archive? It's 📚 the largest truly open library in human
+						history. ⭐️ They mirror Sci-Hub and LibGen. They scrape and open-source Z-Lib, DuXiu,
+						and more. 📈 38,079,795+ books, 106,532,454+ papers — preserved forever. All their code
+						and data are completely open source.</span
+					>
+				</div>
+				<div class="ticker" aria-hidden="true">
+					<span
+						>Do you know about Anna's Archive? It's 📚 the largest truly open library in human
+						history. ⭐️ They mirror Sci-Hub and LibGen. They scrape and open-source Z-Lib, DuXiu,
+						and more. 📈 38,079,795+ books, 106,532,454+ papers — preserved forever. All their code
+						and data are completely open source.</span
+					>
+				</div>
+			</div>
 		</div>
 	</div>
 </nav>
 
 <style>
 	nav {
-		/* display: flex; */
-		background-color: var(--background);
-		/* margin: 0 auto; */
-
+		background-color: var(--color-background);
 		padding: var(--padding);
-
-		/* border-bottom: var(--border); */
-	}
-
-	@media (min-width: 900px) {
-		nav {
-			/* position: unset; */
-
-			/* margin-bottom: 0; */
-
-			/* padding-bottom: var(--padding); */
-			/* padding-top: var(--padding); */
-
-			/* border: 0; */
-			/* border-radius: 0; */
-			/* border-bottom: var(--border); */
-		}
 	}
 
 	.nav-items {
 		display: flex;
 		gap: var(--gap);
 		margin: 0 auto;
-
 		max-width: 1060px;
-
-		/* padding-left: 0.4em; */
-		/* padding-right: 0.4em; */
-	}
-
-	@media (min-width: 900px) {
-		.nav-items {
-			/* margin: 0 auto; */
-		}
 	}
 
 	.nav-items-left {
 		display: flex;
 		flex-grow: 1;
 		gap: var(--gap);
+		overflow: hidden;
 	}
 
-	a,
-	button {
-		display: inline-flex; /* Ensure consistency */
-		align-items: center; /* Vertically aligns content inside */
-		text-decoration: none; /* Remove underline for links */
-		font: inherit; /* Use the same font for both */
-		padding: 0; /* Normalize padding */
-		margin: 0; /* Normalize margin */
-		border: none; /* Remove button borders */
-		background: none; /* Remove button background */
-
+	a {
+		display: inline-flex;
+		align-items: center;
+		text-decoration: none;
+		font: inherit;
+		padding: 0;
+		margin: 0;
+		border: none;
+		background: none;
 		padding-bottom: var(--padding-small);
-		/* min-width: fit-content;
-		min-height: fit-content; */
-
 		border-bottom: 0.2em solid transparent;
 	}
 
+	a:hover {
+		border-bottom: 0.2em solid var(--blue);
+	}
+
 	.active {
-		border-bottom: 0.2em solid var(--nav-blue);
+		border-bottom: 0.2em solid var(--yellow);
+	}
+
+	/* Tickers */
+	.ticker-container {
+		display: none;
+	}
+
+	@media (min-width: 900px) {
+		.ticker-container {
+			display: flex;
+			overflow-x: hidden;
+		}
+	}
+
+	.ticker {
+		display: flex;
+		flex: 0 0 auto;
+		gap: var(--gap);
+		animation-name: ticker;
+		animation-duration: 14s;
+		animation-timing-function: linear;
+		animation-delay: 2s;
+		animation-iteration-count: infinite;
+		animation-play-state: running;
+		animation-direction: normal;
+	}
+
+	.ticker-container:hover .ticker {
+		animation-play-state: paused;
+	}
+
+	/* .ticker-text {
+		white-space: nowrap;
+		padding-right: var(--padding-small);
+		color: var(--color-text-ticker);
+	} */
+
+	.ticker span {
+		padding-right: var(--padding-small);
+	}
+
+	@keyframes ticker {
+		0% {
+			transform: translateX(0%);
+		}
+		100% {
+			transform: translateX(-100%);
+		}
 	}
 </style>
