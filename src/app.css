@@ -357,8 +357,10 @@ tbody > tr > td {
 }
 
 .card {
-	border-left: var(--border-dotted);
-	padding-left: var(--padding);
+	display: flex;
+	align-items: center;
+	border: var(--border-dotted);
+	border-radius: var(--border-radius);
 }
 
 .card h4,
@@ -367,13 +369,22 @@ ul {
 	margin-bottom: 0;
 }
 
-.cardLabel {
-	display: flex;
-	align-items: center;
+.cardInfo {
+	flex-grow: 1;
+	margin-top: var(--margin);
+	margin-bottom: var(--margin);
+	padding-left: var(--padding);
+	padding-right: var(--padding);
+	border-right: var(--border-dotted);
 }
 
 .cardName {
 	flex-grow: 1;
+}
+
+.cardLabel {
+	transform: rotate(90deg);
+	backface-visibility: hidden;
 }
 
 /* Floating Action Button */
