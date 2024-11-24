@@ -326,10 +326,17 @@ tbody > tr > td {
 .title {
 	display: flex;
 	flex-direction: row;
-	gap: var(--gap-small);
 	align-items: center;
 	border-bottom: var(--border-dotted);
 	padding-bottom: var(--padding);
+}
+
+.title-emoji {
+	padding: var(--padding);
+}
+
+.title-emoji h2 {
+	padding-bottom: 0;
 }
 
 .title-text {
