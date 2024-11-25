@@ -11,10 +11,21 @@
 	import Modal from './Modal.svelte';
 
 	let showModal = $state(false);
+	let selectedItem = $state(''); // Track the selected item's name
+
+	// Function to open the modal with the selected item's name
+	/**
+	 * @param {string} itemName
+	 */
+	function openModal(itemName) {
+		selectedItem = itemName;
+		showModal = true;
+	}
+
 	let icon = $inTheWood[0];
 	let title = $inTheWood[1];
 
-	let isDisabled = false;
+	let isDisabled = $state(false);
 
 	function handleClick() {
 		isDisabled = true; // Disable the button
@@ -50,20 +61,11 @@
 		scrollToBottom();
 	});
 
-	// React to updates in $sessionLog
-	// $: {
-	// 	scrollToBottom(); // Ensure scrolling when $sessionLog changes
-	// }
-
 	/**
 	 * @param {number | undefined} ms
 	 */
 	function delay(ms) {
 		return new Promise((resolve) => setTimeout(resolve, ms));
-	}
-
-	function closeModal() {
-		showModal = false;
 	}
 </script>
 
@@ -154,11 +156,22 @@
 					<div class="title">Backpack</div>
 					<div class="backpack-items">
 						{#each $playerInventory as item}
-							<button class="backpack-item">
+							<button
+								class="backpack-item"
+								onclick={() => {
+									if (showModal) {
+										// If the modal is already open, just update the selected item
+										selectedItem = item.name;
+									} else {
+										// Otherwise, open the modal and set the selected item
+										selectedItem = item.name;
+										showModal = true;
+									}
+								}}
+							>
 								{item.name}
 							</button>
 						{/each}
-						<button onclick={() => (showModal = !showModal)}>Toggle Modal</button>
 					</div>
 				</div>
 			</div>
@@ -176,15 +189,20 @@
 	</div>
 </div>
 
-<Modal open={showModal}>
+<Modal bind:open={showModal} {selectedItem}>
 	<div class="drawer">
-		<h2>Responsive Modal</h2>
+		<h2>{selectedItem}</h2>
 		<p>This modal changes into a drawer on small screens.</p>
 		<button onclick={() => (showModal = false)}>Close</button>
 	</div>
 </Modal>
 
 <style>
+	.drawer {
+		display: flex;
+		flex-direction: column;
+	}
+
 	.drawer h2 {
 		margin: 0;
 	}
@@ -389,9 +407,5 @@
 	.items select,
 	.location select {
 		width: 100%;
-	}
-
-	Modal h2 {
-		padding: 0;
 	}
 </style>

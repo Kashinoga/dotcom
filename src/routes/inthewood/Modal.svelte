@@ -1,8 +1,10 @@
 <script>
 	import { onMount } from 'svelte';
-	let isSmallScreen = false;
 
 	export let open = false;
+	export let selectedItem = ''; // Prop for the selected item's name
+
+	let isSmallScreen = false;
 
 	onMount(() => {
 		const checkSize = () => (isSmallScreen = window.innerWidth < 768);
@@ -13,8 +15,12 @@
 </script>
 
 <!-- Use a slot for parent content -->
-<div class="{isSmallScreen ? 'drawer' : 'modal'} {open ? 'show' : ''}">
+<!-- <div class="{isSmallScreen ? 'drawer' : 'modal'} {open ? 'show' : ''}">
 	<slot />
+</div> -->
+
+<div class="{isSmallScreen ? 'drawer' : 'modal'} {open ? 'show' : ''}">
+	<slot></slot>
 </div>
 
 <style>
@@ -42,7 +48,6 @@
 		position: fixed;
 		bottom: 0;
 		left: 0;
-		width: 100%;
 		background: var(--color-background);
 		padding: 1rem;
 		box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
