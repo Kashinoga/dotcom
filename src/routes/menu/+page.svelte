@@ -6,6 +6,12 @@
 					<h2>⛺ InTheWood</h2>
 					<p>A <span class="highlight highlight-2">game</span> about nature.</p>
 				</a>
+				<a href="/kb">
+					<h2>📚 Knowledge Base</h2>
+					<p>
+						A haphazard collection of <span class="highlight highlight-blue">wisdom</span>.
+					</p>
+				</a>
 				<a href="/wtm">
 					<h2>🧭 What's the Move</h2>
 					<p>

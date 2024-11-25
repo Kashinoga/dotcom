@@ -123,6 +123,10 @@ ul {
 	padding-inline-start: var(--padding);
 }
 
+ol {
+	overflow-wrap: anywhere;
+}
+
 /* Links */
 
 a {
@@ -323,10 +327,17 @@ tbody > tr > td {
 .title {
 	display: flex;
 	flex-direction: row;
-	gap: var(--gap-small);
 	align-items: center;
 	border-bottom: var(--border-dotted);
 	padding-bottom: var(--padding);
+}
+
+.title-emoji {
+	padding: var(--padding);
+}
+
+.title-emoji h2 {
+	padding-bottom: 0;
 }
 
 .title-text {
@@ -374,10 +385,6 @@ ul {
 	padding-left: var(--padding);
 	padding-right: var(--padding);
 	border-right: var(--border-dotted);
-}
-
-.cardName {
-	flex-grow: 1;
 }
 
 .cardLabel {
