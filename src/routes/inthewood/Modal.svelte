@@ -2,64 +2,124 @@
 	import { onMount } from 'svelte';
 
 	export let open = false;
-	export let selectedItem = ''; // Prop for the selected item's name
+	export const selectedItem = ''; // Prop for the selected item's name
 
 	let isSmallScreen = false;
 
 	onMount(() => {
-		const checkSize = () => (isSmallScreen = window.innerWidth < 768);
+		const checkSize = () => (isSmallScreen = window.innerWidth < 900);
 		checkSize();
 		window.addEventListener('resize', checkSize);
 		return () => window.removeEventListener('resize', checkSize);
 	});
 </script>
 
-<!-- Use a slot for parent content -->
-<!-- <div class="{isSmallScreen ? 'drawer' : 'modal'} {open ? 'show' : ''}">
-	<slot />
-</div> -->
-
-<div class="{isSmallScreen ? 'drawer' : 'modal'} {open ? 'show' : ''}">
-	<slot></slot>
+<div class="drawer-container">
+	<div class="{isSmallScreen ? 'drawer' : 'modal'} {open ? 'show' : 'hide'}" aria-hidden={!open}>
+		<slot></slot>
+	</div>
 </div>
 
 <style>
+	/* Keyframes */
+	@keyframes slideInModal {
+		0% {
+			transform: translate(-50%, -40%);
+			opacity: 0;
+		}
+		100% {
+			transform: translate(-50%, -50%);
+			opacity: 1;
+		}
+	}
+
+	@keyframes slideOutModal {
+		0% {
+			transform: translate(-50%, -50%);
+			opacity: 1;
+		}
+		100% {
+			transform: translate(-50%, -40%);
+			opacity: 0;
+		}
+	}
+
+	@keyframes slideInDrawer {
+		0% {
+			transform: translateY(100%);
+		}
+		100% {
+			transform: translateY(0);
+		}
+	}
+
+	@keyframes slideOutDrawer {
+		0% {
+			transform: translateY(0);
+		}
+		100% {
+			transform: translateY(100%);
+		}
+	}
+
+	/* Modal styles */
 	.modal {
+		border: var(--border-dotted);
+		border-radius: var(--border-radius);
 		position: fixed;
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -50%);
 		background: var(--color-background);
 		padding: var(--padding);
-		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 		z-index: 1000;
 		display: none;
-		transition: transform 1s ease-in-out;
-		border: var(--border);
-		border-radius: var(--border-radius);
+		opacity: 0;
+		transition: transform 1s var(--transition);
 	}
 
 	.modal.show {
 		display: block;
-		transition: transform 1s ease-in-out;
+		animation: slideInModal 0.2s var(--animation) forwards;
+	}
+
+	.modal.hide {
+		display: block; /* Ensure it's visible during animation */
+		animation: slideOutModal 0.2s var(--animation) forwards;
+	}
+
+	/* Drawer styles */
+	.drawer-container {
+		position: relative; /* Needed for overflow to work */
+		overflow: hidden; /* Hides any child overflow (e.g., shadow) */
 	}
 
 	.drawer {
+		border: var(--border-dotted);
+		border-bottom: 0;
+		border-top-left-radius: var(--border-radius);
+		border-top-right-radius: var(--border-radius);
 		position: fixed;
 		bottom: 0;
 		left: 0;
 		right: 0;
 		background: var(--color-background);
-		padding: 1rem;
-		box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+		margin: var(--margin-small);
+		margin-bottom: 0;
+		padding: var(--padding);
 		transform: translateY(100%);
 		z-index: 9001;
-		transition: transform 0.3s ease-in-out;
-		border-top-left-radius: var(--border-radius);
-		border-top-right-radius: var(--border-radius);
+		transition: transform 1s var(--transition);
 	}
 
 	.drawer.show {
 		transform: translateY(0);
+		animation: slideInDrawer 0.4s var(--animation);
+	}
+
+	.drawer.hide {
+		border-top: none;
+		transform: translateY(100%);
+		animation: slideOutDrawer 0.4s var(--animation);
 	}
 </style>

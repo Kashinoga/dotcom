@@ -22,7 +22,7 @@
 	--gap-small: 0.4em;
 	--gap: 1em;
 
-	--margin-small: 0.2em;
+	--margin-small: 0.4em;
 	--margin: 1em;
 
 	--padding: 1em;
@@ -42,6 +42,9 @@
 
 	--font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial,
 		sans-serif;
+
+	--transition: cubic-bezier(0.785, 0.135, 0.15, 0.86);
+	--animation: cubic-bezier(0.785, 0.135, 0.15, 0.86);
 }
 
 /* Dark Theme Variables */

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { inTheWood } from './inTheWoodStore';
 	import { adventureLog } from './adventureLogStore';
@@ -9,18 +9,21 @@
 	} from './sessionLogStore';
 	import { playerInventory } from './playerInventoryStore';
 	import Modal from './Modal.svelte';
+	import type { Backpack } from './BackpackInterface';
+	import { writable } from 'svelte/store';
 
 	let showModal = $state(false);
-	let selectedItem = $state(''); // Track the selected item's name
+	// let selectedItem = $state(''); // Track the selected item's name
+	const selectedItem = writable<Backpack | null>(null);
 
-	// Function to open the modal with the selected item's name
-	/**
-	 * @param {string} itemName
-	 */
-	function openModal(itemName) {
-		selectedItem = itemName;
-		showModal = true;
-	}
+	// // Function to open the modal with the selected item's name
+	// /**
+	//  * @param {string} itemName
+	//  */
+	// function openModal(itemName: any) {
+	// 	selectedItem = itemName;
+	// 	showModal = true;
+	// }
 
 	let icon = $inTheWood[0];
 	let title = $inTheWood[1];
@@ -49,7 +52,7 @@
 	/**
 	 * @type {HTMLDivElement}
 	 */
-	let container;
+	let container: HTMLDivElement;
 
 	function scrollToBottom() {
 		if (container) {
@@ -64,7 +67,7 @@
 	/**
 	 * @param {number | undefined} ms
 	 */
-	function delay(ms) {
+	function delay(ms: number | undefined) {
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 </script>
@@ -159,14 +162,8 @@
 							<button
 								class="backpack-item"
 								onclick={() => {
-									if (showModal) {
-										// If the modal is already open, just update the selected item
-										selectedItem = item.name;
-									} else {
-										// Otherwise, open the modal and set the selected item
-										selectedItem = item.name;
-										showModal = true;
-									}
+									selectedItem.set(item); // Set the selected item as the full item object
+									showModal = true;
 								}}
 							>
 								{item.name}
@@ -189,9 +186,18 @@
 	</div>
 </div>
 
-<Modal bind:open={showModal} {selectedItem}>
+<Modal bind:open={showModal}>
 	<div class="drawer">
-		<h2>{selectedItem}</h2>
+		<div class="drawer-title">Backpack</div>
+		{#if $selectedItem}
+			<p>Name: {$selectedItem.name}</p>
+			<!-- Display the name of selected item -->
+			<p>Quantity: {$selectedItem.quantity}</p>
+			<!-- Display the quantity of selected item -->
+		{:else}
+			<p>No item selected</p>
+			<!-- Fallback when no item is selected -->
+		{/if}
 		<p>This modal changes into a drawer on small screens.</p>
 		<button onclick={() => (showModal = false)}>Close</button>
 	</div>
@@ -205,6 +211,13 @@
 
 	.drawer h2 {
 		margin: 0;
+	}
+
+	.drawer-title {
+		margin-top: 0;
+		padding-bottom: var(--padding);
+		border-bottom: var(--border-dotted);
+		font-weight: bold;
 	}
 
 	.content {
