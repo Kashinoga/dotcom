@@ -13,17 +13,7 @@
 	import { writable } from 'svelte/store';
 
 	let showModal = $state(false);
-	// let selectedItem = $state(''); // Track the selected item's name
 	const selectedItem = writable<Backpack | null>(null);
-
-	// // Function to open the modal with the selected item's name
-	// /**
-	//  * @param {string} itemName
-	//  */
-	// function openModal(itemName: any) {
-	// 	selectedItem = itemName;
-	// 	showModal = true;
-	// }
 
 	let icon = $inTheWood[0];
 	let title = $inTheWood[1];

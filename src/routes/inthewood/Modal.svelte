@@ -21,80 +21,54 @@
 </div>
 
 <style>
-	/* Keyframes */
-	@keyframes slideInModal {
-		0% {
-			transform: translate(-50%, -40%);
-			opacity: 0;
-		}
-		100% {
-			transform: translate(-50%, -50%);
-			opacity: 1;
-		}
-	}
-
-	@keyframes slideOutModal {
-		0% {
-			transform: translate(-50%, -50%);
-			opacity: 1;
-		}
-		100% {
-			transform: translate(-50%, -40%);
-			opacity: 0;
-		}
-	}
-
-	@keyframes slideInDrawer {
-		0% {
-			transform: translateY(100%);
-		}
-		100% {
-			transform: translateY(0);
-		}
-	}
-
-	@keyframes slideOutDrawer {
-		0% {
-			transform: translateY(0);
-		}
-		100% {
-			transform: translateY(100%);
-		}
-	}
-
 	/* Modal styles */
 	.modal {
+		visibility: hidden;
 		border: var(--border-dotted);
 		border-radius: var(--border-radius);
 		position: fixed;
 		top: 50%;
 		left: 50%;
-		transform: translate(-50%, -50%);
 		background: var(--color-background);
 		padding: var(--padding);
 		z-index: 1000;
 		display: none;
-		opacity: 0;
-		transition: transform 1s var(--transition);
+		transform: translate(-50%, -40%);
+		transition:
+			visibility 0s linear 0.4s,
+			transform 0.4s var(--transform);
 	}
 
 	.modal.show {
+		visibility: visible;
 		display: block;
-		animation: slideInModal 0.2s var(--animation) forwards;
+		transform: translate(-50%, -50%);
+		opacity: 1;
+		transition:
+			visibility 0s linear 0s,
+			transform 0.4s var(--transform),
+			opacity 0.4s ease-in-out;
 	}
 
 	.modal.hide {
-		display: block; /* Ensure it's visible during animation */
-		animation: slideOutModal 0.2s var(--animation) forwards;
+		visibility: hidden;
+		display: block;
+		transform: translate(-50%, -40%);
+		opacity: 0;
+		transition:
+			visibility 0.4s linear 0.4s,
+			transform 0.4s var(--transform),
+			opacity 0.2s ease-in-out;
 	}
 
 	/* Drawer styles */
 	.drawer-container {
-		position: relative; /* Needed for overflow to work */
-		overflow: hidden; /* Hides any child overflow (e.g., shadow) */
+		position: relative;
+		overflow: hidden;
 	}
 
 	.drawer {
+		visibility: hidden;
 		border: var(--border-dotted);
 		border-bottom: 0;
 		border-top-left-radius: var(--border-radius);
@@ -107,19 +81,27 @@
 		margin: var(--margin-small);
 		margin-bottom: 0;
 		padding: var(--padding);
-		transform: translateY(100%);
 		z-index: 9001;
-		transition: transform 1s var(--transition);
+		transform: translateY(100%);
+		transition:
+			visibility 0s linear 0.4s,
+			transform 0.4s var(--transform);
 	}
 
 	.drawer.show {
+		visibility: visible;
 		transform: translateY(0);
-		animation: slideInDrawer 0.4s var(--animation);
+		transition:
+			visibility 0s linear 0s,
+			transform 0.4s var(--transform);
 	}
 
 	.drawer.hide {
+		visibility: hidden;
 		border-top: none;
 		transform: translateY(100%);
-		animation: slideOutDrawer 0.4s var(--animation);
+		transition:
+			visibility 0s linear 0.4s,
+			transform 0.4s var(--transform);
 	}
 </style>
