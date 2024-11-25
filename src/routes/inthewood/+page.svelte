@@ -8,16 +8,9 @@
 		sessionLog
 	} from './sessionLogStore';
 	import { playerInventory } from './playerInventoryStore';
-	import { backpack } from './backpackStore';
 	import Modal from './Modal.svelte';
 
-	let showModal = false;
-
-	// Toggle modal visibility
-	const toggleModal = () => {
-		showModal = !showModal; // Toggle state on each click
-	};
-
+	let showModal = $state(false);
 	let icon = $inTheWood[0];
 	let title = $inTheWood[1];
 
@@ -58,15 +51,19 @@
 	});
 
 	// React to updates in $sessionLog
-	$: {
-		scrollToBottom(); // Ensure scrolling when $sessionLog changes
-	}
+	// $: {
+	// 	scrollToBottom(); // Ensure scrolling when $sessionLog changes
+	// }
 
 	/**
 	 * @param {number | undefined} ms
 	 */
 	function delay(ms) {
 		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	function closeModal() {
+		showModal = false;
 	}
 </script>
 
@@ -115,7 +112,7 @@
 						<div class="title">Hands</div>
 						<div class="equip-actions">
 							<div class="actions">
-								<button class="action" on:click={handsAction} disabled={isDisabled}
+								<button class="action" onclick={handsAction} disabled={isDisabled}
 									>{isDisabled ? 'Gathering...' : 'Gather'}
 									<div class="loading-bar"></div></button
 								>
@@ -161,7 +158,7 @@
 								{item.name}
 							</button>
 						{/each}
-						<button on:click={toggleModal}>Open Modal</button>
+						<button onclick={() => (showModal = !showModal)}>Toggle Modal</button>
 					</div>
 				</div>
 			</div>
@@ -175,13 +172,23 @@
 					>
 				</div>
 			</div>
-
-			<Modal show={showModal} title="My Modal" content="This is the modal content!" />
 		</div>
 	</div>
 </div>
 
+<Modal open={showModal}>
+	<div class="drawer">
+		<h2>Responsive Modal</h2>
+		<p>This modal changes into a drawer on small screens.</p>
+		<button onclick={() => (showModal = false)}>Close</button>
+	</div>
+</Modal>
+
 <style>
+	.drawer h2 {
+		margin: 0;
+	}
+
 	.content {
 		max-width: unset;
 
@@ -382,5 +389,9 @@
 	.items select,
 	.location select {
 		width: 100%;
+	}
+
+	Modal h2 {
+		padding: 0;
 	}
 </style>

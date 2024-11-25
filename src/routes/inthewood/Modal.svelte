@@ -1,68 +1,59 @@
-<script lang="ts">
-	export let show: boolean = false; // To control modal visibility
-	export let title: string = ''; // Modal title
-	export let content: string = ''; // Modal content
+<script>
+	import { onMount } from 'svelte';
+	let isSmallScreen = false;
 
-	// Close modal when background is clicked
-	const close = () => {
-		show = false;
-	};
+	export let open = false;
+
+	onMount(() => {
+		const checkSize = () => (isSmallScreen = window.innerWidth < 768);
+		checkSize();
+		window.addEventListener('resize', checkSize);
+		return () => window.removeEventListener('resize', checkSize);
+	});
 </script>
 
-<div
-	class="modal {show ? 'show' : ''}"
-	on:keydown={(e) => (e.key === 'Enter' || e.key === ' ' ? close() : null)}
-	role="button"
-	tabindex="0"
-	on:click={close}
->
-	<div
-		class="modal-content"
-		on:keydown={(e) => (e.key === 'Enter' || e.key === ' ' ? close() : null)}
-		role="button"
-		tabindex="0"
-		on:click|stopPropagation
-	>
-		<h2>{title}</h2>
-		<p>{content}</p>
-		<button class="close-btn" on:click={close}>Close</button>
-	</div>
+<!-- Use a slot for parent content -->
+<div class="{isSmallScreen ? 'drawer' : 'modal'} {open ? 'show' : ''}">
+	<slot />
 </div>
 
 <style>
 	.modal {
 		position: fixed;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		background: rgba(0, 0, 0, 0.5);
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		visibility: hidden;
-		opacity: 0;
-		transition: opacity 0.3s ease;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		background: var(--color-background);
+		padding: var(--padding);
+		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+		z-index: 1000;
+		display: none;
+		transition: transform 1s ease-in-out;
+		border: var(--border);
+		border-radius: var(--border-radius);
 	}
 
 	.modal.show {
-		visibility: visible;
-		opacity: 1;
+		display: block;
+		transition: transform 1s ease-in-out;
 	}
 
-	.modal-content {
-		background: white;
-		padding: 20px;
-		border-radius: 8px;
-		width: 400px;
+	.drawer {
+		position: fixed;
+		bottom: 0;
+		left: 0;
+		width: 100%;
+		background: var(--color-background);
+		padding: 1rem;
+		box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+		transform: translateY(100%);
+		z-index: 9001;
+		transition: transform 0.3s ease-in-out;
+		border-top-left-radius: var(--border-radius);
+		border-top-right-radius: var(--border-radius);
 	}
 
-	.close-btn {
-		background: red;
-		color: white;
-		border: none;
-		padding: 5px 10px;
-		cursor: pointer;
-		border-radius: 5px;
+	.drawer.show {
+		transform: translateY(0);
 	}
 </style>
