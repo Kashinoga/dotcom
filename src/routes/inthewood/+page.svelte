@@ -178,18 +178,20 @@
 
 <Modal bind:open={showModal}>
 	<div class="drawer">
-		<div class="drawer-title">Backpack</div>
-		{#if $selectedItem}
-			<p>Name: {$selectedItem.name}</p>
-			<!-- Display the name of selected item -->
-			<p>Quantity: {$selectedItem.quantity}</p>
-			<!-- Display the quantity of selected item -->
-		{:else}
-			<p>No item selected</p>
-			<!-- Fallback when no item is selected -->
-		{/if}
-		<p>This modal changes into a drawer on small screens.</p>
-		<button onclick={() => (showModal = false)}>Close</button>
+		<div class="drawer-items">
+			<div class="drawer-title">Backpack</div>
+			{#if $selectedItem}
+				<p>Name: {$selectedItem.name}</p>
+				<!-- Display the name of selected item -->
+				<p>Quantity: {$selectedItem.quantity}</p>
+				<!-- Display the quantity of selected item -->
+			{:else}
+				<p>No item selected</p>
+				<!-- Fallback when no item is selected -->
+			{/if}
+			<p>This modal changes into a drawer on small screens.</p>
+		</div>
+		<div class="drawer-button"><button onclick={() => (showModal = false)}>Close</button></div>
 	</div>
 </Modal>
 
@@ -197,10 +199,15 @@
 	.drawer {
 		display: flex;
 		flex-direction: column;
+		height: 100%;
 	}
 
 	.drawer h2 {
 		margin: 0;
+	}
+
+	.drawer-items {
+		flex-grow: 1;
 	}
 
 	.drawer-title {
@@ -208,6 +215,10 @@
 		padding-bottom: var(--padding);
 		border-bottom: var(--border-dotted);
 		font-weight: bold;
+	}
+
+	.drawer-button button {
+		width: 100%;
 	}
 
 	.content {
@@ -260,13 +271,8 @@
 	.title {
 		flex-grow: 1;
 		align-content: start;
-
 		font-weight: bold;
-
-		/* border-bottom: var(--border-dotted); */
-
 		padding-bottom: var(--padding);
-
 		margin-bottom: var(--margin);
 	}
 
@@ -275,7 +281,7 @@
 		flex-direction: column;
 		flex: 1;
 		padding: var(--padding);
-		border: var(--border-dotted);
+		border: var(--border);
 		border-radius: var(--border-radius);
 	}
 
@@ -292,7 +298,7 @@
 		gap: var(--gap-small);
 		border-top: var(--border);
 		padding: var(--padding);
-		border: var(--border-dotted);
+		border: var(--border);
 		border-radius: var(--border-radius);
 	}
 
@@ -383,7 +389,7 @@
 	.backpack {
 		border-top: var(--border);
 		padding: var(--padding);
-		border: var(--border-dotted);
+		border: var(--border);
 		border-radius: var(--border-radius);
 	}
 
@@ -403,7 +409,7 @@
 	.location {
 		border-top: var(--border);
 		padding: var(--padding);
-		border: var(--border-dotted);
+		border: var(--border);
 		border-radius: var(--border-radius);
 	}
 

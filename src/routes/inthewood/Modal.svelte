@@ -35,8 +35,8 @@
 		display: none;
 		transform: translate(-50%, -40%);
 		transition:
-			visibility 0s linear 0.4s,
-			transform 0.4s var(--transform);
+			visibility 0s linear var(--duration),
+			transform var(--duration) var(--transform);
 	}
 
 	.modal.show {
@@ -46,8 +46,8 @@
 		opacity: 1;
 		transition:
 			visibility 0s linear 0s,
-			transform 0.4s var(--transform),
-			opacity 0.4s ease-in-out;
+			transform var(--duration) var(--transform),
+			opacity var(--duration) ease-in-out;
 	}
 
 	.modal.hide {
@@ -56,9 +56,9 @@
 		transform: translate(-50%, -40%);
 		opacity: 0;
 		transition:
-			visibility 0.4s linear 0.4s,
-			transform 0.4s var(--transform),
-			opacity 0.2s ease-in-out;
+			visibility var(--duration) linear var(--duration),
+			transform var(--duration) var(--transform),
+			opacity var(--duration) ease-in-out;
 	}
 
 	/* Drawer styles */
@@ -74,6 +74,7 @@
 		border-top-left-radius: var(--border-radius);
 		border-top-right-radius: var(--border-radius);
 		position: fixed;
+		top: 0;
 		bottom: 0;
 		left: 0;
 		right: 0;
@@ -84,8 +85,8 @@
 		z-index: 9001;
 		transform: translateY(100%);
 		transition:
-			visibility 0s linear 0.4s,
-			transform 0.4s var(--transform);
+			visibility 0s linear var(--duration),
+			transform var(--duration) var(--transform);
 	}
 
 	.drawer.show {
@@ -93,7 +94,7 @@
 		transform: translateY(0);
 		transition:
 			visibility 0s linear 0s,
-			transform 0.4s var(--transform);
+			transform var(--duration) var(--transform);
 	}
 
 	.drawer.hide {
@@ -101,7 +102,7 @@
 		border-top: none;
 		transform: translateY(100%);
 		transition:
-			visibility 0s linear 0.4s,
-			transform 0.4s var(--transform);
+			visibility 0s linear var(--duration),
+			transform var(--duration) var(--transform);
 	}
 </style>
