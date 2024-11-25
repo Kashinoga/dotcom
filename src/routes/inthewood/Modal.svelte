@@ -46,6 +46,7 @@
 
 	.drawer {
 		position: fixed;
+		width: auto;
 		bottom: 0;
 		background: var(--color-background);
 		padding: 1rem;
