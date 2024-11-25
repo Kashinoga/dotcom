@@ -7,18 +7,25 @@
 	/** @type {{children?: import('svelte').Snippet}} */
 	let { children } = $props();
 
-	onMount(() => {
-		const preferredDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
+	// onMount(() => {
+	// 	const preferredDarkMode = window.matchMedia('(prefers-color-scheme: dark)');
 
-		if (preferredDarkMode.matches) {
-			document.documentElement.setAttribute('data-theme', 'dark');
-		} else {
-			document.documentElement.setAttribute('data-theme', 'light');
-		}
-	});
+	// 	if (preferredDarkMode.matches) {
+	// 		document.documentElement.setAttribute('data-theme', 'dark');
+	// 	} else {
+	// 		document.documentElement.setAttribute('data-theme', 'light');
+	// 	}
+	// });
 </script>
 
 <svelte:head>
+	<script>
+		(function () {
+			const preferredDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+			document.documentElement.setAttribute('data-theme', preferredDarkMode ? 'dark' : 'light');
+		})();
+	</script>
+
 	<title>Kashinoga</title>
 </svelte:head>
 
