@@ -24,7 +24,7 @@
 	/* Modal styles */
 	.modal {
 		visibility: hidden;
-		border: var(--border-dotted);
+		border: var(--border);
 		border-radius: var(--border-radius);
 		position: fixed;
 		top: 50%;
@@ -69,7 +69,7 @@
 
 	.drawer {
 		visibility: hidden;
-		border: var(--border-dotted);
+		border: var(--border);
 		border-bottom: 0;
 		border-top-left-radius: var(--border-radius);
 		border-top-right-radius: var(--border-radius);
