@@ -60,6 +60,20 @@
 	function delay(ms: number | undefined) {
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
+
+	// Add or remove the no-scroll class when modal state changes
+	$effect(() => {
+		if (showModal) {
+			document.body.classList.add('no-scroll');
+		} else {
+			document.body.classList.remove('no-scroll');
+		}
+
+		// Cleanup to ensure the class is removed
+		return () => {
+			document.body.classList.remove('no-scroll');
+		};
+	});
 </script>
 
 <div class="container">

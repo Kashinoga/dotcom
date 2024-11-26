@@ -71,6 +71,10 @@ html {
 	scroll-behavior: smooth;
 }
 
+.no-scroll {
+	overflow: hidden; /* Prevents scrolling */
+}
+
 body {
 	margin: 0;
 	background-color: var(--color-background-body);

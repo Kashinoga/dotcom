@@ -40,6 +40,8 @@
 	}
 
 	.modal.show {
+		background-color: color-mix(in srgb, var(--color-background) 80%, transparent);
+		backdrop-filter: blur(0.8em);
 		visibility: visible;
 		display: block;
 		transform: translate(-50%, -50%);
@@ -90,6 +92,8 @@
 	}
 
 	.drawer.show {
+		background-color: color-mix(in srgb, var(--color-background) 80%, transparent);
+		backdrop-filter: blur(0.8em);
 		visibility: visible;
 		transform: translateY(0);
 		transition:
