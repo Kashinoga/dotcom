@@ -58,22 +58,28 @@
 		display: flex;
 		align-items: center;
 		height: 64px;
-		/* padding: var(--padding); */
 		background-color: var(--background-color-glass);
 		backdrop-filter: var(--backdrop-filter-glass);
 	}
 
 	.nav-items {
 		display: flex;
+		flex-grow: 1;
 		gap: var(--gap);
-		margin: 0 auto;
-		max-width: 1060px;
+	}
+
+	@media (min-width: 900px) {
+		.nav-items {
+			margin: 0 auto;
+			max-width: 1060px;
+		}
 	}
 
 	.nav-items-left {
 		display: flex;
 		flex-grow: 1;
 		gap: var(--gap);
+		margin-left: var(--margin);
 		overflow: hidden;
 	}
 
