@@ -172,6 +172,7 @@
 						</button>
 					</div>
 					<div class="backpack-items">
+						<span class="label-vertical">Pinned</span>
 						{#each $playerInventory as item}
 							<button
 								class="backpack-item"
@@ -314,7 +315,6 @@
 	.title-bar {
 		display: flex;
 		align-content: start;
-		font-weight: bold;
 		padding-bottom: var(--padding);
 		margin-bottom: var(--margin);
 		border-bottom: var(--border-dotted);
@@ -326,10 +326,6 @@
 		border-right: var(--border-dotted);
 		margin-bottom: 0;
 		margin-right: var(--margin);
-	}
-
-	.backpack-open {
-		font-weight: 100;
 	}
 
 	.log {
@@ -452,9 +448,19 @@
 		backdrop-filter: var(--backdrop-filter-glass);
 	}
 
+	.label-vertical {
+		backface-visibility: hidden;
+		writing-mode: vertical-rl;
+		transform: rotate(180deg);
+		border-left: var(--border-dotted);
+		padding-left: var(--padding);
+		margin-right: var(--margin);
+	}
+
 	.backpack-items {
 		display: flex;
 		flex-wrap: wrap;
+		align-items: center;
 		gap: var(--gap-small);
 	}
 
