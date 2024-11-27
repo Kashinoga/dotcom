@@ -378,6 +378,8 @@ tbody > tr > td {
 	justify-content: center;
 	border: var(--border);
 	border-radius: var(--border-radius);
+	background-color: var(--background-color-glass);
+	backdrop-filter: var(--backdrop-filter-glass);
 }
 
 .card h4,
