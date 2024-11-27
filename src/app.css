@@ -376,7 +376,7 @@ tbody > tr > td {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	border: var(--border-dotted);
+	border: var(--border);
 	border-radius: var(--border-radius);
 }
 
