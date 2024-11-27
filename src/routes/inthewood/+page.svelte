@@ -162,6 +162,14 @@
 				<div class="backpack">
 					<div class="title">Backpack</div>
 					<div class="backpack-items">
+						<button
+							class="backpack-item"
+							onclick={() => {
+								showModal = true;
+							}}
+						>
+							Open
+						</button>
 						{#each $playerInventory as item}
 							<button
 								class="backpack-item"
@@ -216,6 +224,11 @@
 		height: 100%;
 	}
 
+	.modal-button {
+		display: flex;
+		flex-direction: column;
+	}
+
 	.modal-items {
 		flex-grow: 1;
 	}
@@ -225,10 +238,6 @@
 		padding-bottom: var(--padding);
 		border-bottom: var(--border-dotted);
 		font-weight: bold;
-	}
-
-	.modal-button button {
-		width: 100%;
 	}
 
 	.content {
