@@ -14,10 +14,8 @@
 	});
 </script>
 
-<div class="drawer-container">
-	<div class="{isSmallScreen ? 'drawer' : 'modal'} {open ? 'show' : 'hide'}" aria-hidden={!open}>
-		<slot></slot>
-	</div>
+<div class="{isSmallScreen ? 'drawer' : 'modal'} {open ? 'show' : 'hide'}">
+	<slot></slot>
 </div>
 
 <style>
@@ -29,9 +27,8 @@
 		position: fixed;
 		top: 50%;
 		left: 50%;
-		background: var(--color-background);
 		padding: var(--padding);
-		z-index: 1000;
+		z-index: 9001;
 		display: none;
 		transform: translate(-50%, -40%);
 		transition:
@@ -40,8 +37,9 @@
 	}
 
 	.modal.show {
-		background-color: color-mix(in srgb, var(--color-background) 80%, transparent);
-		backdrop-filter: blur(0.8em);
+		will-change: transform, opacity;
+		background-color: var(--background-color-glass);
+		backdrop-filter: var(--backdrop-filter-glass);
 		visibility: visible;
 		display: block;
 		transform: translate(-50%, -50%);
@@ -64,11 +62,6 @@
 	}
 
 	/* Drawer styles */
-	.drawer-container {
-		position: relative;
-		overflow: hidden;
-	}
-
 	.drawer {
 		visibility: hidden;
 		border: var(--border);
@@ -80,7 +73,6 @@
 		bottom: 0;
 		left: 0;
 		right: 0;
-		background: var(--color-background);
 		margin: var(--margin-small);
 		margin-bottom: 0;
 		padding: var(--padding);
@@ -92,8 +84,8 @@
 	}
 
 	.drawer.show {
-		background-color: color-mix(in srgb, var(--color-background) 80%, transparent);
-		backdrop-filter: blur(0.8em);
+		background-color: var(--background-color-glass);
+		backdrop-filter: var(--backdrop-filter-glass);
 		visibility: visible;
 		transform: translateY(0);
 		transition:

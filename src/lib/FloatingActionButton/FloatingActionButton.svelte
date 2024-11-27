@@ -64,8 +64,8 @@
 		border-radius: 2em;
 
 		/* Aesthetic Styles */
-		background-color: color-mix(in srgb, var(--color-background) 2%, transparent);
-		backdrop-filter: blur(0.2em);
+		background-color: var(--background-color-glass);
+		backdrop-filter: var(--backdrop-filter-glass);
 
 		/* Typography */
 		font-size: x-large;

@@ -191,9 +191,9 @@
 </div>
 
 <Modal bind:open={showModal}>
-	<div class="drawer">
-		<div class="drawer-items">
-			<div class="drawer-title">Backpack</div>
+	<div class="modal">
+		<div class="modal-items">
+			<div class="modal-title">Backpack</div>
 			{#if $selectedItem}
 				<p>Name: {$selectedItem.name}</p>
 				<!-- Display the name of selected item -->
@@ -205,7 +205,7 @@
 			{/if}
 			<p>This modal changes into a drawer on small screens.</p>
 		</div>
-		<div class="drawer-button"><button onclick={() => (showModal = false)}>Close</button></div>
+		<div class="modal-button"><button onclick={() => (showModal = false)}>Close</button></div>
 	</div>
 </Modal>
 
@@ -214,10 +214,6 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-	}
-
-	.drawer h2 {
-		margin: 0;
 	}
 
 	.drawer-items {
@@ -297,6 +293,8 @@
 		padding: var(--padding);
 		border: var(--border);
 		border-radius: var(--border-radius);
+		background-color: var(--background-color-glass);
+		backdrop-filter: var(--backdrop-filter-glass);
 	}
 
 	.log-messages {
@@ -314,6 +312,8 @@
 		padding: var(--padding);
 		border: var(--border);
 		border-radius: var(--border-radius);
+		background-color: var(--background-color-glass);
+		backdrop-filter: var(--backdrop-filter-glass);
 	}
 
 	.equip {
@@ -405,6 +405,8 @@
 		padding: var(--padding);
 		border: var(--border);
 		border-radius: var(--border-radius);
+		background-color: var(--background-color-glass);
+		backdrop-filter: var(--backdrop-filter-glass);
 	}
 
 	.backpack-items {
@@ -425,6 +427,8 @@
 		padding: var(--padding);
 		border: var(--border);
 		border-radius: var(--border-radius);
+		background-color: var(--background-color-glass);
+		backdrop-filter: var(--backdrop-filter-glass);
 	}
 
 	.items select,

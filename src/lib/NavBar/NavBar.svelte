@@ -55,8 +55,9 @@
 
 <style>
 	nav {
-		background-color: var(--color-background);
 		padding: var(--padding);
+		background-color: var(--background-color-glass);
+		backdrop-filter: var(--backdrop-filter-glass);
 	}
 
 	.nav-items {

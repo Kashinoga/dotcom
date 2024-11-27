@@ -46,6 +46,9 @@
 	--transform: cubic-bezier(0.785, 0.135, 0.15, 0.86);
 	--animation: cubic-bezier(0.785, 0.135, 0.15, 0.86);
 	--duration: 0.2s;
+
+	--background-color-glass: color-mix(in srgb, var(--color-background) 80%, transparent);
+	--backdrop-filter-glass: blur(0.8em);
 }
 
 /* Dark Theme Variables */
