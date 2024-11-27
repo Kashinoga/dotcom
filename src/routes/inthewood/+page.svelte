@@ -160,16 +160,18 @@
 
 			<div class="section section-100">
 				<div class="backpack">
-					<div class="title">Backpack</div>
-					<div class="backpack-items">
+					<div class="title-bar">
+						<div class="title">Backpack</div>
 						<button
-							class="backpack-item"
+							class="backpack-item backpack-open"
 							onclick={() => {
 								showModal = true;
 							}}
 						>
 							Open
 						</button>
+					</div>
+					<div class="backpack-items">
 						{#each $playerInventory as item}
 							<button
 								class="backpack-item"
@@ -212,6 +214,19 @@
 				<!-- Fallback when no item is selected -->
 			{/if}
 			<p>This modal changes into a drawer on small screens.</p>
+			<div class="backpack-items">
+				{#each $playerInventory as item}
+					<button
+						class="backpack-item"
+						onclick={() => {
+							selectedItem.set(item); // Set the selected item as the full item object
+							showModal = true;
+						}}
+					>
+						{item.name}
+					</button>
+				{/each}
+			</div>
 		</div>
 		<div class="modal-button"><button onclick={() => (showModal = false)}>Close</button></div>
 	</div>
@@ -221,6 +236,7 @@
 	.modal {
 		display: flex;
 		flex-direction: column;
+		gap: var(--gap);
 		height: 100%;
 	}
 
@@ -251,6 +267,10 @@
 
 	.sections {
 		display: flex;
+		flex-direction: row;
+	}
+
+	.section {
 		flex-grow: 1;
 	}
 
@@ -288,11 +308,28 @@
 	}
 
 	.title {
-		flex-grow: 1;
+		margin-bottom: var(--margin);
+	}
+
+	.title-bar {
+		display: flex;
 		align-content: start;
 		font-weight: bold;
 		padding-bottom: var(--padding);
 		margin-bottom: var(--margin);
+		border-bottom: var(--border-dotted);
+	}
+
+	.title-bar .title {
+		flex-grow: 1;
+		border-bottom: none;
+		border-right: var(--border-dotted);
+		margin-bottom: 0;
+		margin-right: var(--margin);
+	}
+
+	.backpack-open {
+		font-weight: 100;
 	}
 
 	.log {
@@ -334,7 +371,6 @@
 	.equip-actions {
 		display: flex;
 		flex-direction: column;
-		gap: var(--gap-small);
 	}
 
 	@media (min-width: 900px) {
@@ -354,10 +390,8 @@
 	@media (min-width: 900px) {
 		.actions {
 			flex-direction: row;
-
 			border-right: var(--border-dotted);
-
-			padding-right: var(--padding);
+			margin-right: var(--margin);
 		}
 	}
 
@@ -422,13 +456,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--gap-small);
-	}
-
-	.backpack-item {
-		/* border: var(--border);
-		border-radius: var(--border-radius);
-
-		padding: var(--padding); */
 	}
 
 	.location {
