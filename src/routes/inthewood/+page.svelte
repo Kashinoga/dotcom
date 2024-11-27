@@ -11,6 +11,7 @@
 	import Modal from './Modal.svelte';
 	import type { Backpack } from './BackpackInterface';
 	import { writable } from 'svelte/store';
+	import Drawer from './Drawer.svelte';
 
 	let showModal = $state(false);
 	const selectedItem = writable<Backpack | null>(null);
@@ -19,7 +20,6 @@
 	let title = $inTheWood[1];
 
 	let isDisabled = $state(false);
-
 	function handleClick() {
 		isDisabled = true; // Disable the button
 
@@ -200,6 +200,8 @@
 		</div>
 	</div>
 </div>
+
+<Drawer></Drawer>
 
 <Modal bind:open={showModal}>
 	<div class="modal">

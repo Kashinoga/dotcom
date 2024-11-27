@@ -55,7 +55,10 @@
 
 <style>
 	nav {
-		padding: var(--padding);
+		display: flex;
+		align-items: center;
+		height: 64px;
+		/* padding: var(--padding); */
 		background-color: var(--background-color-glass);
 		backdrop-filter: var(--backdrop-filter-glass);
 	}
