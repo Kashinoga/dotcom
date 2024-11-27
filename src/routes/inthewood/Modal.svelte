@@ -21,6 +21,9 @@
 <style>
 	/* Modal styles */
 	.modal {
+		will-change: transform, opacity;
+		background-color: var(--background-color-glass);
+		backdrop-filter: var(--backdrop-filter-glass);
 		visibility: hidden;
 		border: var(--border);
 		border-radius: var(--border-radius);
@@ -37,9 +40,6 @@
 	}
 
 	.modal.show {
-		will-change: transform, opacity;
-		background-color: var(--background-color-glass);
-		backdrop-filter: var(--backdrop-filter-glass);
 		visibility: visible;
 		display: block;
 		transform: translate(-50%, -50%);
@@ -63,6 +63,9 @@
 
 	/* Drawer styles */
 	.drawer {
+		will-change: transform, opacity;
+		background-color: var(--background-color-glass);
+		backdrop-filter: var(--backdrop-filter-glass);
 		visibility: hidden;
 		border: var(--border);
 		border-bottom: 0;
@@ -84,8 +87,6 @@
 	}
 
 	.drawer.show {
-		background-color: var(--background-color-glass);
-		backdrop-filter: var(--backdrop-filter-glass);
 		visibility: visible;
 		transform: translateY(0);
 		transition:
