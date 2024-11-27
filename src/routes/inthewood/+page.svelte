@@ -210,24 +210,24 @@
 </Modal>
 
 <style>
-	.drawer {
+	.modal {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
 	}
 
-	.drawer-items {
+	.modal-items {
 		flex-grow: 1;
 	}
 
-	.drawer-title {
+	.modal-title {
 		margin-top: 0;
 		padding-bottom: var(--padding);
 		border-bottom: var(--border-dotted);
 		font-weight: bold;
 	}
 
-	.drawer-button button {
+	.modal-button button {
 		width: 100%;
 	}
 
