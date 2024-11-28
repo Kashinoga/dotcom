@@ -6,14 +6,14 @@
 <!-- Drawer -->
 <div class="drawer" class:open={isOpen}>
 	<div class="title-bar">
-		<div class="title"><h2>Backpack</h2></div>
+		<div class="title">Player's Name</div>
 		<button class="toggle-btn" onclick={() => (isOpen = !isOpen)}>
 			{isOpen ? 'Close' : 'Open'}
 		</button>
 	</div>
 	<div class="drawer-content">
 		{#each $playerInventory as item}
-			<button class="backpack-item">
+			<button>
 				{item.name}
 			</button>
 		{/each}
@@ -24,6 +24,7 @@
 	.title-bar {
 		display: flex;
 		margin: var(--margin-small);
+		margin-bottom: 0;
 		padding-bottom: var(--padding-small);
 		border-bottom: var(--border-dotted);
 	}
@@ -38,6 +39,10 @@
 		padding-bottom: 0;
 		margin-bottom: 0;
 		margin-right: var(--margin-small);
+	}
+
+	.title h2 {
+		padding: 0;
 	}
 
 	/* Bottom Peeking Drawer Styles */
@@ -87,6 +92,10 @@
 		margin: var(--margin-small);
 		overflow: hidden; /* Prevent content overflow */
 		/* border-top: var(--border-dotted); */
+	}
+
+	.drawer button {
+		padding: var(--padding-small);
 	}
 
 	/* Toggle Button Inside Drawer */
