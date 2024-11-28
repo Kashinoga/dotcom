@@ -4,8 +4,12 @@
 			<div class="section">
 				<a href="/inthewood">
 					<h2>⛺ InTheWood</h2>
-					<p>A <span class="highlight highlight-2">game</span> about nature.</p>
+					<div class="paragraphs">
+						<p>A <span class="highlight highlight-2">game</span> about nature.</p>
+					</div>
 				</a>
+			</div>
+			<div class="section">
 				<a href="/kb">
 					<h2>📚 Knowledge Base</h2>
 					<div class="paragraphs">

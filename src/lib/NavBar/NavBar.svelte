@@ -83,6 +83,12 @@
 		overflow: hidden;
 	}
 
+	@media (min-width: 900px) {
+		.nav-items-left {
+			margin-left: 0;
+		}
+	}
+
 	a {
 		display: inline-flex;
 		align-items: center;
