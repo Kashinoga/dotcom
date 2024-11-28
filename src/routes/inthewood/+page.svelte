@@ -314,21 +314,21 @@
 		margin-bottom: var(--margin);
 	}
 
-	.title-bar {
+	/* .title-bar {
 		display: flex;
 		align-content: start;
 		padding-bottom: var(--padding);
 		margin-bottom: var(--margin);
 		border-bottom: var(--border-dotted);
-	}
+	} */
 
-	.title-bar .title {
+	/* .title-bar .title {
 		flex-grow: 1;
 		border-bottom: none;
 		border-right: var(--border-dotted);
 		margin-bottom: 0;
 		margin-right: var(--margin);
-	}
+	} */
 
 	.log {
 		display: flex;

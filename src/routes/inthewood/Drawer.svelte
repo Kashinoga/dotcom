@@ -6,7 +6,7 @@
 <!-- Drawer -->
 <div class="drawer" class:open={isOpen}>
 	<div class="title-bar">
-		<div class="title">Backpack</div>
+		<div class="title"><h2>Backpack</h2></div>
 		<button class="toggle-btn" onclick={() => (isOpen = !isOpen)}>
 			{isOpen ? 'Close' : 'Open'}
 		</button>
@@ -23,17 +23,21 @@
 <style>
 	.title-bar {
 		display: flex;
-		align-content: start;
-		padding: var(--padding);
-		padding-bottom: 0;
+		margin: var(--margin-small);
+		padding-bottom: var(--padding-small);
+		border-bottom: var(--border-dotted);
 	}
 
 	.title-bar .title {
+		display: flex;
 		flex-grow: 1;
+		justify-content: center;
+		align-items: center;
 		border-bottom: none;
 		border-right: var(--border-dotted);
+		padding-bottom: 0;
 		margin-bottom: 0;
-		margin-right: var(--margin);
+		margin-right: var(--margin-small);
 	}
 
 	/* Bottom Peeking Drawer Styles */
@@ -78,12 +82,11 @@
 	.drawer-content {
 		display: flex;
 		flex-direction: row;
-		gap: var(--gap);
+		gap: var(--gap-small);
 		/* height: 100%; */
-		margin: var(--margin);
-		padding-top: var(--padding);
+		margin: var(--margin-small);
 		overflow: hidden; /* Prevent content overflow */
-		border-top: var(--border-dotted);
+		/* border-top: var(--border-dotted); */
 	}
 
 	/* Toggle Button Inside Drawer */

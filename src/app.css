@@ -45,7 +45,7 @@
 
 	--transform: cubic-bezier(0.785, 0.135, 0.15, 0.86);
 	--animation: cubic-bezier(0.785, 0.135, 0.15, 0.86);
-	--duration: 0.2s;
+	--duration: 0.1s;
 
 	--background-color-glass: color-mix(in srgb, var(--color-background) 80%, transparent);
 	--backdrop-filter-glass: blur(0.8em);
@@ -342,9 +342,7 @@ tbody > tr > td {
 }
 
 .title {
-	display: flex;
-	flex-direction: row;
-	align-items: center;
+	/* display: flex; */
 	border-bottom: var(--border-dotted);
 	padding-bottom: var(--padding);
 }
