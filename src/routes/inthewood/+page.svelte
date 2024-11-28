@@ -14,6 +14,8 @@
 	import Drawer from './Drawer.svelte';
 
 	let showModal = $state(false);
+	let isOpen = $state(false);
+
 	const selectedItem = writable<Backpack | null>(null);
 
 	let icon = $inTheWood[0];
@@ -63,7 +65,8 @@
 
 	// Add or remove the no-scroll class when modal state changes
 	$effect(() => {
-		if (showModal) {
+		console.log(isOpen);
+		if (showModal || isOpen) {
 			document.body.classList.add('no-scroll');
 		} else {
 			document.body.classList.remove('no-scroll');
@@ -201,7 +204,7 @@
 	</div>
 </div>
 
-<Drawer></Drawer>
+<Drawer bind:isOpen></Drawer>
 
 <Modal bind:open={showModal}>
 	<div class="modal">

@@ -1,14 +1,14 @@
 <script>
 	import { playerInventory } from './playerInventoryStore';
-	let isOpen = false;
+	export let isOpen = false;
 </script>
 
 <!-- Drawer -->
 <div class="drawer" class:open={isOpen}>
 	<div class="title-bar">
-		<div class="title">Player's Name</div>
-		<button class="toggle-btn" onclick={() => (isOpen = !isOpen)}>
-			{isOpen ? 'Close' : 'Open'}
+		<!-- <div class="title">Player's Name</div> -->
+		<button class="drawer-button" onclick={() => (isOpen = !isOpen)}>
+			<!-- {isOpen ? 'Close' : 'Open'} --> Player's Name
 		</button>
 	</div>
 	<div class="drawer-content">
@@ -41,29 +41,23 @@
 		margin-right: var(--margin-small);
 	}
 
-	.title h2 {
-		padding: 0;
-	}
-
-	/* Bottom Peeking Drawer Styles */
 	.drawer {
 		will-change: transform, opacity;
 		background-color: var(--background-color-glass);
 		backdrop-filter: var(--backdrop-filter-glass);
 		position: fixed;
 		bottom: 0;
-		left: 0; /* Left margin */
-		right: 0; /* Right margin */
+		left: 0;
+		right: 0;
 		width: auto;
-		overflow: hidden; /* Hide content when closed */
+		overflow: hidden;
 		z-index: 9001;
 		display: flex;
 		flex-direction: column;
-		/* transform: translateY(-100%); */
 		transition:
-			height 0.2s linear var(--duration),
+			height 0.1s linear var(--duration),
 			transform var(--duration) var(--transform);
-		height: 80px; /* Default height when closed */
+		height: 44px;
 		margin-left: var(--margin-small);
 		margin-right: var(--margin-small);
 		border: var(--border);
@@ -80,39 +74,32 @@
 	}
 
 	.drawer.open {
-		height: calc(100vh - (64px + var(--margin)));
+		height: calc(100vh - (0px + var(--margin-small)));
 	}
 
-	/* Drawer Content Styling */
 	.drawer-content {
 		display: flex;
 		flex-direction: row;
 		gap: var(--gap-small);
-		/* height: 100%; */
 		margin: var(--margin-small);
-		overflow: hidden; /* Prevent content overflow */
-		/* border-top: var(--border-dotted); */
+		overflow: hidden;
 	}
 
 	.drawer button {
 		padding: var(--padding-small);
 	}
 
-	/* Toggle Button Inside Drawer */
-	.toggle-btn {
-		/* position: absolute; */
+	.drawer-button {
 		top: 0;
 		right: 0;
 		background-color: var(--blue);
-		/* margin-top: var(--margin); */
-		/* margin-right: var(--margin); */
 		border: none;
 		cursor: pointer;
-		width: 10em;
-		z-index: 9001; /* Ensure button stays on top of content */
+		width: 100%;
+		z-index: 9001;
 	}
 
-	.toggle-btn:hover {
+	.drawer-button:hover {
 		background-color: var(--blue-hover);
 	}
 </style>
