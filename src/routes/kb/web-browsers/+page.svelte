@@ -21,11 +21,13 @@
 								<h4 class="cardName">Microsoft Edge is managed by your organization</h4>
 								<p>It's not, really.</p>
 								<ol>
-									<li>Go to: edge://policy and review if there are actual policies</li>
+									<li>Go to <code>edge://policy</code> and review if there are actual policies</li>
 									<li>If there are none, continue</li>
 									<li>Close Edge</li>
 									<li>Open regedit</li>
-									<li>Navigate to: HKEYd_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Edge</li>
+									<li>
+										Navigate to <code>HKEYd_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Edge</code>
+									</li>
 									<li>Delete this directory</li>
 									<li>Open Edge and verify</li>
 								</ol>

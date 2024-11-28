@@ -7,11 +7,13 @@
 		<div class="sections">
 			<div class="section">
 				<h2>🧭 What's the Move</h2>
-				<p>
-					A curated selection of <span class="highlight highlight-blue">where to eat</span>,
-					<span class="highlight highlight-blue">places to see</span>, and
-					<span class="highlight highlight-blue">things to do</span>.
-				</p>
+				<div class="paragraphs">
+					<p>
+						A curated selection of <span class="highlight highlight-blue">where to eat</span>,
+						<span class="highlight highlight-blue">places to see</span>, and
+						<span class="highlight highlight-blue">things to do</span>.
+					</p>
+				</div>
 				<h3>United States of America</h3>
 				<div class="pills">
 					{#each $statesOfAmericaInventory as state}
