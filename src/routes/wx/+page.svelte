@@ -100,12 +100,14 @@
 		<div class="sections">
 			<div class="section">
 				<h2>🌦️ WX</h2>
-				<p>A simple <span class="highlight highlight-yellow">weather app</span>.</p>
-				<p>
-					The forecast is provided by your <span class="highlight highlight-yellow"
-						>local sorceress</span
-					>.
-				</p>
+				<div class="paragraphs">
+					<p>A simple <span class="highlight highlight-yellow">weather app</span>.</p>
+					<p>
+						The forecast is provided by your <span class="highlight highlight-yellow"
+							>local sorceress</span
+						>.
+					</p>
+				</div>
 				<select
 					id="stateSelect"
 					class="stateSelect"
@@ -120,7 +122,9 @@
 					{/each}
 				</select>
 				{#await getWeatherData()}
-					<p>Loading...</p>
+					<div class="paragraphs">
+						<p>Loading...</p>
+					</div>
 				{:then}
 					<div class="cardsContainer">
 						{#if featuresLength > 0}
@@ -156,14 +160,18 @@
 								{/each}
 							</div>
 						{:else if selectedState !== 'Select a State'}
-							<p>
-								The <span class="highlight highlight-yellow">sorceress</span> remains silent. There are
-								no available alerts.
-							</p>
+							<div class="paragraphs">
+								<p>
+									The <span class="highlight highlight-yellow">sorceress</span> remains silent. There
+									are no available alerts.
+								</p>
+							</div>
 						{:else}
-							<p>
-								<span class="highlight highlight-yellow">She</span> awaits your selection with disinterest.
-							</p>
+							<div class="paragraphs">
+								<p>
+									<span class="highlight highlight-yellow">She</span> awaits your selection with disinterest.
+								</p>
+							</div>
 						{/if}
 					</div>
 				{:catch error}
@@ -194,62 +202,5 @@
 			gap: var(--gap);
 			align-items: center;
 		}
-	}
-
-	.weatherDatumContainer {
-		display: flex;
-		flex-direction: column;
-		padding-top: var(--padding);
-		gap: var(--gap);
-	}
-
-	@media (min-width: 900px) {
-		.weatherDatumContainer {
-			display: grid;
-			grid-template-columns: auto auto;
-		}
-	}
-
-	.weatherDatum {
-		display: flex;
-		border: var(--border-dotted);
-		border-radius: var(--border-radius);
-	}
-
-	@media (min-width: 900px) {
-		.weatherDatum {
-		}
-	}
-
-	.weatherMessage {
-		margin-top: var(--margin);
-		margin-bottom: var(--margin);
-		padding-left: var(--padding);
-		padding-right: var(--padding);
-		border-right: var(--border-dotted);
-	}
-
-	@media (min-width: 900px) {
-		.weatherMessage {
-		}
-	}
-
-	.areaDesc {
-		font-weight: bold;
-	}
-
-	.weatherMessageCopy {
-		background-color: unset;
-	}
-
-	@media (min-width: 900px) {
-		.weatherMessageCopy {
-			transform: rotate(90deg);
-			backface-visibility: hidden;
-		}
-	}
-
-	.NWSheadline {
-		text-align: left;
 	}
 </style>

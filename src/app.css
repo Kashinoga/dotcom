@@ -186,6 +186,15 @@ a[href^='#'] {
 	margin: 0;
 }
 
+/* Paragraphs */
+/* .paragraphs {
+	padding: var(--padding);
+	border: var(--border);
+	border-radius: var(--border-radius);
+	background-color: var(--background-color-glass);
+	backdrop-filter: var(--backdrop-filter-glass);
+} */
+
 /* Margins */
 .margin {
 	border-top: var(--border-dotted);
