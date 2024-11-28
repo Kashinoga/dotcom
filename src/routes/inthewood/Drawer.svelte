@@ -1,20 +1,22 @@
 <script>
+	import { playerInventory } from './playerInventoryStore';
 	let isOpen = false;
 </script>
 
 <!-- Drawer -->
 <div class="drawer" class:open={isOpen}>
-	<div class="drawer-content">
-		<!-- <button class="toggle-btn" on:click={() => (isOpen = !isOpen)}>
+	<div class="title-bar">
+		<div class="title">Backpack</div>
+		<button class="toggle-btn" onclick={() => (isOpen = !isOpen)}>
 			{isOpen ? 'Close' : 'Open'}
-		</button> -->
-		<div class="title-bar">
-			<div class="title">Backpack</div>
-			<button class="toggle-btn" onclick={() => (isOpen = !isOpen)}>
-				{isOpen ? 'Close' : 'Open'}
+		</button>
+	</div>
+	<div class="drawer-content">
+		{#each $playerInventory as item}
+			<button class="backpack-item">
+				{item.name}
 			</button>
-		</div>
-		<!-- <p>Backpack</p> -->
+		{/each}
 	</div>
 </div>
 
@@ -22,9 +24,8 @@
 	.title-bar {
 		display: flex;
 		align-content: start;
-		padding-bottom: var(--padding);
-		margin-bottom: var(--margin);
-		border-bottom: var(--border-dotted);
+		padding: var(--padding);
+		padding-bottom: 0;
 	}
 
 	.title-bar .title {
@@ -75,10 +76,14 @@
 
 	/* Drawer Content Styling */
 	.drawer-content {
-		/* background-color: var(--color-background); */
-		height: 100%;
-		padding: var(--padding);
+		display: flex;
+		flex-direction: row;
+		gap: var(--gap);
+		/* height: 100%; */
+		margin: var(--margin);
+		padding-top: var(--padding);
 		overflow: hidden; /* Prevent content overflow */
+		border-top: var(--border-dotted);
 	}
 
 	/* Toggle Button Inside Drawer */
@@ -87,11 +92,11 @@
 		top: 0;
 		right: 0;
 		background-color: var(--blue);
-		color: white;
 		/* margin-top: var(--margin); */
 		/* margin-right: var(--margin); */
 		border: none;
 		cursor: pointer;
+		width: 10em;
 		z-index: 9001; /* Ensure button stays on top of content */
 	}
 
