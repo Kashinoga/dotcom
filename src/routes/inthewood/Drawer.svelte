@@ -152,13 +152,19 @@
 
 	@media (min-width: 900px) {
 		.drawer {
-			width: 1080px;
+			width: calc(1060px + var(--margin));
 			margin: auto;
 		}
 	}
 
 	.drawer.open {
 		height: calc(100vh - (0px + var(--margin-small)));
+	}
+
+	@media (min-width: 900px) {
+		.drawer.open {
+			height: calc(100vh - (64px + var(--margin)));
+		}
 	}
 
 	.drawer-content {
