@@ -49,7 +49,7 @@
 		</button>
 	</div>
 
-	<div class="section section-100">
+	<div class="drawer-content">
 		<div class="equipment">
 			<div class="equip">
 				<div class="title">Hands</div>
@@ -90,14 +90,17 @@
 				</div>
 			</div>
 		</div>
-	</div>
 
-	<div class="drawer-content">
-		{#each $playerInventory as item}
-			<button>
-				{item.name}
-			</button>
-		{/each}
+		<div class="backpack">
+			<div class="title">Backpack</div>
+			<div class="backpack-items">
+				{#each $playerInventory as item}
+					<button>
+						{item.name}
+					</button>
+				{/each}
+			</div>
+		</div>
 	</div>
 </div>
 
@@ -161,8 +164,8 @@
 	.drawer-content {
 		display: flex;
 		flex-direction: row;
+		flex-wrap: wrap;
 		gap: var(--gap-small);
-		margin: var(--margin-small);
 		overflow: hidden;
 	}
 
@@ -186,13 +189,9 @@
 
 	.equipment {
 		display: flex;
+		flex-grow: 1;
 		gap: var(--gap-small);
-		border-top: var(--border);
 		padding: var(--padding);
-		border: var(--border);
-		border-radius: var(--border-radius);
-		background-color: var(--background-color-glass);
-		backdrop-filter: var(--backdrop-filter-glass);
 	}
 
 	.equip {
@@ -205,6 +204,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--gap);
+		margin-top: var(--margin);
 	}
 
 	@media (min-width: 900px) {
@@ -274,5 +274,21 @@
 		.items {
 			flex-direction: row;
 		}
+	}
+
+	.backpack {
+		display: flex;
+		flex-direction: column;
+		flex-grow: 1;
+		gap: var(--gap-small);
+		padding: var(--padding);
+	}
+
+	.backpack-items {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--gap-small);
+		margin-top: var(--margin);
 	}
 </style>

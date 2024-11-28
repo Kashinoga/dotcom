@@ -293,7 +293,7 @@ button:hover {
 /* Select Inputs */
 select {
 	cursor: pointer;
-
+	width: 100%;
 	background-color: var(--color-select);
 	color: var(--color-text);
 	border: var(--border);
