@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
-	import { combinedLogs, type Log } from './adventureLogStore';
+	import { tick } from 'svelte';
+	import { type Log } from './adventureLogStore';
 
 	export let logs: Log[] = []; // Explicitly define the type of logs
 	export let logContainer: HTMLDivElement | null = null;
@@ -17,8 +17,7 @@
 	}
 
 	$: {
-		console.log('Filter changed to:', activeFilter);
-
+		filteredMessages;
 		// Wait for DOM update before scrolling
 		tick().then(() => {
 			scrollToBottom(); // Scroll to bottom after the filter change
