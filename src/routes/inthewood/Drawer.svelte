@@ -113,20 +113,7 @@
 		border-bottom: var(--border-dotted);
 	}
 
-	.title-bar .title {
-		display: flex;
-		flex-grow: 1;
-		justify-content: center;
-		align-items: center;
-		border-bottom: none;
-		border-right: var(--border-dotted);
-		padding-bottom: 0;
-		margin-bottom: 0;
-		margin-right: var(--margin-small);
-	}
-
 	.drawer {
-		will-change: transform, opacity;
 		background-color: var(--background-color-glass);
 		backdrop-filter: var(--backdrop-filter-glass);
 		position: fixed;
@@ -180,8 +167,6 @@
 	}
 
 	.drawer-button {
-		top: 0;
-		right: 0;
 		background-color: var(--blue);
 		border: none;
 		cursor: pointer;
@@ -266,8 +251,8 @@
 	}
 
 	.action:not(:disabled) .loading-bar {
-		transition: none; /* Instantly resets when button is re-enabled */
-		width: 0; /* Resets width immediately */
+		transition: none;
+		width: 0;
 	}
 
 	.items {

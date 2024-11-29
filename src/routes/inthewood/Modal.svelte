@@ -21,7 +21,6 @@
 <style>
 	/* Modal styles */
 	.modal {
-		will-change: transform, opacity;
 		background-color: var(--background-color-glass);
 		backdrop-filter: var(--backdrop-filter-glass);
 		visibility: hidden;
@@ -63,7 +62,6 @@
 
 	/* Drawer styles */
 	.drawer {
-		will-change: transform, opacity;
 		background-color: var(--background-color-glass);
 		backdrop-filter: var(--backdrop-filter-glass);
 		visibility: hidden;
