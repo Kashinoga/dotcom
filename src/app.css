@@ -31,6 +31,7 @@
 	--border: 1px solid rgba(0, 0, 0, 0.2);
 	--border-dotted: 1px dotted rgba(0, 0, 0, 0.2);
 	--border-radius: 0.4em;
+	--border-radius-small: 0.2em;
 
 	--highlight-red: var(--red);
 	--highlight-blue: var(--blue);
@@ -270,7 +271,7 @@ button {
 	color: var(--color-text-inverted);
 	padding: var(--padding);
 	border: none;
-	border-radius: var(--border-radius);
+	border-radius: var(--border-radius-small);
 
 	font-size: unset;
 	font-weight: unset;
@@ -297,7 +298,7 @@ select {
 	background-color: var(--color-select);
 	color: var(--color-text);
 	border: var(--border);
-	border-radius: var(--border-radius);
+	border-radius: var(--border-radius-small);
 	padding: var(--padding);
 	font-size: 1em;
 	line-height: 4em;

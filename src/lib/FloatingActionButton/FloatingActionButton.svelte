@@ -55,6 +55,7 @@
 		/* Positioning */
 		position: fixed;
 		bottom: var(--margin);
+
 		right: var(--margin);
 		z-index: 9001;
 

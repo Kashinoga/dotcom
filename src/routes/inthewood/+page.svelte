@@ -119,79 +119,6 @@
 			</div>
 
 			<div class="section section-100">
-				<div class="equipment">
-					<div class="equip">
-						<div class="title">Hands</div>
-						<div class="equip-actions">
-							<div class="actions">
-								<button class="action" onclick={handsAction} disabled={isDisabled}
-									>{isDisabled ? 'Gathering...' : 'Gather'}
-									<div class="loading-bar"></div></button
-								>
-								<button class="action">Hunt</button>
-							</div>
-							<div class="items">
-								<div class="item">
-									<select
-										><option disabled>Select a Left-Hand Item</option>
-										<optgroup label="Starting Items">
-											{#each $playerInventory as item}
-												<option>
-													{item.name}
-												</option>
-											{/each}
-										</optgroup>
-									</select>
-								</div>
-								<div class="item">
-									<select
-										><option disabled>Select a Right-Hand Item</option>
-										<optgroup label="Starting Items">
-											{#each $playerInventory as item}
-												<option>
-													{item.name}
-												</option>
-											{/each}
-										</optgroup>
-									</select>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			</div>
-
-			<div class="section section-100">
-				<div class="backpack">
-					<div class="title-bar">
-						<div class="title">Backpack</div>
-						<button
-							class="backpack-item backpack-open"
-							onclick={() => {
-								showModal = true;
-							}}
-						>
-							Open
-						</button>
-					</div>
-					<div class="backpack-items">
-						<span class="label-vertical">Pinned</span>
-						{#each $playerInventory as item}
-							<button
-								class="backpack-item"
-								onclick={() => {
-									selectedItem.set(item); // Set the selected item as the full item object
-									showModal = true;
-								}}
-							>
-								{item.name}
-							</button>
-						{/each}
-					</div>
-				</div>
-			</div>
-
-			<div class="section section-100">
 				<div class="location">
 					<div class="title">Location</div>
 					<select>
@@ -212,12 +139,9 @@
 			<div class="modal-title">Backpack</div>
 			{#if $selectedItem}
 				<p>Name: {$selectedItem.name}</p>
-				<!-- Display the name of selected item -->
 				<p>Quantity: {$selectedItem.quantity}</p>
-				<!-- Display the quantity of selected item -->
 			{:else}
 				<p>No item selected</p>
-				<!-- Fallback when no item is selected -->
 			{/if}
 			<p>This modal changes into a drawer on small screens.</p>
 			<div class="backpack-items">
@@ -225,7 +149,7 @@
 					<button
 						class="backpack-item"
 						onclick={() => {
-							selectedItem.set(item); // Set the selected item as the full item object
+							selectedItem.set(item);
 							showModal = true;
 						}}
 					>
@@ -239,6 +163,10 @@
 </Modal>
 
 <style>
+	.container {
+		margin-bottom: 45px;
+	}
+
 	.modal {
 		display: flex;
 		flex-direction: column;
@@ -317,22 +245,6 @@
 		margin-bottom: var(--margin);
 	}
 
-	.title-bar {
-		display: flex;
-		align-content: start;
-		padding-bottom: var(--padding);
-		margin-bottom: var(--margin);
-		border-bottom: var(--border-dotted);
-	}
-
-	.title-bar .title {
-		flex-grow: 1;
-		border-bottom: none;
-		border-right: var(--border-dotted);
-		margin-bottom: 0;
-		margin-right: var(--margin);
-	}
-
 	.log {
 		display: flex;
 		flex-direction: column;
@@ -352,116 +264,6 @@
 		overflow-y: auto;
 	}
 
-	.equipment {
-		display: flex;
-		gap: var(--gap-small);
-		border-top: var(--border);
-		padding: var(--padding);
-		border: var(--border);
-		border-radius: var(--border-radius);
-		background-color: var(--background-color-glass);
-		backdrop-filter: var(--backdrop-filter-glass);
-	}
-
-	.equip {
-		display: flex;
-		flex-grow: 1;
-		flex-direction: column;
-	}
-
-	.equip-actions {
-		display: flex;
-		flex-direction: column;
-		gap: var(--gap);
-	}
-
-	@media (min-width: 900px) {
-		.equip-actions {
-			flex-direction: row;
-		}
-	}
-
-	.actions {
-		display: flex;
-		flex-direction: column;
-		flex-grow: 1;
-		flex-wrap: wrap;
-		gap: var(--gap-small);
-	}
-
-	@media (min-width: 900px) {
-		.actions {
-			flex-direction: row;
-			border-right: var(--border-dotted);
-		}
-	}
-
-	.action {
-		position: relative; /* Allows positioning of child elements */
-		cursor: pointer;
-		overflow: hidden; /* Ensures the loading bar stays inside the button */
-	}
-
-	@media (min-width: 900px) {
-		.action {
-			width: 8em;
-		}
-	}
-
-	.action:disabled {
-		cursor: not-allowed;
-		background-color: var(--blue-hover);
-	}
-
-	.loading-bar {
-		position: absolute;
-		bottom: 0;
-		left: 0;
-		height: 4px;
-		background: var(--green);
-		width: 0;
-		transition: width 1s cubic-bezier(0.785, 0.135, 0.15, 0.86);
-	}
-
-	.action:disabled .loading-bar {
-		width: 100%;
-	}
-
-	.action:not(:disabled) .loading-bar {
-		transition: none; /* Instantly resets when button is re-enabled */
-		width: 0; /* Resets width immediately */
-	}
-
-	.items {
-		display: flex;
-		flex-direction: column;
-		gap: var(--gap-small);
-	}
-
-	@media (min-width: 900px) {
-		.items {
-			flex-direction: row;
-		}
-	}
-
-	.backpack {
-		border-top: var(--border);
-		padding: var(--padding);
-		border: var(--border);
-		border-radius: var(--border-radius);
-		background-color: var(--background-color-glass);
-		backdrop-filter: var(--backdrop-filter-glass);
-	}
-
-	.label-vertical {
-		backface-visibility: hidden;
-		writing-mode: vertical-rl;
-		transform: rotate(180deg);
-		border-left: var(--border-dotted);
-		padding-left: var(--padding);
-		margin-right: var(--margin);
-	}
-
 	.backpack-items {
 		display: flex;
 		flex-wrap: wrap;
@@ -476,10 +278,5 @@
 		border-radius: var(--border-radius);
 		background-color: var(--background-color-glass);
 		backdrop-filter: var(--backdrop-filter-glass);
-	}
-
-	.items select,
-	.location select {
-		width: 100%;
 	}
 </style>
