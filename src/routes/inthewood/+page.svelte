@@ -13,6 +13,8 @@
 	let icon = $inTheWood[0];
 	let title = $inTheWood[1];
 
+	export const adventureLogContainer = writable<HTMLDivElement | null>(null);
+
 	/**
 	 * @type {HTMLDivElement}
 	 */
@@ -61,7 +63,7 @@
 					<div class="title">Adventure Log</div>
 					<div class="adventure-log">
 						<!-- <AdventureLog logs={$adventureLogStore} /> -->
-						<AdventureLog logs={$combinedLogs} />
+						<AdventureLog logs={$combinedLogs} bind:logContainer={$adventureLogContainer} />
 					</div>
 				</div>
 			</div>
@@ -79,7 +81,7 @@
 	</div>
 </div>
 
-<Drawer bind:isOpen></Drawer>
+<Drawer bind:isOpen {adventureLogContainer}></Drawer>
 
 <style>
 	.container {

@@ -8,6 +8,7 @@
 	// export let logs: { type: 'adventure' | 'session'; content: string }[] = [];
 
 	export let logs: Log[] = []; // Explicitly define the type of logs
+	export let logContainer: HTMLDivElement | null = null;
 
 	// let logs = get(combinedLogs);
 
@@ -32,7 +33,7 @@
 	</button>
 </div>
 
-<div class="log-messages">
+<div class="log-messages" bind:this={logContainer}>
 	{#if filteredMessages.length > 0}
 		<div class="paragraphs">
 			{#each filteredMessages as message}

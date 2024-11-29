@@ -3,21 +3,25 @@
 
 	import { tick } from 'svelte';
 	import { playerInventory } from './playerInventoryStore';
-	import {
-		addRandomGatherMessageToSessionLog,
-		addRandomMessageToSessionLog
-	} from './sessionLogStore';
+	import { get, type Writable } from 'svelte/store';
 
-	let { isOpen = $bindable() } = $props();
+	let { isOpen = $bindable(), adventureLogContainer } = $props<{
+		isOpen: boolean;
+		adventureLogContainer: Writable<HTMLDivElement | null>;
+	}>();
 
 	function delay(ms: number | undefined) {
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
 
-	let container: HTMLDivElement;
 	function scrollToBottom() {
-		if (container) {
-			container.scrollTop = container.scrollHeight;
+		const container = get(adventureLogContainer); // Get the container
+
+		// Use type guard to ensure it's an HTMLDivElement
+		if (container instanceof HTMLDivElement) {
+			container.scrollTop = container.scrollHeight; // Scroll to the bottom
+		} else {
+			console.warn('Container is not an HTMLDivElement:', container);
 		}
 	}
 
@@ -228,9 +232,9 @@
 	}
 
 	.action {
-		position: relative; /* Allows positioning of child elements */
+		position: relative;
 		cursor: pointer;
-		overflow: hidden; /* Ensures the loading bar stays inside the button */
+		overflow: hidden;
 	}
 
 	@media (min-width: 900px) {
