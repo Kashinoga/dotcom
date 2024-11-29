@@ -155,7 +155,7 @@
 		transition:
 			height 0.1s linear var(--duration),
 			transform var(--duration) var(--transform);
-		height: 43px;
+		height: 44px;
 		margin-left: var(--margin-small);
 		margin-right: var(--margin-small);
 		border: var(--border);
