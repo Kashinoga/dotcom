@@ -1,5 +1,15 @@
 <script lang="ts">
-	export let logs: { type: 'adventure' | 'session'; content: string }[] = [];
+	import { combinedLogs, type Log } from './adventureLogStore';
+	import { get } from 'svelte/store';
+
+	// import { adventureLogStore } from './adventureLogStore';
+	// export let logs = $adventureLogStore; // Use the Svelte `$` syntax to make it reactive
+
+	// export let logs: { type: 'adventure' | 'session'; content: string }[] = [];
+
+	export let logs: Log[] = []; // Explicitly define the type of logs
+
+	// let logs = get(combinedLogs);
 
 	let activeFilter: 'adventure' | 'session' = 'adventure';
 	$: filteredMessages = logs.filter((msg) => msg.type === activeFilter);
@@ -39,17 +49,14 @@
 <style>
 	.adventure-log-tabs {
 		display: flex;
-		gap: var(--gap);
-		margin-left: var(--margin);
-		padding: var(--padding-small);
-		padding-left: 0;
+		gap: var(--gap-small);
 	}
 
 	.adventure-log-tab {
 		background-color: transparent;
 		color: var(--color-text);
 		cursor: pointer;
-		padding: var(--padding-small);
+		padding: 0;
 	}
 
 	.adventure-log-tab.active {
@@ -65,7 +72,6 @@
 		border-radius: var(--border-radius-small);
 		border-top-left-radius: 0;
 		border-top-right-radius: 0;
-		padding: var(--padding-small);
 	}
 
 	.paragraphs p {

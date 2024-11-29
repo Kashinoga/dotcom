@@ -14,6 +14,8 @@
 	--color-background-body: var(--white);
 	--color-select: rgba(0, 0, 0, 0.067);
 
+	--color-legal: #fef9c3;
+
 	--color-text: var(--black);
 	--color-text-inverted: var(--white);
 	--color-text-faded: #dedcd9a3;
@@ -272,10 +274,12 @@ button {
 	padding: var(--padding);
 	border: none;
 	border-radius: var(--border-radius-small);
-
 	font-size: unset;
 	font-weight: unset;
 	text-decoration: none;
+	transition:
+		background-color 0.1s linear var(--duration),
+		transform var(--duration) var(--transform);
 }
 
 button a {

@@ -5,6 +5,7 @@
 	import type { Backpack } from './BackpackInterface';
 	import Drawer from './Drawer.svelte';
 	import AdventureLog from './AdventureLog.svelte';
+	import { combinedLogs } from './adventureLogStore';
 
 	let showModal = $state(false);
 	let isOpen = $state(false);
@@ -41,20 +42,6 @@
 			document.body.classList.remove('no-scroll');
 		};
 	});
-
-	// Define the correct type for logs
-	type Log = {
-		type: 'adventure' | 'session'; // This restricts 'type' to either 'adventure' or 'session'
-		content: string;
-	};
-
-	// Define 'logs' with the correct type
-	const logs: Log[] = [
-		{ type: 'adventure', content: 'Found a hidden treasure!' },
-		{ type: 'session', content: 'Session started at 5:00 PM.' },
-		{ type: 'adventure', content: 'Defeated the dragon.' },
-		{ type: 'session', content: 'Session ended at 7:00 PM.' }
-	];
 </script>
 
 <div class="container">
@@ -73,7 +60,8 @@
 				<div class="adventure-log-container">
 					<div class="title">Adventure Log</div>
 					<div class="adventure-log">
-						<AdventureLog {logs} />
+						<!-- <AdventureLog logs={$adventureLogStore} /> -->
+						<AdventureLog logs={$combinedLogs} />
 					</div>
 				</div>
 			</div>
@@ -154,10 +142,5 @@
 		border-radius: var(--border-radius);
 		background-color: var(--background-color-glass);
 		backdrop-filter: var(--backdrop-filter-glass);
-	}
-
-	.adventure-log {
-		border: var(--border-dotted);
-		border-radius: var(--border-radius-small);
 	}
 </style>

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { adventureLogs, sessionLogs } from './adventureLogStore';
+
 	import { tick } from 'svelte';
 	import { playerInventory } from './playerInventoryStore';
 	import {
@@ -29,12 +31,16 @@
 
 	let isDisabled = $state(false);
 	async function handsAction() {
-		addRandomMessageToSessionLog();
+		// addRandomMessageToSessionLog();
+		adventureLogs.update((logs) => [
+			...logs,
+			{ type: 'adventure', content: 'Discovered a secret passage!' }
+		]);
 		await tick(); // Wait for DOM to update
 		scrollToBottom();
 		handleClick();
 		await delay(1000);
-		addRandomGatherMessageToSessionLog();
+		// addRandomGatherMessageToSessionLog();
 		await tick(); // Wait for DOM to update
 		scrollToBottom();
 	}
@@ -145,12 +151,14 @@
 	}
 
 	.drawer.open {
-		height: calc(100vh - (0px + var(--margin-small)));
+		/* height: calc(100vh - (0px + var(--margin-small))); */
+		height: 50vh;
 	}
 
 	@media (min-width: 900px) {
 		.drawer.open {
-			height: calc(100vh - (64px + var(--margin)));
+			/* height: calc(100vh - (64px + var(--margin))); */
+			height: 50vh;
 		}
 	}
 
