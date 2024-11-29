@@ -27,6 +27,17 @@ export type Log = {
 
 export const adventureLogs = writable<Log[]>([
 	{ type: 'adventure', content: 'Found a hidden treasure!' },
+	{ type: 'adventure', content: 'Defeated the dragon.' },
+	{ type: 'adventure', content: 'Found a hidden treasure!' },
+	{ type: 'adventure', content: 'Defeated the dragon.' },
+	{ type: 'adventure', content: 'Found a hidden treasure!' },
+	{ type: 'adventure', content: 'Defeated the dragon.' },
+	{ type: 'adventure', content: 'Defeated the dragon.' },
+	{ type: 'adventure', content: 'Defeated the dragon.' },
+	{ type: 'adventure', content: 'Defeated the dragon.' },
+	{ type: 'adventure', content: 'Defeated the dragon.' },
+	{ type: 'adventure', content: 'Defeated the dragon.' },
+	{ type: 'adventure', content: 'Defeated the dragon.' },
 	{ type: 'adventure', content: 'Defeated the dragon.' }
 ]);
 

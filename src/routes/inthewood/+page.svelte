@@ -1,45 +1,24 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { inTheWood } from './inTheWoodStore';
 	import { writable } from 'svelte/store';
-	import type { Backpack } from './BackpackInterface';
 	import Drawer from './Drawer.svelte';
 	import AdventureLog from './AdventureLog.svelte';
 	import { combinedLogs } from './adventureLogStore';
 
 	let showModal = $state(false);
 	let isOpen = $state(false);
-
 	let icon = $inTheWood[0];
 	let title = $inTheWood[1];
+	let activeFilter: 'adventure' | 'session' = 'adventure';
 
 	export const adventureLogContainer = writable<HTMLDivElement | null>(null);
 
-	/**
-	 * @type {HTMLDivElement}
-	 */
-	let container: HTMLDivElement;
-
-	function scrollToBottom() {
-		if (container) {
-			container.scrollTop = container.scrollHeight;
-		}
-	}
-
-	onMount(() => {
-		scrollToBottom();
-	});
-
-	// Add or remove the no-scroll class when modal state changes
 	$effect(() => {
-		console.log(isOpen);
 		if (showModal || isOpen) {
 			document.body.classList.add('no-scroll');
 		} else {
 			document.body.classList.remove('no-scroll');
 		}
-
-		// Cleanup to ensure the class is removed
 		return () => {
 			document.body.classList.remove('no-scroll');
 		};
@@ -62,8 +41,11 @@
 				<div class="adventure-log-container">
 					<div class="title">Adventure Log</div>
 					<div class="adventure-log">
-						<!-- <AdventureLog logs={$adventureLogStore} /> -->
-						<AdventureLog logs={$combinedLogs} bind:logContainer={$adventureLogContainer} />
+						<AdventureLog
+							logs={$combinedLogs}
+							bind:logContainer={$adventureLogContainer}
+							{activeFilter}
+						/>
 					</div>
 				</div>
 			</div>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { adventureLogs, sessionLogs } from './adventureLogStore';
 
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { playerInventory } from './playerInventoryStore';
 	import { get, type Writable } from 'svelte/store';
 
@@ -48,6 +48,11 @@
 		await tick(); // Wait for DOM to update
 		scrollToBottom();
 	}
+
+	// onMount(() => {
+	// 	scrollToBottom();
+	// 	console.log("in here");
+	// });
 </script>
 
 <!-- Drawer -->

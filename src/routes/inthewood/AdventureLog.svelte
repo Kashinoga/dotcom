@@ -1,32 +1,46 @@
 <script lang="ts">
+	import { onMount, tick } from 'svelte';
 	import { combinedLogs, type Log } from './adventureLogStore';
-	import { get } from 'svelte/store';
-
-	// import { adventureLogStore } from './adventureLogStore';
-	// export let logs = $adventureLogStore; // Use the Svelte `$` syntax to make it reactive
-
-	// export let logs: { type: 'adventure' | 'session'; content: string }[] = [];
 
 	export let logs: Log[] = []; // Explicitly define the type of logs
 	export let logContainer: HTMLDivElement | null = null;
+	export let activeFilter: 'adventure' | 'session' = 'adventure';
 
-	// let logs = get(combinedLogs);
-
-	let activeFilter: 'adventure' | 'session' = 'adventure';
+	// Filtered messages based on the active filter
 	$: filteredMessages = logs.filter((msg) => msg.type === activeFilter);
+
+	// Function to scroll to the bottom of the container
+	async function scrollToBottom() {
+		if (logContainer) {
+			logContainer.scrollTop = logContainer.scrollHeight;
+		}
+	}
+
+	$: {
+		console.log('Filter changed to:', activeFilter);
+
+		// Wait for DOM update before scrolling
+		tick().then(() => {
+			scrollToBottom(); // Scroll to bottom after the filter change
+		});
+	}
 </script>
 
 <div class="adventure-log-tabs">
 	<button
 		class="adventure-log-tab {activeFilter === 'adventure' ? 'active' : ''}"
-		onclick={() => (activeFilter = 'adventure')}
+		on:click={() => {
+			activeFilter = 'adventure'; // This triggers the reactive statement
+		}}
 		aria-pressed={activeFilter === 'adventure'}
 	>
 		Adventure
 	</button>
 	<button
 		class="adventure-log-tab {activeFilter === 'session' ? 'active' : ''}"
-		onclick={() => (activeFilter = 'session')}
+		on:click={() => {
+			activeFilter = 'session'; // This triggers the reactive statement
+		}}
 		aria-pressed={activeFilter === 'session'}
 	>
 		Session
