@@ -49,16 +49,6 @@
 					</div>
 				</div>
 			</div>
-
-			<div class="section section-100">
-				<div class="location">
-					<div class="title">Location</div>
-					<select>
-						<option disabled>Select a Location</option>
-						<option>Basecamp</option></select
-					>
-				</div>
-			</div>
 		</div>
 	</div>
 </div>
@@ -109,15 +99,6 @@
 
 	.title {
 		margin-bottom: var(--margin);
-	}
-
-	.location {
-		border-top: var(--border);
-		padding: var(--padding);
-		border: var(--border);
-		border-radius: var(--border-radius);
-		background-color: var(--background-color-glass);
-		backdrop-filter: var(--backdrop-filter-glass);
 	}
 
 	.adventure-log-container {

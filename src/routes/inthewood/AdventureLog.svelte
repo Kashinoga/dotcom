@@ -64,18 +64,22 @@
 	.adventure-log-tabs {
 		display: flex;
 		gap: var(--gap-small);
+		padding-bottom: var(--padding-small);
 	}
 
 	.adventure-log-tab {
 		background-color: transparent;
-		color: var(--color-text);
+		color: var(--color-text-faded);
 		cursor: pointer;
 		padding: 0;
+		border-bottom: 0.2em solid transparent;
 	}
 
 	.adventure-log-tab.active {
 		font-weight: bold;
-		border-bottom: none;
+		color: var(--color-text);
+		border-bottom: 0.2em solid var(--yellow);
+		border-radius: 0;
 	}
 
 	.log-messages {

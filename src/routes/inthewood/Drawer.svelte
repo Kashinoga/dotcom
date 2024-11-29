@@ -65,6 +65,18 @@
 	</div>
 
 	<div class="drawer-content">
+		<div class="locations">
+			<div class="location">
+				<div class="title">Location</div>
+				<div class="location-select">
+					<select>
+						<option disabled>Select a Location</option>
+						<option>Basecamp</option></select
+					>
+				</div>
+			</div>
+		</div>
+
 		<div class="equipment">
 			<div class="equip">
 				<div class="title">Hands</div>
@@ -143,7 +155,7 @@
 		transition:
 			height 0.1s linear var(--duration),
 			transform var(--duration) var(--transform);
-		height: 44px;
+		height: 43px;
 		margin-left: var(--margin-small);
 		margin-right: var(--margin-small);
 		border: var(--border);
@@ -173,7 +185,7 @@
 
 	.drawer-content {
 		display: flex;
-		flex-direction: row;
+		flex-direction: column;
 		flex-wrap: wrap;
 		gap: var(--gap-small);
 		overflow: hidden;
@@ -195,9 +207,21 @@
 		background-color: var(--blue-hover);
 	}
 
+	.locations {
+		display: flex;
+		padding: var(--padding);
+	}
+
+	.location {
+		flex-grow: 1;
+	}
+
+	.location-select {
+		margin-top: var(--margin);
+	}
+
 	.equipment {
 		display: flex;
-		flex-grow: 1;
 		gap: var(--gap-small);
 		padding: var(--padding);
 	}
@@ -287,7 +311,6 @@
 	.backpack {
 		display: flex;
 		flex-direction: column;
-		flex-grow: 1;
 		gap: var(--gap-small);
 		padding: var(--padding);
 	}
