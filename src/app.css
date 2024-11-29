@@ -343,7 +343,7 @@ tbody > tr > td {
 }
 
 .title {
-	/* display: flex; */
+	display: flex;
 	border-bottom: var(--border-dotted);
 	padding-bottom: var(--padding);
 }
