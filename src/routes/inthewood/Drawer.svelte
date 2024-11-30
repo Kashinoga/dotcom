@@ -226,10 +226,17 @@
 
 	.drawer-content {
 		display: flex;
-		flex-direction: column;
+		flex-direction: row;
 		flex-wrap: wrap;
 		gap: var(--gap-small);
-		overflow: hidden;
+		overflow: auto;
+	}
+
+	@media (min-width: 900px) {
+		.drawer-content {
+			flex-direction: column;
+			flex-wrap: nowrap;
+		}
 	}
 
 	.drawer button {
@@ -250,6 +257,7 @@
 
 	.locations {
 		display: flex;
+		flex-grow: 1;
 		padding: var(--padding);
 	}
 
@@ -263,6 +271,7 @@
 
 	.equipment {
 		display: flex;
+		flex-grow: 1;
 		gap: var(--gap-small);
 		padding: var(--padding);
 	}
