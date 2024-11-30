@@ -51,18 +51,24 @@
 	/* Drag-and-drop Backpack */
 	let draggingIndex: number | null = null;
 
-	// Handle the start of the drag
-	function handleDragStart(index: number) {
+	// Handle the start of the drag (for mouse and touch)
+	function handleDragStart(index: number, event: MouseEvent | TouchEvent) {
 		draggingIndex = index;
+		if (event instanceof TouchEvent) {
+			event.preventDefault(); // Prevents touch-specific behavior like scrolling
+		}
 	}
 
-	// Handle the dragover event (required for drop to work)
-	function handleDragOver(event: Event) {
+	// Handle the dragover event (required for drop to work) (for mouse and touch)
+	function handleDragOver(event: MouseEvent | TouchEvent) {
 		event.preventDefault();
+		if (event instanceof TouchEvent) {
+			// Handle touch drag over logic, e.g., positioning a dragged element visually
+		}
 	}
 
-	// Handle the drop event to swap items
-	function handleDrop(index: number) {
+	// Handle the drop event to swap items (for mouse and touch)
+	function handleDrop(index: number, event: MouseEvent | TouchEvent) {
 		if (draggingIndex !== null && draggingIndex !== index) {
 			const items = [...get(backpack)]; // Clone the array to maintain reactivity
 
@@ -80,6 +86,18 @@
 	function handleDragEnd() {
 		draggingIndex = null;
 	}
+
+	// Add touch event listeners (optional: add to an element directly)
+	const touchElement = document.getElementById('yourElementId');
+
+	touchElement?.addEventListener('touchstart', (event) => handleDragStart(0, event));
+	touchElement?.addEventListener('touchmove', (event) => handleDragOver(event));
+	touchElement?.addEventListener('touchend', () => handleDragEnd());
+
+	// Add mouse event listeners as usual
+	touchElement?.addEventListener('mousedown', (event) => handleDragStart(0, event));
+	touchElement?.addEventListener('mousemove', (event) => handleDragOver(event));
+	touchElement?.addEventListener('mouseup', () => handleDragEnd());
 
 	// Sort the items by name
 	function sortItemsByName() {

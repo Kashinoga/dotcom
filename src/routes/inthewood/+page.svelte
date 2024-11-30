@@ -33,7 +33,7 @@
 					<div class="hero-title">
 						<h1>{icon.content} {title.content}</h1>
 					</div>
-					<div class="hero-version">v.0.2-a</div>
+					<div class="hero-version">v.0.4-a</div>
 				</div>
 			</div>
 
