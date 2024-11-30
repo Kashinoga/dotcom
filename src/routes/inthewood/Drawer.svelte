@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { adventureLogs, sessionLogs } from './adventureLogStore';
 
-	import { onMount, tick } from 'svelte';
+	import { onDestroy, onMount, tick } from 'svelte';
 	import { playerInventory } from './playerInventoryStore';
 	import { get, type Writable } from 'svelte/store';
 	import { backpack } from './backpackStore';
@@ -48,36 +48,30 @@
 		scrollToBottom();
 	}
 
-	/* Drag-and-drop Backpack */
 	let draggingIndex: number | null = null;
 
 	// Handle the start of the drag (for mouse and touch)
 	function handleDragStart(index: number, event: MouseEvent | TouchEvent) {
 		draggingIndex = index;
+
+		// Check for touch event
 		if (event instanceof TouchEvent) {
 			event.preventDefault(); // Prevents touch-specific behavior like scrolling
 		}
 	}
 
-	// Handle the dragover event (required for drop to work) (for mouse and touch)
+	// Handle the dragover event (required for drop to work)
 	function handleDragOver(event: MouseEvent | TouchEvent) {
 		event.preventDefault();
-		if (event instanceof TouchEvent) {
-			// Handle touch drag over logic, e.g., positioning a dragged element visually
-		}
 	}
 
-	// Handle the drop event to swap items (for mouse and touch)
+	// Handle the drop event to swap items
 	function handleDrop(index: number, event: MouseEvent | TouchEvent) {
 		if (draggingIndex !== null && draggingIndex !== index) {
 			const items = [...get(backpack)]; // Clone the array to maintain reactivity
-
-			// Swap the items
 			const draggedItem = items[draggingIndex];
 			items.splice(draggingIndex, 1);
 			items.splice(index, 0, draggedItem);
-
-			// Update the store with the new order
 			backpack.set(items);
 		}
 	}
@@ -87,17 +81,51 @@
 		draggingIndex = null;
 	}
 
-	// Add touch event listeners (optional: add to an element directly)
-	const touchElement = document.getElementById('yourElementId');
+	// Use onMount to ensure the DOM is available before accessing it
+	onMount(() => {
+		const backpackElement = document.getElementById('backpack');
 
-	touchElement?.addEventListener('touchstart', (event) => handleDragStart(0, event));
-	touchElement?.addEventListener('touchmove', (event) => handleDragOver(event));
-	touchElement?.addEventListener('touchend', () => handleDragEnd());
+		if (backpackElement) {
+			const buttons = backpackElement.querySelectorAll('.backpack-item');
 
-	// Add mouse event listeners as usual
-	touchElement?.addEventListener('mousedown', (event) => handleDragStart(0, event));
-	touchElement?.addEventListener('mousemove', (event) => handleDragOver(event));
-	touchElement?.addEventListener('mouseup', () => handleDragEnd());
+			buttons.forEach((button, index) => {
+				// Attach mouse event listeners
+				button.addEventListener('mousedown', (event) =>
+					handleDragStart(index, event as MouseEvent)
+				);
+				button.addEventListener('mousemove', (event) => handleDragOver(event as MouseEvent));
+				button.addEventListener('mouseup', handleDragEnd);
+
+				// Attach touch event listeners
+				button.addEventListener('touchstart', (event) =>
+					handleDragStart(index, event as TouchEvent)
+				);
+				button.addEventListener('touchmove', (event) => handleDragOver(event as TouchEvent));
+				button.addEventListener('touchend', handleDragEnd);
+			});
+		}
+
+		// Cleanup listeners on component destroy
+		onDestroy(() => {
+			if (backpackElement) {
+				const buttons = backpackElement.querySelectorAll('.backpack-item');
+
+				buttons.forEach((button, index) => {
+					button.removeEventListener('mousedown', (event) =>
+						handleDragStart(index, event as MouseEvent)
+					);
+					button.removeEventListener('mousemove', (event) => handleDragOver(event as MouseEvent));
+					button.removeEventListener('mouseup', handleDragEnd);
+
+					button.removeEventListener('touchstart', (event) =>
+						handleDragStart(index, event as TouchEvent)
+					);
+					button.removeEventListener('touchmove', (event) => handleDragOver(event as TouchEvent));
+					button.removeEventListener('touchend', handleDragEnd);
+				});
+			}
+		});
+	});
 
 	// Sort the items by name
 	function sortItemsByName() {
@@ -169,19 +197,12 @@
 			</div>
 		</div>
 
-		<div class="backpack">
+		<div class="backpack" id="backpack">
 			<div class="title">Backpack</div>
 			<div class="backpack-items">
 				<button onclick={sortItemsByName}>Sort by Name</button>
 				{#each $backpack as item, index (item.id)}
-					<button
-						draggable="true"
-						ondragstart={() => handleDragStart(index)}
-						ondragover={handleDragOver}
-						ondrop={() => handleDrop(index)}
-						ondragend={handleDragEnd}
-						class="backpack-item"
-					>
+					<button class="backpack-item">
 						{item.name} ({item.quantity})
 					</button>
 				{/each}
