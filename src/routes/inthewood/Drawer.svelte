@@ -54,9 +54,11 @@
 	function handleDragStart(index: number, event: MouseEvent | TouchEvent) {
 		draggingIndex = index;
 
-		// Check for touch event
+		// For touch events, prevent default behavior
 		if (event instanceof TouchEvent) {
-			event.preventDefault(); // Prevents touch-specific behavior like scrolling
+			event.preventDefault();
+			const touch = event.touches[0]; // Get the first touch point
+			// Optionally, you can store touch positions here for more precise drag handling
 		}
 	}
 
@@ -68,7 +70,7 @@
 	// Handle the drop event to swap items
 	function handleDrop(index: number, event: MouseEvent | TouchEvent) {
 		if (draggingIndex !== null && draggingIndex !== index) {
-			const items = [...get(backpack)]; // Clone the array to maintain reactivity
+			const items = [...get(backpack)];
 			const draggedItem = items[draggingIndex];
 			items.splice(draggingIndex, 1);
 			items.splice(index, 0, draggedItem);
@@ -89,14 +91,14 @@
 			const buttons = backpackElement.querySelectorAll('.backpack-item');
 
 			buttons.forEach((button, index) => {
-				// Attach mouse event listeners
+				// Mouse event listeners
 				button.addEventListener('mousedown', (event) =>
 					handleDragStart(index, event as MouseEvent)
 				);
 				button.addEventListener('mousemove', (event) => handleDragOver(event as MouseEvent));
 				button.addEventListener('mouseup', handleDragEnd);
 
-				// Attach touch event listeners
+				// Touch event listeners
 				button.addEventListener('touchstart', (event) =>
 					handleDragStart(index, event as TouchEvent)
 				);
@@ -105,7 +107,7 @@
 			});
 		}
 
-		// Cleanup listeners on component destroy
+		// Cleanup on destroy
 		onDestroy(() => {
 			if (backpackElement) {
 				const buttons = backpackElement.querySelectorAll('.backpack-item');
