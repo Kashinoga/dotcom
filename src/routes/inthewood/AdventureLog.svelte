@@ -4,10 +4,10 @@
 
 	export let logs: Log[] = []; // Explicitly define the type of logs
 	export let logContainer: HTMLDivElement | null = null;
-	export let activeFilter: 'adventure' | 'session' = 'adventure';
+	export let activeFilter: 'adventure' | 'session' | 'all' = 'all';
 
 	// Filtered messages based on the active filter
-	$: filteredMessages = logs.filter((msg) => msg.type === activeFilter);
+	$: filteredMessages = logs.filter((msg) => activeFilter === 'all' || msg.type === activeFilter);
 
 	// Function to scroll to the bottom of the container
 	async function scrollToBottom() {
@@ -26,6 +26,15 @@
 </script>
 
 <div class="adventure-log-tabs">
+	<button
+		class="adventure-log-tab {activeFilter === 'all' ? 'active' : ''}"
+		on:click={() => {
+			activeFilter = 'all';
+		}}
+		aria-pressed={activeFilter === 'all'}
+	>
+		All
+	</button>
 	<button
 		class="adventure-log-tab {activeFilter === 'adventure' ? 'active' : ''}"
 		on:click={() => {

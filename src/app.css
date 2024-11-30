@@ -308,6 +308,10 @@ select {
 	line-height: 4em;
 }
 
+optgroup {
+	background-color: var(--color-background);
+}
+
 option {
 	background-color: var(--color-background-body);
 	color: var(--color-text);

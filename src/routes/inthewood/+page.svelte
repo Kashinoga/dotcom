@@ -9,7 +9,7 @@
 	let isOpen = $state(false);
 	let icon = $inTheWood[0];
 	let title = $inTheWood[1];
-	let activeFilter: 'adventure' | 'session' = 'adventure';
+	let activeFilter: 'adventure' | 'session' | 'all' = 'all';
 
 	export const adventureLogContainer = writable<HTMLDivElement | null>(null);
 

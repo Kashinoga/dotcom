@@ -4,6 +4,7 @@
 	import { onMount, tick } from 'svelte';
 	import { playerInventory } from './playerInventoryStore';
 	import { get, type Writable } from 'svelte/store';
+	import { backpack } from './backpackStore';
 
 	let { isOpen = $bindable(), adventureLogContainer } = $props<{
 		isOpen: boolean;
@@ -36,23 +37,55 @@
 	let isDisabled = $state(false);
 	async function handsAction() {
 		// addRandomMessageToSessionLog();
-		adventureLogs.update((logs) => [
-			...logs,
-			{ type: 'adventure', content: 'Discovered a secret passage!' }
-		]);
+		sessionLogs.update((logs) => [...logs, { type: 'session', content: 'You begin gathering.' }]);
 		await tick(); // Wait for DOM to update
 		scrollToBottom();
 		handleClick();
 		await delay(1000);
 		// addRandomGatherMessageToSessionLog();
+		sessionLogs.update((logs) => [...logs, { type: 'session', content: 'You found something.' }]);
 		await tick(); // Wait for DOM to update
 		scrollToBottom();
 	}
 
-	// onMount(() => {
-	// 	scrollToBottom();
-	// 	console.log("in here");
-	// });
+	/* Drag-and-drop Backpack */
+	let draggingIndex: number | null = null;
+
+	// Handle the start of the drag
+	function handleDragStart(index: number) {
+		draggingIndex = index;
+	}
+
+	// Handle the dragover event (required for drop to work)
+	function handleDragOver(event: Event) {
+		event.preventDefault();
+	}
+
+	// Handle the drop event to swap items
+	function handleDrop(index: number) {
+		if (draggingIndex !== null && draggingIndex !== index) {
+			const items = [...get(backpack)]; // Clone the array to maintain reactivity
+
+			// Swap the items
+			const draggedItem = items[draggingIndex];
+			items.splice(draggingIndex, 1);
+			items.splice(index, 0, draggedItem);
+
+			// Update the store with the new order
+			backpack.set(items);
+		}
+	}
+
+	// Reset draggingIndex after drop
+	function handleDragEnd() {
+		draggingIndex = null;
+	}
+
+	// Sort the items by name
+	function sortItemsByName() {
+		const items = [...get(backpack)].sort((a, b) => a.name.localeCompare(b.name)); // Sort by name alphabetically
+		backpack.set(items); // Update the store
+	}
 </script>
 
 <!-- Drawer -->
@@ -79,7 +112,7 @@
 
 		<div class="equipment">
 			<div class="equip">
-				<div class="title">Hands</div>
+				<div class="title">Equipment</div>
 				<div class="equip-actions">
 					<div class="actions">
 						<button class="action" onclick={handsAction} disabled={isDisabled}
@@ -121,9 +154,17 @@
 		<div class="backpack">
 			<div class="title">Backpack</div>
 			<div class="backpack-items">
-				{#each $playerInventory as item}
-					<button>
-						{item.name}
+				<button onclick={sortItemsByName}>Sort by Name</button>
+				{#each $backpack as item, index (item.id)}
+					<button
+						draggable="true"
+						ondragstart={() => handleDragStart(index)}
+						ondragover={handleDragOver}
+						ondrop={() => handleDrop(index)}
+						ondragend={handleDragEnd}
+						class="backpack-item"
+					>
+						{item.name} ({item.quantity})
 					</button>
 				{/each}
 			</div>
