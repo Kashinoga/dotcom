@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { adventureLogs, sessionLogs } from './adventureLogStore';
+	import { adventureLog, sessionLog } from './adventureLogStore';
 
-	import { onDestroy, onMount, tick } from 'svelte';
+	import { tick } from 'svelte';
 	import { playerInventory } from './playerInventoryStore';
 	import { get, type Writable } from 'svelte/store';
 	import { backpack } from './backpackStore';
@@ -37,97 +37,16 @@
 	let isDisabled = $state(false);
 	async function handsAction() {
 		// addRandomMessageToSessionLog();
-		sessionLogs.update((logs) => [...logs, { type: 'session', content: 'You begin gathering.' }]);
+		sessionLog.update((log) => [...log, { type: 'session', content: 'You begin gathering.' }]);
 		await tick(); // Wait for DOM to update
 		scrollToBottom();
 		handleClick();
 		await delay(1000);
 		// addRandomGatherMessageToSessionLog();
-		sessionLogs.update((logs) => [...logs, { type: 'session', content: 'You found something.' }]);
+		sessionLog.update((log) => [...log, { type: 'session', content: 'You found something.' }]);
 		await tick(); // Wait for DOM to update
 		scrollToBottom();
 	}
-
-	let draggingIndex: number | null = null;
-
-	// Handle the start of the drag (for mouse and touch)
-	function handleDragStart(index: number, event: MouseEvent | TouchEvent) {
-		draggingIndex = index;
-
-		// For touch events, prevent default behavior
-		if (event instanceof TouchEvent) {
-			event.preventDefault();
-			const touch = event.touches[0]; // Get the first touch point
-			// Optionally, you can store touch positions here for more precise drag handling
-		}
-	}
-
-	// Handle the dragover event (required for drop to work)
-	function handleDragOver(event: MouseEvent | TouchEvent) {
-		event.preventDefault();
-	}
-
-	// Handle the drop event to swap items
-	function handleDrop(index: number, event: MouseEvent | TouchEvent) {
-		if (draggingIndex !== null && draggingIndex !== index) {
-			const items = [...get(backpack)];
-			const draggedItem = items[draggingIndex];
-			items.splice(draggingIndex, 1);
-			items.splice(index, 0, draggedItem);
-			backpack.set(items);
-		}
-	}
-
-	// Reset draggingIndex after drop
-	function handleDragEnd() {
-		draggingIndex = null;
-	}
-
-	// Use onMount to ensure the DOM is available before accessing it
-	onMount(() => {
-		const backpackElement = document.getElementById('backpack');
-
-		if (backpackElement) {
-			const buttons = backpackElement.querySelectorAll('.backpack-item');
-
-			buttons.forEach((button, index) => {
-				// Mouse event listeners
-				button.addEventListener('mousedown', (event) =>
-					handleDragStart(index, event as MouseEvent)
-				);
-				button.addEventListener('mousemove', (event) => handleDragOver(event as MouseEvent));
-				button.addEventListener('mouseup', handleDragEnd);
-
-				// Touch event listeners
-				button.addEventListener('touchstart', (event) =>
-					handleDragStart(index, event as TouchEvent)
-				);
-				button.addEventListener('touchmove', (event) => handleDragOver(event as TouchEvent));
-				button.addEventListener('touchend', handleDragEnd);
-			});
-		}
-
-		// Cleanup on destroy
-		onDestroy(() => {
-			if (backpackElement) {
-				const buttons = backpackElement.querySelectorAll('.backpack-item');
-
-				buttons.forEach((button, index) => {
-					button.removeEventListener('mousedown', (event) =>
-						handleDragStart(index, event as MouseEvent)
-					);
-					button.removeEventListener('mousemove', (event) => handleDragOver(event as MouseEvent));
-					button.removeEventListener('mouseup', handleDragEnd);
-
-					button.removeEventListener('touchstart', (event) =>
-						handleDragStart(index, event as TouchEvent)
-					);
-					button.removeEventListener('touchmove', (event) => handleDragOver(event as TouchEvent));
-					button.removeEventListener('touchend', handleDragEnd);
-				});
-			}
-		});
-	});
 
 	// Sort the items by name
 	function sortItemsByName() {
