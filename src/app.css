@@ -94,7 +94,7 @@ body {
 	display: flex;
 	flex-direction: column;
 	margin: auto;
-	padding: var(--padding);
+	padding: var(--padding-small);
 }
 
 @media (min-width: 900px) {

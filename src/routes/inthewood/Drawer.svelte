@@ -56,16 +56,16 @@
 </script>
 
 <!-- Drawer -->
-<div class="drawer" class:open={isOpen}>
-	<div class="title-bar">
+<div class="drawer-container" class:open={isOpen}>
+	<div class="drawer-bar">
 		<!-- <div class="title">Player's Name</div> -->
 		<button class="drawer-button" onclick={() => (isOpen = !isOpen)}>
 			<!-- {isOpen ? 'Close' : 'Open'} --> Player's Name
 		</button>
 	</div>
 
-	<div class="drawer-content">
-		<div class="locations">
+	<div class="drawer">
+		<div class="location-container">
 			<div class="location">
 				<div class="title">Location</div>
 				<div class="location-select">
@@ -77,63 +77,66 @@
 			</div>
 		</div>
 
-		<div class="equipment">
-			<div class="equip">
-				<div class="title">Equipment</div>
-				<div class="equip-actions">
-					<div class="actions">
-						<button class="action" onclick={handsAction} disabled={isDisabled}
-							>{isDisabled ? 'Gathering...' : 'Gather'}
-							<div class="loading-bar"></div></button
-						>
-						<button class="action">Hunt</button>
-					</div>
-					<div class="items">
-						<div class="item">
-							<select
-								><option disabled>Select a Left-Hand Item</option>
-								<optgroup label="Starting Items">
-									{#each $playerInventory as item}
-										<option>
-											{item.name}
-										</option>
-									{/each}
-								</optgroup>
-							</select>
-						</div>
-						<div class="item">
-							<select
-								><option disabled>Select a Right-Hand Item</option>
-								<optgroup label="Starting Items">
-									{#each $playerInventory as item}
-										<option>
-											{item.name}
-										</option>
-									{/each}
-								</optgroup>
-							</select>
-						</div>
-					</div>
+		<div class="actions-container">
+			<div class="actions">
+				<div class="title">Actions</div>
+				<div class="actions-buttons">
+					<button class="actions-button" onclick={handsAction} disabled={isDisabled}
+						>{isDisabled ? 'Gathering...' : 'Gather'}
+						<div class="loading-bar"></div></button
+					>
+					<button class="actions-button">Hunt</button>
 				</div>
 			</div>
 		</div>
 
-		<div class="backpack" id="backpack">
+		<div class="equipment-container">
+			<div class="equipment">
+				<div class="title">Equipment</div>
+				<div class="equipment-selects">
+					<select class="equipment-select"
+						><option disabled>Select a Left-Hand Item</option>
+						<optgroup label="Starting Items">
+							{#each $playerInventory as item}
+								<option>
+									{item.name}
+								</option>
+							{/each}
+						</optgroup>
+					</select>
+					<select class="equipment-select"
+						><option disabled>Select a Right-Hand Item</option>
+						<optgroup label="Starting Items">
+							{#each $playerInventory as item}
+								<option>
+									{item.name}
+								</option>
+							{/each}
+						</optgroup>
+					</select>
+				</div>
+			</div>
+		</div>
+
+		<div class="backpack-container">
 			<div class="title">Backpack</div>
-			<div class="backpack-items">
-				<button onclick={sortItemsByName}>Sort by Name</button>
-				{#each $backpack as item, index (item.id)}
-					<button class="backpack-item">
-						{item.name} ({item.quantity})
-					</button>
-				{/each}
+			<div class="backpack">
+				<div class="backpack-buttons">
+					<button onclick={sortItemsByName}>Sort by Name</button>
+					{#each $backpack as item, index (item.id)}
+						<button>
+							{item.name} ({item.quantity})
+						</button>
+					{/each}
+				</div>
 			</div>
 		</div>
 	</div>
 </div>
 
 <style>
-	.title-bar {
+	/* Drawer */
+	.drawer-bar {
 		display: flex;
 		margin: var(--margin-small);
 		margin-bottom: 0;
@@ -141,7 +144,7 @@
 		border-bottom: var(--border-dotted);
 	}
 
-	.drawer {
+	.drawer-container {
 		background-color: var(--background-color-glass);
 		backdrop-filter: var(--backdrop-filter-glass);
 		position: fixed;
@@ -166,40 +169,43 @@
 	}
 
 	@media (min-width: 900px) {
-		.drawer {
-			width: calc(1060px + var(--margin));
+		.drawer-container {
+			/* width: calc(1060px + var(--margin-small)); */
+			width: auto;
+			max-width: 1058px;
 			margin: auto;
 		}
 	}
 
-	.drawer.open {
+	.drawer-container.open {
 		/* height: calc(100vh - (0px + var(--margin-small))); */
 		height: 50vh;
 	}
 
 	@media (min-width: 900px) {
-		.drawer.open {
+		.drawer-container.open {
 			/* height: calc(100vh - (64px + var(--margin))); */
 			height: 50vh;
 		}
 	}
 
-	.drawer-content {
+	.drawer {
 		display: flex;
-		flex-direction: row;
-		flex-wrap: wrap;
+		flex-direction: column;
+		flex-wrap: nowrap;
 		gap: var(--gap-small);
 		overflow: auto;
+		margin-bottom: var(--margin-small);
 	}
 
 	@media (min-width: 900px) {
-		.drawer-content {
-			flex-direction: column;
-			flex-wrap: nowrap;
+		.drawer {
+			/* flex-direction: row;
+			flex-wrap: wrap; */
 		}
 	}
 
-	.drawer button {
+	.drawer-container button {
 		padding: var(--padding-small);
 	}
 
@@ -215,10 +221,17 @@
 		background-color: var(--blue-hover);
 	}
 
-	.locations {
+	.drawer .title {
+		padding-bottom: var(--padding-small);
+	}
+
+	/* Location */
+	.location-container {
 		display: flex;
 		flex-grow: 1;
-		padding: var(--padding);
+		margin-top: var(--margin-small);
+		margin-left: var(--margin-small);
+		margin-right: var(--margin-small);
 	}
 
 	.location {
@@ -226,63 +239,42 @@
 	}
 
 	.location-select {
-		margin-top: var(--margin);
+		margin-top: var(--margin-small);
 	}
 
-	.equipment {
+	/* Actions */
+	.actions-container {
 		display: flex;
 		flex-grow: 1;
 		gap: var(--gap-small);
-		padding: var(--padding);
-	}
-
-	.equip {
-		display: flex;
-		flex-grow: 1;
-		flex-direction: column;
-	}
-
-	.equip-actions {
-		display: flex;
-		flex-direction: column;
-		gap: var(--gap);
-		margin-top: var(--margin);
-	}
-
-	@media (min-width: 900px) {
-		.equip-actions {
-			flex-direction: row;
-		}
+		margin-left: var(--margin-small);
+		margin-right: var(--margin-small);
 	}
 
 	.actions {
-		display: flex;
-		flex-direction: column;
 		flex-grow: 1;
-		flex-wrap: wrap;
-		gap: var(--gap-small);
 	}
 
 	@media (min-width: 900px) {
 		.actions {
 			flex-direction: row;
-			border-right: var(--border-dotted);
 		}
 	}
 
-	.action {
-		position: relative;
-		cursor: pointer;
-		overflow: hidden;
+	.actions-buttons {
+		display: flex;
+		flex-direction: column;
+		gap: var(--gap-small);
+		margin-top: var(--margin-small);
 	}
 
 	@media (min-width: 900px) {
-		.action {
-			width: 8em;
+		.actions-buttons {
+			flex-direction: row;
 		}
 	}
 
-	.action:disabled {
+	.actions-button:disabled {
 		cursor: not-allowed;
 		background-color: var(--blue-hover);
 	}
@@ -297,15 +289,40 @@
 		transition: width 1s cubic-bezier(0.785, 0.135, 0.15, 0.86);
 	}
 
-	.action:disabled .loading-bar {
+	.actions-button:disabled .loading-bar {
 		width: 100%;
 	}
 
-	.action:not(:disabled) .loading-bar {
+	.actions-button:not(:disabled) .loading-bar {
 		transition: none;
 		width: 0;
 	}
 
+	/* Equipment */
+	.equipment-container {
+		display: flex;
+		flex-grow: 1;
+		flex-wrap: wrap;
+		gap: var(--gap-small);
+		margin-left: var(--margin-small);
+		margin-right: var(--margin-small);
+	}
+
+	.equipment {
+		/* flex-wrap: wrap; */
+		flex-grow: 1;
+		/* position: relative; */
+		/* cursor: pointer; */
+		/* overflow: hidden; */
+	}
+
+	.equipment-selects {
+		display: flex;
+		gap: var(--gap-small);
+		margin-top: var(--margin-small);
+	}
+
+	/* Backpack */
 	.items {
 		display: flex;
 		flex-direction: column;
@@ -318,18 +335,19 @@
 		}
 	}
 
-	.backpack {
+	.backpack-container {
 		display: flex;
 		flex-direction: column;
 		gap: var(--gap-small);
-		padding: var(--padding);
+		margin-left: var(--margin-small);
+		margin-right: var(--margin-small);
 	}
 
-	.backpack-items {
+	.backpack-buttons {
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--gap-small);
-		margin-top: var(--margin);
+		margin-top: var(--margin-small);
 	}
 </style>
