@@ -12,6 +12,7 @@
           </p>
           <p>
               This year, I—in no particular order:
+</p>
                 <ul>
                   <li>Traveled to 6 different states</li>
                   <li>Went to Minnesota 4 times</li>
@@ -44,7 +45,7 @@
                   <li>Let my depression run its course 2’wice</li>
                   <li>…and much, much more.</li>
                 </ul>
-              </p>
+              
               <p>I gave myself a little under an hour to come up with this list. In this time, I found it incredibly hard to                  think about and to remember the highlights of my year—without having to resort to my journal or my photos. I think it reinforces how important it is for me to relax and record from time to time.</p>
 
 <p>Those familiar with me may have noticed that I have shared less and less of these as the year has gone on. It’s much easier to sit down and write when I’m sad—it offers a sense of letting go of that sadness into the void. Perhaps this is an indicator that I’m doing much better this year.</p>
