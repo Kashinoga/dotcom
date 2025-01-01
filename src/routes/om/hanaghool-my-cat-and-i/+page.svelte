@@ -6,7 +6,7 @@
 					<div class="title-emoji"><h2>🐈‍⬛</h2></div>
 					<div class="title-text">
 						<h2>My Cat and I Both Take Prozac</h2>
-						<h3>A quick look back at 2024.</h3>
+						<h3><i>A quick look back at 2024.</i></h3>
 					</div>
 				</div>
 
@@ -65,8 +65,8 @@
 
 					<p>
 						I gave myself a little under an hour to come up with this list. In this time, I found it
-						incredibly hard to think about and to remember the highlights of my year—without having
-						to resort to my journal or my photos. I think it reinforces how important it is for me
+						incredibly hard to think about and to remember the highlights and lowlights of my year—without having
+						to resort to my journal or to my photos. I think it reinforces how important it is for me
 						to relax and record from time to time.
 					</p>
 
