@@ -13,6 +13,8 @@
                     <p>Open Mics is for personal soliloquies. It is meant to offer users a small-feeling, safe, and trusted space to share their innermost jubilations and turmoils. It is the hope that this offering builds paths towards personal peace.</p>
 
                     <p>All submissions are anonymous and are shared at the discretion of the writer.</p>
+
+                    <p>This is the public version of Open Mics, and was developed with the help of the generous SDKK members of Open Mic Spica, Open Mic Elnath, and Open Mic Betelgeuse. Thank you all so much!</p>
                 </div>
 
                 <ul>
