@@ -2,22 +2,26 @@
 
 Welcome to the repository for the Kashinoga website.
 
-This website contains a collection of mostly fun stuff.
-
-# 🪪 License 
-
-There is currently no license.
+# 👩‍💻 Environment
 
 ## Node.js
+
+Setup Node.js, a JavaScript runtime environment, for the appropriate platform:
+
 https://nodejs.org/en/download/prebuilt-installer
 
 ## PowerShell
 
-Set-ExecutionPolicy RemoteSigned 
+If developing on Windows, run the following in an elevated prompt:
+
+`Set-ExecutionPolicy RemoteSigned`
 
 ## npm
 
+```
 npm install
+
 npm audit fix
-npm audit fix --force
+
 npm run dev
+```
