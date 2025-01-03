@@ -12,6 +12,16 @@
 				</a>
 			</div>
 			<div class="section">
+				<a href="/om">
+					<h2>🎤 Open Mics</h2>
+					<div class="paragraphs">
+						<p>
+							For personal <span class="highlight highlight-blue">soliloquies</span>. Don't be shy.
+						</p>
+					</div>
+				</a>
+			</div>
+			<div class="section">
 				<a href="/wtm">
 					<h2>🧭 What's the Move</h2>
 					<div class="paragraphs">
