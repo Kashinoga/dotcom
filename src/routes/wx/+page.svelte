@@ -67,13 +67,13 @@
 	let weatherData: { [key: string]: string }[] = $state([]);
 
 	async function getWeatherData() {
-		// weatherData = [];
 		if (selectedState != 'Select a State') {
 			let url = 'https://api.weather.gov/alerts/active/area/' + selectedState;
 			const response = await fetch(url);
 			weatherDataResponse = await response.json();
 			featuresLength = weatherDataResponse.features.length;
 
+			weatherData = [];
 			for (let index = 0; index < featuresLength; index++) {
 				weatherDatum = {
 					title: weatherDataResponse.title,
@@ -83,6 +83,8 @@
 				};
 				weatherData = [...weatherData, weatherDatum];
 			}
+		} else {
+			weatherData = [];
 		}
 	}
 
