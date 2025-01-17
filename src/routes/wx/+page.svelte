@@ -64,7 +64,11 @@
 		updated: ''
 	});
 
-	let weatherData: { [key: string]: string }[] = $state([]);
+	let weatherData = $state<{ [key: string]: string }[]>([]);
+
+	function clearWeatherData() {
+		weatherData = [];
+	}
 
 	async function getWeatherData() {
 		if (selectedState != 'Select a State') {
@@ -73,7 +77,6 @@
 			weatherDataResponse = await response.json();
 			featuresLength = weatherDataResponse.features.length;
 
-			weatherData = [];
 			for (let index = 0; index < featuresLength; index++) {
 				weatherDatum = {
 					title: weatherDataResponse.title,
@@ -83,8 +86,6 @@
 				};
 				weatherData = [...weatherData, weatherDatum];
 			}
-		} else {
-			weatherData = [];
 		}
 	}
 
@@ -95,6 +96,15 @@
 			console.error('An error occurred while copying: ', err);
 		}
 	};
+
+	function handleStateChange(event: Event) {
+		const target = event.target as HTMLSelectElement | null;
+		if (target) {
+			selectedState = target.value;
+		}
+		clearWeatherData();
+		getWeatherData();
+	}
 </script>
 
 <div class="container">
@@ -114,7 +124,7 @@
 					id="stateSelect"
 					class="stateSelect"
 					bind:value={selectedState}
-					onchange={getWeatherData}
+					onchange={handleStateChange}
 					>\
 					<option disabled>Select a State</option>
 					{#each statesOfAmerica as state}
