@@ -90,10 +90,11 @@
 				<h2>📢 Updates</h2>
 				<div class="paragraphs">
 					{#each commits as commit}
-						<p>{commit.date} ({commit.relativeTime}) - {commit.message}</p>
+						<p>{commit.date} ({commit.relativeTime}) </p>
 						<div class="cardsContainer">
 							<div class="card">
 								<div class="cardInfo">
+									<p>{commit.message}</p>
 									<ul>
 										{#each commit.files as file}
 											<li>{file}</li>
@@ -108,3 +109,9 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	.cardInfo p {
+		margin-top: 0;
+	}
+</style>
