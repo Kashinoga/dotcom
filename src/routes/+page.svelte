@@ -26,10 +26,12 @@
 		const diffInHours = Math.floor(diffInMinutes / 60);
 		const diffInDays = Math.floor(diffInHours / 24);
 
-		if (diffInMinutes < 60) {
-			return `${diffInMinutes} minutes ago`;
+		if (diffInSeconds < 60) {
+			return `${diffInSeconds} ${diffInSeconds === 1 ? 'second' : 'seconds'} ago`;
+		} else if (diffInMinutes < 60) {
+			return `${diffInMinutes} ${diffInMinutes === 1 ? 'minute' : 'minutes'} ago`;
 		} else if (diffInHours < 24) {
-			return `${diffInHours} hours ago`;
+			return `${diffInHours} ${diffInHours === 1 ? 'hour' : 'hours'} ago`;
 		} else if (diffInDays === 1) {
 			return `1 day ago`;
 		} else {
