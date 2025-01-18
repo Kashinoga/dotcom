@@ -408,6 +408,14 @@ ul {
 	border-right: var(--border-dotted);
 }
 
+.cardInfoBorderless {
+	flex-grow: 1;
+	margin-top: var(--margin);
+	margin-bottom: var(--margin);
+	padding-left: var(--padding);
+	padding-right: var(--padding);
+}
+
 .cardLabel {
 	background: none;
 	transform: rotate(90deg);

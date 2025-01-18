@@ -22,7 +22,7 @@
 					<div class="cardsContainer">
 						<div class="cards">
 							<div class="card">
-								<div class="cardInfo">
+								<div class="cardInfoBorderless">
 									<ul>
 										<li>Traveled to 6 different states</li>
 										<li>Went to Minnesota 4 times</li>
@@ -65,9 +65,9 @@
 
 					<p>
 						I gave myself a little under an hour to come up with this list. In this time, I found it
-						incredibly hard to think about and to remember the highlights and lowlights of my year—without having
-						to resort to my journal or to my photos. I think it reinforces how important it is for me
-						to relax and record from time to time.
+						incredibly hard to think about and to remember the highlights and lowlights of my
+						year—without having to resort to my journal or to my photos. I think it reinforces how
+						important it is for me to relax and record from time to time.
 					</p>
 
 					<p>
@@ -108,7 +108,7 @@
 </div>
 
 <style>
-  .cards {
-    grid-template-columns: unset;
-  }
+	.cards {
+		grid-template-columns: unset;
+	}
 </style>

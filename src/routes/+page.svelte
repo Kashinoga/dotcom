@@ -97,7 +97,7 @@
 						<p>{commit.date} ({commit.relativeTime})</p>
 						<div class="cardsContainer">
 							<div class="card">
-								<div class="cardInfo">
+								<div class="cardInfoBorderless">
 									<p>{commit.message}</p>
 									<ul>
 										{#each commit.files as file}
@@ -115,7 +115,7 @@
 </div>
 
 <style>
-	.cardInfo p {
+	.cardInfoBorderless p {
 		margin-top: 0;
 	}
 </style>
