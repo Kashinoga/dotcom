@@ -32,6 +32,8 @@
 	--border-dotted: 1px dotted rgba(0, 0, 0, 0.2);
 	--border-radius: 0.4em;
 
+	--height-nav: 60px;
+
 	--highlight-red: var(--red);
 	--highlight-blue: var(--blue);
 	--highlight-yellow: var(--yellow);

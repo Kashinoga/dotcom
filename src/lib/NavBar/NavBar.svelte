@@ -55,8 +55,11 @@
 
 <style>
 	nav {
+		display: flex;
 		background-color: var(--color-background);
 		padding: var(--padding);
+		height: var(--height-nav);
+		box-sizing: border-box;
 	}
 
 	.nav-items {
@@ -97,6 +100,9 @@
 	/* Tickers */
 	.ticker-container {
 		display: none;
+		border-bottom: 0.2em solid transparent;
+		padding-bottom: var(--padding-small);
+		align-items: center;
 	}
 
 	@media (min-width: 900px) {
@@ -108,6 +114,7 @@
 
 	.ticker {
 		display: flex;
+		align-items: center;
 		flex: 0 0 auto;
 		gap: var(--gap);
 		animation-name: ticker;
