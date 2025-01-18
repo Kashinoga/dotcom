@@ -30,6 +30,8 @@
 			return `${diffInMinutes} minutes ago`;
 		} else if (diffInHours < 24) {
 			return `${diffInHours} hours ago`;
+		} else if (diffInDays === 1) {
+			return `1 day ago`;
 		} else {
 			return `${diffInDays} days ago`;
 		}
@@ -90,7 +92,7 @@
 				<h2>📢 Updates</h2>
 				<div class="paragraphs">
 					{#each commits as commit}
-						<p>{commit.date} ({commit.relativeTime}) </p>
+						<p>{commit.date} ({commit.relativeTime})</p>
 						<div class="cardsContainer">
 							<div class="card">
 								<div class="cardInfo">
