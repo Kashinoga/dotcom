@@ -90,6 +90,7 @@ body {
 	flex-direction: column;
 	margin: auto;
 	padding: var(--padding);
+	min-height: 100vh;
 }
 
 @media (min-width: 900px) {
@@ -97,6 +98,10 @@ body {
 		flex-direction: row;
 		max-width: 1060px;
 	}
+}
+
+.content {
+	flex: 1;
 }
 
 @media (min-width: 900px) {

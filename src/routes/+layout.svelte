@@ -31,24 +31,10 @@
 
 <NavBar></NavBar>
 <FloatingActionButton></FloatingActionButton>
-<div class="container">
-	<div class="content">
-		{@render children?.()}
-	</div>
-</div>
+{@render children?.()}
 <footer class="footer"></footer>
 
 <style>
-	.container {
-		display: flex;
-		flex-direction: column;
-		min-height: 100vh;
-	}
-
-	.content {
-		flex: 1;
-	}
-
 	.footer {
 		height: var(--height-nav); /* Assuming you have a CSS variable for the nav height */
 		background-color: var(--color-background);
