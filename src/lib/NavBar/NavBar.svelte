@@ -65,8 +65,14 @@
 	.nav-items {
 		display: flex;
 		gap: var(--gap);
-		margin: 0 auto;
+		margin: unset;
 		max-width: 1060px;
+	}
+
+	@media (min-width: 900px) {
+		.nav-items {
+			margin: 0 auto;
+		}
 	}
 
 	.nav-items-left {

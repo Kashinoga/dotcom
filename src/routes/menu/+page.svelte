@@ -2,6 +2,16 @@
 	<div class="content">
 		<div class="sections">
 			<div class="section">
+				<a href="https://ko-fi.com/kashinoga">
+					<h2>💵 Donate to Kashinoga</h2>
+					<div class="paragraphs">
+						<p>
+							Give me your <span class="highlight highlight-blue">money</span>!
+						</p>
+					</div>
+				</a>
+			</div>
+			<div class="section">
 				<a href="/kb">
 					<h2>📚 Knowledge Base</h2>
 					<div class="paragraphs">
