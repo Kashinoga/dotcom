@@ -3,7 +3,7 @@
 		<div class="sections">
 			<div class="section">
 				<a href="https://ko-fi.com/kashinoga">
-					<h2>💵 Donate to Kashinoga</h2>
+					<h2 class="highlighted">💵 Donate</h2>
 					<div class="paragraphs">
 						<p>
 							Give me your <span class="highlight highlight-blue">money</span>!
@@ -58,5 +58,9 @@
 <style>
 	a {
 		text-decoration: none;
+	}
+
+	.highlighted {
+		border-bottom: 1px dotted var(--yellow);
 	}
 </style>

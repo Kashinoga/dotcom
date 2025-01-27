@@ -30,6 +30,7 @@
 				class:active={$page.url.pathname === '/menu'}
 				on:click={() => lastActivePath.set('/menu')}>Menu</a
 			>
+			<a href="https://ko-fi.com/kashinoga" on:click={() => lastActivePath.set('/menu')}>Donate</a>
 
 			<div class="ticker-container">
 				<div class="ticker">
