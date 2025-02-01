@@ -5,7 +5,7 @@ const statesOfAmerica = [
     { name: 'Alaska', abbreviation: 'AK', emoji: '', enabled: 'false', url: 'alaska' },
     { name: 'Arizona', abbreviation: 'AZ', emoji: '', enabled: 'false', url: 'arizona' },
     { name: 'Arkansas', abbreviation: 'AR', emoji: '', enabled: 'false', url: 'arkansas' },
-    { name: 'California', abbreviation: 'CA', emoji: '', enabled: 'false', url: 'california' },
+    { name: 'California', abbreviation: 'CA', emoji: '', enabled: 'true', url: 'california' },
     { name: 'Colorado', abbreviation: 'CO', emoji: '🏔️', enabled: 'true', url: 'colorado' },
     { name: 'Connecticut', abbreviation: 'CT', emoji: '', enabled: 'false', url: 'connecticut' },
     { name: 'Delaware', abbreviation: 'DE', emoji: '', enabled: 'false', url: 'delaware' },

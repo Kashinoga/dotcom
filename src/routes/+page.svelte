@@ -72,10 +72,7 @@
 					<p>
 						Here, you'll find a <span class="highlight">gallery of the fun things</span>
 						that I've built. You'll also find a
-						<span class="highlight"
-							>curation of the
-							<i>fun</i> things</span
-						>
+						<span class="highlight">curation of the fun things</span>
 						that I've found <span class="highlight">elsewhere</span>.
 					</p>
 					<p>I hope you enjoy your time.</p>
@@ -85,8 +82,8 @@
 				<h2>☝️ Look up!</h2>
 				<div class="paragraphs">
 					<p>
-						<span class="highlight highlight-quote">"I will root for you, all the time."</span>
-						—<span class="highlight">Anime Girl</span>, Moments in the Universe
+						"I will root for you, all the time." —<span class="highlight">Anime Girl</span>, Moments
+						in the Universe
 					</p>
 				</div>
 			</div>
