@@ -18,11 +18,9 @@
 				<div class="pills">
 					{#each $statesOfAmericaInventory as state}
 						{#if state.enabled == 'true'}
-							{#if state.emoji != ''}
-								<a href="/wtm/{state.name.toLowerCase()}"><div class="pill">{state.name}</div></a>
-							{:else}
-								<div class="pill pill-disabled">{state.name}</div>
-							{/if}
+							<a href="/wtm/{state.url}"><div class="pill">{state.name}</div></a>
+						{:else}
+							<div class="pill pill-disabled">{state.name}</div>
 						{/if}
 					{/each}
 				</div>
