@@ -6,7 +6,7 @@ Welcome to the repository for the Kashinoga website.
 
 ## Node.js
 
-Setup Node.js, a JavaScript runtime environment, for the appropriate platform:
+Setup Node.js, a JavaScript runtime environment, for your appropriate platform:
 
 https://nodejs.org/en/download/prebuilt-installer
 
