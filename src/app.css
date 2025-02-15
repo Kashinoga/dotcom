@@ -123,9 +123,7 @@ h5 {
 h2 {
 	border-bottom: var(--border-dotted);
 	padding-bottom: var(--padding-small);
-
-	/* border-top: var(--border-dotted); */
-	/* padding-top: var(--padding-small); */
+	padding-top: var(--padding-small);
 }
 
 ul {
@@ -434,4 +432,39 @@ ul {
 	.fab {
 		display: none;
 	}
+}
+
+/* Codeblocks */
+pre {
+	background-color: var(--color-background);
+	border: var(--border);
+	border-radius: var(--border-radius);
+	padding: var(--padding);
+	overflow-x: auto;
+	font-family: 'Courier New', Courier, monospace;
+}
+
+code {
+	color: var(--color-text); /* Text color */
+}
+
+code .comment {
+	color: var(--green);
+}
+
+code .keyword {
+	font-weight: bold;
+	color: var(--blue);
+}
+
+code .string {
+	color: var(--red);
+}
+
+code .number {
+	color: var(--blue-hover);
+}
+
+code .function {
+	color: var(--yellow);
 }
