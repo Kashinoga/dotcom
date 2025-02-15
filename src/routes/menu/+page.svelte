@@ -32,16 +32,6 @@
 				</a>
 			</div>
 			<div class="section">
-				<a href="/post">
-					<h2>📬 Post</h2>
-					<div class="paragraphs">
-						<p>
-							A scroll of well-articulated <span class="highlight highlight-blue">thoughts</span>.
-						</p>
-					</div>
-				</a>
-			</div>
-			<div class="section">
 				<a href="/wtm">
 					<h2>🧭 What's the Move</h2>
 					<div class="paragraphs">
