@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { writable } from 'svelte/store';
 
 	// Check if we're running in the browser (client-side)
@@ -22,12 +22,12 @@
 		<div class="nav-items-left">
 			<a
 				href="/"
-				class:active={$page.url.pathname === '/' || !['/', '/menu'].includes($page.url.pathname)}
+				class:active={page.url.pathname === '/' || !['/', '/menu'].includes(page.url.pathname)}
 				on:click={() => lastActivePath.set('/')}>Kashinoga</a
 			>
 			<a
 				href="/menu"
-				class:active={$page.url.pathname === '/menu'}
+				class:active={page.url.pathname === '/menu'}
 				on:click={() => lastActivePath.set('/menu')}>Menu</a
 			>
 			<a href="https://ko-fi.com/kashinoga" on:click={() => lastActivePath.set('/menu')}>Donate</a>
@@ -67,7 +67,7 @@
 		display: flex;
 		gap: var(--gap);
 		margin: unset;
-		max-width: 1060px;
+		max-width: var(--min-width);
 	}
 
 	@media (min-width: 900px) {
@@ -136,12 +136,6 @@
 	.ticker-container:hover .ticker {
 		animation-play-state: paused;
 	}
-
-	/* .ticker-text {
-		white-space: nowrap;
-		padding-right: var(--padding-small);
-		color: var(--color-text-ticker);
-	} */
 
 	.ticker span {
 		padding-right: var(--padding-small);

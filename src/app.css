@@ -1,5 +1,7 @@
 /* Light Theme Variables */
 :root {
+	--min-width: 720px;
+
 	--black: #000000;
 	--white: #ffffff;
 	--color-binary: var(--black);
@@ -96,7 +98,7 @@ body {
 @media (min-width: 900px) {
 	.container {
 		flex-direction: row;
-		max-width: 1060px;
+		max-width: var(--min-width);
 	}
 }
 
@@ -106,7 +108,7 @@ body {
 
 @media (min-width: 900px) {
 	.content {
-		min-width: 1060px;
+		min-width: var(--min-width);
 	}
 }
 
@@ -332,19 +334,19 @@ td {
 	padding: var(--padding-small);
 }
 
-thead > tr > th {
+thead>tr>th {
 	background-color: var(--table-background-color);
 }
 
-tbody > tr > th {
+tbody>tr>th {
 	background-color: var(--table-background-color);
 }
 
-tbody > tr > th {
+tbody>tr>th {
 	text-align: right;
 }
 
-tbody > tr > td {
+tbody>tr>td {
 	text-align: left;
 }
 
@@ -384,7 +386,7 @@ tbody > tr > td {
 
 @media (min-width: 900px) {
 	.cards {
-		grid-template-columns: repeat(2, 1fr);
+		grid-template-columns: repeat(1, 1fr);
 	}
 }
 
@@ -445,7 +447,8 @@ pre {
 }
 
 code {
-	color: var(--color-text); /* Text color */
+	color: var(--color-text);
+	/* Text color */
 }
 
 code .comment {
