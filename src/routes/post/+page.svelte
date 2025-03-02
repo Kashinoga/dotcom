@@ -27,7 +27,7 @@
 					{#each data.posts as post}
 						<li>
 							<a href="/post/{post.slug}">
-								{post.title}, {post.date}
+								{post.date}: {post.title}
 							</a>
 						</li>
 					{/each}

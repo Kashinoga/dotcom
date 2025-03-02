@@ -36,7 +36,7 @@
 					<h2>📬 Post</h2>
 					<div class="paragraphs">
 						<p>
-							A scroll of well-articulated <span class="highlight highlight-blue">thoughts</span>.
+							A scroll of "well-articulated" <span class="highlight highlight-blue">thoughts</span>.
 						</p>
 					</div>
 				</a>
