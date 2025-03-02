@@ -12,14 +12,14 @@
 					</div>
 					<div class="title-text">
 						<h1>Post</h1>
-						<h3><i>A scroll of well-articulated thoughts.</i></h3>
+						<h3><i>A scroll of "well-articulated" thoughts.</i></h3>
 					</div>
 				</div>
 
 				<div class="paragraphs">
 					<p>
-						Post is my collection of writings that I'm willing to make public. I hope they offer
-						some useful or comedic insight into my perspective of life.
+						Post is a personal, curated collection of writings made public. I hope they offer some
+						useful or comedic insight into this perspective of life.
 					</p>
 				</div>
 
