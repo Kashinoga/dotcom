@@ -6,14 +6,16 @@
 	<div class="content">
 		<div class="sections">
 			<div class="section">
-				<h2>🧭 What's the Move</h2>
-				<div class="paragraphs">
-					<p>
-						A curated selection of <span class="highlight highlight-blue">where to eat</span>,
-						<span class="highlight highlight-blue">places to see</span>, and
-						<span class="highlight highlight-blue">things to do</span>.
-					</p>
+				<div class="title">
+					<div class="title-emoji">
+						<h1>🧭</h1>
+					</div>
+					<div class="title-text">
+						<h1>What's the Move</h1>
+						<h3>A curated selection of where to eat, places to see, and things to do.</h3>
+					</div>
 				</div>
+
 				<h3>United States of America</h3>
 				<div class="pills">
 					{#each $statesOfAmericaInventory as state}

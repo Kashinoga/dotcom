@@ -111,15 +111,16 @@
 	<div class="content">
 		<div class="sections">
 			<div class="section">
-				<h2>🌦️ WX</h2>
-				<div class="paragraphs">
-					<p>A simple <span class="highlight highlight-yellow">weather app</span>.</p>
-					<p>
-						The forecast is provided by your <span class="highlight highlight-yellow"
-							>local sorceress</span
-						>.
-					</p>
+				<div class="title">
+					<div class="title-emoji">
+						<h1>🌦️</h1>
+					</div>
+					<div class="title-text">
+						<h1>WX</h1>
+						<h3>A simple weather checker.</h3>
+					</div>
 				</div>
+
 				<select
 					id="stateSelect"
 					class="stateSelect"
@@ -143,9 +144,7 @@
 							<div class="cards">
 								<div class="card">
 									<div class="weatherPerson">
-										<span class="highlight highlight-quote"
-											>"Peer into the cauldron. It's fresh as of... {weatherDatum.updated}"</span
-										>
+										"Peer into the cauldron. It's fresh as of... {weatherDatum.updated}"
 									</div>
 								</div>
 
@@ -173,16 +172,11 @@
 							</div>
 						{:else if selectedState !== 'Select a State'}
 							<div class="paragraphs">
-								<p>
-									The <span class="highlight highlight-yellow">sorceress</span> remains silent. There
-									are no available alerts.
-								</p>
+								<p>The sorceress remains silent. There are no available alerts.</p>
 							</div>
 						{:else}
 							<div class="paragraphs">
-								<p>
-									<span class="highlight highlight-yellow">She</span> awaits your selection with disinterest.
-								</p>
+								<p>She awaits your selection with disinterest.</p>
 							</div>
 						{/if}
 					</div>

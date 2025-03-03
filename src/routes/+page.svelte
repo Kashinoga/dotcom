@@ -64,16 +64,11 @@
 			<div class="section">
 				<h2>✨ Hi.</h2>
 				<div class="paragraphs">
-					<p>My name is <span class="highlight">Andrew</span>.</p>
+					<p>My name is Andrew.</p>
+					<p>This is Kashinoga. My virtual home.</p>
 					<p>
-						This is <span class="highlight">Kashinoga</span>. My virtual
-						<span class="highlight">home</span>.
-					</p>
-					<p>
-						Here, you'll find a <span class="highlight">gallery of the fun things</span>
-						that I've built. You'll also find a
-						<span class="highlight">curation of the fun things</span>
-						that I've found <span class="highlight">elsewhere</span>.
+						Here, you'll find a gallery of the fun things that I've built. You'll also find a
+						curation of the fun things that I've found elsewhere.
 					</p>
 					<p>I hope you enjoy your time.</p>
 				</div>
@@ -81,10 +76,7 @@
 			<div class="section">
 				<h2>☝️ Look up!</h2>
 				<div class="paragraphs">
-					<p>
-						"I will root for you, all the time." —<span class="highlight">Anime Girl</span>, Moments
-						in the Universe
-					</p>
+					<p>"I will root for you, all the time." —Anime Girl, Moments in the Universe</p>
 				</div>
 			</div>
 			<div class="section">
