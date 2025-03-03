@@ -2,30 +2,32 @@
 
 A list of items, brands, and shops with a focus on local, alternative, and consumer-friendly values.
 
-## Accessories
+## Apparel
 
-### Base Layers
+### Accessories
 
-- [Minus33](https://www.minus33.com/)
-
-### Gaiters
+#### Base Layers
 
 - [Minus33](https://www.minus33.com/)
 
-### Gloves
+#### Gaiters
 
 - [Minus33](https://www.minus33.com/)
 
-### Socks
+#### Gloves
+
+- [Minus33](https://www.minus33.com/)
+
+#### Socks
 
 - [Darn Tough Vermont](https://darntough.com/)
 
-## Athletic
+### Athletic
 
-### Tops
+#### Tops
 
 - [MIER](https://www.miersports.com/)
 
-### Bottoms
+#### Bottoms
 
 - [MIER](https://www.miersports.com/)
