@@ -116,6 +116,7 @@
 		.ticker-container {
 			display: flex;
 			overflow-x: hidden;
+			overflow-y: hidden;
 		}
 	}
 
