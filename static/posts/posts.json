@@ -1,1 +1,17 @@
-[{ "slug": "hello-world", "title": "Hello World", "date": "15-FEB-2025" }]
+[
+	{
+		"slug": "hello_world",
+		"title": "Hello, World!",
+		"date": "15 FEB 2025"
+	},
+	{
+		"slug": "kashinoga_shopping",
+		"title": "Shopping",
+		"date": "02 MAR 2025"
+	},
+	{
+		"slug": "kb_edge_group_policy",
+		"title": "Microsoft Edge is managed by your organization",
+		"date": "02 MAR 2025"
+	}
+]

@@ -1,0 +1,13 @@
+# Microsoft Edge is managed by your organization
+
+It's not, really.
+
+## Resolution
+
+1. Go to `edge://policy` and review if there are actual policies
+2. If there are none, continue
+3. Close Edge
+4. Open `regedit`
+5. Navigate to `HKEYd_LOCAL_MACHINE\SOFTWARE\Policies\Microsoft\Edge`
+6. Delete this directory
+7. Open Edge and verify

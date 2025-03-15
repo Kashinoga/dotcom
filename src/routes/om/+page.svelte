@@ -7,14 +7,14 @@
 						<h1>🎤</h1>
 					</div>
 					<div class="title-text">
-						<h1>Open Mics</h1>
-						<h3><i>Don't be shy.</i></h3>
+						<h1>Open Mic</h1>
+						<h3>A place to open up.</h3>
 					</div>
 				</div>
 
 				<div class="paragraphs">
 					<p>
-						Open Mics is for personal soliloquies. It is meant to offer users a small-feeling, safe,
+						Open Mic is for personal soliloquies. It is meant to offer users a small-feeling, safe,
 						and trusted space to share their innermost jubilations and turmoils. It is the hope that
 						this offering builds paths towards personal peace.
 					</p>
@@ -22,7 +22,7 @@
 					<p>All submissions are anonymous and are shared at the discretion of the writer.</p>
 
 					<p>
-						This is the public version of Open Mics, and was developed with the help of the generous
+						This is the public version of Open Mic, and was developed with the help of the generous
 						SDKK members of Open Mic Spica, Open Mic Elnath, and Open Mic Betelgeuse. Thank you all
 						so much!
 					</p>

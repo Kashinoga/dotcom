@@ -12,14 +12,14 @@
 					</div>
 					<div class="title-text">
 						<h1>Post</h1>
-						<h3><i>A scroll of well-articulated thoughts.</i></h3>
+						<h3>A personal, curated collection of writings made public.</h3>
 					</div>
 				</div>
 
 				<div class="paragraphs">
 					<p>
-						Post is my collection of writings that I'm willing to make public. I hope they offer
-						some useful or comedic insight into my perspective of life.
+						I hope these writings offer some useful or comedic insight into this perspective of
+						life.
 					</p>
 				</div>
 
@@ -27,7 +27,7 @@
 					{#each data.posts as post}
 						<li>
 							<a href="/post/{post.slug}">
-								{post.title}, {post.date}
+								{post.date}: {post.title}
 							</a>
 						</li>
 					{/each}

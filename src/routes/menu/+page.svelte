@@ -5,29 +5,15 @@
 				<a href="https://ko-fi.com/kashinoga">
 					<h2 class="highlighted">💵 Donate</h2>
 					<div class="paragraphs">
-						<p>
-							Give me your <span class="highlight highlight-blue">money</span>!
-						</p>
-					</div>
-				</a>
-			</div>
-			<div class="section">
-				<a href="/kb">
-					<h2>📚 Knowledge Base</h2>
-					<div class="paragraphs">
-						<p>
-							A haphazard collection of <span class="highlight highlight-blue">wisdom</span>.
-						</p>
+						<p>Give me your money!</p>
 					</div>
 				</a>
 			</div>
 			<div class="section">
 				<a href="/om">
-					<h2>🎤 Open Mics</h2>
+					<h2>🎤 Open Mic</h2>
 					<div class="paragraphs">
-						<p>
-							For personal <span class="highlight highlight-blue">soliloquies</span>. Don't be shy.
-						</p>
+						<p>A place to open up.</p>
 					</div>
 				</a>
 			</div>
@@ -35,9 +21,7 @@
 				<a href="/post">
 					<h2>📬 Post</h2>
 					<div class="paragraphs">
-						<p>
-							A scroll of well-articulated <span class="highlight highlight-blue">thoughts</span>.
-						</p>
+						<p>A personal, curated collection of writings made public.</p>
 					</div>
 				</a>
 			</div>
@@ -46,9 +30,7 @@
 					<h2>🧭 What's the Move</h2>
 					<div class="paragraphs">
 						<p>
-							A curated selection of <span class="highlight highlight-blue">where to eat</span>,
-							<span class="highlight highlight-blue">places to see</span>, and
-							<span class="highlight highlight-blue">things to do</span>.
+							A locally crowdsourced selection of where to eat, places to see, and things to do.
 						</p>
 					</div>
 				</a>
@@ -57,7 +39,7 @@
 				<a href="/wx">
 					<h2>🌦️ WX</h2>
 					<div class="paragraphs">
-						<p>A simple <span class="highlight highlight-blue">weather app</span>.</p>
+						<p>A simple weather app.</p>
 					</div>
 				</a>
 			</div>
