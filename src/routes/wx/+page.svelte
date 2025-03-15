@@ -202,6 +202,7 @@
 	.stateSelect {
 		width: 100%;
 		margin-bottom: var(--margin);
+		margin-top: var(--margin);
 	}
 
 	.weatherPerson {
