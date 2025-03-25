@@ -12,7 +12,7 @@
 					</div>
 					<div class="title-text">
 						<h1>What's the Move</h1>
-						<h3>A curated selection of where to eat, places to see, and things to do.</h3>
+						<h2>A curated selection of where to eat, places to see, and things to do.</h2>
 					</div>
 				</div>
 

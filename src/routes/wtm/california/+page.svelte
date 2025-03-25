@@ -3,11 +3,9 @@
 	import { getStateName } from '../getStateName';
 	import { categoryInventory } from '../categoryStore';
 	import { eatAndDrinkInventory } from './eatAndDrinkStore';
-	import { entertainmentInventory } from './entertainmentStore';
 	import { recreationInventory } from './recreationStore';
 
 	let eatAndDrinkCategory = $categoryInventory[0];
-	let entertainmentCategory = $categoryInventory[1];
 	let recreationCategory = $categoryInventory[2];
 
 	$: stateName = getStateName($page.url.pathname);
@@ -18,22 +16,25 @@
 		<div class="sections">
 			<div class="section">
 				<div class="title">
-					<div class="title-emoji"><h2>🧭</h2></div>
+					<div class="title-emoji">
+						<h1>🧭</h1>
+					</div>
 					<div class="title-text">
-						<h2>What's the Move</h2>
-						<h3>for {stateName}</h3>
+						<h1>What's the Move</h1>
+						<h2>for {stateName}</h2>
 					</div>
 				</div>
+
 				<div class="cardsContainer">
-					<h3 id={eatAndDrinkCategory.id}>
+					<h2 id={eatAndDrinkCategory.id}>
 						{eatAndDrinkCategory.emoji}
 						{eatAndDrinkCategory.name}
-					</h3>
+					</h2>
 					<div class="cards">
 						{#each $eatAndDrinkInventory.sort( (a, b) => a.name.localeCompare(b.name) ) as inventoryItem}
 							<div class="card">
 								<div class="cardInfo">
-									<h4 class="cardName">{inventoryItem.name}</h4>
+									<h3 class="cardName">{inventoryItem.name}</h3>
 									<ul>
 										<li>{inventoryItem.type}</li>
 										<li>{inventoryItem.address}</li>
@@ -55,15 +56,15 @@
 					</div>
 				</div>
 				<div class="cardsContainer">
-					<h3 id={recreationCategory.id}>
+					<h2 id={recreationCategory.id}>
 						{recreationCategory.emoji}
 						{recreationCategory.name}
-					</h3>
+					</h2>
 					<div class="cards">
 						{#each $recreationInventory.sort( (a, b) => a.name.localeCompare(b.name) ) as inventoryItem}
 							<div class="card">
 								<div class="cardInfo">
-									<h4 class="cardName">{inventoryItem.name}</h4>
+									<h3 class="cardName">{inventoryItem.name}</h3>
 									<ul>
 										<li>{inventoryItem.type}</li>
 										<li>{inventoryItem.address}</li>

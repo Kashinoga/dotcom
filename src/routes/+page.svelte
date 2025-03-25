@@ -62,7 +62,8 @@
 	<div class="content">
 		<div class="sections">
 			<div class="section">
-				<h2>✨ Hi.</h2>
+				<h1>✨ Hi.</h1>
+				<h2>My name is Andrew.</h2>
 				<div class="paragraphs">
 					<p>My name is Andrew.</p>
 					<p>This is Kashinoga. My virtual home.</p>
@@ -73,14 +74,18 @@
 					<p>I hope you enjoy your time.</p>
 				</div>
 			</div>
+
 			<div class="section">
-				<h2>☝️ Look up!</h2>
+				<h1>☝️ Look up!</h1>
+				<h2>It's easy to forget to.</h2>
 				<div class="paragraphs">
 					<p>"I will root for you, all the time." —Anime Girl, Moments in the Universe</p>
 				</div>
 			</div>
+
 			<div class="section">
-				<h2>📢 Updates</h2>
+				<h1>📢 Updates</h1>
+				<h2>Proof that I do stuff.</h2>
 				<div class="paragraphs">
 					{#each commits as commit}
 						<p>{commit.date} ({commit.relativeTime})</p>

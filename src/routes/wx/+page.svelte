@@ -117,7 +117,7 @@
 					</div>
 					<div class="title-text">
 						<h1>WX</h1>
-						<h3>A simple weather checker.</h3>
+						<h2>A simple weather checker.</h2>
 					</div>
 				</div>
 

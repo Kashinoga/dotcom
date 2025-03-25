@@ -1,6 +1,8 @@
-# Microsoft Edge is managed by your organization
+# Microsoft Edge Group Policy
 
-It's not, really.
+## Keyphrase
+
+> Microsoft Edge is managed by your organization
 
 ## Resolution
 

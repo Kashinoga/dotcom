@@ -334,19 +334,19 @@ td {
 	padding: var(--padding-small);
 }
 
-thead>tr>th {
+thead > tr > th {
 	background-color: var(--table-background-color);
 }
 
-tbody>tr>th {
+tbody > tr > th {
 	background-color: var(--table-background-color);
 }
 
-tbody>tr>th {
+tbody > tr > th {
 	text-align: right;
 }
 
-tbody>tr>td {
+tbody > tr > td {
 	text-align: left;
 }
 
@@ -400,6 +400,7 @@ tbody>tr>td {
 	backdrop-filter: var(--backdrop-filter-glass);
 }
 
+.card h3,
 .card h4,
 ul {
 	margin-top: 0;

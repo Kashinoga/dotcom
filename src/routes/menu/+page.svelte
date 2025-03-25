@@ -3,43 +3,72 @@
 		<div class="sections">
 			<div class="section">
 				<a href="https://ko-fi.com/kashinoga">
-					<h2 class="highlighted">💵 Donate</h2>
-					<div class="paragraphs">
-						<p>Give me your money!</p>
+					<div class="title">
+						<div class="title-emoji">
+							<h1>💵</h1>
+						</div>
+						<div class="title-text">
+							<h1>Donate</h1>
+							<h2>Give me your money!</h2>
+						</div>
 					</div>
 				</a>
 			</div>
+
 			<div class="section">
 				<a href="/om">
-					<h2>🎤 Open Mic</h2>
-					<div class="paragraphs">
-						<p>A place to open up.</p>
+					<div class="title">
+						<div class="title-emoji">
+							<h1>🎤</h1>
+						</div>
+						<div class="title-text">
+							<h1>Open Mic</h1>
+							<h2>A place to open up.</h2>
+						</div>
 					</div>
 				</a>
 			</div>
+
 			<div class="section">
 				<a href="/post">
-					<h2>📬 Post</h2>
-					<div class="paragraphs">
-						<p>A personal, curated collection of writings made public.</p>
+					<div class="title">
+						<div class="title-emoji">
+							<h1>📬</h1>
+						</div>
+						<div class="title-text">
+							<h1>Post</h1>
+							<h2>A personal, curated collection of writings made public.</h2>
+						</div>
 					</div>
 				</a>
 			</div>
+
 			<div class="section">
-				<a href="/wtm">
-					<h2>🧭 What's the Move</h2>
-					<div class="paragraphs">
-						<p>
-							A locally crowdsourced selection of where to eat, places to see, and things to do.
-						</p>
+				<a href="/post">
+					<div class="title">
+						<div class="title-emoji">
+							<h1>🧭</h1>
+						</div>
+						<div class="title-text">
+							<h1>What's the Move</h1>
+							<h2>
+								A locally crowdsourced selection of where to eat, places to see, and things to do.
+							</h2>
+						</div>
 					</div>
 				</a>
 			</div>
+
 			<div class="section">
-				<a href="/wx">
-					<h2>🌦️ WX</h2>
-					<div class="paragraphs">
-						<p>A simple weather app.</p>
+				<a href="/post">
+					<div class="title">
+						<div class="title-emoji">
+							<h1>🌦️</h1>
+						</div>
+						<div class="title-text">
+							<h1>WX</h1>
+							<h2>A simple weather app.</h2>
+						</div>
 					</div>
 				</a>
 			</div>
@@ -50,9 +79,5 @@
 <style>
 	a {
 		text-decoration: none;
-	}
-
-	.highlighted {
-		border-bottom: 1px dotted var(--yellow);
 	}
 </style>

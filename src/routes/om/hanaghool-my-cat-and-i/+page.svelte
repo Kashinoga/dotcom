@@ -3,10 +3,12 @@
 		<div class="sections">
 			<div class="section">
 				<div class="title">
-					<div class="title-emoji"><h2>🐈‍⬛</h2></div>
+					<div class="title-emoji">
+						<h1>🐈‍⬛</h1>
+					</div>
 					<div class="title-text">
-						<h2>My Cat and I Both Take Prozac</h2>
-						<h3><i>A quick look back at 2024.</i></h3>
+						<h1>My Cat and I Both Take Prozac</h1>
+						<h2>A quick look back at 2024.</h2>
 					</div>
 				</div>
 

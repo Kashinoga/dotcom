@@ -8,7 +8,7 @@
 					</div>
 					<div class="title-text">
 						<h1>Open Mic</h1>
-						<h3>A place to open up.</h3>
+						<h2>A place to open up.</h2>
 					</div>
 				</div>
 

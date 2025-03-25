@@ -12,7 +12,7 @@
 					</div>
 					<div class="title-text">
 						<h1>Post</h1>
-						<h3>A personal, curated collection of writings made public.</h3>
+						<h2>A personal, curated collection of writings made public.</h2>
 					</div>
 				</div>
 
