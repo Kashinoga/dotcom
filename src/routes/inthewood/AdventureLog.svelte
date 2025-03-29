@@ -73,6 +73,7 @@
 	.adventure-log-tabs {
 		display: flex;
 		gap: var(--gap-small);
+		padding-top: var(--padding-small);
 		padding-bottom: var(--padding-small);
 	}
 
@@ -94,11 +95,11 @@
 	.log-messages {
 		align-content: end;
 		flex-grow: 1;
-		height: 10em;
 		overflow-y: auto;
 		border-radius: var(--border-radius-small);
 		border-top-left-radius: 0;
 		border-top-right-radius: 0;
+		padding-top: var(--padding-small);
 	}
 
 	.paragraphs p {

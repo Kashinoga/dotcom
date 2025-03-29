@@ -60,7 +60,7 @@
 	<div class="drawer-bar">
 		<!-- <div class="title">Player's Name</div> -->
 		<button class="drawer-button" onclick={() => (isOpen = !isOpen)}>
-			<!-- {isOpen ? 'Close' : 'Open'} --> Player's Name
+			<!-- {isOpen ? 'Close' : 'Open'} --> Valerie Peak
 		</button>
 	</div>
 
@@ -160,8 +160,8 @@
 			height 0.1s linear var(--duration),
 			transform var(--duration) var(--transform);
 		height: 44px;
-		margin-left: var(--margin-small);
-		margin-right: var(--margin-small);
+		margin-left: var(--margin);
+		margin-right: var(--margin);
 		border: var(--border);
 		border-bottom: none;
 		border-top-left-radius: var(--border-radius);
@@ -172,20 +172,20 @@
 		.drawer-container {
 			/* width: calc(1060px + var(--margin-small)); */
 			width: auto;
-			max-width: 1058px;
+			max-width: var(--min-width);
 			margin: auto;
 		}
 	}
 
 	.drawer-container.open {
-		/* height: calc(100vh - (0px + var(--margin-small))); */
-		height: 50vh;
+		height: calc(100vh - (0px + var(--margin)));
+		/* height: 50vh; */
 	}
 
 	@media (min-width: 900px) {
 		.drawer-container.open {
-			/* height: calc(100vh - (64px + var(--margin))); */
-			height: 50vh;
+			height: calc(100vh - (60px + var(--margin)));
+			/* height: 50vh; */
 		}
 	}
 
