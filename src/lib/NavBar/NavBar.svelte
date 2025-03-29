@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { writable } from 'svelte/store';
 
 	// Check if we're running in the browser (client-side)
@@ -22,14 +22,15 @@
 		<div class="nav-items-left">
 			<a
 				href="/"
-				class:active={$page.url.pathname === '/' || !['/', '/menu'].includes($page.url.pathname)}
+				class:active={page.url.pathname === '/' || !['/', '/menu'].includes(page.url.pathname)}
 				on:click={() => lastActivePath.set('/')}>Kashinoga</a
 			>
 			<a
 				href="/menu"
-				class:active={$page.url.pathname === '/menu'}
+				class:active={page.url.pathname === '/menu'}
 				on:click={() => lastActivePath.set('/menu')}>Menu</a
 			>
+			<a href="https://ko-fi.com/kashinoga" on:click={() => lastActivePath.set('/menu')}>Donate</a>
 
 			<div class="ticker-container">
 				<div class="ticker">
@@ -56,22 +57,23 @@
 <style>
 	nav {
 		display: flex;
-		align-items: center;
-		height: 64px;
-		background-color: var(--background-color-glass);
-		backdrop-filter: var(--backdrop-filter-glass);
+		background-color: var(--color-background);
+		padding: var(--padding);
+		height: var(--height-nav);
+		box-sizing: border-box;
 	}
 
 	.nav-items {
 		display: flex;
 		flex-grow: 1;
 		gap: var(--gap);
+		margin: unset;
+		max-width: var(--min-width);
 	}
 
 	@media (min-width: 900px) {
 		.nav-items {
 			margin: 0 auto;
-			max-width: 1060px;
 		}
 	}
 
@@ -113,17 +115,22 @@
 	/* Tickers */
 	.ticker-container {
 		display: none;
+		border-bottom: 0.2em solid transparent;
+		padding-bottom: var(--padding-small);
+		align-items: center;
 	}
 
 	@media (min-width: 900px) {
 		.ticker-container {
 			display: flex;
 			overflow-x: hidden;
+			overflow-y: hidden;
 		}
 	}
 
 	.ticker {
 		display: flex;
+		align-items: center;
 		flex: 0 0 auto;
 		gap: var(--gap);
 		animation-name: ticker;
@@ -138,12 +145,6 @@
 	.ticker-container:hover .ticker {
 		animation-play-state: paused;
 	}
-
-	/* .ticker-text {
-		white-space: nowrap;
-		padding-right: var(--padding-small);
-		color: var(--color-text-ticker);
-	} */
 
 	.ticker span {
 		padding-right: var(--padding-small);

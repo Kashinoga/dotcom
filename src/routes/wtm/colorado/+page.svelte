@@ -1,10 +1,14 @@
 <script>
+	import { page } from '$app/stores';
 	import { categoryInventory } from '../categoryStore';
 	import { eatAndDrinkInventory } from './eatAndDrinkStore';
 	import { entertainmentInventory } from './entertainmentStore';
+	import { getStateName } from '../getStateName';
 
 	let eatAndDrinkCategory = $categoryInventory[0];
 	let entertainmentCategory = $categoryInventory[1];
+
+	$: stateName = getStateName($page.url.pathname);
 </script>
 
 <div class="container">
@@ -12,12 +16,15 @@
 		<div class="sections">
 			<div class="section">
 				<div class="title">
-					<div class="title-emoji"><h2>🧭</h2></div>
+					<div class="title-emoji">
+						<h1>🧭</h1>
+					</div>
 					<div class="title-text">
-						<h2>What's the Move</h2>
-						<h3>for Colorado</h3>
+						<h1>What's the Move</h1>
+						<h2>for {stateName}</h2>
 					</div>
 				</div>
+
 				<div class="cardsContainer">
 					<h3 id={eatAndDrinkCategory.id}>
 						{eatAndDrinkCategory.emoji}

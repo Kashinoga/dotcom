@@ -3,10 +3,10 @@
 	import { getStateName } from '../getStateName';
 	import { categoryInventory } from '../categoryStore';
 	import { eatAndDrinkInventory } from './eatAndDrinkStore';
-	import { entertainmentInventory } from './entertainmentStore';
+	import { recreationInventory } from './recreationStore';
 
 	let eatAndDrinkCategory = $categoryInventory[0];
-	let entertainmentCategory = $categoryInventory[1];
+	let recreationCategory = $categoryInventory[2];
 
 	$: stateName = getStateName($page.url.pathname);
 </script>
@@ -26,15 +26,15 @@
 				</div>
 
 				<div class="cardsContainer">
-					<h3 id={eatAndDrinkCategory.id}>
+					<h2 id={eatAndDrinkCategory.id}>
 						{eatAndDrinkCategory.emoji}
 						{eatAndDrinkCategory.name}
-					</h3>
+					</h2>
 					<div class="cards">
 						{#each $eatAndDrinkInventory.sort( (a, b) => a.name.localeCompare(b.name) ) as inventoryItem}
 							<div class="card">
 								<div class="cardInfo">
-									<h4 class="cardName">{inventoryItem.name}</h4>
+									<h3 class="cardName">{inventoryItem.name}</h3>
 									<ul>
 										<li>{inventoryItem.type}</li>
 										<li>{inventoryItem.address}</li>
@@ -56,15 +56,15 @@
 					</div>
 				</div>
 				<div class="cardsContainer">
-					<h3 id={entertainmentCategory.id}>
-						{entertainmentCategory.emoji}
-						{entertainmentCategory.name}
-					</h3>
+					<h2 id={recreationCategory.id}>
+						{recreationCategory.emoji}
+						{recreationCategory.name}
+					</h2>
 					<div class="cards">
-						{#each $entertainmentInventory.sort( (a, b) => a.name.localeCompare(b.name) ) as inventoryItem}
+						{#each $recreationInventory.sort( (a, b) => a.name.localeCompare(b.name) ) as inventoryItem}
 							<div class="card">
 								<div class="cardInfo">
-									<h4 class="cardName">{inventoryItem.name}</h4>
+									<h3 class="cardName">{inventoryItem.name}</h3>
 									<ul>
 										<li>{inventoryItem.type}</li>
 										<li>{inventoryItem.address}</li>

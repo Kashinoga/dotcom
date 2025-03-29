@@ -1,5 +1,7 @@
 /* Light Theme Variables */
 :root {
+	--min-width: 720px;
+
 	--black: #000000;
 	--white: #ffffff;
 	--color-binary: var(--black);
@@ -34,6 +36,8 @@
 	--border-dotted: 1px dotted rgba(0, 0, 0, 0.2);
 	--border-radius: 0.4em;
 	--border-radius-small: 0.2em;
+
+	--height-nav: 60px;
 
 	--highlight-red: var(--red);
 	--highlight-blue: var(--blue);
@@ -94,19 +98,24 @@ body {
 	display: flex;
 	flex-direction: column;
 	margin: auto;
-	padding: var(--padding-small);
+	padding: var(--padding);
+	min-height: 100vh;
 }
 
 @media (min-width: 900px) {
 	.container {
 		flex-direction: row;
-		max-width: 1060px;
+		max-width: var(--min-width);
 	}
+}
+
+.content {
+	flex: 1;
 }
 
 @media (min-width: 900px) {
 	.content {
-		min-width: 1060px;
+		min-width: var(--min-width);
 	}
 }
 
@@ -123,9 +132,7 @@ h5 {
 h2 {
 	border-bottom: var(--border-dotted);
 	padding-bottom: var(--padding-small);
-
-	/* border-top: var(--border-dotted); */
-	/* padding-top: var(--padding-small); */
+	padding-top: var(--padding-small);
 }
 
 ul {
@@ -384,7 +391,7 @@ tbody > tr > td {
 
 @media (min-width: 900px) {
 	.cards {
-		grid-template-columns: repeat(2, 1fr);
+		grid-template-columns: repeat(1, 1fr);
 	}
 }
 
@@ -398,6 +405,7 @@ tbody > tr > td {
 	backdrop-filter: var(--backdrop-filter-glass);
 }
 
+.card h3,
 .card h4,
 ul {
 	margin-top: 0;
@@ -413,6 +421,14 @@ ul {
 	border-right: var(--border-dotted);
 }
 
+.cardInfoBorderless {
+	flex-grow: 1;
+	margin-top: var(--margin);
+	margin-bottom: var(--margin);
+	padding-left: var(--padding);
+	padding-right: var(--padding);
+}
+
 .cardLabel {
 	background: none;
 	transform: rotate(90deg);
@@ -424,4 +440,40 @@ ul {
 	.fab {
 		display: none;
 	}
+}
+
+/* Codeblocks */
+pre {
+	background-color: var(--color-background);
+	border: var(--border);
+	border-radius: var(--border-radius);
+	padding: var(--padding);
+	overflow-x: auto;
+	font-family: 'Courier New', Courier, monospace;
+}
+
+code {
+	color: var(--color-text);
+	/* Text color */
+}
+
+code .comment {
+	color: var(--green);
+}
+
+code .keyword {
+	font-weight: bold;
+	color: var(--blue);
+}
+
+code .string {
+	color: var(--red);
+}
+
+code .number {
+	color: var(--blue-hover);
+}
+
+code .function {
+	color: var(--yellow);
 }

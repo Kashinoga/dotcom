@@ -64,10 +64,13 @@
 		updated: ''
 	});
 
-	let weatherData: { [key: string]: string }[] = $state([]);
+	let weatherData = $state<{ [key: string]: string }[]>([]);
+
+	function clearWeatherData() {
+		weatherData = [];
+	}
 
 	async function getWeatherData() {
-		// weatherData = [];
 		if (selectedState != 'Select a State') {
 			let url = 'https://api.weather.gov/alerts/active/area/' + selectedState;
 			const response = await fetch(url);
@@ -93,26 +96,36 @@
 			console.error('An error occurred while copying: ', err);
 		}
 	};
+
+	function handleStateChange(event: Event) {
+		const target = event.target as HTMLSelectElement | null;
+		if (target) {
+			selectedState = target.value;
+		}
+		clearWeatherData();
+		getWeatherData();
+	}
 </script>
 
 <div class="container">
 	<div class="content">
 		<div class="sections">
 			<div class="section">
-				<h2>🌦️ WX</h2>
-				<div class="paragraphs">
-					<p>A simple <span class="highlight highlight-yellow">weather app</span>.</p>
-					<p>
-						The forecast is provided by your <span class="highlight highlight-yellow"
-							>local sorceress</span
-						>.
-					</p>
+				<div class="title">
+					<div class="title-emoji">
+						<h1>🌦️</h1>
+					</div>
+					<div class="title-text">
+						<h1>WX</h1>
+						<h2>A simple weather checker.</h2>
+					</div>
 				</div>
+
 				<select
 					id="stateSelect"
 					class="stateSelect"
 					bind:value={selectedState}
-					onchange={getWeatherData}
+					onchange={handleStateChange}
 					>\
 					<option disabled>Select a State</option>
 					{#each statesOfAmerica as state}
@@ -131,9 +144,7 @@
 							<div class="cards">
 								<div class="card">
 									<div class="weatherPerson">
-										<span class="highlight highlight-quote"
-											>"Peer into the cauldron. It's fresh as of... {weatherDatum.updated}"</span
-										>
+										"Peer into the cauldron. It's fresh as of... {weatherDatum.updated}"
 									</div>
 								</div>
 
@@ -161,16 +172,11 @@
 							</div>
 						{:else if selectedState !== 'Select a State'}
 							<div class="paragraphs">
-								<p>
-									The <span class="highlight highlight-yellow">sorceress</span> remains silent. There
-									are no available alerts.
-								</p>
+								<p>The sorceress remains silent. There are no available alerts.</p>
 							</div>
 						{:else}
 							<div class="paragraphs">
-								<p>
-									<span class="highlight highlight-yellow">She</span> awaits your selection with disinterest.
-								</p>
+								<p>She awaits your selection with disinterest.</p>
 							</div>
 						{/if}
 					</div>
@@ -190,6 +196,7 @@
 	.stateSelect {
 		width: 100%;
 		margin-bottom: var(--margin);
+		margin-top: var(--margin);
 	}
 
 	.weatherPerson {

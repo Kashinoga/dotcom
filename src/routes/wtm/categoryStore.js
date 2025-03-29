@@ -6,6 +6,11 @@ const categories = [
 		id: 'entertainment',
 		name: 'Entertainment',
 		emoji: '🍿'
+	},
+	{
+		id: 'recreation',
+		name: 'Recreation',
+		emoji: '🌲'
 	}
 ];
 

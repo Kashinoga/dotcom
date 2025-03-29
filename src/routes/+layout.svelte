@@ -30,3 +30,14 @@
 {/if}
 
 {@render children?.()}
+<footer class="footer"></footer>
+
+<style>
+	.footer {
+		height: var(--height-nav); /* Assuming you have a CSS variable for the nav height */
+		background-color: var(--color-background);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+</style>
