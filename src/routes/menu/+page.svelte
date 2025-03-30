@@ -15,20 +15,6 @@
 				</div>
 			</a>
 
-			<a href="/inthewood">
-				<div class="section">
-					<div class="title">
-						<div class="title-emoji">
-							<h1>☄️</h1>
-						</div>
-						<div class="title-text">
-							<h1>InTheWood</h1>
-							A spacey game, set in space.
-						</div>
-					</div>
-				</div>
-			</a>
-
 			<a href="/om">
 				<div class="section">
 					<div class="title">
