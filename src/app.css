@@ -67,6 +67,7 @@
 
 	--color-text: #dedcd9;
 	--color-text-inverted: var(--black);
+	--color-text-faded: #ffffffa3;
 
 	--border: 1px solid rgba(255, 255, 255, 0.2);
 	--border-dotted: 1px dotted rgba(255, 255, 255, 0.2);

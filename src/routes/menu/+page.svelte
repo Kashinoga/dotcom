@@ -105,7 +105,9 @@
 	.section {
 		display: flex;
 		flex-grow: 1;
-		border: var(--border-dotted);
+		background-color: var(--background-color-glass);
+		backdrop-filter: var(--backdrop-filter-glass);
+		border: var(--border);
 		border-radius: var(--border-radius);
 		padding: var(--padding);
 	}
