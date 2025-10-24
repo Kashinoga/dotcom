@@ -65,6 +65,6 @@
 		border-radius: var(--border-radius);
 		background-color: var(--background-color-glass);
 		backdrop-filter: var(--backdrop-filter-glass);
-		height: 100vh;
+		height: 50vh;
 	}
 </style>
