@@ -1,6 +1,13 @@
-import { expect, test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
-test('index page has expected h1', async ({ page }) => {
+test('Homepage has correct title', async ({ page }) => {
+	await page.goto('/'); // Base URL is automatically prefixed
+	const title = await page.title();
+	expect(title).toBe('Kashinoga'); // Replace with your website's title
+});
+
+test('Navigate to another page', async ({ page }) => {
 	await page.goto('/');
-	await expect(page.getByRole('heading', { name: 'Welcome to SvelteKit' })).toBeVisible();
+	await page.click('text=Menu'); // Replace 'About' with a link text or selector
+	await expect(page).toHaveURL('/menu'); // Update with your URL
 });

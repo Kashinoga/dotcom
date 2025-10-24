@@ -71,6 +71,11 @@
 						Here, you'll find a gallery of the fun things that I've built. You'll also find a
 						curation of the fun things that I've found elsewhere.
 					</p>
+
+					<p>
+						You can also check out Kashinoga (on Obsidian) for a slightly faster and hotter
+						experience.
+					</p>
 					<p>I hope you enjoy your time.</p>
 				</div>
 			</div>

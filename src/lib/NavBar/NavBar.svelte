@@ -65,6 +65,7 @@
 
 	.nav-items {
 		display: flex;
+		flex-grow: 1;
 		gap: var(--gap);
 		margin: unset;
 		max-width: var(--min-width);
@@ -80,7 +81,14 @@
 		display: flex;
 		flex-grow: 1;
 		gap: var(--gap);
+		margin-left: var(--margin);
 		overflow: hidden;
+	}
+
+	@media (min-width: 900px) {
+		.nav-items-left {
+			margin-left: 0;
+		}
 	}
 
 	a {
