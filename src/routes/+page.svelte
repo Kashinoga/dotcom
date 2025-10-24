@@ -73,8 +73,9 @@
 					</p>
 
 					<p>
-						You can also check out Kashinoga (on Obsidian) for a slightly faster and hotter
-						experience.
+						You can also check out <a href="https://obsidian.kashinoga.com/"
+							>Kashinoga (on Obsidian)</a
+						> for a slightly faster and hotter experience.
 					</p>
 					<p>I hope you enjoy your time.</p>
 				</div>
