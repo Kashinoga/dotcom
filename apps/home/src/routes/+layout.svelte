@@ -1,4 +1,5 @@
 <script lang="ts">
+	import '@kashinoga/puhig/tokens.css';
 	import favicon from '$lib/assets/favicon.svg';
 
 	let { children } = $props();

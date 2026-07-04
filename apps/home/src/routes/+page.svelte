@@ -1,6 +1,19 @@
 <script lang="ts">
-	import { PUHIG_VERSION } from '@kashinoga/puhig';
+	import { Card, Sleeve } from '@kashinoga/puhig';
 </script>
 
-<h1>dotcom</h1>
-<p>Homepage skeleton. Design system <code>@kashinoga/puhig</code> v{PUHIG_VERSION} linked.</p>
+<main class="stage">
+	<Sleeve>
+		<Card name="Kashinoga" />
+	</Sleeve>
+</main>
+
+<style>
+	.stage {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 100dvh;
+		padding: 1.5rem;
+	}
+</style>

@@ -1,0 +1,115 @@
+/* @kashinoga/puhig — design tokens + base.
+ * Ported from the dotcom-2 puhig system: Penguin editorial palette, Jost,
+ * card sizing. Import once at the app root (e.g. in +layout.svelte). */
+
+@font-face {
+	font-family: 'Jost';
+	src: url('./fonts/jost.woff2') format('woff2');
+	font-weight: 100 900;
+	font-style: normal;
+	font-display: swap;
+}
+
+:root {
+	color-scheme: light dark;
+
+	/* Penguin editorial palette */
+	--ink: #0a0a0a; /* Penguin black */
+	--paper: #f5f5f0; /* Penguin white */
+	--page: #edeef0; /* page field */
+	--surface: #ffffff; /* card fill */
+	--orange: #f06030; /* Penguin orange accent */
+	--sub: #717171; /* subtext */
+
+	/* Grid background — 1px lines on a tile. Faint over the page field. */
+	--grid-size: 32px;
+	--grid-line: rgba(10, 10, 10, 0.05);
+
+	/* Inset bordered panel that frames the grid */
+	--frame-inset: 20px; /* gap between viewport edge and panel */
+	--panel-radius: 22px;
+	--panel-border: 2px;
+
+	/* Card geometry — MTG standard 2.5in × 3.5in (5:7). Width scales with the
+	 * viewport between a comfortable phone size and life-size; aspect-ratio
+	 * holds the proportions, so only the width needs to clamp. */
+	--card-w: clamp(200px, 160px + 8vw, 252px);
+	--card-ratio: 5 / 7;
+	/* Internal metrics are fractions of --card-w so the whole card + sleeve
+	 * scales as one object with the clamp (not just the outer box). */
+	--card-radius: calc(var(--card-w) * 0.042);
+
+	/* One moderate 2-layer shadow — cheap while static, no backdrop-filter. */
+	--card-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.08);
+
+	/* Sleeve — clear see-through plastic. NO backdrop-filter blur: the look
+	 * comes from a near-transparent tint + a diagonal glare streak + an edge
+	 * highlight, so the grid shows straight through. */
+	--sleeve-lip: calc(var(--card-w) * 0.025); /* transparent rim (~6px) */
+	--sleeve-radius: calc(var(--card-w) * 0.02); /* squarer than the card, like a penny sleeve */
+	--sleeve-bg: rgba(255, 255, 255, 0.05);
+	--sleeve-streak: linear-gradient(
+		135deg,
+		transparent 15%,
+		rgba(0, 0, 0, 0.03) 28%,
+		rgba(255, 255, 255, 0.14) 38%,
+		rgba(255, 255, 255, 0.04) 50%,
+		transparent 65%
+	);
+
+	--font-body: 'Jost', system-ui, -apple-system, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--ink: #f2f2ee;
+		--paper: #1a1b1f;
+		--page: #101114;
+		--surface: #1c1d22;
+		--orange: #f4713f;
+		--sub: #9a9a9a;
+		--grid-line: rgba(255, 255, 255, 0.05);
+		--card-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.5);
+		--sleeve-bg: rgba(255, 255, 255, 0.04);
+	}
+}
+
+/* Minimal reset */
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+}
+
+body {
+	background-color: var(--page);
+	color: var(--ink);
+	font-family: var(--font-body);
+	line-height: 1.5;
+	-webkit-font-smoothing: antialiased;
+}
+
+/* Performant grid-lines background.
+ * Two gradients on ONE layer, painted once: no DOM nodes, no per-line SVG.
+ * Absolute (not fixed) so it fills the .puhig-grid element's own box — the
+ * gridFit action sizes the tile to that box, so the grid host must be
+ * position:relative and sized (e.g. the Panel). z-index:0 keeps it above the
+ * host's background fill and below content (give content position + z-index:1). */
+.puhig-grid::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	z-index: 0;
+	pointer-events: none;
+	background-image:
+		linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+		linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+	/* Tile sizes are set by the gridFit action to whole-tile-fit the viewport;
+	 * --grid-size is the target and the pre-hydration fallback. */
+	background-size: var(--grid-tile-x, var(--grid-size)) var(--grid-tile-y, var(--grid-size));
+}

@@ -1,5 +1,11 @@
 // @kashinoga/puhig — design-system entry point.
-// Placeholder surface for the skeleton; card components, tokens, and
-// movement get ported here from the dotcom-2 puhig design language.
+// Card components, tokens, and movement, ported from the dotcom-2 puhig
+// design language into scoped Svelte components.
 
-export const PUHIG_VERSION = '0.0.0';
+export { default as Card } from './Card.svelte';
+export { default as Sleeve } from './Sleeve.svelte';
+export { default as Panel } from './Panel.svelte';
+export { gridFit } from './gridFit';
+export { tilt } from './tilt';
+
+export const PUHIG_VERSION = '0.0.5';
