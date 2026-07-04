@@ -1,0 +1,10 @@
+{
+	"name": "@kashinoga/puhig",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"description": "Personal design system — MTG-card anatomy, Penguin editorial palette, movement.",
+	"exports": {
+		".": "./src/index.ts"
+	}
+}

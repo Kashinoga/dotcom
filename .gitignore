@@ -1,0 +1,53 @@
+# ─── Ignore everything, then opt in what makes the repo shareable ───
+# Bonus: build output & dependencies (node_modules, .svelte-kit, …)
+# stay out for free — nothing is tracked unless explicitly opted in.
+#
+# NOTE: git does not support inline comments — a '#' only starts a
+# comment at the start of a line. Keep every rule on its own line.
+*
+
+# Let git descend into subdirs (nested files stay ignored until listed)
+!*/
+
+# Hard-ignore generated/dependency/editor dirs (after !*/ so they win;
+# nothing inside can be re-included by the opt-ins below)
+node_modules/
+.svelte-kit/
+.wrangler/
+build/
+dist/
+.claude/
+.vscode/
+
+# ─── Opt back in: shareable source & config ───
+!.gitignore
+!.npmrc
+!.node-version
+!.env.example
+!README.md
+!LICENSE
+!package.json
+!pnpm-workspace.yaml
+!pnpm-lock.yaml
+!*.config.js
+!*.config.ts
+!tsconfig*.json
+!*.svelte
+!*.ts
+!*.js
+!*.css
+!*.svg
+!*.woff2
+!*.html
+!*.md
+# data & manifests
+!*.json
+!*.geojson
+
+# ─── Dev-only: re-ignore AFTER opt-ins so these win ───
+# your underscore convention (_PLAN.md, _NOTES.md, …)
+_*
+CLAUDE.md
+CLAUDE.local.md
+# review/QA artifacts like dotcom-2's _review-checklist.*
+*review-checklist*
