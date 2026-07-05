@@ -7,9 +7,6 @@
 
 <div class="sleeve" use:tilt={{ enabled: tiltable }}>
 	{@render children?.()}
-	<div class="sheen-clip" aria-hidden="true">
-		<div class="sheen"></div>
-	</div>
 </div>
 
 <style>
@@ -31,18 +28,16 @@
 		 * sheets), a beveled top-light / bottom-shade, an inner pocket shadow so
 		 * the card reads as tucked inside, then a soft drop onto the table. */
 		box-shadow:
-			inset 0 0 0 1px rgba(255, 255, 255, 0.5),
+			inset 0 0 0 1px var(--sleeve-rim-hi, rgba(255, 255, 255, 0.5)),
 			inset 0 0 0 2px rgba(0, 0, 0, 0.035),
-			inset 0 1px 0 rgba(255, 255, 255, 0.55),
+			inset 0 1px 0 var(--sleeve-rim-hi, rgba(255, 255, 255, 0.55)),
 			inset 0 -1px 1px rgba(0, 0, 0, 0.06),
 			inset 0 0 9px rgba(0, 0, 0, 0.035),
-			0 1px 2px rgba(0, 0, 0, 0.04),
-			0 14px 36px rgba(0, 0, 0, 0.07);
+			var(--sleeve-drop, 0 1px 2px rgba(0, 0, 0, 0.04), 0 14px 36px rgba(0, 0, 0, 0.07));
 	}
 
 	/* Fresnel rim — clear plastic reflects more at grazing angles, so the outer
-	 * edge is brighter than the flat centre. Static (a property of the plastic),
-	 * sits below the moving specular. */
+	 * edge is brighter than the flat centre. Static (a property of the plastic). */
 	.sleeve::before {
 		content: '';
 		position: absolute;
@@ -58,39 +53,4 @@
 		);
 	}
 
-	/* Clips the oversized sheen to the sleeve's rounded rect. Kept separate from
-	 * the sleeve so overflow:hidden here never clips the sleeve's drop shadow. */
-	.sheen-clip {
-		position: absolute;
-		inset: 0;
-		z-index: 3;
-		border-radius: inherit;
-		overflow: hidden;
-		pointer-events: none;
-	}
-
-	/* The glare — a soft radial hot-spot that tracks the cursor (light-follows-
-	 * cursor / holographic model): position AND shape read as one light sitting
-	 * at the pointer. --tilt-x/y (cursor offset, published by the tilt action)
-	 * translate it toward the pointer via transform — the compositor, not a
-	 * moving gradient position — so it stays a pure composite and many cards can
-	 * glint at once (the entrance deal) without repainting. The spot fades to
-	 * transparent, so translating it needs no oversize/edge margin. */
-	.sheen {
-		position: absolute;
-		inset: 0;
-		background-image: radial-gradient(
-			circle calc(var(--card-w, 240px) * 0.45) at 50% 50%,
-			rgba(255, 255, 255, 0.3),
-			rgba(255, 255, 255, 0.07) 40%,
-			rgba(255, 255, 255, 0) 68%
-		);
-		transform: translate(calc(var(--tilt-x, 0) * 45%), calc(var(--tilt-y, 0) * 45%));
-	}
-
-	/* Give the sheen its own layer only while tilting (class toggled by the tilt
-	 * action), then release it — no standing GPU layer per card at rest. */
-	.sleeve:global(.puhig-tilting) .sheen {
-		will-change: transform;
-	}
 </style>

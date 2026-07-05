@@ -153,13 +153,15 @@
 				{#if children}{@render children()}{/if}
 			</div>
 		{/if}
+		{#if holo}
+			<!-- Inside the face so the foil clips to the inner (face) radius, not the
+			     card's outer radius — keeps the black border a constant width. -->
+			<div class="foil foil--spectrum" aria-hidden="true"></div>
+			<div class="foil foil--shine" aria-hidden="true"></div>
+			<div class="foil foil--sparkle-a" aria-hidden="true"></div>
+			<div class="foil foil--sparkle-b" aria-hidden="true"></div>
+		{/if}
 	</div>
-	{#if holo}
-		<div class="foil foil--spectrum" aria-hidden="true"></div>
-		<div class="foil foil--shine" aria-hidden="true"></div>
-		<div class="foil foil--sparkle-a" aria-hidden="true"></div>
-		<div class="foil foil--sparkle-b" aria-hidden="true"></div>
-	{/if}
 </article>
 
 <style>
@@ -172,7 +174,13 @@
 		padding: var(--card-border-w, 8px);
 		background-color: var(--card-border, #0a0a0a);
 		border-radius: var(--card-radius, 10px);
-		box-shadow: var(--card-shadow, 0 8px 24px rgba(0, 0, 0, 0.08));
+		/* Cut-edge definition: a top-lit hairline + a soft groove darkening the
+		 * outer rim, so the border reads as a bevelled edge against the sleeve
+		 * rather than a flat plate. Drop shadow (or the sleeve's override) last. */
+		box-shadow:
+			inset 0 1px 0 var(--card-edge-seam, rgba(255, 255, 255, 0.3)),
+			inset 0 0 3px var(--card-edge-groove, rgba(0, 0, 0, 0.14)),
+			var(--card-shadow, 0 8px 24px rgba(0, 0, 0, 0.08));
 		overflow: hidden;
 	}
 
@@ -198,6 +206,22 @@
 		background-size: 140px 140px;
 		opacity: 0.4;
 		mix-blend-mode: multiply;
+	}
+
+	/* Seam between face and border. Instead of a hard line, a soft inner groove:
+	 * the inner edge darkens and fades in a couple px, so the face reads as set
+	 * into the frame. Above the foil (same z, later in paint order) so holo cards
+	 * still show it; below the name (z-index 3). */
+	.card-face::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		z-index: 2;
+		pointer-events: none;
+		border-radius: inherit;
+		box-shadow:
+			inset 0 0 0 1px var(--card-face-seam, rgba(0, 0, 0, 0.05)),
+			inset 0 0 3px var(--card-face-groove, rgba(0, 0, 0, 0.13));
 	}
 
 	/* ─── Full legendary frame ─────────────────────────────────────────────
@@ -465,60 +489,20 @@
 	}
 
 	/* ─── Minimal cardstock card ──────────────────────────────────────────── */
+	/* Plain name — no plate. Kept above the foil (z-index 3 > foil's 2) so it
+	 * stays legible on holo cards. */
 	.nameplate {
 		position: relative;
 		z-index: 3;
-		margin: calc(var(--card-w, 240px) * 0.03) calc(var(--card-w, 240px) * 0.025) 0;
+		margin: calc(var(--card-w, 240px) * 0.04) calc(var(--card-w, 240px) * 0.05) 0;
 		display: flex;
 		align-items: center;
-		padding: calc(var(--card-w, 240px) * 0.028) calc(var(--card-w, 240px) * 0.045);
-		border-radius: calc(var(--card-w, 240px) * 0.016);
-		background-image:
-			var(--plate-grain),
-			linear-gradient(
-				180deg,
-				#6f5119 0%,
-				var(--plate-hi, #f7e6a2) 9%,
-				var(--plate-mid, #cba24e) 24%,
-				#6a4d17 46%,
-				#d3ab55 60%,
-				#efd985 83%,
-				#6a4d17 100%
-			);
-		background-size: 90px 90px, auto;
-		background-blend-mode: overlay, normal;
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.32),
-			inset 0 -1px 0 rgba(0, 0, 0, 0.5),
-			inset 0 0 0 1px var(--plate-edge, #453413),
-			0 1px 1.5px rgba(0, 0, 0, 0.35);
-	}
-	.nameplate::before {
-		content: '';
-		position: absolute;
-		inset: calc(var(--card-w, 240px) * 0.014);
-		border-radius: calc(var(--card-w, 240px) * 0.008);
-		border: 1px solid rgba(0, 0, 0, 0.4);
-		box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
-		pointer-events: none;
-	}
-	.nameplate::after {
-		content: '';
-		position: absolute;
-		top: calc(var(--card-w, 240px) * -0.015);
-		left: 9%;
-		right: 9%;
-		height: calc(var(--card-w, 240px) * 0.016);
-		background: linear-gradient(180deg, var(--plate-hi, #f7e6a2), var(--plate-lo, #7f5d1f));
-		clip-path: polygon(0 100%, 8% 0, 16% 100%, 84% 100%, 92% 0, 100% 100%);
-		pointer-events: none;
 	}
 	.nameplate-title {
 		font-size: calc(var(--card-w, 240px) * 0.056);
 		font-weight: 600;
 		letter-spacing: 0.01em;
-		color: var(--plate-ink, #2a1e0a);
-		text-shadow: 0 1px 0 rgba(255, 255, 255, 0.16);
+		color: var(--ink, #0a0a0a);
 	}
 	.card-art {
 		position: relative;
@@ -583,5 +567,45 @@
 	}
 	:global(.puhig-tilting) .foil {
 		will-change: transform, opacity;
+	}
+
+	/* Dark mode: overlay/color-dodge are tuned for the pale cardstock. Over the
+	 * dark stock, overlay turns the spectrum muddy (multiply) and color-dodge
+	 * blows the shine into a hard white band. Screen is backdrop-safe on dark —
+	 * colours read as added light (iridescent glints), the specular stays a soft
+	 * streak — and the strength eases off since a dark room reflects less. */
+	@media (prefers-color-scheme: dark) {
+		.card[data-rarity='rare'] {
+			--foil-strength: 0.26;
+		}
+		.card[data-rarity='mythic'] {
+			--foil-strength: 0.44;
+		}
+		.foil--spectrum,
+		.foil--shine,
+		.foil--sparkle-a,
+		.foil--sparkle-b {
+			mix-blend-mode: screen;
+		}
+		/* The specular streak is the brightest thing on the dark face — pull it
+		 * well under the group strength so it reads as a glint, not a bar. */
+		.foil--shine {
+			opacity: calc(var(--foil-strength, 0.4) * 0.42);
+		}
+		/* Screen over black dilutes the pastel spectrum toward grey, so give the
+		 * dark card a richer, more saturated gradient and let it sit brighter than
+		 * the group strength — the colour is the point on a holo, the shine isn't. */
+		.foil--spectrum {
+			opacity: calc(var(--foil-strength, 0.4) * 1.5);
+			background: linear-gradient(
+				110deg,
+				hsl(350, 95%, 63%),
+				hsl(45, 100%, 60%),
+				hsl(150, 90%, 56%),
+				hsl(200, 95%, 60%),
+				hsl(265, 92%, 64%),
+				hsl(330, 95%, 63%)
+			);
+		}
 	}
 </style>

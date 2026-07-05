@@ -44,10 +44,16 @@
 	--card-ratio: 5 / 7;
 	/* Internal metrics are fractions of --card-w so the whole card + sleeve
 	 * scales as one object with the clamp (not just the outer box). */
-	--card-radius: calc(var(--card-w) * 0.042);
-	--card-border: #0a0a0a; /* MTG matte black card border */
+	--card-radius: calc(var(--card-w) * 0.058);
+	--card-border: #71716d; /* muted neutral-gray card border */
 	--card-border-w: calc(var(--card-w) * 0.032); /* border thickness (scales) */
 	--card-face-radius: max(2px, calc(var(--card-radius) - var(--card-border-w)));
+	/* Soft groove where the face meets the border (see .card-face::after). */
+	--card-face-seam: rgba(0, 0, 0, 0.05);
+	--card-face-groove: rgba(0, 0, 0, 0.13);
+	/* Bevel on the card's own outer edge — top-lit hairline + soft rim groove. */
+	--card-edge-seam: rgba(255, 255, 255, 0.32);
+	--card-edge-groove: rgba(0, 0, 0, 0.14);
 	/* Name-plate metal — gold, the MTG legendary treatment. Metallic look comes
 	 * from banded reflections (see .nameplate) + this fine grain, not a gloss. */
 	--plate-hi: #f7e6a2; /* bright champagne reflection */
@@ -61,12 +67,16 @@
 	--card-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 10px 30px rgba(0, 0, 0, 0.05);
 
 	/* Sleeve — clear see-through plastic. NO backdrop-filter blur: the look
-	 * comes from a near-transparent tint + an edge highlight + a radial glare
-	 * that tracks the cursor (see .sheen in Sleeve.svelte), so the grid shows
-	 * straight through. */
+	 * comes from a near-transparent tint + a bevelled edge highlight (the Fresnel
+	 * rim + box-shadow in Sleeve.svelte), so the grid shows straight through. */
 	--sleeve-lip: calc(var(--card-w) * 0.025); /* transparent rim (~6px) */
 	--sleeve-radius: calc(var(--card-w) * 0.02); /* squarer than the card, like a penny sleeve */
 	--sleeve-bg: rgba(255, 255, 255, 0.05);
+	/* Plastic edge highlight + grounding drop. Both are theme-aware: the drop
+	 * needs to be far darker to register on the dark field, and the bright rim
+	 * eases off so it doesn't read as a stark outline. */
+	--sleeve-rim-hi: rgba(255, 255, 255, 0.5);
+	--sleeve-drop: 0 1px 2px rgba(0, 0, 0, 0.04), 0 14px 36px rgba(0, 0, 0, 0.07);
 
 	--font-body: 'Jost', system-ui, -apple-system, sans-serif;
 }
@@ -78,11 +88,18 @@
 		--page: #101114;
 		--surface: #201e1b; /* warm charcoal cardstock */
 		--card-edge: rgba(0, 0, 0, 0.6);
+		--card-border: #4a4844; /* muted gray, kept lighter than the dark stock so it still frames */
+		--card-face-seam: rgba(0, 0, 0, 0.28);
+		--card-face-groove: rgba(0, 0, 0, 0.38);
+		--card-edge-seam: rgba(255, 255, 255, 0.08);
+		--card-edge-groove: rgba(0, 0, 0, 0.45);
 		--orange: #f4713f;
 		--sub: #9a9a9a;
 		--grid-line: rgba(255, 255, 255, 0.05);
 		--card-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), 0 10px 34px rgba(0, 0, 0, 0.4);
 		--sleeve-bg: rgba(255, 255, 255, 0.04);
+		--sleeve-rim-hi: rgba(255, 255, 255, 0.28);
+		--sleeve-drop: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 40px rgba(0, 0, 0, 0.55);
 	}
 }
 
