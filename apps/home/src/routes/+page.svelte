@@ -108,6 +108,12 @@
 		| { img: string }
 		| { quote: string };
 	const pages: Record<string, Block[]> = {
+		// Welcome — the home hub greeting, from dotcom-2 card K 001.
+		KSH: [
+			{ p: 'This is Kashinoga, my virtual home. Here you’ll find the (mostly) fun things I’ve created or found.' },
+			{ p: 'I hope you enjoy your time here.' },
+			{ quote: 'Take care.' }
+		],
 		NRT: [
 			{ p: 'Writing collects essays, notes, and longer pieces — the slow, considered end of the network.' },
 			{ h: 'Recent' },
@@ -210,7 +216,6 @@
 	}
 
 	function board(code: string) {
-		if (code === 'KSH') return home();
 		view = { kind: 'port', code };
 		flyTo(crop(P[code][0], P[code][1], 720, 0.3));
 	}
