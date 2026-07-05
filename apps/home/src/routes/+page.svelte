@@ -17,12 +17,16 @@
 	const airports: Record<string, { at: Pt; title: string }> = {
 		KSH: { at: [480, 300], title: 'Home' },
 		// tier 1 — the leaders you see from home
-		SFO: { at: [150, 240], title: 'Work' },
+		SFO: { at: [150, 240], title: 'Now' },
 		NRT: { at: [360, 60], title: 'Writing' },
-		JFK: { at: [800, 180], title: 'Projects' },
+		JFK: { at: [800, 180], title: 'Log' },
 		DXB: { at: [760, 430], title: 'Contact' },
 		SYD: { at: [520, 560], title: 'Photos' },
 		LAX: { at: [200, 470], title: 'Notes' },
+		// About splits into its own two stops — Work and Projects.
+		ABT: { at: [450, 55], title: 'About' },
+		WRK: { at: [503, -143], title: 'Work' },
+		PRJ: { at: [653, 7], title: 'Projects' },
 		// tier 2 — off-screen, each reached through its leader
 		SEA: { at: [-150, 150], title: 'Résumé' },
 		HND: { at: [300, -200], title: 'Essays' },
@@ -35,7 +39,7 @@
 	const airlines: { name: string; color: string; legs: [string, string][] }[] = [
 		{ name: 'Aka Air', color: '#e02f3f', legs: [['KSH', 'SFO'], ['SFO', 'SEA']] },
 		{ name: 'Bluebird', color: '#1e73d8', legs: [['KSH', 'NRT'], ['NRT', 'HND'], ['NRT', 'JFK']] },
-		{ name: 'Verde', color: '#12a150', legs: [['KSH', 'JFK'], ['JFK', 'BOS']] },
+		{ name: 'Verde', color: '#12a150', legs: [['KSH', 'JFK'], ['JFK', 'BOS'], ['KSH', 'ABT'], ['ABT', 'PRJ'], ['ABT', 'WRK']] },
 		{ name: 'Sunlines', color: '#f2a71b', legs: [['KSH', 'DXB'], ['DXB', 'SIN']] },
 		{ name: 'Nova', color: '#8b46e0', legs: [['KSH', 'SYD'], ['SYD', 'AKL'], ['SFO', 'LAX']] },
 		{ name: 'Tealjet', color: '#08a8b8', legs: [['KSH', 'LAX'], ['LAX', 'HNL'], ['LAX', 'SYD']] }
@@ -89,20 +93,21 @@
 		w: Math.max(...bx) - Math.min(...bx) + worldPad * 2,
 		h: Math.max(...by) - Math.min(...by) + worldPad * 2
 	};
+	const worldMinX = Math.min(...bx);
+	const worldMaxX = Math.max(...bx);
+	const worldMinY = Math.min(...by);
+	const worldMaxY = Math.max(...by);
 
 	// ─── Page content per destination ───────────────────────────────────────────
 	// A block list rendered into the content surface. Swap the placeholder copy for
 	// real writing; add { h }, { p }, { img }, { quote } blocks freely.
-	type Block = { h: string } | { p: string } | { img: string } | { quote: string };
+	type Block =
+		| { h: string }
+		| { sub: string }
+		| { p: string }
+		| { img: string }
+		| { quote: string };
 	const pages: Record<string, Block[]> = {
-		SFO: [
-			{ p: 'Work is the busiest line out of the hub — the roles, projects, and collaborations that keep the whole network running on time.' },
-			{ h: 'Currently' },
-			{ p: 'Placeholder copy: a short paragraph on what you are building right now, who you are building it with, and why it matters.' },
-			{ img: 'A representative image — swap for a real photo, screenshot, or diagram.' },
-			{ p: 'Another paragraph of body text. The surface scrolls, so there is room for as much substance as a destination needs.' },
-			{ quote: '“A short pull-quote sits nicely between sections and breaks up long copy.”' }
-		],
 		NRT: [
 			{ p: 'Writing collects essays, notes, and longer pieces — the slow, considered end of the network.' },
 			{ h: 'Recent' },
@@ -110,12 +115,30 @@
 			{ img: 'A cover image for the latest piece.' },
 			{ p: 'Body text continues here with room to breathe and a comfortable reading measure.' }
 		],
-		JFK: [
-			{ p: 'Projects are the things that shipped — the destinations the Verde line was built to reach.' },
-			{ h: 'Selected work' },
-			{ p: 'Placeholder copy: describe a project, the problem, and the outcome. Add an image and an onward link to related work.' },
-			{ img: 'A project screenshot or hero image.' },
-			{ p: 'And a closing paragraph tying it together.' }
+		// Work — a stop off About, from dotcom-2 About card K 202.
+		WRK: [
+			{ p: 'A digital infrastructure engineer for U.S. energy companies.' },
+			{ p: 'Formerly a software engineering consultant for Midwestern U.S. companies and the State of Iowa.' },
+			{ p: 'B.S. in Computer Science, Iowa State University; general education from Drake University.' },
+			{ quote: 'Midwest-made.' }
+		],
+		// Projects — a stop off About, from dotcom-2 About card K 203.
+		PRJ: [
+			{ p: 'Things I have created and operate.' },
+			{ sub: 'Digital Community Services' },
+			{ p: 'Matrix, Nextcloud, and Open WebUI — for a better digital well-being.' },
+			{ sub: 'Digital Play Services' },
+			{ p: 'Casual, community, and competitive gaming for friends.' },
+			{ sub: 'SDKK' },
+			{ p: 'A safe, friendly Discord community.' },
+			{ quote: 'For friends and family.' }
+		],
+		// About / intro — dotcom-2 About card K 201.
+		ABT: [
+			{ h: 'Andrew Nguyen' },
+			{ p: 'I enjoy nature, literature, and video games — and heightened experiences.' },
+			{ p: 'Based in the Midwestern United States, with occasional visits to Southeast Asia for friends and family.' },
+			{ p: 'Say hello: contact@kashinoga.com' }
 		]
 	};
 	const stub = (t: string): Block[] => [
@@ -158,6 +181,12 @@
 	let target = { ...HOME };
 	let raf = 0;
 
+	// Drag-to-pan.
+	let svgEl: SVGSVGElement;
+	let panning = $state(false);
+	let dragMoved = false;
+	const drag = { camX: 0, camY: 0, x: 0, y: 0, id: -1 };
+
 	const reduce =
 		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -193,6 +222,57 @@
 		view = null;
 		flyTo(HOME);
 	}
+	// Escape: close an open panel, or (if none) fly back to the KSH home view.
+	function onKey(e: KeyboardEvent) {
+		if (e.key === 'Escape') home();
+	}
+
+	// ─── Drag-to-pan ────────────────────────────────────────────────────────────
+	function onPointerDown(e: PointerEvent) {
+		if (e.pointerType === 'mouse' && e.button !== 0) return;
+		dragMoved = false;
+		drag.camX = cam.x;
+		drag.camY = cam.y;
+		drag.x = e.clientX;
+		drag.y = e.clientY;
+		drag.id = e.pointerId;
+		if (raf) cancelAnimationFrame(raf);
+		raf = 0;
+		target = { ...cam };
+	}
+	function onPointerMove(e: PointerEvent) {
+		if (drag.id !== e.pointerId) return;
+		const dx = e.clientX - drag.x;
+		const dy = e.clientY - drag.y;
+		if (!dragMoved) {
+			if (Math.hypot(dx, dy) < 4) return;
+			// Only now is it a real drag — capture so we keep move/up, and so a plain
+			// click on a node is never hijacked away from the node.
+			dragMoved = true;
+			panning = true;
+			svgEl.setPointerCapture(e.pointerId);
+		}
+		const r = svgEl.getBoundingClientRect();
+		const s = Math.min(r.width / cam.w, r.height / cam.h); // uniform meet scale
+		const m = 220; // let the world edge come ~this far past centre, no further
+		const cx = Math.min(worldMaxX + m, Math.max(worldMinX - m, drag.camX - dx / s + cam.w / 2));
+		const cy = Math.min(worldMaxY + m, Math.max(worldMinY - m, drag.camY - dy / s + cam.h / 2));
+		cam = { ...cam, x: cx - cam.w / 2, y: cy - cam.h / 2 };
+		target = { ...cam };
+	}
+	function onPointerUp(e: PointerEvent) {
+		if (drag.id !== e.pointerId) return;
+		if (svgEl.hasPointerCapture(e.pointerId)) svgEl.releasePointerCapture(e.pointerId);
+		drag.id = -1;
+		panning = false;
+	}
+	// If the pointer moved (a pan), swallow the click so it doesn't board a node.
+	function onClickCapture(e: MouseEvent) {
+		if (dragMoved) {
+			e.stopPropagation();
+			dragMoved = false;
+		}
+	}
 	// Frame a whole airline: fit all its airports, biased left of the panel.
 	function fitLine(idx: number) {
 		const codes = [...lineOf[idx]];
@@ -224,8 +304,21 @@
 	);
 </script>
 
-<div class="stage">
-	<svg {viewBox} preserveAspectRatio="xMidYMid meet" role="img" aria-label="Kashinoga — airline route map">
+<svelte:window onkeydown={onKey} />
+
+<div class="stage" class:panning>
+	<svg
+		bind:this={svgEl}
+		{viewBox}
+		preserveAspectRatio="xMidYMid meet"
+		onpointerdown={onPointerDown}
+		onpointermove={onPointerMove}
+		onpointerup={onPointerUp}
+		onpointercancel={onPointerUp}
+		onclickcapture={onClickCapture}
+		role="img"
+		aria-label="Kashinoga — airline route map"
+	>
 		<!-- empty-space click flies home -->
 		<rect class="bg" x={bg.x} y={bg.y} width={bg.w} height={bg.h} onclick={home} role="presentation" />
 
@@ -296,6 +389,8 @@
 						{#each blocks as b}
 							{#if 'h' in b}
 								<h3>{b.h}</h3>
+							{:else if 'sub' in b}
+								<h4>{b.sub}</h4>
 							{:else if 'quote' in b}
 								<blockquote>{b.quote}</blockquote>
 							{:else if 'img' in b}
@@ -376,6 +471,7 @@
 		width: 100%;
 		height: 100%;
 		display: block;
+		touch-action: none;
 	}
 	.bg {
 		fill: transparent;
@@ -617,8 +713,15 @@
 		gap: 1.05rem;
 	}
 	.surface-body h3 {
-		margin: 0.7rem 0 -0.25rem;
-		font-size: 1.15rem;
+		margin: 1.1rem 0 -0.2rem;
+		font-size: 1.35rem;
+		font-weight: 700;
+		letter-spacing: -0.01em;
+		color: var(--ink);
+	}
+	.surface-body h4 {
+		margin: 0.5rem 0 -0.35rem;
+		font-size: 1rem;
 		font-weight: 700;
 		color: var(--ink);
 	}
