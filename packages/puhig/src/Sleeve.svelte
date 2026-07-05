@@ -27,14 +27,35 @@
 		padding: var(--sleeve-lip, 6px);
 		border-radius: var(--sleeve-radius, 16px);
 		background-color: var(--sleeve-bg, rgba(255, 255, 255, 0.05));
-		/* Plastic edge: hairline rim, a bright top lip (light catching the
-		 * plastic), a faint bottom shade, then a soft drop onto the table. */
+		/* Premium plastic edge: a bright sealed rim with a hairline seam (two
+		 * sheets), a beveled top-light / bottom-shade, an inner pocket shadow so
+		 * the card reads as tucked inside, then a soft drop onto the table. */
 		box-shadow:
-			inset 0 0 0 1px rgba(255, 255, 255, 0.1),
-			inset 0 1px 0 rgba(255, 255, 255, 0.4),
-			inset 0 -1px 0 rgba(0, 0, 0, 0.06),
-			0 1px 2px rgba(0, 0, 0, 0.03),
+			inset 0 0 0 1px rgba(255, 255, 255, 0.5),
+			inset 0 0 0 2px rgba(0, 0, 0, 0.035),
+			inset 0 1px 0 rgba(255, 255, 255, 0.55),
+			inset 0 -1px 1px rgba(0, 0, 0, 0.06),
+			inset 0 0 9px rgba(0, 0, 0, 0.035),
+			0 1px 2px rgba(0, 0, 0, 0.04),
 			0 14px 36px rgba(0, 0, 0, 0.07);
+	}
+
+	/* Fresnel rim — clear plastic reflects more at grazing angles, so the outer
+	 * edge is brighter than the flat centre. Static (a property of the plastic),
+	 * sits below the moving specular. */
+	.sleeve::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		z-index: 2;
+		border-radius: inherit;
+		pointer-events: none;
+		background: radial-gradient(
+			115% 115% at 50% 50%,
+			transparent 72%,
+			rgba(255, 255, 255, 0.05) 92%,
+			rgba(255, 255, 255, 0.1) 100%
+		);
 	}
 
 	/* Clips the oversized sheen to the sleeve's rounded rect. Kept separate from
@@ -59,10 +80,10 @@
 		position: absolute;
 		inset: 0;
 		background-image: radial-gradient(
-			circle calc(var(--card-w, 240px) * 0.5) at 50% 50%,
-			rgba(255, 255, 255, 0.22),
-			rgba(255, 255, 255, 0.05) 45%,
-			rgba(255, 255, 255, 0) 72%
+			circle calc(var(--card-w, 240px) * 0.45) at 50% 50%,
+			rgba(255, 255, 255, 0.3),
+			rgba(255, 255, 255, 0.07) 40%,
+			rgba(255, 255, 255, 0) 68%
 		);
 		transform: translate(calc(var(--tilt-x, 0) * 45%), calc(var(--tilt-y, 0) * 45%));
 	}
