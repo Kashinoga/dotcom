@@ -11,16 +11,8 @@
 		delay = 150,
 		tick = 50,
 		stagger = 75,
-		base = 280,
-		cellWidth = '0.72em'
-	}: {
-		text: string;
-		delay?: number;
-		tick?: number;
-		stagger?: number;
-		base?: number;
-		cellWidth?: string;
-	} = $props();
+		base = 280
+	}: { text: string; delay?: number; tick?: number; stagger?: number; base?: number } = $props();
 
 	const UP = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 	const LO = 'abcdefghijklmnopqrstuvwxyz';
@@ -93,7 +85,7 @@
 		{#if 'space' in grp}<span class="sp"> </span>{:else}
 			<span class="word">
 				{#each grp.idx as i}
-					<span class="cell" style:width={spinning[i] ? cellWidth : undefined}>
+					<span class="cell" style:min-width={spinning[i] ? '0.4em' : undefined}>
 						<span class="sizer" aria-hidden="true">{chars[i]}</span>
 						<span class="glyph" class:spin={spinning[i]} aria-hidden="true">{glyphs[i]}</span>
 					</span>
@@ -117,6 +109,12 @@
 	.cell {
 		position: relative;
 		display: inline-block;
+		/* Sized to the FINAL letter so total width never changes and the settled
+		 * wordmark keeps its exact spacing (the spin-time min-width floor for narrow
+		 * cells like "i" is applied inline, only while spinning). clip-path clips
+		 * wider shuffle glyphs HORIZONTALLY to the cell (no overlap) while leaving
+		 * top/bottom free — so descenders/ascenders like "g" aren't cut off. */
+		clip-path: inset(-100% 0 -100% 0);
 		text-align: center;
 	}
 	.sizer {
@@ -128,20 +126,23 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
+		transform-origin: center;
 	}
+	/* Vertical squash (not a slide) so the mechanical tick stays inside the clipped
+	 * cell. */
 	.glyph.spin {
-		animation: flap 0.11s ease-in-out infinite;
+		animation: flap 0.1s ease-in-out infinite;
 	}
 	@keyframes flap {
 		0% {
-			transform: translateY(-16%);
-			opacity: 0.35;
+			transform: scaleY(0.55);
+			opacity: 0.5;
 		}
-		60% {
+		55% {
 			opacity: 1;
 		}
 		100% {
-			transform: translateY(0);
+			transform: scaleY(1);
 			opacity: 1;
 		}
 	}
