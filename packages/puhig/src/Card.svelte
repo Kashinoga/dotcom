@@ -181,7 +181,13 @@
 			inset 0 1px 0 var(--card-edge-seam, rgba(255, 255, 255, 0.3)),
 			inset 0 0 3px var(--card-edge-groove, rgba(0, 0, 0, 0.14)),
 			var(--card-shadow, 0 8px 24px rgba(0, 0, 0, 0.08));
+		/* Geometric clip (baked into paint, before any ancestor transform) instead
+		 * of relying on overflow:hidden — the compositor clips overflow squarely
+		 * under the sleeve's 3D tilt, squaring the corners. clip-path survives it.
+		 * It clips at the border box, so the inset bevel is kept; only the soft
+		 * outer drop is trimmed (the sleeve carries the grounding shadow anyway). */
 		overflow: hidden;
+		clip-path: inset(0 round var(--card-radius, 10px));
 	}
 
 	.card-face {
@@ -192,7 +198,10 @@
 		min-width: 0;
 		background-color: var(--surface, #f4f4f5);
 		border-radius: var(--card-face-radius, 3px);
+		/* Same geometric clip as .card — keeps the foil/art corners rounded under
+		 * the tilt where overflow:hidden would square them. */
 		overflow: hidden;
+		clip-path: inset(0 round var(--card-face-radius, 3px));
 	}
 
 	/* Paper tooth (minimal cardstock card only). */

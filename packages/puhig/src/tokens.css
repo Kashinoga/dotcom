@@ -40,7 +40,7 @@
 	/* Card geometry — MTG standard 2.5in × 3.5in (5:7). Width scales with the
 	 * viewport between a comfortable phone size and life-size; aspect-ratio
 	 * holds the proportions, so only the width needs to clamp. */
-	--card-w: clamp(200px, 160px + 8vw, 252px);
+	--card-w: clamp(230px, 184px + 9vw, 290px);
 	--card-ratio: 5 / 7;
 	/* Internal metrics are fractions of --card-w so the whole card + sleeve
 	 * scales as one object with the clamp (not just the outer box). */
