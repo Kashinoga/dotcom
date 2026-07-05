@@ -23,6 +23,7 @@ dist/
 !.gitignore
 !.npmrc
 !.node-version
+!.tool-versions
 !.env.example
 !README.md
 !LICENSE
