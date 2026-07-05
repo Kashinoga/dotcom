@@ -2,37 +2,42 @@
 	import { onDestroy } from 'svelte';
 	import { fly, fade } from 'svelte/transition';
 
-	// Airline route-map homepage. The map IS the navigation: destinations are
-	// pages, and you "move pages" by flying the camera along the network to an
-	// airport. Fit-to-screen at all times (preserveAspectRatio meet), and flat-
-	// forward — the isometric look is baked into coordinates, motion is 2D camera
-	// pan/zoom over the viewBox. No perspective, no tilt, no GPU-layer-per-card.
+	// Airline route-map homepage. The network is deliberately LARGER than the
+	// viewport: routes run off every edge, and visible nodes lead outward to the
+	// off-screen parts. You "move pages" by flying the camera (animated viewBox)
+	// node to node. Flat-forward — the isometric look is a 2D affine projection
+	// baked into coordinates, not a CSS 3D/perspective transform. The stage never
+	// scrolls; the camera crops the world.
 	type Pt = [number, number];
 
-	// Airports on a 60px grid (grid space, pre-projection). KSH = home hub. Each
-	// maps to a page/section of the site — rename freely.
+	// Airports on a 60px grid (grid space, pre-projection). KSH = home hub.
+	// Tier 1 sits near the hub (visible from home); tier 2 sits far out (reached by
+	// flying to its tier-1 leader). Each maps to a page/section — rename freely.
 	const airports: Record<string, { at: Pt; title: string }> = {
 		KSH: { at: [480, 300], title: 'Home' },
-		SFO: { at: [130, 190], title: 'Work' },
-		LAX: { at: [180, 370], title: 'Notes' },
-		NRT: { at: [210, 80], title: 'Writing' },
-		HKG: { at: [260, 300], title: 'Links' },
-		SIN: { at: [340, 520], title: 'Play' },
-		SYD: { at: [560, 560], title: 'Photos' },
-		GRU: { at: [630, 120], title: 'Music' },
-		JFK: { at: [770, 160], title: 'Projects' },
-		LHR: { at: [850, 210], title: 'About' },
-		CDG: { at: [880, 340], title: 'Talks' },
-		DXB: { at: [720, 450], title: 'Contact' }
+		// tier 1 — the leaders you see from home
+		SFO: { at: [150, 240], title: 'Work' },
+		NRT: { at: [360, 60], title: 'Writing' },
+		JFK: { at: [800, 180], title: 'Projects' },
+		DXB: { at: [760, 430], title: 'Contact' },
+		SYD: { at: [520, 560], title: 'Photos' },
+		LAX: { at: [200, 470], title: 'Notes' },
+		// tier 2 — off-screen, each reached through its leader
+		SEA: { at: [-150, 150], title: 'Résumé' },
+		HND: { at: [300, -200], title: 'Essays' },
+		BOS: { at: [1140, 90], title: 'Code' },
+		SIN: { at: [1010, 560], title: 'Elsewhere' },
+		AKL: { at: [560, 830], title: 'Film' },
+		HNL: { at: [-100, 650], title: 'Links' }
 	};
 
 	const airlines: { name: string; color: string; legs: [string, string][] }[] = [
-		{ name: 'Aka Air', color: '#e02f3f', legs: [['KSH', 'SFO'], ['KSH', 'NRT'], ['KSH', 'JFK']] },
-		{ name: 'Bluebird', color: '#1e73d8', legs: [['KSH', 'LHR'], ['KSH', 'CDG'], ['KSH', 'SIN']] },
-		{ name: 'Verde', color: '#12a150', legs: [['KSH', 'SYD'], ['KSH', 'DXB'], ['KSH', 'GRU']] },
-		{ name: 'Sunlines', color: '#f2a71b', legs: [['KSH', 'LAX'], ['KSH', 'HKG']] },
-		{ name: 'Nova', color: '#8b46e0', legs: [['SFO', 'JFK'], ['LAX', 'SYD']] },
-		{ name: 'Tealjet', color: '#08a8b8', legs: [['LHR', 'CDG'], ['NRT', 'HKG'], ['SIN', 'SYD']] }
+		{ name: 'Aka Air', color: '#e02f3f', legs: [['KSH', 'SFO'], ['SFO', 'SEA']] },
+		{ name: 'Bluebird', color: '#1e73d8', legs: [['KSH', 'NRT'], ['NRT', 'HND'], ['NRT', 'JFK']] },
+		{ name: 'Verde', color: '#12a150', legs: [['KSH', 'JFK'], ['JFK', 'BOS']] },
+		{ name: 'Sunlines', color: '#f2a71b', legs: [['KSH', 'DXB'], ['DXB', 'SIN']] },
+		{ name: 'Nova', color: '#8b46e0', legs: [['KSH', 'SYD'], ['SYD', 'AKL'], ['SFO', 'LAX']] },
+		{ name: 'Tealjet', color: '#08a8b8', legs: [['KSH', 'LAX'], ['LAX', 'HNL'], ['LAX', 'SYD']] }
 	];
 
 	// Isometric (true 30°) projection: grid → screen. Pure 2D affine, no perspective.
@@ -73,21 +78,30 @@
 		title: airports[code].title
 	}));
 
-	// Full-map viewBox: fit projected airports + padding for arcs & codes.
-	const xs = nodes.map((n) => n.x);
-	const ys = nodes.map((n) => n.y);
-	const PAD = 120;
-	const full = {
-		x: Math.min(...xs) - PAD,
-		y: Math.min(...ys) - PAD,
-		w: Math.max(...xs) - Math.min(...xs) + PAD * 2,
-		h: Math.max(...ys) - Math.min(...ys) + PAD * 2
+	// A background catch-rect (fly home on empty click) sized well past the world.
+	const bx = nodes.map((n) => n.x);
+	const by = nodes.map((n) => n.y);
+	const worldPad = 600;
+	const bg = {
+		x: Math.min(...bx) - worldPad,
+		y: Math.min(...by) - worldPad,
+		w: Math.max(...bx) - Math.min(...bx) + worldPad * 2,
+		h: Math.max(...by) - Math.min(...by) + worldPad * 2
 	};
 
-	// ─── Camera: animate the viewBox to "move pages" ────────────────────────────
-	let cam = $state({ ...full });
+	// ─── Camera: crop the world, fly between crops to "move pages" ───────────────
+	const ASPECT = 1.5; // viewBox w/h
+	// Home is zoomed to the hub so routes bleed off every edge; a node focus keeps
+	// the node in the left-of-panel area (biasX) with its neighbours in view.
+	function crop(cx: number, cy: number, w: number, biasX = 0.5) {
+		const h = w / ASPECT;
+		return { x: cx - w * biasX, y: cy - h / 2, w, h };
+	}
+	const HOME = crop(P.KSH[0], P.KSH[1], 840);
+
+	let cam = $state({ ...HOME });
 	let selected = $state<string | null>(null);
-	let target = { ...full };
+	let target = { ...HOME };
 	let raf = 0;
 
 	const reduce =
@@ -96,15 +110,14 @@
 	function step() {
 		const s = 0.17;
 		for (const k of ['x', 'y', 'w', 'h'] as const) cam[k] += (target[k] - cam[k]) * s;
-		const settled = (['x', 'y', 'w', 'h'] as const).every((k) => Math.abs(target[k] - cam[k]) < 0.4);
-		if (settled) {
+		if ((['x', 'y', 'w', 'h'] as const).every((k) => Math.abs(target[k] - cam[k]) < 0.4)) {
 			cam = { ...target };
 			raf = 0;
 			return;
 		}
 		raf = requestAnimationFrame(step);
 	}
-	function flyTo(t: typeof full) {
+	function flyTo(t: typeof HOME) {
 		target = t;
 		if (reduce) {
 			cam = { ...t };
@@ -113,26 +126,28 @@
 		if (!raf) raf = requestAnimationFrame(step);
 	}
 
-	// Board a destination: fly the camera to that airport and open its page.
 	function board(code: string) {
+		if (code === 'KSH') return home();
 		selected = code;
-		const [nx, ny] = P[code];
-		const w = full.w * 0.42;
-		const h = full.h * 0.42;
-		flyTo({ x: nx - w / 2, y: ny - h / 2, w, h });
+		flyTo(crop(P[code][0], P[code][1], 660, 0.37));
 	}
 	function home() {
 		selected = null;
-		flyTo({ ...full });
+		flyTo(HOME);
 	}
 
 	onDestroy(() => raf && cancelAnimationFrame(raf));
 
-	const viewBox = $derived(`${cam.x.toFixed(1)} ${cam.y.toFixed(1)} ${cam.w.toFixed(1)} ${cam.h.toFixed(1)}`);
+	const viewBox = $derived(
+		`${cam.x.toFixed(1)} ${cam.y.toFixed(1)} ${cam.w.toFixed(1)} ${cam.h.toFixed(1)}`
+	);
 </script>
 
 <div class="stage">
 	<svg {viewBox} preserveAspectRatio="xMidYMid meet" role="img" aria-label="Kashinoga — airline route map">
+		<!-- empty-space click flies home -->
+		<rect class="bg" x={bg.x} y={bg.y} width={bg.w} height={bg.h} onclick={home} role="presentation" />
+
 		{#each arcs as a}
 			<path
 				class="arc"
@@ -198,13 +213,17 @@
 		background: var(--page);
 	}
 
-	/* Fit-to-screen at all times: meet scales the viewBox to fit the viewport. */
+	/* The stage never scrolls; the camera (viewBox) crops a world larger than the
+	 * screen, so routes run off the edges. */
 	.stage svg {
 		position: absolute;
 		inset: 0;
 		width: 100%;
 		height: 100%;
 		display: block;
+	}
+	.bg {
+		fill: transparent;
 	}
 
 	.arc {
@@ -339,19 +358,19 @@
 		pointer-events: none;
 	}
 
-	/* Page panel — the "arrived" view for a destination. */
+	/* Page panel — the "arrived" view. Narrow, so the map stays explorable beside it. */
 	.page {
 		position: absolute;
 		top: 0;
 		right: 0;
 		height: 100%;
-		width: min(92vw, 420px);
+		width: min(88vw, 360px);
 		padding: clamp(1.75rem, 5vw, 3rem);
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
 		gap: 0.35rem;
-		background: color-mix(in srgb, var(--paper) 88%, transparent);
+		background: color-mix(in srgb, var(--paper) 86%, transparent);
 		backdrop-filter: blur(8px);
 		border-left: 2px solid var(--ink);
 	}
