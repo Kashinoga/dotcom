@@ -22,8 +22,9 @@
 	/* Paper tooth — grayscale fractal noise, multiplied faintly onto the stock. */
 	--card-grain: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='140' height='140' filter='url(%23g)'/></svg>");
 	/* Foil sparkle — sparse white specks (noise thresholded to alpha) for the
-	 * glitter glints on holo cards. */
-	--foil-sparkle: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='1' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 11 -6'/></filter><rect width='120' height='120' filter='url(%23s)'/></svg>");
+	 * glitter glints on holo cards. The steep alpha row (30·A − 26) passes only
+	 * the top ~13% of the noise, so it reads as distinct sparkles, not dust. */
+	--foil-sparkle: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='1' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 30 -26'/></filter><rect width='120' height='120' filter='url(%23s)'/></svg>");
 	--orange: #f06030; /* Penguin orange accent */
 	--sub: #717171; /* subtext */
 
@@ -44,6 +45,17 @@
 	/* Internal metrics are fractions of --card-w so the whole card + sleeve
 	 * scales as one object with the clamp (not just the outer box). */
 	--card-radius: calc(var(--card-w) * 0.042);
+	--card-border: #0a0a0a; /* MTG matte black card border */
+	--card-border-w: calc(var(--card-w) * 0.032); /* border thickness (scales) */
+	--card-face-radius: max(2px, calc(var(--card-radius) - var(--card-border-w)));
+	/* Name-plate metal — gold, the MTG legendary treatment. Metallic look comes
+	 * from banded reflections (see .nameplate) + this fine grain, not a gloss. */
+	--plate-hi: #f7e6a2; /* bright champagne reflection */
+	--plate-mid: #cba24e; /* warm gold */
+	--plate-lo: #7f5d1f; /* bronze shadow band */
+	--plate-edge: #453413; /* dark gold frame line */
+	--plate-ink: #2a1e0a; /* engraved name ink */
+	--plate-grain: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncR type='linear' slope='0.35' intercept='0.32'/><feFuncG type='linear' slope='0.35' intercept='0.32'/><feFuncB type='linear' slope='0.35' intercept='0.32'/><feFuncA type='linear' slope='0' intercept='1'/></feComponentTransfer></filter><rect width='90' height='90' filter='url(%23m)'/></svg>");
 
 	/* One moderate 2-layer shadow — cheap while static, no backdrop-filter. */
 	--card-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 10px 30px rgba(0, 0, 0, 0.05);
