@@ -190,6 +190,20 @@
 		clip-path: inset(0 round var(--card-radius, 10px));
 	}
 
+	/* Under the sleeve's 3D tilt, .card and .card-face are each clip-path'd, so the
+	 * compositor rasterises them as two separate layers whose edges snap to
+	 * subpixels independently — leaving a hairline gap at the border/face seam that
+	 * the page backdrop bleeds through (a bright "seep" that vanishes only once the
+	 * card settles flat). Flattening .card onto its own raster layer folds the face
+	 * into it, so there's a single edge and nothing shows through. Scoped to the
+	 * live-pose flag (see tilt.ts): the layer is held only while tilted — including
+	 * a held, cursor-stationary pose — and dropped at rest, per the no-GPU-layer-
+	 * per-card-at-rest rule. */
+	:global(.puhig-tilted) .card {
+		transform: translateZ(0);
+		backface-visibility: hidden;
+	}
+
 	.card-face {
 		position: relative;
 		flex: 1;

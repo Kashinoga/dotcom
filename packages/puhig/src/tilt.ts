@@ -23,6 +23,11 @@ export function tilt(node: HTMLElement, options: TiltOptions = {}) {
 	function apply() {
 		node.style.transform =
 			`perspective(${perspective}px) rotateX(${curX.toFixed(2)}deg) rotateY(${curY.toFixed(2)}deg)`;
+		// The card now carries a live 3D pose. Flag it (distinct from the
+		// actively-moving `puhig-tilting` hint, which drops on a held pose) so the
+		// card can flatten to one raster layer for as long as the transform lasts —
+		// the fix for the backdrop bleeding through the border/face clip seam.
+		node.classList.add('puhig-tilted');
 		// Publish the tilt direction (−1..1) so a sheen/glare can track it.
 		node.style.setProperty('--tilt-x', (-curY / max).toFixed(3));
 		node.style.setProperty('--tilt-y', (curX / max).toFixed(3));
@@ -41,6 +46,8 @@ export function tilt(node: HTMLElement, options: TiltOptions = {}) {
 				node.style.transform = '';
 				node.style.setProperty('--tilt-x', '0');
 				node.style.setProperty('--tilt-y', '0');
+				// Back to flat: no transform, no seam — drop the raster-layer flatten.
+				node.classList.remove('puhig-tilted');
 			} else apply();
 			node.style.willChange = '';
 			node.classList.remove('puhig-tilting');
@@ -93,6 +100,7 @@ export function tilt(node: HTMLElement, options: TiltOptions = {}) {
 			node.removeEventListener('pointermove', move);
 			node.removeEventListener('pointerleave', leave);
 			node.classList.remove('puhig-tilting');
+			node.classList.remove('puhig-tilted');
 			if (raf) cancelAnimationFrame(raf);
 		}
 	};
