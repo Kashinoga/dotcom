@@ -7,7 +7,9 @@
 
 <div class="sleeve" use:tilt={{ enabled: tiltable }}>
 	{@render children?.()}
-	<div class="sheen" aria-hidden="true"></div>
+	<div class="sheen-clip" aria-hidden="true">
+		<div class="sheen"></div>
+	</div>
 </div>
 
 <style>
@@ -18,7 +20,7 @@
 		/* The card sits flat inside; the sleeve carries the resting lift, so
 		 * quiet the card's own ambient shadow (it would smear into the clear
 		 * lip). Custom props inherit through the component boundary. */
-		--card-shadow: 0 1px 1px rgba(0, 0, 0, 0.12);
+		--card-shadow: 0 1px 1px rgba(0, 0, 0, 0.07);
 
 		position: relative;
 		width: fit-content;
@@ -31,16 +33,43 @@
 			inset 0 0 0 1px rgba(255, 255, 255, 0.1),
 			inset 0 1px 0 rgba(255, 255, 255, 0.4),
 			inset 0 -1px 0 rgba(0, 0, 0, 0.06),
-			0 1px 2px rgba(0, 0, 0, 0.05),
-			0 12px 30px rgba(0, 0, 0, 0.12);
+			0 1px 2px rgba(0, 0, 0, 0.03),
+			0 14px 36px rgba(0, 0, 0, 0.07);
 	}
 
-	.sheen {
+	/* Clips the oversized sheen to the sleeve's rounded rect. Kept separate from
+	 * the sleeve so overflow:hidden here never clips the sleeve's drop shadow. */
+	.sheen-clip {
 		position: absolute;
 		inset: 0;
 		z-index: 3;
 		border-radius: inherit;
+		overflow: hidden;
 		pointer-events: none;
-		background-image: var(--sleeve-streak);
+	}
+
+	/* The glare — a soft radial hot-spot that tracks the cursor (light-follows-
+	 * cursor / holographic model): position AND shape read as one light sitting
+	 * at the pointer. --tilt-x/y (cursor offset, published by the tilt action)
+	 * translate it toward the pointer via transform — the compositor, not a
+	 * moving gradient position — so it stays a pure composite and many cards can
+	 * glint at once (the entrance deal) without repainting. The spot fades to
+	 * transparent, so translating it needs no oversize/edge margin. */
+	.sheen {
+		position: absolute;
+		inset: 0;
+		background-image: radial-gradient(
+			circle calc(var(--card-w, 240px) * 0.5) at 50% 50%,
+			rgba(255, 255, 255, 0.22),
+			rgba(255, 255, 255, 0.05) 45%,
+			rgba(255, 255, 255, 0) 72%
+		);
+		transform: translate(calc(var(--tilt-x, 0) * 45%), calc(var(--tilt-y, 0) * 45%));
+	}
+
+	/* Give the sheen its own layer only while tilting (class toggled by the tilt
+	 * action), then release it — no standing GPU layer per card at rest. */
+	.sleeve:global(.puhig-tilting) .sheen {
+		will-change: transform;
 	}
 </style>

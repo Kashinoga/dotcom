@@ -23,6 +23,9 @@ export function tilt(node: HTMLElement, options: TiltOptions = {}) {
 	function apply() {
 		node.style.transform =
 			`perspective(${perspective}px) rotateX(${curX.toFixed(2)}deg) rotateY(${curY.toFixed(2)}deg)`;
+		// Publish the tilt direction (−1..1) so a sheen/glare can track it.
+		node.style.setProperty('--tilt-x', (-curY / max).toFixed(3));
+		node.style.setProperty('--tilt-y', (curX / max).toFixed(3));
 	}
 
 	function frame() {
@@ -34,9 +37,13 @@ export function tilt(node: HTMLElement, options: TiltOptions = {}) {
 			raf = 0;
 			// Settled: at rest clear the transform entirely; otherwise hold the
 			// final pose. Either way drop the GPU-layer hint until next motion.
-			if (targetX === 0 && targetY === 0) node.style.transform = '';
-			else apply();
+			if (targetX === 0 && targetY === 0) {
+				node.style.transform = '';
+				node.style.setProperty('--tilt-x', '0');
+				node.style.setProperty('--tilt-y', '0');
+			} else apply();
 			node.style.willChange = '';
+			node.classList.remove('puhig-tilting');
 			return;
 		}
 		apply();
@@ -46,6 +53,9 @@ export function tilt(node: HTMLElement, options: TiltOptions = {}) {
 	function start() {
 		if (!raf) {
 			node.style.willChange = 'transform';
+			// Transient promotion flag for descendants (e.g. the sleeve sheen):
+			// they opt into their own layer via CSS only while this is present.
+			node.classList.add('puhig-tilting');
 			raf = requestAnimationFrame(frame);
 		}
 	}
@@ -82,6 +92,7 @@ export function tilt(node: HTMLElement, options: TiltOptions = {}) {
 		destroy() {
 			node.removeEventListener('pointermove', move);
 			node.removeEventListener('pointerleave', leave);
+			node.classList.remove('puhig-tilting');
 			if (raf) cancelAnimationFrame(raf);
 		}
 	};
