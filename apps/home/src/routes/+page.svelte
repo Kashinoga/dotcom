@@ -135,19 +135,26 @@
 			(adj[t] ??= []).push(f);
 		}
 	}
+	// Airports on each airline (index → set of codes) for line highlighting.
+	const lineOf = airlines.map((a) => new Set<string>(a.legs.flat()));
 
 	// ─── Camera: crop the world, fly between crops to "move pages" ───────────────
 	const ASPECT = 1.5; // viewBox w/h
 	// Home is zoomed to the hub so routes bleed off every edge; a node focus keeps
 	// the node in the left-of-panel area (biasX) with its neighbours in view.
-	function crop(cx: number, cy: number, w: number, biasX = 0.5) {
+	function crop(cx: number, cy: number, w: number, biasX = 0.5, biasY = 0.5) {
 		const h = w / ASPECT;
-		return { x: cx - w * biasX, y: cy - h / 2, w, h };
+		return { x: cx - w * biasX, y: cy - h * biasY, w, h };
 	}
-	const HOME = crop(P.KSH[0], P.KSH[1], 840);
+	// Home framing: the whole left column is UI (masthead top-left, legend
+	// bottom-left), so bias the network to the centre-right — hub past centre,
+	// spokes fanning right — keeping the left clear of routes and nodes.
+	const HOME = crop(P.KSH[0], P.KSH[1], 860, 0.66, 0.56);
 
 	let cam = $state({ ...HOME });
-	let selected = $state<string | null>(null);
+	// A destination page, a highlighted airline line, or neither.
+	type View = { kind: 'port'; code: string } | { kind: 'line'; idx: number };
+	let view = $state<View | null>(null);
 	let target = { ...HOME };
 	let raf = 0;
 
@@ -175,12 +182,39 @@
 
 	function board(code: string) {
 		if (code === 'KSH') return home();
-		selected = code;
+		view = { kind: 'port', code };
 		flyTo(crop(P[code][0], P[code][1], 720, 0.3));
 	}
+	function openLine(idx: number) {
+		view = { kind: 'line', idx };
+		flyTo(fitLine(idx));
+	}
 	function home() {
-		selected = null;
+		view = null;
 		flyTo(HOME);
+	}
+	// Frame a whole airline: fit all its airports, biased left of the panel.
+	function fitLine(idx: number) {
+		const codes = [...lineOf[idx]];
+		const pxs = codes.map((c) => P[c][0]);
+		const pys = codes.map((c) => P[c][1]);
+		const cx = (Math.min(...pxs) + Math.max(...pxs)) / 2;
+		const cy = (Math.min(...pys) + Math.max(...pys)) / 2;
+		const spanW = Math.max(...pxs) - Math.min(...pxs);
+		const spanH = Math.max(...pys) - Math.min(...pys);
+		const w = Math.max(spanW, spanH * ASPECT) * 1.3 + 260;
+		return crop(cx, cy, w, 0.36);
+	}
+	function isActive(code: string) {
+		return view?.kind === 'port' && view.code === code;
+	}
+	function nodeDim(code: string) {
+		if (!view) return false;
+		return view.kind === 'port' ? view.code !== code : !lineOf[view.idx].has(code);
+	}
+	function arcDim(airlineIdx: number) {
+		if (!view) return false;
+		return view.kind === 'port' ? true : view.idx !== airlineIdx;
 	}
 
 	onDestroy(() => raf && cancelAnimationFrame(raf));
@@ -198,7 +232,7 @@
 		{#each arcs as a}
 			<path
 				class="arc"
-				class:dim={selected !== null}
+				class:dim={arcDim(a.i)}
 				d={a.d}
 				stroke={a.color}
 				pathLength="1"
@@ -209,8 +243,8 @@
 		{#each nodes as n}
 			<g
 				class="node"
-				class:active={selected === n.code}
-				class:dim={selected !== null && selected !== n.code}
+				class:active={isActive(n.code)}
+				class:dim={nodeDim(n.code)}
 				role="button"
 				tabindex="0"
 				aria-label="Fly to {n.title}"
@@ -229,50 +263,86 @@
 		{/each}
 	</svg>
 
-	<header class="masthead" class:hidden={selected !== null}>
+	<header class="masthead" class:hidden={view !== null}>
 		<h1><SplitFlap text="Kashinoga" /></h1>
 		<p class="tagline">an airline route map of one person&rsquo;s internet</p>
 	</header>
 
-	<ul class="legend" class:hidden={selected !== null}>
+	<ul class="legend" class:hidden={view !== null}>
 		{#each airlines as a, i}
-			<li style="--n:{i}"><span class="swatch" style="background:{a.color}"></span>{a.name}</li>
+			<li style="--n:{i}">
+				<button class="legend-btn" onclick={() => openLine(i)}>
+					<span class="swatch" style="background:{a.color}"></span>{a.name}
+				</button>
+			</li>
 		{/each}
 	</ul>
 
-	{#if selected}
-		{@const port = airports[selected]}
-		{@const blocks = pages[selected] ?? stub(port.title)}
-		{@const conns = [...new Set(adj[selected] ?? [])]}
-		{#key selected}
+	{#if view}
+		{@const v = view}
+		{#key v.kind === 'port' ? 'p' + v.code : 'l' + v.idx}
 			<aside class="surface" in:fly={{ x: 60, duration: 420 }} out:fade={{ duration: 160 }}>
-				<div class="surface-strip" style:background={accent[selected]}></div>
-				<div class="surface-head">
-					<button class="back" onclick={home}>&larr; route map</button>
-					<p class="eyebrow">Now arriving &middot; <span style:color={accent[selected]}>{selected}</span></p>
-					<h2 class="dest"><SplitFlap text={port.title} base={160} stagger={45} /></h2>
-				</div>
-				<div class="surface-body">
-					{#each blocks as b}
-						{#if 'h' in b}
-							<h3>{b.h}</h3>
-						{:else if 'quote' in b}
-							<blockquote>{b.quote}</blockquote>
-						{:else if 'img' in b}
-							<figure class="img">
-								<div class="img-ph" style:--tint={accent[selected]}><span>image</span></div>
-								<figcaption>{b.img}</figcaption>
-							</figure>
-						{:else if 'p' in b}
-							<p>{b.p}</p>
-						{/if}
-					{/each}
+				{#if v.kind === 'port'}
+					{@const port = airports[v.code]}
+					{@const blocks = pages[v.code] ?? stub(port.title)}
+					{@const conns = [...new Set(adj[v.code] ?? [])]}
+					<div class="surface-strip" style:background={accent[v.code]}></div>
+					<div class="surface-head">
+						<button class="back" onclick={home}>&larr; route map</button>
+						<p class="eyebrow">Now arriving &middot; <span style:color={accent[v.code]}>{v.code}</span></p>
+						<h2 class="dest"><SplitFlap text={port.title} base={160} stagger={45} /></h2>
+					</div>
+					<div class="surface-body">
+						{#each blocks as b}
+							{#if 'h' in b}
+								<h3>{b.h}</h3>
+							{:else if 'quote' in b}
+								<blockquote>{b.quote}</blockquote>
+							{:else if 'img' in b}
+								<figure class="img">
+									<div class="img-ph" style:--tint={accent[v.code]}><span>image</span></div>
+									<figcaption>{b.img}</figcaption>
+								</figure>
+							{:else if 'p' in b}
+								<p>{b.p}</p>
+							{/if}
+						{/each}
 
-					{#if conns.length}
+						{#if conns.length}
+							<nav class="onward">
+								<p class="eyebrow">Connecting flights</p>
+								<ul>
+									{#each conns as c}
+										<li>
+											<button class="chip" onclick={() => board(c)}>
+												<span class="chip-dot" style:background={accent[c]}></span>
+												<span class="chip-code">{c}</span>
+												<span class="chip-title">{airports[c].title}</span>
+											</button>
+										</li>
+									{/each}
+								</ul>
+							</nav>
+						{/if}
+					</div>
+				{:else}
+					{@const a = airlines[v.idx]}
+					{@const stops = [...lineOf[v.idx]]}
+					<div class="surface-strip" style:background={a.color}></div>
+					<div class="surface-head">
+						<button class="back" onclick={home}>&larr; route map</button>
+						<p class="eyebrow">Route line</p>
+						<h2 class="dest"><SplitFlap text={a.name} base={160} stagger={45} /></h2>
+					</div>
+					<div class="surface-body">
+						<p>
+							The <strong>{a.name}</strong> line calls at {stops.length} destinations across
+							the network — tap a station to fly there.
+						</p>
 						<nav class="onward">
-							<p class="eyebrow">Connecting flights</p>
+							<p class="eyebrow">Stations on this line</p>
 							<ul>
-								{#each conns as c}
+								{#each stops as c}
 									<li>
 										<button class="chip" onclick={() => board(c)}>
 											<span class="chip-dot" style:background={accent[c]}></span>
@@ -283,8 +353,8 @@
 								{/each}
 							</ul>
 						</nav>
-					{/if}
-				</div>
+					</div>
+				{/if}
 			</aside>
 		{/key}
 	{/if}
@@ -436,9 +506,27 @@
 	}
 	.legend li {
 		display: flex;
+	}
+	.legend-btn {
+		display: inline-flex;
 		align-items: center;
 		gap: 0.55rem;
+		padding: 0.2rem 0;
+		font: inherit;
+		font-weight: 500;
 		color: var(--ink);
+		background: transparent;
+		border: 0;
+		border-radius: 6px;
+		cursor: pointer;
+		transition: opacity 0.15s ease;
+	}
+	.legend-btn:hover {
+		opacity: 0.6;
+	}
+	.legend-btn:focus-visible {
+		outline: 2px solid var(--ink);
+		outline-offset: 3px;
 	}
 	/* Same rise as the tagline, staggered so the bottom bar populates in sequence.
 	 * On the li (not the ul, which owns the show/hide transform for navigation). */
