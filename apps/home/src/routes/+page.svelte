@@ -192,13 +192,19 @@
 	const arcs = $derived(
 		mapMode === 'air'
 			? airlines.flatMap((a, i) =>
-					a.legs.map(([f, t]) => ({ color: a.color, d: arc(P[f], P[t]), i }))
+					a.legs.map(([f, t]) => ({
+						color: a.color,
+						d: arc(P[f], P[t]),
+						i,
+						delay: drawDelay([f, t])
+					}))
 				)
 			: airlines.flatMap((a, i) =>
 					chainsOf(a.legs).map((chain) => ({
 						color: a.color,
 						d: roundedPath(chain.map((c) => P[c])),
-						i
+						i,
+						delay: drawDelay(chain)
 					}))
 				)
 	);
@@ -224,7 +230,7 @@
 		const dx = Math.cos(dir);
 		const dy = Math.sin(dir);
 		// The hub's dot is larger, so its label needs a wider offset to clear it.
-		const gap = code === 'KSH' ? 24 : 15;
+		const gap = code === 'KSH' ? 34 : 15;
 		const anchor = dx > 0.3 ? 'start' : dx < -0.3 ? 'end' : 'middle';
 		return { lx: x + dx * gap, ly: y + dy * gap, anchor };
 	}
@@ -235,6 +241,7 @@
 			y,
 			hub: code === 'KSH',
 			title: airports[code].title,
+			pop: popDelay(code),
 			...labelFor(code, x, y)
 		}))
 	);
@@ -314,6 +321,30 @@
 	}
 	// Airports on each airline (index → set of codes) for line highlighting.
 	const lineOf = airlines.map((a) => new Set<string>(a.legs.flat()));
+
+	// BFS depth from the hub, so the map reveals in rings: the hub pops first, then
+	// its neighbours, then theirs, and so on — each section's lines drawing just after.
+	const depth: Record<string, number> = { KSH: 0 };
+	{
+		const queue = ['KSH'];
+		while (queue.length) {
+			const cur = queue.shift()!;
+			for (const nb of adj[cur] ?? []) {
+				if (depth[nb] === undefined) {
+					depth[nb] = depth[cur] + 1;
+					queue.push(nb);
+				}
+			}
+		}
+	}
+	// Reveal cadence (seconds): first node, per-ring step, and how far a ring's lines
+	// trail its nodes. Node d pops at START + d·STEP; its incoming line draws a beat later.
+	const REVEAL_START = 0.2;
+	const REVEAL_STEP = 0.35;
+	const REVEAL_LINE = 0.12;
+	const popDelay = (code: string) => REVEAL_START + (depth[code] ?? 0) * REVEAL_STEP;
+	const drawDelay = (codes: string[]) =>
+		REVEAL_START + Math.max(...codes.map((c) => depth[c] ?? 0)) * REVEAL_STEP + REVEAL_LINE;
 
 	// ─── Camera: crop the world, fly between crops to "move pages" ───────────────
 	// Landscape viewBox on desktop; a portrait one for the vertical mobile train map.
@@ -543,7 +574,7 @@
 				d={a.d}
 				stroke={a.color}
 				pathLength="1"
-				style="--i:{a.i}"
+				style="--draw:{a.delay}s"
 			/>
 		{/each}
 
@@ -552,6 +583,7 @@
 				class="node"
 				class:active={isActive(n.code)}
 				class:dim={nodeDim(n.code)}
+				style="--pop:{n.pop}s"
 				role="button"
 				tabindex="0"
 				aria-label="Fly to {n.title}"
@@ -743,12 +775,16 @@
 	.arc {
 		fill: none;
 		stroke-width: 5.5;
-		stroke-linecap: round;
+		/* butt (not round) caps: an undrawn arc's dash would otherwise leave a round
+		   dot at its endpoint before the line draws. Corners stay round via linejoin,
+		   and the flat ends sit under the station circles. */
+		stroke-linecap: butt;
 		stroke-linejoin: round;
 		stroke-dasharray: 1;
 		stroke-dashoffset: 1;
-		animation: draw 1.6s cubic-bezier(0.6, 0, 0.3, 1) forwards;
-		animation-delay: calc(var(--i) * 0.12s);
+		/* Each ring's lines draw just after its stations pop (--draw set per path). */
+		animation: draw 0.9s cubic-bezier(0.6, 0, 0.3, 1) both;
+		animation-delay: var(--draw, 0s);
 		transition: opacity 0.5s ease;
 	}
 	.arc.dim {
@@ -801,11 +837,29 @@
 		font-size: 19px;
 		font-weight: 700;
 	}
-	.port,
+	/* Stations pop in by ring (--pop set per node from BFS depth): the dot springs up
+	   with a little overshoot, the label fades in just behind it. */
+	.port {
+		opacity: 0;
+		transform-box: fill-box;
+		transform-origin: center;
+		animation: pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+		animation-delay: var(--pop, 0s);
+	}
 	.code {
 		opacity: 0;
-		animation: appear 0.4s ease forwards;
-		animation-delay: 1.5s;
+		animation: appear 0.4s ease both;
+		animation-delay: calc(var(--pop, 0s) + 0.1s);
+	}
+	@keyframes pop {
+		from {
+			opacity: 0;
+			transform: scale(0.3);
+		}
+		to {
+			opacity: 1;
+			transform: scale(1);
+		}
 	}
 	@keyframes appear {
 		to {
@@ -819,7 +873,15 @@
 		top: clamp(1.5rem, 5vw, 3.5rem);
 		left: clamp(1.5rem, 5vw, 3.5rem);
 		max-width: min(90vw, 640px);
+	}
+	/* Title and tagline animate on their own so open/close staggers like the entrance:
+	   the tagline trails the title coming in, and leads going out. */
+	.masthead h1,
+	.masthead .tagline {
 		transition: opacity 0.4s ease, transform 0.4s ease;
+	}
+	.masthead .tagline {
+		transition-delay: 0.12s;
 	}
 	.masthead h1 {
 		margin: 0;
@@ -836,7 +898,10 @@
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		.tagline {
-			animation: rise 0.6s ease 1.05s both;
+			/* Trails the title's flip by a short beat on entrance. `backwards` (not
+			   `both`) so it doesn't pin the tagline afterward and block the open/close
+			   transition above — its end state already equals the resting state. */
+			animation: rise 0.6s ease 0.3s backwards;
 		}
 	}
 	@keyframes rise {
@@ -904,9 +969,20 @@
 	}
 
 	.masthead.hidden {
+		pointer-events: none;
+	}
+	.masthead.hidden h1,
+	.masthead.hidden .tagline {
 		opacity: 0;
 		transform: translateY(-8px);
-		pointer-events: none;
+	}
+	/* Going out (panel opening): tagline leaves first, title a beat behind — the
+	   reverse of the incoming order, so the header folds up cleanly. */
+	.masthead.hidden h1 {
+		transition-delay: 0.1s;
+	}
+	.masthead.hidden .tagline {
+		transition-delay: 0s;
 	}
 	.legend.hidden {
 		opacity: 0;
