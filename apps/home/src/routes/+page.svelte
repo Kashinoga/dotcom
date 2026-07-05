@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { fly, fade } from 'svelte/transition';
+	import SplitFlap from '$lib/SplitFlap.svelte';
 
 	// Airline route-map homepage. The network is deliberately LARGER than the
 	// viewport: routes run off every edge, and visible nodes lead outward to the
@@ -89,6 +90,52 @@
 		h: Math.max(...by) - Math.min(...by) + worldPad * 2
 	};
 
+	// ─── Page content per destination ───────────────────────────────────────────
+	// A block list rendered into the content surface. Swap the placeholder copy for
+	// real writing; add { h }, { p }, { img }, { quote } blocks freely.
+	type Block = { h: string } | { p: string } | { img: string } | { quote: string };
+	const pages: Record<string, Block[]> = {
+		SFO: [
+			{ p: 'Work is the busiest line out of the hub — the roles, projects, and collaborations that keep the whole network running on time.' },
+			{ h: 'Currently' },
+			{ p: 'Placeholder copy: a short paragraph on what you are building right now, who you are building it with, and why it matters.' },
+			{ img: 'A representative image — swap for a real photo, screenshot, or diagram.' },
+			{ p: 'Another paragraph of body text. The surface scrolls, so there is room for as much substance as a destination needs.' },
+			{ quote: '“A short pull-quote sits nicely between sections and breaks up long copy.”' }
+		],
+		NRT: [
+			{ p: 'Writing collects essays, notes, and longer pieces — the slow, considered end of the network.' },
+			{ h: 'Recent' },
+			{ p: 'Placeholder copy: a list or paragraph pointing at recent pieces. Each could itself become a destination on the map.' },
+			{ img: 'A cover image for the latest piece.' },
+			{ p: 'Body text continues here with room to breathe and a comfortable reading measure.' }
+		],
+		JFK: [
+			{ p: 'Projects are the things that shipped — the destinations the Verde line was built to reach.' },
+			{ h: 'Selected work' },
+			{ p: 'Placeholder copy: describe a project, the problem, and the outcome. Add an image and an onward link to related work.' },
+			{ img: 'A project screenshot or hero image.' },
+			{ p: 'And a closing paragraph tying it together.' }
+		]
+	};
+	const stub = (t: string): Block[] => [
+		{
+			p: `“${t}” is a placeholder destination. This surface scrolls and holds headings, paragraphs, images, and quotes — drop the real ${t.toLowerCase()} content here.`
+		}
+	];
+
+	// Which airline colour serves each airport, and everywhere it connects to.
+	const accent: Record<string, string> = {};
+	const adj: Record<string, string[]> = {};
+	for (const a of airlines) {
+		for (const [f, t] of a.legs) {
+			accent[f] ??= a.color;
+			accent[t] ??= a.color;
+			(adj[f] ??= []).push(t);
+			(adj[t] ??= []).push(f);
+		}
+	}
+
 	// ─── Camera: crop the world, fly between crops to "move pages" ───────────────
 	const ASPECT = 1.5; // viewBox w/h
 	// Home is zoomed to the hub so routes bleed off every edge; a node focus keeps
@@ -129,7 +176,7 @@
 	function board(code: string) {
 		if (code === 'KSH') return home();
 		selected = code;
-		flyTo(crop(P[code][0], P[code][1], 660, 0.37));
+		flyTo(crop(P[code][0], P[code][1], 720, 0.3));
 	}
 	function home() {
 		selected = null;
@@ -183,25 +230,63 @@
 	</svg>
 
 	<header class="masthead" class:hidden={selected !== null}>
-		<h1>Kashinoga</h1>
+		<h1><SplitFlap text="Kashinoga" /></h1>
 		<p class="tagline">an airline route map of one person&rsquo;s internet</p>
 	</header>
 
 	<ul class="legend" class:hidden={selected !== null}>
-		{#each airlines as a}
-			<li><span class="swatch" style="background:{a.color}"></span>{a.name}</li>
+		{#each airlines as a, i}
+			<li style="--n:{i}"><span class="swatch" style="background:{a.color}"></span>{a.name}</li>
 		{/each}
 	</ul>
 
 	{#if selected}
 		{@const port = airports[selected]}
-		<aside class="page" in:fly={{ x: 40, duration: 380 }} out:fade={{ duration: 160 }}>
-			<button class="back" onclick={home}>&larr; route map</button>
-			<p class="boarding">Now arriving</p>
-			<h2>{port.title}</h2>
-			<p class="dest-code">{selected} &middot; {port.at[0]},{port.at[1]}</p>
-			<p class="stub">This destination is a stub. Drop the real {port.title.toLowerCase()} content here.</p>
-		</aside>
+		{@const blocks = pages[selected] ?? stub(port.title)}
+		{@const conns = [...new Set(adj[selected] ?? [])]}
+		{#key selected}
+			<aside class="surface" in:fly={{ x: 60, duration: 420 }} out:fade={{ duration: 160 }}>
+				<div class="surface-strip" style:background={accent[selected]}></div>
+				<div class="surface-head">
+					<button class="back" onclick={home}>&larr; route map</button>
+					<p class="eyebrow">Now arriving &middot; <span style:color={accent[selected]}>{selected}</span></p>
+					<h2 class="dest"><SplitFlap text={port.title} base={160} stagger={45} /></h2>
+				</div>
+				<div class="surface-body">
+					{#each blocks as b}
+						{#if 'h' in b}
+							<h3>{b.h}</h3>
+						{:else if 'quote' in b}
+							<blockquote>{b.quote}</blockquote>
+						{:else if 'img' in b}
+							<figure class="img">
+								<div class="img-ph" style:--tint={accent[selected]}><span>image</span></div>
+								<figcaption>{b.img}</figcaption>
+							</figure>
+						{:else if 'p' in b}
+							<p>{b.p}</p>
+						{/if}
+					{/each}
+
+					{#if conns.length}
+						<nav class="onward">
+							<p class="eyebrow">Connecting flights</p>
+							<ul>
+								{#each conns as c}
+									<li>
+										<button class="chip" onclick={() => board(c)}>
+											<span class="chip-dot" style:background={accent[c]}></span>
+											<span class="chip-code">{c}</span>
+											<span class="chip-title">{airports[c].title}</span>
+										</button>
+									</li>
+								{/each}
+							</ul>
+						</nav>
+					{/if}
+				</div>
+			</aside>
+		{/key}
 	{/if}
 </div>
 
@@ -319,6 +404,21 @@
 		font-size: clamp(0.95rem, 2.2vw, 1.15rem);
 		color: var(--sub);
 	}
+	@media (prefers-reduced-motion: no-preference) {
+		.tagline {
+			animation: rise 0.6s ease 1.05s both;
+		}
+	}
+	@keyframes rise {
+		from {
+			opacity: 0;
+			transform: translateY(6px);
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
 
 	.legend {
 		position: absolute;
@@ -340,6 +440,14 @@
 		gap: 0.55rem;
 		color: var(--ink);
 	}
+	/* Same rise as the tagline, staggered so the bottom bar populates in sequence.
+	 * On the li (not the ul, which owns the show/hide transform for navigation). */
+	@media (prefers-reduced-motion: no-preference) {
+		.legend li {
+			animation: rise 0.5s ease both;
+			animation-delay: calc(1.1s + var(--n, 0) * 0.07s);
+		}
+	}
 	.swatch {
 		width: 1.05rem;
 		height: 1.05rem;
@@ -358,25 +466,33 @@
 		pointer-events: none;
 	}
 
-	/* Page panel — the "arrived" view. Narrow, so the map stays explorable beside it. */
-	.page {
+	/* Content surface — the destination page. Header stays put; body scrolls, so
+	 * the surface holds substantial content while the stage height stays locked. */
+	.surface {
 		position: absolute;
 		top: 0;
 		right: 0;
 		height: 100%;
-		width: min(88vw, 360px);
-		padding: clamp(1.75rem, 5vw, 3rem);
+		width: min(94vw, 640px);
 		display: flex;
 		flex-direction: column;
-		justify-content: center;
-		gap: 0.35rem;
-		background: color-mix(in srgb, var(--paper) 86%, transparent);
-		backdrop-filter: blur(8px);
-		border-left: 2px solid var(--ink);
+		background: color-mix(in srgb, var(--paper) 94%, transparent);
+		backdrop-filter: blur(10px);
+		border-left: 1.5px solid color-mix(in srgb, var(--ink) 18%, transparent);
+		box-shadow: -24px 0 60px rgba(0, 0, 0, 0.08);
+	}
+	.surface-strip {
+		flex: none;
+		height: 5px;
+	}
+	.surface-head {
+		flex: none;
+		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) 1.25rem;
+		border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
 	}
 	.back {
 		align-self: flex-start;
-		margin-bottom: 1.25rem;
+		margin-bottom: 1.4rem;
 		padding: 0.4rem 0.85rem;
 		font: inherit;
 		font-size: 0.9rem;
@@ -387,32 +503,117 @@
 		border-radius: 999px;
 		cursor: pointer;
 	}
-	.boarding {
-		margin: 0;
-		font-size: 0.85rem;
+	.eyebrow {
+		margin: 0 0 0.4rem;
+		font-size: 0.8rem;
 		font-weight: 600;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
 		color: var(--sub);
 	}
-	.page h2 {
+	.dest {
 		margin: 0;
-		font-size: clamp(2rem, 7vw, 3.25rem);
+		font-size: clamp(2rem, 6vw, 3rem);
 		font-weight: 700;
 		letter-spacing: -0.02em;
+		line-height: 1;
 		color: var(--ink);
 	}
-	.dest-code {
-		margin: 0.15rem 0 1rem;
-		font-size: 0.95rem;
-		font-weight: 600;
-		letter-spacing: 0.06em;
+	.surface-body {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		padding: clamp(1.5rem, 4vw, 2.25rem) clamp(1.5rem, 4vw, 2.75rem) 3rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1.05rem;
+	}
+	.surface-body h3 {
+		margin: 0.7rem 0 -0.25rem;
+		font-size: 1.15rem;
+		font-weight: 700;
+		color: var(--ink);
+	}
+	.surface-body p {
+		margin: 0;
+		max-width: 62ch;
+		line-height: 1.62;
+		color: color-mix(in srgb, var(--ink) 82%, var(--sub));
+	}
+	.surface-body blockquote {
+		margin: 0.4rem 0;
+		padding-left: 1rem;
+		border-left: 3px solid var(--ink);
+		font-size: 1.2rem;
+		font-style: italic;
+		color: var(--ink);
+	}
+	figure.img {
+		margin: 0.4rem 0;
+	}
+	.img-ph {
+		aspect-ratio: 16 / 10;
+		display: grid;
+		place-items: center;
+		border-radius: 10px;
+		border: 1px solid color-mix(in srgb, var(--tint, var(--ink)) 30%, transparent);
+		background:
+			repeating-linear-gradient(
+				-45deg,
+				color-mix(in srgb, var(--tint, #888) 13%, transparent) 0 10px,
+				transparent 10px 20px
+			),
+			color-mix(in srgb, var(--tint, #888) 8%, var(--paper));
+		color: color-mix(in srgb, var(--tint, var(--ink)) 70%, var(--sub));
+		font-size: 0.8rem;
+		letter-spacing: 0.14em;
+		text-transform: uppercase;
+	}
+	figcaption {
+		margin-top: 0.5rem;
+		font-size: 0.85rem;
 		color: var(--sub);
 	}
-	.stub {
-		margin: 0;
-		max-width: 32ch;
+	.onward {
+		margin-top: 1.4rem;
+		padding-top: 1.25rem;
+		border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+	}
+	.onward ul {
+		list-style: none;
+		margin: 0.6rem 0 0;
+		padding: 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.4rem 0.75rem;
+		font: inherit;
+		font-size: 0.9rem;
+		color: var(--ink);
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+		border-radius: 999px;
+		cursor: pointer;
+	}
+	.chip:hover {
+		background: color-mix(in srgb, var(--ink) 10%, transparent);
+	}
+	.chip-dot {
+		width: 0.7rem;
+		height: 0.7rem;
+		border-radius: 50%;
+		flex: none;
+	}
+	.chip-code {
+		font-weight: 700;
+		letter-spacing: 0.04em;
+	}
+	.chip-title {
 		color: var(--sub);
-		line-height: 1.55;
 	}
 </style>
