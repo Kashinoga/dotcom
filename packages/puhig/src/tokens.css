@@ -21,6 +21,9 @@
 	--card-edge: rgba(0, 0, 0, 0.32); /* black-core edge line (MTG blue/black-core stock) */
 	/* Paper tooth — grayscale fractal noise, multiplied faintly onto the stock. */
 	--card-grain: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='140' height='140' filter='url(%23g)'/></svg>");
+	/* Foil sparkle — sparse white specks (noise thresholded to alpha) for the
+	 * glitter glints on holo cards. */
+	--foil-sparkle: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='1' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 11 -6'/></filter><rect width='120' height='120' filter='url(%23s)'/></svg>");
 	--orange: #f06030; /* Penguin orange accent */
 	--sub: #717171; /* subtext */
 

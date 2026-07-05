@@ -4,7 +4,7 @@
 
 <main class="stage">
 	<Sleeve>
-		<Card name="Kashinoga" />
+		<Card name="Kashinoga" rarity="mythic" />
 	</Sleeve>
 </main>
 

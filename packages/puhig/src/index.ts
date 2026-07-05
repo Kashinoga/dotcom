@@ -2,7 +2,7 @@
 // Card components, tokens, and movement, ported from the dotcom-2 puhig
 // design language into scoped Svelte components.
 
-export { default as Card } from './Card.svelte';
+export { default as Card, type Rarity } from './Card.svelte';
 export { default as Sleeve } from './Sleeve.svelte';
 export { default as Panel } from './Panel.svelte';
 export { gridFit } from './gridFit';
