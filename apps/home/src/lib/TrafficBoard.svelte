@@ -1,6 +1,8 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
 	import { slide } from 'svelte/transition';
+	import { flip } from 'svelte/animate';
+	import { cubicOut } from 'svelte/easing';
 	import SplitFlap from '$lib/SplitFlap.svelte';
 
 	// A live "what's in the air around <airport>" board. Same keyless, CORS-open
@@ -122,8 +124,9 @@
 		}
 	}
 
-	type Field = { icao: string; iata: string; city: string };
-	type Route = { o: Field; d: Field } | null;
+	type Field = { icao: string; iata: string; city: string; name: string };
+	type Airline = { name: string; iata: string; callsign: string };
+	type Route = { o: Field; d: Field; airline: Airline | null } | null;
 	// callsign → route (null = adsbdb knows none). Module-lived so reopening the
 	// panel doesn't refetch. `undefined` (absent key) = not looked up yet.
 	const routeCache = new Map<string, Route>();
@@ -132,9 +135,14 @@
 		hex: string;
 		call: string;
 		type: string;
+		reg: string; // tail / registration (airplanes.live `r`)
+		op: string; // operator (airplanes.live `ownOp`)
+		desc: string; // full type name (airplanes.live `desc`)
+		year: number | null; // build year
 		alt: number | 'ground' | null;
 		gs: number | null;
 		track: number | null;
+		vrate: number | null; // vertical rate, fpm (baro_rate ?? geom_rate)
 		distNm: number;
 	};
 
@@ -145,6 +153,12 @@
 	// Snappy split-flap timing for the board cells (the Home header's Solari flip).
 	const FLAP = { base: 70, stagger: 24, tick: 40, delay: 0 };
 	const ROW_STEP = 55; // per-row start delay so the board flips top row → bottom
+	// Enter/leave choreography (all ms; the CSS animation timings mirror these).
+	// Deliberately unhurried: a departing row lingers with its reason well before it
+	// collapses, so a 10s refresh doesn't read as "everything must move at once".
+	const ENTER_MS = 1900; // row eases in + reason chip shows, then settles to 'live'
+	const LEAVE_HOLD_MS = 1700; // reason held on a departing row before it collapses
+	const LEAVE_MS = 2400; // total on-board lifetime of a leaving row (hold + collapse)
 
 	let sel = $state<Airport>(AIRPORTS[0]);
 	let radiusNm = $state(60);
@@ -188,7 +202,8 @@
 	const field = (a: Record<string, unknown>): Field => ({
 		icao: (a.icao_code as string) || '',
 		iata: (a.iata_code as string) || '',
-		city: (a.municipality as string) || ''
+		city: (a.municipality as string) || '',
+		name: (a.name as string) || ''
 	});
 
 	async function enrichRoutes(list: Plane[]) {
@@ -203,8 +218,13 @@
 				if (!r.ok) continue; // leave uncached → retry next poll
 				const j = await r.json();
 				const fr = j?.response?.flightroute;
+				const al = fr?.airline;
+				const airline: Airline | null =
+					al && al.name ? { name: al.name, iata: al.iata || '', callsign: al.callsign || '' } : null;
 				const route: Route =
-					fr && fr.origin && fr.destination ? { o: field(fr.origin), d: field(fr.destination) } : null;
+					fr && fr.origin && fr.destination
+						? { o: field(fr.origin), d: field(fr.destination), airline }
+						: null;
 				routeCache.set(cs, route);
 				routeVer++;
 			} catch {
@@ -216,26 +236,43 @@
 	async function poll() {
 		const at = sel;
 		try {
-			const url = `https://api.airplanes.live/v2/point/${at.lat}/${at.lon}/${radiusNm}`;
+			// Same-origin proxy (src/routes/api/traffic) — it fans out to airplanes.live
+			// with an adsb.lol fallback server-side, dodging the mirrors' missing CORS.
+			const url = `/api/traffic?lat=${at.lat}&lon=${at.lon}&dist=${radiusNm}`;
 			const r = await fetch(url);
 			if (destroyed || at.icao !== sel.icao) return;
 			if (!r.ok) throw new Error('bad response');
 			const data = await r.json();
 			if (destroyed || at.icao !== sel.icao) return;
 			const ac: Record<string, unknown>[] = Array.isArray(data?.ac) ? data.ac : [];
-			const list: Plane[] = ac
+			// Everything actually in range, nearest first. We keep the full set (not just
+			// the shown top rows) so a row dropping off the board can be explained: still
+			// in range → bumped by closer traffic; gone entirely → left / landed.
+			const all: Plane[] = ac
 				.filter((a) => typeof a.lat === 'number' && typeof a.lon === 'number')
 				.map((a) => ({
 					hex: ((a.hex as string) || '').toUpperCase(),
 					call: ((a.flight as string) || '').trim(),
 					type: (a.t as string) || '',
+					reg: ((a.r as string) || '').trim(),
+					op: ((a.ownOp as string) || '').trim(),
+					desc: ((a.desc as string) || '').trim(),
+					year: a.year != null && Number.isFinite(Number(a.year)) ? Number(a.year) : null,
 					alt: (a.alt_baro as number | 'ground') ?? null,
 					gs: typeof a.gs === 'number' ? a.gs : null,
 					track: typeof a.track === 'number' ? a.track : null,
+					vrate:
+						typeof a.baro_rate === 'number'
+							? a.baro_rate
+							: typeof a.geom_rate === 'number'
+								? a.geom_rate
+								: null,
 					distNm: haversineNm(at.lat, at.lon, a.lat as number, a.lon as number)
 				}))
-				.sort((x, y) => x.distNm - y.distNm)
-				.slice(0, MAX_ROWS);
+				.sort((x, y) => x.distNm - y.distNm);
+			prevInRange = inRangeHexes;
+			inRangeHexes = new Set(all.map((p) => p.hex));
+			const list = all.slice(0, MAX_ROWS);
 			planes = list;
 			status = list.length ? 'ok' : 'empty';
 			updatedAt = Date.now();
@@ -271,6 +308,7 @@
 		if (a.icao === sel.icao) return;
 		sel = a;
 		planes = [];
+		resetTracks(); // a new field is a fresh board — don't animate the old rows out
 		status = 'loading';
 		updatedAt = null;
 		closePhoto();
@@ -280,6 +318,7 @@
 		if (r === radiusNm) return;
 		radiusNm = r;
 		planes = [];
+		resetTracks();
 		status = 'loading';
 		updatedAt = null;
 		kick();
@@ -290,11 +329,16 @@
 		call: string;
 		hex: string;
 		type: string;
+		reg: string;
+		desc: string;
+		op: string;
+		year: number | null;
 		title: string;
 		route: Route;
 		tag: Row['tag'];
 		alt: Plane['alt'];
 		gs: number | null;
+		vrate: number | null;
 		distNm: number;
 	};
 	let selected = $state<Selected | null>(null);
@@ -307,11 +351,16 @@
 			call: p.call,
 			hex: p.hex,
 			type: p.type,
+			reg: p.reg,
+			desc: p.desc,
+			op: opName(p),
+			year: p.year,
 			title,
 			route: p.route,
 			tag: p.tag,
 			alt: p.alt,
 			gs: p.gs,
+			vrate: p.vrate,
 			distNm: p.distNm
 		};
 		const token = ++photoToken;
@@ -349,12 +398,172 @@
 	const fmtSpd = (g: number | null) => (g == null ? '—' : Math.round(g) + ' kt');
 	const fmtHdg = (t: number | null) => (t == null ? '—' : String(Math.round(t)).padStart(3, '0') + '°');
 	const fmtDist = (d: number) => Math.round(d) + ' NM';
+	// Vertical rate → climb ▲ / descent ▼ with fpm (level or unknown → dash). The
+	// arrow is a static glyph in the split-flap (only A–Z/0–9 shuffle).
+	const fmtVs = (v: number | null) => {
+		if (v == null || Math.abs(v) < 64) return '—';
+		return (v > 0 ? '▲ ' : '▼ ') + Math.round(Math.abs(v) / 50) * 50;
+	};
+	// Operator label: prefer adsbdb's tidy airline name; else title-case the raw
+	// ownOp and drop trailing corporate suffixes (AMERICAN AIRLINES INC → American
+	// Airlines) so the column reads cleanly.
+	const titleCase = (s: string) => s.toLowerCase().replace(/\b[a-z]/g, (m) => m.toUpperCase());
+	function tidyOp(s: string) {
+		const t = s
+			.replace(/\b(INC|LLC|LLP|LTD|CORP|CO|PLC|GMBH|DBA|AG|SA|NV|BV|THE)\b\.?/gi, '')
+			.replace(/\s+/g, ' ')
+			.trim();
+		return t || s;
+	}
+	const opName = (p: { op: string; route: Route }) =>
+		p.route?.airline?.name || (p.op ? titleCase(tidyOp(p.op)) : '');
 	const fmtClock = (t: number | null) => {
 		if (t == null) return '—';
 		const d = new Date(t);
 		return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
 	};
 	const TAG_LABEL = { arr: 'Arr', dep: 'Dep', over: 'Ovr' } as const;
+
+	// ─── Entry / exit choreography ──────────────────────────────────────────────
+	// `rows` is the live top-N. `tracks` is what we actually render: the same rows,
+	// but a row that vanishes is held in a `leave` state (with a deduced reason)
+	// long enough to play its exit before being dropped, and a fresh row plays an
+	// `enter` before settling to `live`.
+	// `stagger` is the row's slot in a top-to-bottom cascade among the rows that
+	// enter (or leave) together on one refresh, so a busy ORD poll ripples down the
+	// board instead of every row animating at the same instant. It drives both the
+	// CSS animation-delay and the promote/remove timers so they stay in lockstep.
+	type Track = Row & {
+		status: 'enter' | 'live' | 'leave';
+		reason: string;
+		kind: '' | 'enter' | 'leave';
+		stagger: number;
+	};
+	let tracks = $state<Track[]>([]);
+	const STAGGER_MS = 55; // per-row cascade step (matches SplitFlap's ROW_STEP)
+	const rowTimers = new Map<string, number>(); // hex → promote/remove timeout
+	let inRangeHexes = new Set<string>(); // every aircraft in range this poll
+	let prevInRange = new Set<string>(); // …and last poll, to explain arrivals
+
+	// Why did this aircraft drop off the board? Still in range → the shown rows are
+	// capped and closer traffic pushed it past the cut. Gone from range → it left
+	// the area (or, if last seen on the ground, it landed).
+	function leaveReason(t: Track): string {
+		if (inRangeHexes.has(t.hex)) return 'Bumped';
+		if (t.alt === 'ground') return 'Landed';
+		return 'Out of range';
+	}
+	// Why did it appear? On the ground near the field, or previously in range but
+	// off the bottom of the board (now close enough to show), or brand new.
+	function enterReason(r: Row): string {
+		if (r.alt === 'ground') return 'On the ground';
+		if (prevInRange.has(r.hex)) return 'Moved up';
+		return 'Entered range';
+	}
+
+	function clearRowTimer(hex: string) {
+		const id = rowTimers.get(hex);
+		if (id) clearTimeout(id);
+		rowTimers.delete(hex);
+	}
+	function promoteLater(hex: string, stagger: number) {
+		clearRowTimer(hex);
+		rowTimers.set(
+			hex,
+			window.setTimeout(() => {
+				rowTimers.delete(hex);
+				tracks = tracks.map((t) =>
+					t.hex === hex && t.status === 'enter'
+						? { ...t, status: 'live', reason: '', kind: '', stagger: 0 }
+						: t
+				);
+			}, ENTER_MS + stagger * STAGGER_MS)
+		);
+	}
+	function removeLater(hex: string, stagger: number) {
+		clearRowTimer(hex);
+		rowTimers.set(
+			hex,
+			window.setTimeout(() => {
+				rowTimers.delete(hex);
+				tracks = tracks.filter((t) => t.hex !== hex);
+			}, LEAVE_MS + stagger * STAGGER_MS)
+		);
+	}
+	function resetTracks() {
+		for (const id of rowTimers.values()) clearTimeout(id);
+		rowTimers.clear();
+		tracks = [];
+		inRangeHexes = new Set();
+		prevInRange = new Set();
+	}
+
+	// Fold a fresh set of live rows into `tracks`, opening/closing rows as needed.
+	function reconcile(next: Row[]) {
+		const byHex = new Map(next.map((r) => [r.hex, r]));
+		const prev = untrack(() => tracks);
+		const prevByHex = new Map(prev.map((t) => [t.hex, t]));
+		const firstLoad = prev.length === 0;
+		const out: Track[] = [];
+		// Rows first transitioning THIS reconcile — their timers + cascade stagger get
+		// assigned after the sort, once we know their top-to-bottom order.
+		const entering = new Set<string>();
+		const leaving = new Set<string>();
+		// Carry existing tracks forward: refresh data, or begin a leave if it's gone.
+		for (const t of prev) {
+			const nr = byHex.get(t.hex);
+			if (nr) {
+				if (t.status === 'leave') {
+					// It came back before it finished leaving — cancel the exit.
+					clearRowTimer(t.hex);
+					out.push({ ...nr, status: 'live', reason: '', kind: '', stagger: 0 });
+				} else if (t.status === 'enter') {
+					// Keep animating in; hold its stagger so the delay doesn't shift.
+					out.push({ ...nr, status: 'enter', reason: t.reason, kind: t.kind, stagger: t.stagger });
+				} else {
+					out.push({ ...nr, status: 'live', reason: '', kind: '', stagger: 0 });
+				}
+			} else if (t.status === 'leave') {
+				out.push(t); // already collapsing — keep its stagger + removal timer
+			} else {
+				leaving.add(t.hex);
+				out.push({ ...t, status: 'leave', reason: leaveReason(t), kind: 'leave', stagger: 0 });
+			}
+		}
+		// New arrivals. On the very first fill, drop them straight in as `live` so the
+		// board just flips into place (the split-flap already staggers the entrance).
+		for (const nr of next) {
+			if (prevByHex.has(nr.hex)) continue;
+			if (firstLoad) {
+				out.push({ ...nr, status: 'live', reason: '', kind: '', stagger: 0 });
+			} else {
+				entering.add(nr.hex);
+				out.push({ ...nr, status: 'enter', reason: enterReason(nr), kind: 'enter', stagger: 0 });
+			}
+		}
+		// Nearest first; a leaving row keeps its last distance, so it collapses in place.
+		out.sort((a, b) => a.distNm - b.distNm);
+		// Assign the cascade top-to-bottom: entries and exits each get their own 0,1,2…
+		// sequence in row order, so a lone row never waits but a busy poll ripples down.
+		let enterSeq = 0;
+		let leaveSeq = 0;
+		for (const t of out) {
+			if (entering.has(t.hex)) {
+				t.stagger = enterSeq++;
+				promoteLater(t.hex, t.stagger);
+			} else if (leaving.has(t.hex)) {
+				t.stagger = leaveSeq++;
+				removeLater(t.hex, t.stagger);
+			}
+		}
+		tracks = out;
+	}
+
+	// Drive reconciliation whenever the live rows change (a poll, or routes filling
+	// in). Reads `tracks` via untrack so writing it back doesn't re-trigger us.
+	$effect(() => {
+		reconcile(rows);
+	});
 
 	onMount(() => {
 		poll();
@@ -365,6 +574,8 @@
 		destroyed = true;
 		clearInterval(timer);
 		clearInterval(ringTimer);
+		for (const id of rowTimers.values()) clearTimeout(id);
+		rowTimers.clear();
 	});
 </script>
 
@@ -463,18 +674,30 @@
 				{/if}
 			</div>
 			<div class="pc-info">
-				<p class="pc-title">{selected.title || selected.type || 'Unknown type'}</p>
+				<p class="pc-title">{selected.title || selected.desc || selected.type || 'Unknown type'}</p>
 				<p class="pc-sub mono">
-					{selected.call || selected.hex || '—'}{#if selected.type} · {selected.type}{/if}
+					{selected.call || selected.hex || '—'}{#if selected.reg} · {selected.reg}{/if}{#if selected.type}
+						· {selected.type}{/if}
 				</p>
+				{#if selected.op}
+					<p class="pc-op">{selected.op}{#if selected.year} · built {selected.year}{/if}</p>
+				{/if}
 				{#if selected.route}
 					<p class="pc-route mono">
 						{selected.route.o.iata || selected.route.o.icao} → {selected.route.d.iata ||
 							selected.route.d.icao}
 					</p>
+					{#if selected.route.o.city || selected.route.d.city}
+						<p class="pc-route-full">
+							{selected.route.o.name || selected.route.o.city || '—'} → {selected.route.d.name ||
+								selected.route.d.city ||
+								'—'}
+						</p>
+					{/if}
 				{/if}
 				<p class="pc-meta mono">
-					{fmtAlt(selected.alt)} · {fmtSpd(selected.gs)} · {fmtDist(selected.distNm)}
+					{fmtAlt(selected.alt)} · {fmtSpd(selected.gs)}{#if fmtVs(selected.vrate) !== '—'}
+						· {fmtVs(selected.vrate)}{/if} · {fmtDist(selected.distNm)}
 				</p>
 				{#if photo && photo !== 'loading' && photo.credit}
 					<p class="pc-credit">
@@ -500,61 +723,80 @@
 			<table class="board">
 				<thead>
 					<tr>
-						<th></th>
-						<th>Flight</th>
-						<th>Type</th>
-						<th class="num">Alt</th>
-						<th class="num">Spd</th>
-						<th class="route">Route</th>
-						<th class="num">Dist</th>
+						<th title="Direction relative to this field — arriving, departing, or passing overhead"></th>
+						<th title="Callsign (or Mode-S hex code when no callsign is broadcast)">Flight</th>
+						<th class="x1" title="Registration / tail number">Reg</th>
+						<th title="ICAO aircraft type — tap a row to see a photo">Type</th>
+						<th class="x2" title="Airline, or owner / operator">Operator</th>
+						<th class="num" title="Barometric altitude — FL### is flight level (hundreds of feet); GND is on the ground">Alt</th>
+						<th class="num x1" title="Vertical speed — ▲ climbing, ▼ descending, in feet per minute">V/S</th>
+						<th class="num" title="Ground speed, in knots">Spd</th>
+						<th class="num x1" title="Heading / ground track, in degrees">Hdg</th>
+						<th class="route" title="Origin → destination (falls back to current heading when the route is unknown)">Route</th>
+						<th class="num" title="Distance from the field, in nautical miles">Dist</th>
 					</tr>
 				</thead>
 				<tbody>
-					{#each rows as p, i (p.hex)}
-						<tr>
+					{#each tracks as p, i (p.hex)}
+						<tr
+							class="row"
+							class:enter={p.status === 'enter'}
+							class:leave={p.status === 'leave'}
+							style="--stagger:{p.stagger}"
+							animate:flip={{ duration: 460, easing: cubicOut }}
+						>
 							<td>
-								{#if p.tag}<span class="tag {p.tag}">{TAG_LABEL[p.tag]}</span>{/if}
+								<div class="ci">{#if p.tag}<span class="tag {p.tag}">{TAG_LABEL[p.tag]}</span>{/if}</div>
 							</td>
 							<td class="mono flight">
-								{#key p.call || p.hex}<SplitFlap
-										{...FLAP}
-										start={i * ROW_STEP}
-										text={p.call || p.hex || '—'}
-									/>{/key}
+								<div class="ci">{#key p.call || p.hex}<SplitFlap
+											{...FLAP}
+											start={i * ROW_STEP}
+											text={p.call || p.hex || '—'}
+										/>{/key}</div>
+							</td>
+							<td class="mono x1">
+								<div class="ci">{#key p.reg}<SplitFlap {...FLAP} start={i * ROW_STEP} text={p.reg || '—'} />{/key}</div>
 							</td>
 							<td class="mono">
-								{#if TYPE_TITLES[p.type]}
-									<button type="button" class="type-btn" onclick={() => openPhoto(p)}>
-										{#key p.type}<SplitFlap {...FLAP} start={i * ROW_STEP} text={p.type} />{/key}
-									</button>
-								{:else}{#key p.type}<SplitFlap
-										{...FLAP}
-										start={i * ROW_STEP}
-										text={p.type || '—'}
-									/>{/key}{/if}
+								<div class="ci">{#if TYPE_TITLES[p.type]}<button
+											type="button"
+											class="type-btn"
+											onclick={() => openPhoto(p)}
+										>{#key p.type}<SplitFlap {...FLAP} start={i * ROW_STEP} text={p.type} />{/key}</button
+										>{:else}{#key p.type}<SplitFlap {...FLAP} start={i * ROW_STEP} text={p.type || '—'} />{/key}{/if}</div>
+							</td>
+							<td class="mono op x2">
+								<div class="ci">{#key opName(p)}<SplitFlap {...FLAP} start={i * ROW_STEP} text={opName(p) || '—'} />{/key}</div>
 							</td>
 							<td class="mono num">
-								{#key fmtAlt(p.alt)}<SplitFlap {...FLAP} start={i * ROW_STEP} text={fmtAlt(p.alt)} />{/key}
+								<div class="ci">{#key fmtAlt(p.alt)}<SplitFlap {...FLAP} start={i * ROW_STEP} text={fmtAlt(p.alt)} />{/key}</div>
+							</td>
+							<td class="mono num x1 vs">
+								<div class="ci">{#key fmtVs(p.vrate)}<SplitFlap {...FLAP} start={i * ROW_STEP} text={fmtVs(p.vrate)} />{/key}</div>
 							</td>
 							<td class="mono num">
-								{#key fmtSpd(p.gs)}<SplitFlap {...FLAP} start={i * ROW_STEP} text={fmtSpd(p.gs)} />{/key}
+								<div class="ci">{#key fmtSpd(p.gs)}<SplitFlap {...FLAP} start={i * ROW_STEP} text={fmtSpd(p.gs)} />{/key}</div>
+							</td>
+							<td class="mono num x1">
+								<div class="ci">{#key fmtHdg(p.track)}<SplitFlap {...FLAP} start={i * ROW_STEP} text={fmtHdg(p.track)} />{/key}</div>
 							</td>
 							<td class="mono route">
-								{#if p.route}{#key `${p.route.o.iata || p.route.o.icao} ${p.route.d.iata || p.route.d.icao}`}<SplitFlap
-										{...FLAP}
-										start={i * ROW_STEP}
-										text={`${p.route.o.iata || p.route.o.icao || '???'} → ${p.route.d.iata ||
-											p.route.d.icao ||
-											'???'}`}
-									/>{/key}
-								{:else}<span class="hdg">hdg {fmtHdg(p.track)}</span>{/if}
+								<div class="ci">{#if p.route}{#key `${p.route.o.iata || p.route.o.icao} ${p.route.d.iata || p.route.d.icao}`}<SplitFlap
+											{...FLAP}
+											start={i * ROW_STEP}
+											text={`${p.route.o.iata || p.route.o.icao || '???'} → ${p.route.d.iata ||
+												p.route.d.icao ||
+												'???'}`}
+										/>{/key}{:else}<span class="hdg">hdg {fmtHdg(p.track)}</span>{/if}</div>
 							</td>
-							<td class="mono num">
-								{#key fmtDist(p.distNm)}<SplitFlap
-										{...FLAP}
-										start={i * ROW_STEP}
-										text={fmtDist(p.distNm)}
-									/>{/key}
+							<td class="mono num why-cell">
+								<div class="ci">{#key fmtDist(p.distNm)}<SplitFlap
+											{...FLAP}
+											start={i * ROW_STEP}
+											text={fmtDist(p.distNm)}
+										/>{/key}</div>
+								{#if p.reason}<span class="why why-{p.kind}">{p.reason}</span>{/if}
 							</td>
 						</tr>
 					{/each}
@@ -564,8 +806,9 @@
 	{/if}
 
 	<p class="src">
-		Live ADS-B via <span class="mono">airplanes.live</span>; routes via
-		<span class="mono">adsbdb</span>. Aircraft without a public route show a heading instead.
+		Live ADS-B via <span class="mono">airplanes.live</span> (<span class="mono">adsb.lol</span>
+		fallback); routes via <span class="mono">adsbdb</span>. Aircraft without a public route show a
+		heading instead.
 	</p>
 </div>
 
@@ -574,6 +817,32 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.9rem;
+		/* Query against the board's own width so extra columns appear only when the
+		   panel is wide (expanded on a big viewport) — the compact panel is untouched. */
+		container-type: inline-size;
+	}
+	/* Extra board columns, revealed by width. x1 = narrow (reg / vertical rate /
+	   heading); x2 = the wide operator column, held back until there's real room. */
+	.board :is(th, td).x1,
+	.board :is(th, td).x2 {
+		display: none;
+	}
+	@container (min-width: 720px) {
+		.board :is(th, td).x1 {
+			display: table-cell;
+		}
+	}
+	@container (min-width: 940px) {
+		.board :is(th, td).x2 {
+			display: table-cell;
+		}
+	}
+	.op {
+		max-width: 18ch;
+	}
+	/* Climb green / descent muted, echoing the arriving-tag colour language. */
+	.vs {
+		color: color-mix(in srgb, var(--ink) 80%, var(--sub));
 	}
 	.lead {
 		margin: 0;
@@ -764,10 +1033,179 @@
 		padding: 0 0.6rem 0.4rem 0;
 		white-space: nowrap;
 	}
+	/* Each header carries a title tooltip explaining its abbreviation. */
+	.board th[title] {
+		cursor: help;
+	}
 	.board td {
+		--row-line: color-mix(in srgb, var(--ink) 8%, transparent);
 		padding: 0.34rem 0.6rem 0.34rem 0;
-		border-top: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+		border-top: 1px solid var(--row-line);
 		white-space: nowrap;
+	}
+
+	/* ── Row entry / exit ──────────────────────────────────────────────────────
+	   Each cell's content sits in a .ci wrapper that can collapse to nothing, so an
+	   entering or leaving row animates its full height and the rows below reflow
+	   smoothly instead of popping. .ci is only clipped mid-animation, so a settled
+	   row never crops a split-flap descender. Timings mirror the ENTER_/LEAVE_ ms. */
+	.ci {
+		display: block;
+	}
+	.row.enter .ci,
+	.row.leave .ci {
+		overflow: hidden;
+	}
+	/* Per-row cascade offset: the row's slot in the enter/leave sequence × 55ms, so a
+	   busy poll ripples top-to-bottom instead of firing every row at once. */
+	.row {
+		--sd: calc(var(--stagger, 0) * 55ms);
+	}
+	.row.enter .ci {
+		animation: ciIn 0.6s cubic-bezier(0.33, 1, 0.68, 1) both;
+		animation-delay: var(--sd);
+	}
+	.row.enter td {
+		animation: padIn 0.6s cubic-bezier(0.33, 1, 0.68, 1) both;
+		animation-delay: var(--sd);
+	}
+	.row.leave .ci {
+		/* 1.7s = LEAVE_HOLD_MS: sit with the reason, then ease shut unhurriedly. */
+		animation: ciOut 0.6s cubic-bezier(0.65, 0, 0.35, 1) both;
+		animation-delay: calc(1.7s + var(--sd));
+	}
+	.row.leave td {
+		animation: padOut 0.6s cubic-bezier(0.65, 0, 0.35, 1) both;
+		animation-delay: calc(1.7s + var(--sd));
+	}
+	/* Collapse the real content height (max-height sits just above a single line, so
+	   there's no dead zone before it starts moving). Opacity lives on the td below,
+	   not here, so the row's top border fades out in step with the collapse instead
+	   of staying solid and snapping onto the next row's border. */
+	@keyframes ciIn {
+		from {
+			max-height: 0;
+		}
+		to {
+			max-height: 1.5rem;
+		}
+	}
+	@keyframes ciOut {
+		from {
+			max-height: 1.5rem;
+		}
+		to {
+			max-height: 0;
+		}
+	}
+	@keyframes padIn {
+		from {
+			padding-top: 0;
+			padding-bottom: 0;
+			opacity: 0;
+			border-top-color: transparent;
+		}
+		to {
+			padding-top: 0.34rem;
+			padding-bottom: 0.34rem;
+			opacity: 1;
+			border-top-color: var(--row-line);
+		}
+	}
+	@keyframes padOut {
+		from {
+			padding-top: 0.34rem;
+			padding-bottom: 0.34rem;
+			opacity: 1;
+			border-top-color: var(--row-line);
+		}
+		to {
+			padding-top: 0;
+			padding-bottom: 0;
+			opacity: 0;
+			border-top-color: transparent;
+		}
+	}
+
+	/* The reason "why" chip — a pill that slides in at the row's right edge. It
+	   holds on a leaving row (until it collapses) and fades back out on an arrival. */
+	.why-cell {
+		position: relative;
+	}
+	.why {
+		position: absolute;
+		top: 50%;
+		right: 0.4rem;
+		transform: translateY(-50%);
+		z-index: 3;
+		padding: 0.12rem 0.5rem;
+		font-family: var(--font-body);
+		font-size: 0.66rem;
+		font-weight: 800;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		white-space: nowrap;
+		color: var(--paper);
+		background: color-mix(in srgb, var(--ink) 55%, transparent);
+		border-radius: 6px;
+		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+		pointer-events: none;
+	}
+	.why-enter {
+		background: #12a150;
+	}
+	.why-leave {
+		background: color-mix(in srgb, #c0392b 82%, var(--ink));
+	}
+	.row.enter .why {
+		animation:
+			whyIn 0.35s ease both,
+			whyOut 0.4s ease both;
+		animation-delay: calc(0.15s + var(--sd)), calc(1.5s + var(--sd));
+	}
+	.row.leave .why {
+		/* Slide in (staggered with the row), hold, then fade out as it collapses. */
+		animation:
+			whyIn 0.35s ease both,
+			whyOut 0.45s ease both;
+		animation-delay: var(--sd), calc(1.7s + var(--sd));
+	}
+	/* Slide from the LEFT (toward centre): the chip rests just inside the board's
+	   right edge, so a rightward slide would push it past .scroll's overflow clip. */
+	@keyframes whyIn {
+		from {
+			opacity: 0;
+			transform: translate(-8px, -50%);
+		}
+		to {
+			opacity: 1;
+			transform: translate(0, -50%);
+		}
+	}
+	@keyframes whyOut {
+		from {
+			opacity: 1;
+			transform: translate(0, -50%);
+		}
+		to {
+			opacity: 0;
+			transform: translate(-8px, -50%);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.row.enter .ci,
+		.row.leave .ci,
+		.row.enter td,
+		.row.leave td,
+		.row.enter .why,
+		.row.leave .why {
+			animation: none;
+		}
+		.row.enter .ci,
+		.row.leave .ci {
+			overflow: visible;
+			max-height: none;
+		}
 	}
 	.mono {
 		font-variant-numeric: tabular-nums;
@@ -898,6 +1336,17 @@
 	.pc-meta {
 		margin: 0;
 		font-size: 0.85rem;
+		color: var(--sub);
+	}
+	.pc-op {
+		margin: 0.1rem 0 0;
+		font-size: 0.9rem;
+		font-weight: 600;
+		color: var(--ink);
+	}
+	.pc-route-full {
+		margin: 0;
+		font-size: 0.8rem;
 		color: var(--sub);
 	}
 	.pc-credit {
