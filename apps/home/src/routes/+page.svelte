@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
-	import { fly } from 'svelte/transition';
+	import { fly, fade } from 'svelte/transition';
 	import { dev } from '$app/environment';
 	import SplitFlap from '$lib/SplitFlap.svelte';
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
@@ -207,6 +207,53 @@
 		}
 		applySky();
 	}
+
+	// Tiny stars on the Night sky (opt-in), some twinkling. Positions come from a
+	// seeded PRNG so SSR and client agree (no hydration mismatch).
+	const STARS_KEY = 'ksh-stars';
+	let starsOn = $state(true);
+	function setStars(on: boolean) {
+		starsOn = on;
+		try {
+			localStorage.setItem(STARS_KEY, on ? '1' : '0');
+		} catch {
+			/* storage unavailable — keep the in-memory choice */
+		}
+	}
+	const STARS = (() => {
+		let s = 0x9e3779b9;
+		const rng = () => {
+			s = (s + 0x6d2b79f5) | 0;
+			let t = Math.imul(s ^ (s >>> 15), 1 | s);
+			t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+			return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+		};
+		return Array.from({ length: 72 }, () => ({
+			x: rng() * 100,
+			y: rng() * 96,
+			size: 0.6 + rng() * 1.7,
+			tw: rng() < 0.5,
+			delay: rng() * 4,
+			dur: 2.4 + rng() * 3.2
+		}));
+	})();
+	const starsVisible = $derived(starsOn && skyMode !== 'off' && skyPhase === 'night');
+
+	// Live values the Settings notes interpolate into their `{}` placeholder.
+	const labelValue = $derived(showStopNames ? 'full stop names' : 'station codes');
+	const displayValue = $derived(
+		theme === 'system' ? 'Following your device setting' : `Always ${theme}`
+	);
+	const skyStatus = $derived(
+		skyMode === 'off'
+			? 'Off — the map uses the flat background.'
+			: skyMode === 'auto'
+				? `Auto — following the clock (currently ${skyPhase}).`
+				: `Fixed to ${skyMode}.`
+	);
+	const starsStatus = $derived(
+		starsOn ? 'Tiny stars twinkle when the sky is Night.' : 'Stars off.'
+	);
 
 	// Narrow/portrait screens get the vertical train layout (and a portrait camera).
 	let vw = $state(1200);
@@ -497,7 +544,7 @@
 	function clearLocalStorage() {
 		if (!dev) return;
 		try {
-			for (const k of [MODE_KEY, NAMES_KEY, THEME_KEY, CONTENT_KEY, EXPAND_KEY, SKY_KEY])
+			for (const k of [MODE_KEY, NAMES_KEY, THEME_KEY, CONTENT_KEY, EXPAND_KEY, SKY_KEY, STARS_KEY])
 				localStorage.removeItem(k);
 		} catch {
 			/* storage unavailable — nothing to clear */
@@ -633,11 +680,20 @@
 
 	// Editable Settings-panel copy — the section descriptions. Same Edit-Mode
 	// machinery, under a SETTINGS.<key> draft namespace.
+	// Section descriptions and the flavor notes. Notes use a `{}` placeholder that
+	// renders the live value (e.g. the current map style); editing keeps the token.
 	const defaultSettings: Record<string, string> = {
 		routeLead: 'Choose how the network draws its routes between stations.',
+		routeNote: 'Now showing {}. The change applies across the whole map and is remembered next time.',
 		labelLead: 'Choose how stations are labelled on the map.',
+		labelNote: 'Now showing {}. Remembered next time.',
 		displayLead: 'Choose the display mode (also up by the wordmark).',
-		skyLead: 'Paint the map with a time-of-day sky.'
+		displayNote: '{}. Remembered next time.',
+		skyLead: 'Paint the map with a time-of-day sky.',
+		skyNote:
+			'{} The sky sets the palette while on, so the display mode above applies again when it’s off. Remembered next time.',
+		starsLead: 'Show tiny stars when the sky is Night.',
+		starsNote: '{} Remembered next time.'
 	};
 	let settings = $state<Record<string, string>>({ ...defaultSettings });
 	const settingsKey = (k: string) => `SETTINGS.${k}`;
@@ -648,6 +704,10 @@
 	function stageSettings(k: string, text: string) {
 		drafts[settingsKey(k)] = text;
 	}
+	// A note renders its raw template while editing (so the `{}` token is visible),
+	// or with the live value substituted otherwise.
+	const noteText = (k: string, dyn: string, edit: boolean) =>
+		edit ? settingsText(k) : settingsText(k).replace('{}', dyn);
 
 	// BFS depth from the hub, so the map reveals in rings: the hub pops first, then
 	// its neighbours, then theirs, and so on — each section's lines drawing just after.
@@ -979,6 +1039,7 @@
 		if (sky === 'off' || sky === 'auto' || (sky && SKY_PHASES.includes(sky as SkyPhase)))
 			skyMode = sky as SkyMode; // else default 'auto'
 		applySky();
+		starsOn = localStorage.getItem(STARS_KEY) !== '0'; // default on
 		// While on Auto, keep the phase current if the tab is left open across a boundary.
 		skyTimer = window.setInterval(() => skyMode === 'auto' && applySky(), 5 * 60 * 1000);
 		if (dev) applySavedContent();
@@ -1002,6 +1063,16 @@
 <svelte:window onkeydown={onKey} onresize={onResize} />
 
 <div class="stage" class:panning>
+	{#if starsVisible}
+		<div class="stars" aria-hidden="true" transition:fade={{ duration: 700 }}>
+			{#each STARS as s}
+				<span
+					class:tw={s.tw}
+					style="left:{s.x}%; top:{s.y}%; width:{s.size}px; height:{s.size}px; animation-duration:{s.dur}s; animation-delay:{s.delay}s"
+				></span>
+			{/each}
+		</div>
+	{/if}
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<svg
 		bind:this={svgEl}
@@ -1131,7 +1202,6 @@
 					{@const port = airports[v.code]}
 					{@const blocks = pages[v.code] ?? stub(port.title)}
 					{@const conns = [...new Set(adj[v.code] ?? [])]}
-					<div class="surface-strip" style:background={accent[v.code]}></div>
 					<div class="surface-head">
 						<button class="back" onclick={home}>&larr; route map</button>
 						<p class="eyebrow">Now arriving &middot; <span style:color={accent[v.code]}>{v.code}</span></p>
@@ -1171,10 +1241,14 @@
 									<span class="seg-sub">transit lines</span>
 								</button>
 							</div>
-							<p class="seg-note">
-								Now showing {mapPhrase}. The change applies across the whole map and is
-								remembered next time.
-							</p>
+							<p
+								class="seg-note"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('routeNote', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{noteText('routeNote', mapPhrase, editStg)}</p>
 							<p
 								class="seg-lead"
 								class:editable={editStg}
@@ -1207,10 +1281,14 @@
 									<span class="seg-sub">e.g. Work</span>
 								</button>
 							</div>
-							<p class="seg-note">
-								Now showing {showStopNames ? 'full stop names' : 'station codes'}. Remembered
-								next time.
-							</p>
+							<p
+								class="seg-note"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('labelNote', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{noteText('labelNote', labelValue, editStg)}</p>
 							<p
 								class="seg-lead"
 								class:editable={editStg}
@@ -1234,11 +1312,14 @@
 									</button>
 								{/each}
 							</div>
-							<p class="seg-note">
-								{theme === 'system'
-									? 'Following your device setting.'
-									: `Always ${theme}.`} Remembered next time.
-							</p>
+							<p
+								class="seg-note"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('displayNote', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{noteText('displayNote', displayValue, editStg)}</p>
 							<p
 								class="seg-lead"
 								class:editable={editStg}
@@ -1261,13 +1342,52 @@
 									</button>
 								{/each}
 							</div>
-							<p class="seg-note">
-								{#if skyMode === 'off'}Off — the map uses the flat background.
-								{:else if skyMode === 'auto'}Auto — following the clock (currently {skyPhase}).
-								{:else}Fixed to {skyMode}.{/if}
-								{#if skyMode !== 'off'} The sky sets the palette, so the display mode above applies
-									again when it's off.{/if} Remembered next time.
-							</p>
+							<p
+								class="seg-note"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('skyNote', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{noteText('skyNote', skyStatus, editStg)}</p>
+							<p
+								class="seg-lead"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('starsLead', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{settingsText('starsLead')}</p>
+							<div class="sky-picker" role="radiogroup" aria-label="Stars">
+								<button
+									type="button"
+									class="sky-opt"
+									class:on={!starsOn}
+									role="radio"
+									aria-checked={!starsOn}
+									onclick={() => setStars(false)}
+								>
+									Off
+								</button>
+								<button
+									type="button"
+									class="sky-opt"
+									class:on={starsOn}
+									role="radio"
+									aria-checked={starsOn}
+									onclick={() => setStars(true)}
+								>
+									On
+								</button>
+							</div>
+							<p
+								class="seg-note"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('starsNote', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{noteText('starsNote', starsStatus, editStg)}</p>
 							{#if dev}
 								<p class="seg-lead">Edit the panel copy right in the app.</p>
 								<div class="dev-actions">
@@ -1373,7 +1493,6 @@
 					{@const a = airlines[v.idx]}
 					{@const stops = [...lineOf[v.idx]]}
 					{@const editLine = dev && editMode}
-					<div class="surface-strip" style:background={a.color}></div>
 					<div class="surface-head">
 						<button class="back" onclick={home}>&larr; route map</button>
 						<p class="eyebrow">Route line</p>
@@ -1434,6 +1553,36 @@
 		overflow: hidden;
 		/* Flat page colour, or the time-of-day sky gradient when sky mode is on. */
 		background: var(--sky, var(--page));
+	}
+	/* Tiny stars on the Night sky — behind the routes (before the svg in DOM). */
+	.stars {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		pointer-events: none;
+	}
+	.stars span {
+		position: absolute;
+		border-radius: 50%;
+		background: #eaf3ff;
+		opacity: 0.72;
+		box-shadow: 0 0 3px rgba(224, 240, 255, 0.5);
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.stars span.tw {
+			animation-name: twinkle;
+			animation-timing-function: ease-in-out;
+			animation-iteration-count: infinite;
+		}
+	}
+	@keyframes twinkle {
+		0%,
+		100% {
+			opacity: 0.15;
+		}
+		50% {
+			opacity: 0.85;
+		}
 	}
 
 	/* The stage never scrolls; the camera (viewBox) crops a world larger than the
@@ -1789,10 +1938,16 @@
 		width: min(94vw, 640px);
 		display: flex;
 		flex-direction: column;
-		background: color-mix(in srgb, var(--paper) 94%, transparent);
-		backdrop-filter: blur(10px);
-		border-left: 1.5px solid color-mix(in srgb, var(--ink) 18%, transparent);
-		box-shadow: -24px 0 60px rgba(0, 0, 0, 0.08);
+		/* Super-clear premium ice: a very transparent, faintly cool body with light
+		   refraction, and a crisp, well-defined left edge that catches the light —
+		   like the cut face of a perfect restaurant ice cube. */
+		background: color-mix(in srgb, var(--paper) 78%, transparent);
+		backdrop-filter: blur(7px) saturate(1.1);
+		-webkit-backdrop-filter: blur(7px) saturate(1.1);
+		border-left: 0.5px solid rgba(255, 255, 255, 0.16);
+		box-shadow:
+			inset 0.5px 0 0 rgba(255, 255, 255, 0.14),
+			-20px 0 46px rgba(0, 0, 0, 0.07);
 	}
 	/* Expanded: fill the viewport (desktop) — useful for the wide Traffic board. */
 	.surface.expanded {
@@ -1861,21 +2016,10 @@
 		.surface.leaving {
 			transform: translateY(100%);
 		}
-		.surface-strip {
-			margin-left: 0;
-		}
 		/* The bottom sheet is already full-width, so hide the expand toggle. */
 		.expand {
 			display: none;
 		}
-	}
-	.surface-strip {
-		flex: none;
-		height: 5px;
-		/* Pull left over the panel's 1.5px border so the accent bar reaches the very
-		   edge instead of the gray border showing beside it. Stretch keeps the right
-		   edge put. Reset on mobile, where the panel has no left border. */
-		margin-left: -1.5px;
 	}
 	.surface-head {
 		flex: none;
