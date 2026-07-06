@@ -30,7 +30,10 @@
 	const pools = chars.map((c) =>
 		/[a-z]/.test(c) ? LO : /[A-Z]/.test(c) ? UP : /[0-9]/.test(c) ? NUM : null
 	);
-	const settleAt = chars.map((_, i) => delay + base + i * stagger);
+	// Each cell settles at `start` (the caller's cascade offset) + its own ramp. The
+	// scramble itself begins at mount — never after `start` — so a delayed cell shows
+	// motion, not its finished value, until it settles (no static pre-flash / pop-in).
+	const settleAt = chars.map((_, i) => start + delay + base + i * stagger);
 
 	const reduce =
 		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -62,38 +65,32 @@
 
 	onMount(() => {
 		if (reduce) return;
-		let intervalId = 0;
-		// Scramble immediately, or after `start` ms so callers can cascade a set of
-		// flaps (e.g. a board flipping top row to bottom).
-		const kick = () => {
-			spinning = pools.map((p) => p !== null);
-			glyphs = chars.map((c, i) => (pools[i] ? rand(pools[i]!) : c));
-			let elapsed = 0;
-			intervalId = setInterval(() => {
-				elapsed += tick;
-				const g = [...glyphs];
-				const sp = [...spinning];
-				let any = false;
-				for (let i = 0; i < chars.length; i++) {
-					if (!sp[i]) continue;
-					if (elapsed >= settleAt[i]) {
-						g[i] = chars[i];
-						sp[i] = false;
-					} else {
-						g[i] = rand(pools[i]!);
-						any = true;
-					}
+		// Scramble from the first frame regardless of `start` — the caller's cascade
+		// offset is baked into settleAt, so the cell keeps flapping (never shows its
+		// final value) until its scheduled settle. `elapsed` is measured from mount.
+		spinning = pools.map((p) => p !== null);
+		glyphs = chars.map((c, i) => (pools[i] ? rand(pools[i]!) : c));
+		let elapsed = 0;
+		const intervalId = setInterval(() => {
+			elapsed += tick;
+			const g = [...glyphs];
+			const sp = [...spinning];
+			let any = false;
+			for (let i = 0; i < chars.length; i++) {
+				if (!sp[i]) continue;
+				if (elapsed >= settleAt[i]) {
+					g[i] = chars[i];
+					sp[i] = false;
+				} else {
+					g[i] = rand(pools[i]!);
+					any = true;
 				}
-				glyphs = g;
-				spinning = sp;
-				if (!any) clearInterval(intervalId);
-			}, tick);
-		};
-		const timeoutId = start > 0 ? setTimeout(kick, start) : (kick(), 0);
-		return () => {
-			clearTimeout(timeoutId);
-			if (intervalId) clearInterval(intervalId);
-		};
+			}
+			glyphs = g;
+			spinning = sp;
+			if (!any) clearInterval(intervalId);
+		}, tick);
+		return () => clearInterval(intervalId);
 	});
 </script>
 
