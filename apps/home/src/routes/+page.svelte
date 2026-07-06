@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
+	import { dev } from '$app/environment';
 	import SplitFlap from '$lib/SplitFlap.svelte';
 
 	// Airline route-map homepage. The network is deliberately LARGER than the
@@ -25,9 +26,9 @@
 		PRJ: { at: [460, 160], title: 'Projects' }
 	};
 
-	const airlines: { name: string; color: string; legs: [string, string][] }[] = [
-		{ name: 'Verde', color: '#12a150', legs: [['KSH', 'ABT'], ['ABT', 'PRJ'], ['ABT', 'WRK']] },
-		{ name: 'Nova', color: '#8b46e0', legs: [['KSH', 'STG']] }
+	const airlines: { name: string; color: string; legs: [string, string][]; body?: string }[] = [
+		{ name: 'Loess', color: '#12a150', legs: [['KSH', 'ABT'], ['ABT', 'PRJ'], ['ABT', 'WRK']] },
+		{ name: 'Gray’s', color: '#8b46e0', legs: [['KSH', 'STG']] }
 	];
 
 	// Two layouts, same station codes; mapMode picks which screen coords are live.
@@ -41,15 +42,15 @@
 	);
 
 	// Train mode (desktop, landscape): a flat, hand-laid transit map. Sparse for now —
-	// Verde's About cluster sits left of the hub (ABT fanning to Work/Projects) and
-	// Nova's Settings stop sits to the right. New routes slot in around these.
+	// Loess's About cluster sits left of the hub (ABT fanning to Work/Projects) and
+	// Gray's Settings stop sits to the right. New routes slot in around these.
 	const P_rail: Record<string, Pt> = {
 		KSH: [380, 360],
-		// Verde — KSH→ABT, then ABT fans to Work (up) and Projects (down).
+		// Loess — KSH→ABT, then ABT fans to Work (up) and Projects (down).
 		ABT: [250, 300],
 		WRK: [120, 200],
 		PRJ: [175, 430],
-		// Nova — Settings, east of the hub.
+		// Gray's — Settings, east of the hub.
 		STG: [560, 375]
 	};
 
@@ -58,11 +59,11 @@
 	// compact so the top branch clears the masthead and the bottom clears the legend.
 	const P_rail_v: Record<string, Pt> = {
 		KSH: [230, 455],
-		// Verde — ABT up, fanning to Work (left) and Projects (right).
+		// Loess — ABT up, fanning to Work (left) and Projects (right).
 		ABT: [230, 350],
 		WRK: [145, 262],
 		PRJ: [315, 262],
-		// Nova — Settings, below the hub.
+		// Gray's — Settings, below the hub.
 		STG: [230, 590]
 	};
 
@@ -322,38 +323,43 @@
 		| { sub: string }
 		| { p: string }
 		| { img: string }
-		| { quote: string };
-	const pages: Record<string, Block[]> = {
+		| { quote: string }
+		| { email: string };
+	// reicon "mailbox", tucked at the end of the contact address.
+	const MAILBOX_SVG =
+		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M18.3715 3.02906C17.9435 2.86413 17.4778 2.82269 17.0274 2.90947L16.75 2.96292V4.61813C17.4742 4.47982 18.2228 4.54702 18.9109 4.8122C19.338 4.97679 19.8019 5.01813 20.25 4.93273V3.27443C19.6437 3.35379 19.025 3.28092 18.4506 3.05957L18.3715 3.02906ZM16.75 6.14572L17.0274 6.09227C17.4778 6.00549 17.9435 6.04692 18.3715 6.21186C19.1193 6.50005 19.9371 6.55389 20.7163 6.36623L20.7829 6.35019C21.3502 6.21354 21.75 5.706 21.75 5.12246V2.90097C21.75 2.13165 21.0305 1.56486 20.2825 1.745C19.8531 1.84845 19.4023 1.81877 18.99 1.65991L18.9109 1.6294C18.2207 1.36345 17.4698 1.29663 16.7436 1.43657L16.2575 1.53023C15.6726 1.64293 15.25 2.15479 15.25 2.75042V6.24956H7C6.95339 6.24956 6.90777 6.25381 6.86352 6.26195C6.74341 6.25373 6.62219 6.24956 6.5 6.24956C3.6005 6.24956 1.25 8.60006 1.25 11.4996V16.767C1.25 18.4142 2.58534 19.7496 4.23256 19.7496H9.75V21.9996C9.75 22.4138 10.0858 22.7496 10.5 22.7496C10.9142 22.7496 11.25 22.4138 11.25 21.9996V19.7496H13.75V21.9996C13.75 22.4138 14.0858 22.7496 14.5 22.7496C14.9142 22.7496 15.25 22.4138 15.25 21.9996V19.7496H19.7931C21.4261 19.7496 22.75 18.4257 22.75 16.7927V11.4996C22.75 8.60006 20.3995 6.24956 17.5 6.24956H16.75V6.14572ZM15.25 7.74956V10.9996C15.25 11.4138 15.5858 11.7496 16 11.7496C16.4142 11.7496 16.75 11.4138 16.75 10.9996V7.74956H17.5C19.5711 7.74956 21.25 9.42849 21.25 11.4996V16.7927C21.25 17.5973 20.5977 18.2496 19.7931 18.2496H11.75V11.4996C11.75 10.0305 11.1466 8.70245 10.1742 7.74956H15.25ZM10.25 18.2496V11.4996C10.25 9.42849 8.57107 7.74956 6.5 7.74956C4.42893 7.74956 2.75 9.42849 2.75 11.4996V16.767C2.75 17.5858 3.41376 18.2496 4.23256 18.2496H10.25ZM4.25 15.9996C4.25 15.5853 4.58579 15.2496 5 15.2496H8C8.41421 15.2496 8.75 15.5853 8.75 15.9996C8.75 16.4138 8.41421 16.7496 8 16.7496H5C4.58579 16.7496 4.25 16.4138 4.25 15.9996Z" fill="currentColor"/></svg>';
+	const defaultPages: Record<string, Block[]> = {
 		// Welcome — the home hub greeting, from dotcom-2 card K 001.
 		KSH: [
-			{ p: 'This is Kashinoga, my virtual home. Here you’ll find the (mostly) fun things I’ve created or found.' },
+			{ p: 'This is Kashinoga, my virtual home.' },
+			{ p: 'Here, you’ll find the (mostly) fun things that I’ve created or found.' },
 			{ p: 'I hope you enjoy your time here.' },
 			{ quote: 'Take care.' }
 		],
 		// Work — a stop off About, from dotcom-2 About card K 202.
 		WRK: [
 			{ p: 'I’m a digital infrastructure engineer for U.S. energy companies.' },
-			{ p: 'I was formerly a software engineering consultant for Midwestern U.S. companies and the State of Iowa.' },
-			{ p: 'I have a B.S. in Computer Science, Iowa State University; general education from Drake University.' },
-			{ quote: 'Midwest-made.' }
+			{ p: 'I was formerly a software engineering consultant for the State of Iowa and other midwestern U.S. companies.' },
+			{ p: 'I have a B.S. in Computer Science from Iowa State University, and acquired general education from Drake University.' },
+			{ quote: 'I do love ranch.' }
 		],
 		// Projects — a stop off About, from dotcom-2 About card K 203.
 		PRJ: [
-			{ p: 'Things I have created and operate.' },
+			{ p: 'Things that I have created and currently operate.' },
 			{ sub: 'Digital Community Services' },
-			{ p: 'Matrix, Nextcloud, and Open WebUI — for a better digital well-being.' },
+			{ p: 'Matrix, Nextcloud, and Open WebUI: for a better digital wellbeing.' },
 			{ sub: 'Digital Play Services' },
 			{ p: 'Casual, community, and competitive gaming for friends.' },
 			{ sub: 'SDKK' },
 			{ p: 'A safe, friendly Discord community.' },
-			{ quote: 'For friends and family.' }
+			{ quote: ':3dloldeepfried: - IYKYK' }
 		],
 		// About / intro — dotcom-2 About card K 201.
 		ABT: [
 			{ h: 'Andrew Nguyen' },
 			{ p: 'I enjoy nature, literature, and video games — and heightened experiences.' },
-			{ p: 'Based in the Midwestern United States, with occasional visits to Southeast Asia for friends and family.' },
-			{ p: 'Say hello: contact@kashinoga.com' }
+			{ p: 'I’m based in the Midwestern United States, with occasional visits to Southeast Asia for friends and family.' },
+			{ email: 'contact@kashinoga.com' }
 		]
 	};
 	const stub = (t: string): Block[] => [
@@ -361,6 +367,134 @@
 			p: `“${t}” is a placeholder destination. This surface scrolls and holds headings, paragraphs, images, and quotes — drop the real ${t.toLowerCase()} content here.`
 		}
 	];
+
+	// Live, editable copy of the panel body copy. Edit Mode writes into `drafts`
+	// (kept out of reactive state so typing never resets the caret); Save applies
+	// them here, persists a sparse override map for this browser, and copies the
+	// whole thing to the clipboard so it can be baked back into the source.
+	const CONTENT_KEY = 'ksh-content';
+	let pages = $state<Record<string, Block[]>>(structuredClone(defaultPages));
+	// Editable train-line names (Loess, Gray's, …), same Edit-Mode machinery.
+	const defaultLineNames = airlines.map((a) => a.name);
+	let lineNames = $state([...defaultLineNames]);
+	let editMode = $state(false);
+	let editRev = $state(0); // bump to remount panel content (reset DOM after save/discard)
+	let toast = $state('');
+	let toastTimer = 0;
+	// Which block fields are editable text, per the block's shape.
+	const EDIT_FIELDS = ['h', 'sub', 'p', 'quote', 'email'] as const;
+	type EditField = (typeof EDIT_FIELDS)[number];
+	// Non-reactive staging: `${code}.${index}.${field}` → edited text.
+	let drafts: Record<string, string> = {};
+
+	const fieldKey = (code: string, i: number, f: EditField) => `${code}.${i}.${f}`;
+	// Text to render for a field: a live draft if one is staged, else the saved value.
+	function fieldText(code: string, i: number, f: EditField, fallback: string) {
+		const k = fieldKey(code, i, f);
+		return k in drafts ? drafts[k] : fallback;
+	}
+	function stageEdit(code: string, i: number, f: EditField, text: string) {
+		drafts[fieldKey(code, i, f)] = text;
+	}
+	// Line names share the drafts buffer under a distinct `LINE.<idx>.name` key.
+	const lineKey = (idx: number) => `LINE.${idx}.name`;
+	function lineFieldText(idx: number) {
+		const k = lineKey(idx);
+		return k in drafts ? drafts[k] : lineNames[idx];
+	}
+	function stageLineEdit(idx: number, text: string) {
+		drafts[lineKey(idx)] = text;
+	}
+	function showToast(msg: string) {
+		toast = msg;
+		clearTimeout(toastTimer);
+		toastTimer = window.setTimeout(() => (toast = ''), 4000);
+	}
+	function enterEditMode() {
+		if (!dev) return; // Edit Mode is a dev-only authoring tool.
+		drafts = {};
+		editMode = true;
+	}
+	function discardEdits() {
+		drafts = {};
+		editMode = false;
+		editRev++; // remount so any edited-but-discarded DOM resets to saved text
+	}
+	async function saveEdits() {
+		// Apply staged drafts onto the live pages (and line names).
+		for (const [k, val] of Object.entries(drafts)) {
+			const [code, iStr, f] = k.split('.');
+			if (code === 'LINE') {
+				if (f === 'name') lineNames[Number(iStr)] = val;
+				else if (f === 'body') lineBodies[Number(iStr)] = val;
+				continue;
+			}
+			const block = pages[code]?.[Number(iStr)] as Record<string, string> | undefined;
+			if (block && f in block) block[f] = val;
+		}
+		drafts = {};
+		editMode = false;
+		editRev++;
+		// Persist a sparse override map for this browser so the work survives reloads.
+		try {
+			const overrides: Record<string, string> = {};
+			for (const code of Object.keys(pages)) {
+				pages[code].forEach((b, i) => {
+					const def = defaultPages[code]?.[i] as Record<string, string> | undefined;
+					for (const f of EDIT_FIELDS) {
+						const cur = (b as Record<string, string>)[f];
+						if (cur !== undefined && def && cur !== def[f]) overrides[fieldKey(code, i, f)] = cur;
+					}
+				});
+			}
+			lineNames.forEach((name, i) => {
+				if (name !== defaultLineNames[i]) overrides[lineKey(i)] = name;
+			});
+			lineBodies.forEach((body, i) => {
+				if (body !== defaultLineBodies[i]) overrides[lineBodyKey(i)] = body;
+			});
+			if (Object.keys(overrides).length) localStorage.setItem(CONTENT_KEY, JSON.stringify(overrides));
+			else localStorage.removeItem(CONTENT_KEY);
+		} catch {
+			/* storage unavailable — the clipboard copy is still the source of truth */
+		}
+		// Hand the full edited copy back: copy JSON to the clipboard (and log it).
+		const json = JSON.stringify(
+			{ pages, lines: airlines.map((_, i) => ({ name: lineNames[i], body: lineBodies[i] })) },
+			null,
+			2
+		);
+		console.log('[Kashinoga] edited panel copy:\n' + json);
+		try {
+			await navigator.clipboard.writeText(json);
+			showToast('Saved. Content copied — paste it to Claude to make it permanent.');
+		} catch {
+			showToast('Saved locally. Copy the JSON from the console to make it permanent.');
+		}
+	}
+	// Apply any saved overrides from this browser onto the live pages and line names.
+	function applySavedContent() {
+		try {
+			const raw = localStorage.getItem(CONTENT_KEY);
+			if (!raw) return;
+			const ov = JSON.parse(raw) as Record<string, string>;
+			if (!ov || typeof ov !== 'object') return;
+			for (const [k, val] of Object.entries(ov)) {
+				if (typeof val !== 'string') continue;
+				const [code, iStr, f] = k.split('.');
+				if (code === 'LINE') {
+					const idx = Number(iStr);
+					if (f === 'name' && idx < lineNames.length) lineNames[idx] = val;
+					else if (f === 'body' && idx < lineBodies.length) lineBodies[idx] = val;
+					continue;
+				}
+				const block = pages[code]?.[Number(iStr)] as Record<string, string> | undefined;
+				if (block && f in block) block[f] = val;
+			}
+		} catch {
+			/* ignore malformed saved content */
+		}
+	}
 
 	// Which airline colour serves each airport, and everywhere it connects to.
 	const accent: Record<string, string> = {};
@@ -375,6 +509,23 @@
 	}
 	// Airports on each airline (index → set of codes) for line highlighting.
 	const lineOf = airlines.map((a) => new Set<string>(a.legs.flat()));
+
+	// Editable line body copy: a stored blurb per line (defaults to the generated
+	// "calls at N destinations" sentence, or an airline's own `body` if set).
+	const defaultLineBodies = airlines.map(
+		(a, i) =>
+			a.body ??
+			`The ${defaultLineNames[i]} line calls at ${lineOf[i].size} destinations across the network — tap a station to fly there.`
+	);
+	let lineBodies = $state([...defaultLineBodies]);
+	const lineBodyKey = (idx: number) => `LINE.${idx}.body`;
+	function lineBodyText(idx: number) {
+		const k = lineBodyKey(idx);
+		return k in drafts ? drafts[k] : lineBodies[idx];
+	}
+	function stageLineBody(idx: number, text: string) {
+		drafts[lineBodyKey(idx)] = text;
+	}
 
 	// BFS depth from the hub, so the map reveals in rings: the hub pops first, then
 	// its neighbours, then theirs, and so on — each section's lines drawing just after.
@@ -667,6 +818,7 @@
 		if (n === '1' || n === '0') stopNamesPref = n === '1';
 		const th = localStorage.getItem(THEME_KEY);
 		if (th === 'light' || th === 'dark') theme = th;
+		if (dev) applySavedContent();
 		// Snap to the resolved mode/orientation home framing.
 		cam = { ...HOME };
 		target = { ...HOME };
@@ -675,6 +827,7 @@
 	onDestroy(() => {
 		if (raf) cancelAnimationFrame(raf);
 		clearTimeout(navTimer);
+		clearTimeout(toastTimer);
 	});
 
 	const viewBox = $derived(
@@ -774,7 +927,7 @@
 		{#each airlines as a, i}
 			<li style="--n:{i}">
 				<button class="legend-btn" onclick={() => openLine(i)}>
-					<span class="swatch" style="background:{a.color}"></span>{a.name}
+					<span class="swatch" style="background:{a.color}"></span>{lineNames[i]}
 				</button>
 			</li>
 		{/each}
@@ -795,7 +948,7 @@
 			     slides back in. transition:fly handles the map⇄panel open/close. The
 			     inner key (no transition) just remounts content so the arrival-board
 			     titles re-flip on each destination. -->
-			{#key v.kind === 'port' ? 'p' + v.code : 'l' + v.idx}
+			{#key (v.kind === 'port' ? 'p' + v.code : 'l' + v.idx) + ':' + editRev}
 				{#if v.kind === 'port'}
 					{@const port = airports[v.code]}
 					{@const blocks = pages[v.code] ?? stub(port.title)}
@@ -887,21 +1040,73 @@
 									? 'Following your device setting.'
 									: `Always ${theme}.`} Remembered next time.
 							</p>
+							{#if dev}
+								<p class="seg-lead">Edit the panel copy right in the app.</p>
+								<button type="button" class="edit-enter" onclick={enterEditMode} disabled={editMode}>
+									{editMode ? 'Editing…' : 'Enter edit mode'}
+								</button>
+								<p class="seg-note">
+									Turn on edit mode, then open any station or line and type over its text.
+									Save copies the result so it can be made permanent; discard drops your
+									changes. (Dev only.)
+								</p>
+							{/if}
 						{:else}
-						{#each blocks as b}
+						{@const edit = dev && editMode && !!pages[v.code]}
+						{#each blocks as b, i}
 							{#if 'h' in b}
-								<h3>{b.h}</h3>
+								<h3
+									class:editable={edit}
+									contenteditable={edit}
+									oninput={edit
+										? (e) => stageEdit(v.code, i, 'h', e.currentTarget.textContent ?? '')
+										: undefined}
+								>{fieldText(v.code, i, 'h', b.h)}</h3>
 							{:else if 'sub' in b}
-								<h4>{b.sub}</h4>
+								<h4
+									class:editable={edit}
+									contenteditable={edit}
+									oninput={edit
+										? (e) => stageEdit(v.code, i, 'sub', e.currentTarget.textContent ?? '')
+										: undefined}
+								>{fieldText(v.code, i, 'sub', b.sub)}</h4>
 							{:else if 'quote' in b}
-								<blockquote>{b.quote}</blockquote>
+								<blockquote
+									class:editable={edit}
+									contenteditable={edit}
+									oninput={edit
+										? (e) => stageEdit(v.code, i, 'quote', e.currentTarget.textContent ?? '')
+										: undefined}
+								>{fieldText(v.code, i, 'quote', b.quote)}</blockquote>
 							{:else if 'img' in b}
 								<figure class="img">
 									<div class="img-ph" style:--tint={accent[v.code]}><span>image</span></div>
 									<figcaption>{b.img}</figcaption>
 								</figure>
+							{:else if 'email' in b}
+								<p>
+									Say hello:
+									{#if edit}
+										<span
+											class="editable mail-edit"
+											contenteditable="true"
+											oninput={(e) =>
+												stageEdit(v.code, i, 'email', e.currentTarget.textContent ?? '')}
+										>{fieldText(v.code, i, 'email', b.email)}</span>
+									{:else}
+										<a class="mail" href="mailto:{b.email}">
+											{b.email}<span class="mail-ico">{@html MAILBOX_SVG}</span>
+										</a>
+									{/if}
+								</p>
 							{:else if 'p' in b}
-								<p>{b.p}</p>
+								<p
+									class:editable={edit}
+									contenteditable={edit}
+									oninput={edit
+										? (e) => stageEdit(v.code, i, 'p', e.currentTarget.textContent ?? '')
+										: undefined}
+								>{fieldText(v.code, i, 'p', b.p)}</p>
 							{/if}
 						{/each}
 						{/if}
@@ -926,17 +1131,29 @@
 				{:else}
 					{@const a = airlines[v.idx]}
 					{@const stops = [...lineOf[v.idx]]}
+					{@const editLine = dev && editMode}
 					<div class="surface-strip" style:background={a.color}></div>
 					<div class="surface-head">
 						<button class="back" onclick={home}>&larr; route map</button>
 						<p class="eyebrow">Route line</p>
-						<h2 class="dest"><SplitFlap text={a.name} base={160} stagger={45} /></h2>
+						{#if editLine}
+							<h2
+								class="dest editable"
+								contenteditable="true"
+								oninput={(e) => stageLineEdit(v.idx, e.currentTarget.textContent ?? '')}
+							>{lineFieldText(v.idx)}</h2>
+						{:else}
+							<h2 class="dest"><SplitFlap text={lineNames[v.idx]} base={160} stagger={45} /></h2>
+						{/if}
 					</div>
 					<div class="surface-body">
-						<p>
-							The <strong>{a.name}</strong> line calls at {stops.length} destinations across
-							the network — tap a station to fly there.
-						</p>
+						<p
+							class:editable={editLine}
+							contenteditable={editLine}
+							oninput={editLine
+								? (e) => stageLineBody(v.idx, e.currentTarget.textContent ?? '')
+								: undefined}
+						>{lineBodyText(v.idx)}</p>
 						<nav class="onward">
 							<p class="eyebrow">Stations on this line</p>
 							<ul>
@@ -955,6 +1172,17 @@
 				{/if}
 			{/key}
 		</aside>
+	{/if}
+
+	{#if dev && editMode}
+		<div class="edit-bar" role="toolbar" aria-label="Edit mode actions">
+			<span class="edit-flag">Edit mode</span>
+			<button type="button" class="edit-btn discard" onclick={discardEdits}>Discard &amp; exit</button>
+			<button type="button" class="edit-btn save" onclick={saveEdits}>Save &amp; exit</button>
+		</div>
+	{/if}
+	{#if toast}
+		<div class="edit-toast" role="status">{toast}</div>
 	{/if}
 </div>
 
@@ -1393,6 +1621,144 @@
 		font-size: 1.2rem;
 		font-style: italic;
 		color: var(--ink);
+	}
+	/* Edit Mode — editable copy gets a dashed field; focus firms it up. */
+	.editable {
+		outline: 1px dashed color-mix(in srgb, var(--ink) 35%, transparent);
+		outline-offset: 3px;
+		border-radius: 3px;
+		cursor: text;
+		transition: outline-color 0.15s ease, background 0.15s ease;
+	}
+	.editable:hover {
+		background: color-mix(in srgb, var(--ink) 4%, transparent);
+	}
+	.editable:focus {
+		outline: 2px solid var(--ink);
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
+	}
+	.mail-edit {
+		font-weight: 600;
+	}
+	.edit-enter {
+		display: inline-flex;
+		align-items: center;
+		margin: 0.5rem 0 0.2rem;
+		padding: 0.6rem 1.1rem;
+		font: inherit;
+		font-weight: 700;
+		color: var(--paper);
+		background: var(--ink);
+		border: 1.5px solid var(--ink);
+		border-radius: 999px;
+		cursor: pointer;
+		transition: opacity 0.15s ease;
+	}
+	.edit-enter:hover {
+		opacity: 0.85;
+	}
+	.edit-enter:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+	.edit-enter:focus-visible {
+		outline: 2px solid var(--ink);
+		outline-offset: 2px;
+	}
+	/* Floating action bar, centred at the bottom, above the panel. */
+	.edit-bar {
+		position: fixed;
+		left: 50%;
+		bottom: clamp(1rem, 4vh, 2.25rem);
+		transform: translateX(-50%);
+		z-index: 50;
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		padding: 0.5rem 0.6rem 0.5rem 1rem;
+		background: color-mix(in srgb, var(--paper) 88%, transparent);
+		backdrop-filter: blur(12px);
+		border: 1.5px solid color-mix(in srgb, var(--ink) 16%, transparent);
+		border-radius: 999px;
+		box-shadow: 0 10px 34px rgba(0, 0, 0, 0.18);
+	}
+	.edit-flag {
+		font-size: 0.8rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--sub);
+	}
+	.edit-btn {
+		padding: 0.55rem 1.1rem;
+		font: inherit;
+		font-weight: 700;
+		border-radius: 999px;
+		border: 1.5px solid transparent;
+		cursor: pointer;
+		transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+	}
+	.edit-btn:focus-visible {
+		outline: 2px solid var(--ink);
+		outline-offset: 2px;
+	}
+	.edit-btn.save {
+		color: var(--paper);
+		background: var(--ink);
+		border-color: var(--ink);
+	}
+	.edit-btn.save:hover {
+		opacity: 0.85;
+	}
+	.edit-btn.discard {
+		color: var(--ink);
+		background: transparent;
+		border-color: color-mix(in srgb, var(--ink) 26%, transparent);
+	}
+	.edit-btn.discard:hover {
+		background: color-mix(in srgb, var(--ink) 6%, transparent);
+	}
+	.edit-toast {
+		position: fixed;
+		left: 50%;
+		bottom: calc(clamp(1rem, 4vh, 2.25rem) + 3.6rem);
+		transform: translateX(-50%);
+		z-index: 50;
+		max-width: min(90vw, 420px);
+		padding: 0.6rem 1rem;
+		font-size: 0.9rem;
+		text-align: center;
+		color: var(--paper);
+		background: color-mix(in srgb, var(--ink) 92%, transparent);
+		border-radius: 12px;
+		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+	}
+
+	/* Contact address — underlined mailto with the mailbox icon riding at its end. */
+	.mail {
+		color: var(--ink);
+		font-weight: 600;
+		text-decoration: underline;
+		text-decoration-thickness: 1.5px;
+		text-underline-offset: 2px;
+		white-space: nowrap;
+	}
+	.mail:hover {
+		color: var(--orange);
+	}
+	.mail:focus-visible {
+		outline: 2px solid var(--ink);
+		outline-offset: 2px;
+		border-radius: 3px;
+	}
+	.mail-ico {
+		display: inline-flex;
+		vertical-align: -0.16em;
+		margin-left: 0.35em;
+	}
+	.mail-ico :global(svg) {
+		width: 1.05em;
+		height: 1.05em;
 	}
 	figure.img {
 		margin: 0.4rem 0;
