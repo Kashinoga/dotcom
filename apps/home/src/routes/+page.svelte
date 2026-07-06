@@ -3,6 +3,7 @@
 	import { fly } from 'svelte/transition';
 	import { dev } from '$app/environment';
 	import SplitFlap from '$lib/SplitFlap.svelte';
+	import TrafficBoard from '$lib/TrafficBoard.svelte';
 
 	// Airline route-map homepage. The network is deliberately LARGER than the
 	// viewport: routes run off every edge, and visible nodes lead outward to the
@@ -23,12 +24,32 @@
 		// About splits into its own two stops — Work and Projects.
 		ABT: { at: [340, 220], title: 'About' },
 		WRK: { at: [240, 180], title: 'Work' },
-		PRJ: { at: [460, 160], title: 'Projects' }
+		PRJ: { at: [460, 160], title: 'Projects' },
+		// Apps — a hub for the little live apps, fanning out on the orange line.
+		APP: { at: [540, 410], title: 'Apps' },
+		// Air Traffic — a live "what's in the air" board; first app off the Apps hub.
+		ATFC: { at: [620, 520], title: 'Air Traffic' }
 	};
 
 	const airlines: { name: string; color: string; legs: [string, string][]; body?: string }[] = [
-		{ name: 'Loess', color: '#12a150', legs: [['KSH', 'ABT'], ['ABT', 'PRJ'], ['ABT', 'WRK']] },
-		{ name: 'Gray’s', color: '#8b46e0', legs: [['KSH', 'STG']] }
+		{
+			name: 'Loess',
+			color: '#12a150',
+			legs: [['KSH', 'ABT'], ['ABT', 'PRJ'], ['ABT', 'WRK']],
+			body: 'Named after a trip I took in college, Loess possess some of my most formative moments.'
+		},
+		{
+			name: 'Gray’s',
+			color: '#8b46e0',
+			legs: [['KSH', 'STG']],
+			body: 'Named after my childhood area, Gray’s holds a special place in my heart.'
+		},
+		{
+			name: 'Apps',
+			color: '#f06030',
+			legs: [['KSH', 'APP'], ['APP', 'ATFC']],
+			body: 'The little live apps I run — Air Traffic is the first stop on the line.'
+		}
 	];
 
 	// Two layouts, same station codes; mapMode picks which screen coords are live.
@@ -51,7 +72,10 @@
 		WRK: [120, 200],
 		PRJ: [175, 430],
 		// Gray's — Settings, east of the hub.
-		STG: [560, 375]
+		STG: [560, 375],
+		// Apps — orange line dropping south of the hub, then on to Air Traffic.
+		APP: [430, 500],
+		ATFC: [500, 610]
 	};
 
 	// Train mode (mobile, portrait): the same sparse network stacked vertically — the
@@ -64,7 +88,10 @@
 		WRK: [145, 262],
 		PRJ: [315, 262],
 		// Gray's — Settings, below the hub.
-		STG: [230, 590]
+		STG: [230, 590],
+		// Apps — orange line branching down-right of the hub, then on to Air Traffic.
+		APP: [360, 515],
+		ATFC: [450, 615]
 	};
 
 	// Route drawing style, toggled from the Settings (STG) stop; persisted so the
@@ -354,6 +381,11 @@
 			{ p: 'A safe, friendly Discord community.' },
 			{ quote: ':3dloldeepfried: - IYKYK' }
 		],
+		// Apps — the hub for the little live apps.
+		APP: [
+			{ p: 'Little live apps I’ve built — tap one to open it.' },
+			{ quote: 'More to come.' }
+		],
 		// About / intro — dotcom-2 About card K 201.
 		ABT: [
 			{ h: 'Andrew Nguyen' },
@@ -414,6 +446,16 @@
 		if (!dev) return; // Edit Mode is a dev-only authoring tool.
 		drafts = {};
 		editMode = true;
+	}
+	// Dev-only: wipe this app's saved preferences + edits, then reload to defaults.
+	function clearLocalStorage() {
+		if (!dev) return;
+		try {
+			for (const k of [MODE_KEY, NAMES_KEY, THEME_KEY, CONTENT_KEY]) localStorage.removeItem(k);
+		} catch {
+			/* storage unavailable — nothing to clear */
+		}
+		location.reload();
 	}
 	function discardEdits() {
 		drafts = {};
@@ -582,6 +624,12 @@
 	let view = $state<View | null>(null);
 	// When navigating panel→panel, the whole panel slides off before its content swaps.
 	let panelLeaving = $state(false);
+	// Expand the panel to fill the viewport (handy for the wide Traffic board).
+	let panelExpanded = $state(false);
+	const MAXIMIZE_SVG =
+		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.1429 1.25C15.7286 1.25 15.3929 1.58579 15.3929 2C15.3929 2.41421 15.7286 2.75 16.1429 2.75H20.1893L14.4697 8.46967C14.1768 8.76256 14.1768 9.23744 14.4697 9.53033C14.7626 9.82322 15.2374 9.82322 15.5303 9.53033L21.25 3.81066V7.85714C21.25 8.27136 21.5858 8.60714 22 8.60714C22.4142 8.60714 22.75 8.27136 22.75 7.85714V2C22.75 1.58579 22.4142 1.25 22 1.25H16.1429Z" fill="currentColor"/><path d="M7.85714 22.75C8.27136 22.75 8.60714 22.4142 8.60714 22C8.60714 21.5858 8.27136 21.25 7.85714 21.25H3.81066L9.53033 15.5303C9.82322 15.2374 9.82322 14.7626 9.53033 14.4697C9.23744 14.1768 8.76256 14.1768 8.46967 14.4697L2.75 20.1893V16.1429C2.75 15.7286 2.41421 15.3929 2 15.3929C1.58579 15.3929 1.25 15.7286 1.25 16.1429V22C1.25 22.4142 1.58579 22.75 2 22.75H7.85714Z" fill="currentColor"/></svg>';
+	const MINIMIZE_SVG =
+		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.8571 9.75C21.2714 9.75 21.6071 9.41421 21.6071 9C21.6071 8.58579 21.2714 8.25 20.8571 8.25H16.8107L22.5303 2.53033C22.8232 2.23744 22.8232 1.76256 22.5303 1.46967C22.2374 1.17678 21.7626 1.17678 21.4697 1.46967L15.75 7.18934V3.14286C15.75 2.72864 15.4142 2.39286 15 2.39286C14.5858 2.39286 14.25 2.72864 14.25 3.14286V9C14.25 9.41421 14.5858 9.75 15 9.75H20.8571Z" fill="currentColor"/><path d="M3.14286 14.25C2.72864 14.25 2.39286 14.5858 2.39286 15C2.39286 15.4142 2.72864 15.75 3.14286 15.75H7.18934L1.46967 21.4697C1.17678 21.7626 1.17678 22.2374 1.46967 22.5303C1.76256 22.8232 2.23744 22.8232 2.53033 22.5303L8.25 16.8107V20.8571C8.25 21.2714 8.58579 21.6071 9 21.6071C9.41421 21.6071 9.75 21.2714 9.75 20.8571V15C9.75 14.5858 9.41421 14.25 9 14.25H3.14286Z" fill="currentColor"/></svg>';
 	const PANEL_SLIDE = 300;
 	let navTimer = 0;
 	let target = { ...HOME_AIR };
@@ -645,6 +693,7 @@
 	function home() {
 		clearTimeout(navTimer);
 		panelLeaving = false;
+		panelExpanded = false;
 		view = null;
 		flyTo(HOME);
 		// Drop focus off the selected node so its dot returns to its normal weight
@@ -920,7 +969,7 @@
 				{/each}
 			</div>
 		</div>
-		<p class="tagline">a route map of one person&rsquo;s internet</p>
+		<p class="tagline">a route map of my internet</p>
 	</header>
 
 	<ul class="legend" class:hidden={view !== null}>
@@ -939,10 +988,21 @@
 			bind:this={panelEl}
 			class="surface"
 			class:leaving={panelLeaving}
+			class:expanded={panelExpanded}
 			transition:fly|global={isMobile
 				? { y: 900, opacity: 1, duration: 380 }
 				: { x: 680, opacity: 1, duration: 380 }}
 		>
+			<button
+				type="button"
+				class="expand"
+				aria-pressed={panelExpanded}
+				aria-label={panelExpanded ? 'Collapse panel' : 'Expand panel to fill'}
+				title={panelExpanded ? 'Collapse' : 'Expand to fill'}
+				onclick={() => (panelExpanded = !panelExpanded)}
+			>
+				{@html panelExpanded ? MINIMIZE_SVG : MAXIMIZE_SVG}
+			</button>
 			<!-- The panel is reused across destinations: on navigation the whole panel
 			     slides out, swaps to the new node's content while off-screen, then
 			     slides back in. transition:fly handles the map⇄panel open/close. The
@@ -1042,15 +1102,28 @@
 							</p>
 							{#if dev}
 								<p class="seg-lead">Edit the panel copy right in the app.</p>
-								<button type="button" class="edit-enter" onclick={enterEditMode} disabled={editMode}>
-									{editMode ? 'Editing…' : 'Enter edit mode'}
-								</button>
+								<div class="dev-actions">
+									<button
+										type="button"
+										class="edit-enter"
+										onclick={enterEditMode}
+										disabled={editMode}
+									>
+										{editMode ? 'Editing…' : 'Enter edit mode'}
+									</button>
+									<button type="button" class="edit-enter ghost" onclick={clearLocalStorage}>
+										Clear local storage
+									</button>
+								</div>
 								<p class="seg-note">
 									Turn on edit mode, then open any station or line and type over its text.
 									Save copies the result so it can be made permanent; discard drops your
-									changes. (Dev only.)
+									changes. Clear local storage wipes saved edits and preferences, then
+									reloads to the source defaults. (Dev only.)
 								</p>
 							{/if}
+						{:else if v.code === 'ATFC'}
+							<TrafficBoard accent={accent[v.code]} />
 						{:else}
 						{@const edit = dev && editMode && !!pages[v.code]}
 						{#each blocks as b, i}
@@ -1512,6 +1585,13 @@
 		border-left: 1.5px solid color-mix(in srgb, var(--ink) 18%, transparent);
 		box-shadow: -24px 0 60px rgba(0, 0, 0, 0.08);
 	}
+	/* Expanded: fill the viewport (desktop) — useful for the wide Traffic board. */
+	.surface.expanded {
+		width: 100%;
+	}
+	.surface.expanded.leaving {
+		transform: translateX(100%);
+	}
 	/* Navigation between destinations slides the whole panel off (and back) while its
 	   content is swapped off-screen. Open/close is handled by the fly transition,
 	   which drives transform via WAAPI and so won't fight this. */
@@ -1520,8 +1600,40 @@
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		.surface {
-			transition: transform 300ms cubic-bezier(0.6, 0, 0.3, 1);
+			transition: width 260ms cubic-bezier(0.6, 0, 0.3, 1),
+				transform 300ms cubic-bezier(0.6, 0, 0.3, 1);
 		}
+	}
+	/* Expand/collapse toggle, top-right of the panel. */
+	.expand {
+		position: absolute;
+		top: 0.85rem;
+		right: 0.85rem;
+		z-index: 3;
+		display: inline-grid;
+		place-items: center;
+		width: 34px;
+		height: 34px;
+		padding: 0;
+		color: var(--sub);
+		background: color-mix(in srgb, var(--paper) 70%, transparent);
+		border: 1.5px solid color-mix(in srgb, var(--ink) 14%, transparent);
+		border-radius: 8px;
+		cursor: pointer;
+		transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+	}
+	.expand :global(svg) {
+		width: 15px;
+		height: 15px;
+		display: block;
+	}
+	.expand:hover {
+		color: var(--ink);
+		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
+	}
+	.expand:focus-visible {
+		outline: 2px solid var(--ink);
+		outline-offset: 2px;
 	}
 	/* On phones the panel is a bottom sheet: full width, anchored to the bottom, and
 	   it slides down (rather than off to the right) both to close and between stops. */
@@ -1542,6 +1654,10 @@
 		}
 		.surface-strip {
 			margin-left: 0;
+		}
+		/* The bottom sheet is already full-width, so hide the expand toggle. */
+		.expand {
+			display: none;
 		}
 	}
 	.surface-strip {
@@ -1640,10 +1756,15 @@
 	.mail-edit {
 		font-weight: 600;
 	}
+	.dev-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin: 0.5rem 0 0.2rem;
+	}
 	.edit-enter {
 		display: inline-flex;
 		align-items: center;
-		margin: 0.5rem 0 0.2rem;
 		padding: 0.6rem 1.1rem;
 		font: inherit;
 		font-weight: 700;
@@ -1652,10 +1773,19 @@
 		border: 1.5px solid var(--ink);
 		border-radius: 999px;
 		cursor: pointer;
-		transition: opacity 0.15s ease;
+		transition: opacity 0.15s ease, background 0.15s ease;
 	}
 	.edit-enter:hover {
 		opacity: 0.85;
+	}
+	.edit-enter.ghost {
+		color: var(--ink);
+		background: transparent;
+		border-color: color-mix(in srgb, var(--ink) 26%, transparent);
+	}
+	.edit-enter.ghost:hover {
+		opacity: 1;
+		background: color-mix(in srgb, var(--ink) 6%, transparent);
 	}
 	.edit-enter:disabled {
 		opacity: 0.5;
