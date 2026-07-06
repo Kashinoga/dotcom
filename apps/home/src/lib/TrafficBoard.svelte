@@ -153,13 +153,14 @@
 	// Snappy split-flap timing for the board cells (the Home header's Solari flip).
 	const FLAP = { base: 70, stagger: 24, tick: 40, delay: 0 };
 	const ROW_STEP = 55; // per-row start delay so the board flips top row → bottom
-	// Enter/leave choreography (all ms). The reason flaps into the Route cell like a
-	// board status rather than a pill: on enter the row opens showing its reason, then
-	// at ENTER_MS the Route cell flaps on to the real route; on leave the reason is
-	// held, then the row collapses. The only animations left are the row open/close.
-	const ENTER_MS = 2100; // reason shown, then the Route cell flaps to the real route ('live')
-	const LEAVE_HOLD_MS = 1700; // reason held on a departing row before it collapses
-	const LEAVE_MS = 2400; // total on-board lifetime of a leaving row (hold + collapse)
+	// Enter/leave choreography (all ms). Rows transition ONE AT A TIME: STAGGER_MS
+	// (below) is a full per-row duration, so each row's flap + open/close finishes
+	// before the next row's begins. On enter the row opens showing its reason, then at
+	// ENTER_MS the Route cell flaps on to the real route; on leave the reason is held
+	// briefly, then the row collapses.
+	const ENTER_MS = 450; // reason shown, then the Route cell flaps to the real route ('live')
+	const LEAVE_HOLD_MS = 250; // reason held on a departing row before it collapses
+	const LEAVE_MS = 700; // on-board lifetime of a leaving row before removal
 
 	let sel = $state<Airport>(AIRPORTS[0]);
 	let radiusNm = $state(60);
@@ -441,14 +442,22 @@
 		stagger: number;
 	};
 	let tracks = $state<Track[]>([]);
-	// Per-row cascade step. Peak concurrent collapse animations ≈ collapse-duration /
-	// step; each collapse relayouts the board, so a wide step keeps a heavy "everyone
-	// lands at once" poll smooth (≈3 collapsing at any instant) and reads as a
-	// deliberate top-to-bottom ripple rather than a simultaneous burst.
-	const STAGGER_MS = 150;
+	// Per-row step. Sized to a whole row's transition so only ONE row animates at a
+	// time — row 0 flaps+opens/closes, then row 1 starts, and so on down the board.
+	// (Also means never more than ~1 collapse in flight, which is what keeps Safari
+	// smooth on a heavy landing wave.)
+	const STAGGER_MS = 700;
 	const rowTimers = new Map<string, number>(); // hex → promote/remove timeout
 	let inRangeHexes = new Set<string>(); // every aircraft in range this poll
 	let prevInRange = new Set<string>(); // …and last poll, to explain arrivals
+	// False until the first fill has cascaded in; afterwards a Route cell flapping
+	// from its reason to the real route does so immediately (start 0) rather than
+	// waiting out the row's cascade delay, so the reason visibly flaps INTO the route.
+	let booted = $state(false);
+	// Split-flap start delay: live/initial rows cascade top-to-bottom (i × ROW_STEP);
+	// a row mid enter/leave flaps at its own turn in the one-at-a-time sequence.
+	const flapStart = (p: Track, idx: number) =>
+		p.status === 'live' ? idx * ROW_STEP : p.stagger * STAGGER_MS;
 
 	// Why did this aircraft drop off the board? Still in range → the shown rows are
 	// capped and closer traffic pushed it past the cut. Gone from range → it left
@@ -550,19 +559,19 @@
 		}
 		// Nearest first; a leaving row keeps its last distance, so it collapses in place.
 		out.sort((a, b) => a.distNm - b.distNm);
-		// Assign the cascade top-to-bottom: entries and exits each get their own 0,1,2…
-		// sequence in row order, so a lone row never waits but a busy poll ripples down.
-		let enterSeq = 0;
-		let leaveSeq = 0;
+		// One shared sequence top-to-bottom, so enters and leaves take turns down the
+		// board (never two at once) — a lone row is slot 0 and doesn't wait.
+		let seq = 0;
 		for (const t of out) {
 			if (entering.has(t.hex)) {
-				t.stagger = enterSeq++;
+				t.stagger = seq++;
 				promoteLater(t.hex, t.stagger);
 			} else if (leaving.has(t.hex)) {
-				t.stagger = leaveSeq++;
+				t.stagger = seq++;
 				removeLater(t.hex, t.stagger);
 			}
 		}
+		if (!firstLoad) booted = true; // first fill has cascaded; later flaps are immediate
 		tracks = out;
 	}
 
@@ -758,46 +767,46 @@
 							<td class="mono flight">
 								<div class="ci">{#key p.call || p.hex}<SplitFlap
 											{...FLAP}
-											start={i * ROW_STEP}
+											start={flapStart(p, i)}
 											text={p.call || p.hex || '—'}
 										/>{/key}</div>
 							</td>
 							<td class="mono x1">
-								<div class="ci">{#key p.reg}<SplitFlap {...FLAP} start={i * ROW_STEP} text={p.reg || '—'} />{/key}</div>
+								<div class="ci">{#key p.reg}<SplitFlap {...FLAP} start={flapStart(p, i)} text={p.reg || '—'} />{/key}</div>
 							</td>
 							<td class="mono">
 								<div class="ci">{#if TYPE_TITLES[p.type]}<button
 											type="button"
 											class="type-btn"
 											onclick={() => openPhoto(p)}
-										>{#key p.type}<SplitFlap {...FLAP} start={i * ROW_STEP} text={p.type} />{/key}</button
-										>{:else}{#key p.type}<SplitFlap {...FLAP} start={i * ROW_STEP} text={p.type || '—'} />{/key}{/if}</div>
+										>{#key p.type}<SplitFlap {...FLAP} start={flapStart(p, i)} text={p.type} />{/key}</button
+										>{:else}{#key p.type}<SplitFlap {...FLAP} start={flapStart(p, i)} text={p.type || '—'} />{/key}{/if}</div>
 							</td>
 							<td class="mono op x2">
-								<div class="ci">{#key opName(p)}<SplitFlap {...FLAP} start={i * ROW_STEP} text={opName(p) || '—'} />{/key}</div>
+								<div class="ci">{#key opName(p)}<SplitFlap {...FLAP} start={flapStart(p, i)} text={opName(p) || '—'} />{/key}</div>
 							</td>
 							<td class="mono num">
-								<div class="ci">{#key fmtAlt(p.alt)}<SplitFlap {...FLAP} start={i * ROW_STEP} text={fmtAlt(p.alt)} />{/key}</div>
+								<div class="ci">{#key fmtAlt(p.alt)}<SplitFlap {...FLAP} start={flapStart(p, i)} text={fmtAlt(p.alt)} />{/key}</div>
 							</td>
 							<td class="mono num x1 vs">
-								<div class="ci">{#key fmtVs(p.vrate)}<SplitFlap {...FLAP} start={i * ROW_STEP} text={fmtVs(p.vrate)} />{/key}</div>
+								<div class="ci">{#key fmtVs(p.vrate)}<SplitFlap {...FLAP} start={flapStart(p, i)} text={fmtVs(p.vrate)} />{/key}</div>
 							</td>
 							<td class="mono num">
-								<div class="ci">{#key fmtSpd(p.gs)}<SplitFlap {...FLAP} start={i * ROW_STEP} text={fmtSpd(p.gs)} />{/key}</div>
+								<div class="ci">{#key fmtSpd(p.gs)}<SplitFlap {...FLAP} start={flapStart(p, i)} text={fmtSpd(p.gs)} />{/key}</div>
 							</td>
 							<td class="mono num x1">
-								<div class="ci">{#key fmtHdg(p.track)}<SplitFlap {...FLAP} start={i * ROW_STEP} text={fmtHdg(p.track)} />{/key}</div>
+								<div class="ci">{#key fmtHdg(p.track)}<SplitFlap {...FLAP} start={flapStart(p, i)} text={fmtHdg(p.track)} />{/key}</div>
 							</td>
 							<td class="mono route">
 								<!-- While a row is arriving/leaving, the Route cell flaps its reason like a
 								     board status; once it settles 'live' the flaps carry on to the real route. -->
 								<div class="ci">{#if p.status !== 'live'}{#key p.reason}<SplitFlap
 											{...FLAP}
-											start={i * ROW_STEP}
+											start={flapStart(p, i)}
 											text={p.reason}
 										/>{/key}{:else if p.route}{#key `${p.route.o.iata || p.route.o.icao} ${p.route.d.iata || p.route.d.icao}`}<SplitFlap
 											{...FLAP}
-											start={i * ROW_STEP}
+											start={booted ? 0 : i * ROW_STEP}
 											text={`${p.route.o.iata || p.route.o.icao || '???'} → ${p.route.d.iata ||
 												p.route.d.icao ||
 												'???'}`}
@@ -806,7 +815,7 @@
 							<td class="mono num">
 								<div class="ci">{#key fmtDist(p.distNm)}<SplitFlap
 											{...FLAP}
-											start={i * ROW_STEP}
+											start={flapStart(p, i)}
 											text={fmtDist(p.distNm)}
 										/>{/key}</div>
 							</td>
@@ -1068,29 +1077,27 @@
 	.row.leave .ci {
 		overflow: hidden;
 	}
-	/* Per-row cascade offset: the row's slot in the enter/leave sequence × 150ms (==
-	   STAGGER_MS), so a busy poll ripples top-to-bottom with only ~3 of the
-	   layout-thrashing collapses running at any instant instead of all at once. */
+	/* Per-row offset: the row's slot × 700ms (== STAGGER_MS). Because that's a whole
+	   row's duration, each row opens/closes entirely before the next one starts. */
 	.row {
-		--sd: calc(var(--stagger, 0) * 150ms);
+		--sd: calc(var(--stagger, 0) * 700ms);
 	}
 	.row.enter .ci {
-		animation: ciIn 0.5s cubic-bezier(0.33, 1, 0.68, 1) both;
+		animation: ciIn 0.45s cubic-bezier(0.33, 1, 0.68, 1) both;
 		animation-delay: var(--sd);
 	}
 	.row.enter td {
-		animation: padIn 0.5s cubic-bezier(0.33, 1, 0.68, 1) both;
+		animation: padIn 0.45s cubic-bezier(0.33, 1, 0.68, 1) both;
 		animation-delay: var(--sd);
 	}
 	.row.leave .ci {
-		/* 1.7s = LEAVE_HOLD_MS: sit with the reason, then ease shut (short = fewer
-		   frames of full-table relayout while it's collapsing). */
-		animation: ciOut 0.42s cubic-bezier(0.65, 0, 0.35, 1) both;
-		animation-delay: calc(1.7s + var(--sd));
+		/* 0.25s = LEAVE_HOLD_MS: the reason flap shows, then the row eases shut. */
+		animation: ciOut 0.4s cubic-bezier(0.65, 0, 0.35, 1) both;
+		animation-delay: calc(0.25s + var(--sd));
 	}
 	.row.leave td {
-		animation: padOut 0.42s cubic-bezier(0.65, 0, 0.35, 1) both;
-		animation-delay: calc(1.7s + var(--sd));
+		animation: padOut 0.4s cubic-bezier(0.65, 0, 0.35, 1) both;
+		animation-delay: calc(0.25s + var(--sd));
 	}
 	/* Collapse the real content height (max-height sits just above a single line, so
 	   there's no dead zone before it starts moving). Opacity lives on the td below,
