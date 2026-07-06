@@ -153,12 +153,12 @@
 	// Snappy split-flap timing for the board cells (the Home header's Solari flip).
 	const FLAP = { base: 70, stagger: 24, tick: 40, delay: 0 };
 	const ROW_STEP = 55; // per-row start delay so the board flips top row → bottom
-	// Enter/leave choreography (all ms; the CSS animation timings mirror these). Each
-	// row plays as distinct beats rather than all at once — enter: row opens, THEN the
-	// label slides in, holds, fades; leave: label slides in, holds, slides out, THEN
-	// the row collapses. So the reason never animates on top of the row's own motion.
-	const ENTER_MS = 2100; // row opens → label in → hold → label out, then settles 'live'
-	const LEAVE_HOLD_MS = 1700; // label shown, then slides out and the row collapses
+	// Enter/leave choreography (all ms). The reason flaps into the Route cell like a
+	// board status rather than a pill: on enter the row opens showing its reason, then
+	// at ENTER_MS the Route cell flaps on to the real route; on leave the reason is
+	// held, then the row collapses. The only animations left are the row open/close.
+	const ENTER_MS = 2100; // reason shown, then the Route cell flaps to the real route ('live')
+	const LEAVE_HOLD_MS = 1700; // reason held on a departing row before it collapses
 	const LEAVE_MS = 2400; // total on-board lifetime of a leaving row (hold + collapse)
 
 	let sel = $state<Airport>(AIRPORTS[0]);
@@ -453,17 +453,19 @@
 	// Why did this aircraft drop off the board? Still in range → the shown rows are
 	// capped and closer traffic pushed it past the cut. Gone from range → it left
 	// the area (or, if last seen on the ground, it landed).
+	// Short, uppercase board tokens — they flap into the Route column like a Solari
+	// status ("LANDED", "BUMPED") instead of a coloured pill.
 	function leaveReason(t: Track): string {
-		if (inRangeHexes.has(t.hex)) return 'Bumped';
-		if (t.alt === 'ground') return 'Landed';
-		return 'Out of range';
+		if (inRangeHexes.has(t.hex)) return 'BUMPED';
+		if (t.alt === 'ground') return 'LANDED';
+		return 'EXITED';
 	}
 	// Why did it appear? On the ground near the field, or previously in range but
 	// off the bottom of the board (now close enough to show), or brand new.
 	function enterReason(r: Row): string {
-		if (r.alt === 'ground') return 'On the ground';
-		if (prevInRange.has(r.hex)) return 'Moved up';
-		return 'Entered range';
+		if (r.alt === 'ground') return 'GROUNDED';
+		if (prevInRange.has(r.hex)) return 'MOVED UP';
+		return 'IN RANGE';
 	}
 
 	function clearRowTimer(hex: string) {
@@ -787,7 +789,13 @@
 								<div class="ci">{#key fmtHdg(p.track)}<SplitFlap {...FLAP} start={i * ROW_STEP} text={fmtHdg(p.track)} />{/key}</div>
 							</td>
 							<td class="mono route">
-								<div class="ci">{#if p.route}{#key `${p.route.o.iata || p.route.o.icao} ${p.route.d.iata || p.route.d.icao}`}<SplitFlap
+								<!-- While a row is arriving/leaving, the Route cell flaps its reason like a
+								     board status; once it settles 'live' the flaps carry on to the real route. -->
+								<div class="ci">{#if p.status !== 'live'}{#key p.reason}<SplitFlap
+											{...FLAP}
+											start={i * ROW_STEP}
+											text={p.reason}
+										/>{/key}{:else if p.route}{#key `${p.route.o.iata || p.route.o.icao} ${p.route.d.iata || p.route.d.icao}`}<SplitFlap
 											{...FLAP}
 											start={i * ROW_STEP}
 											text={`${p.route.o.iata || p.route.o.icao || '???'} → ${p.route.d.iata ||
@@ -795,13 +803,12 @@
 												'???'}`}
 										/>{/key}{:else}<span class="hdg">hdg {fmtHdg(p.track)}</span>{/if}</div>
 							</td>
-							<td class="mono num why-cell">
+							<td class="mono num">
 								<div class="ci">{#key fmtDist(p.distNm)}<SplitFlap
 											{...FLAP}
 											start={i * ROW_STEP}
 											text={fmtDist(p.distNm)}
 										/>{/key}</div>
-								{#if p.reason}<span class="why why-{p.kind}">{p.reason}</span>{/if}
 							</td>
 						</tr>
 					{/each}
@@ -1134,81 +1141,11 @@
 		}
 	}
 
-	/* The reason "why" chip — a pill that slides in at the row's right edge. It
-	   holds on a leaving row (until it collapses) and fades back out on an arrival. */
-	.why-cell {
-		position: relative;
-	}
-	.why {
-		position: absolute;
-		top: 50%;
-		right: 0.4rem;
-		transform: translateY(-50%);
-		z-index: 3;
-		padding: 0.12rem 0.5rem;
-		font-family: var(--font-body);
-		font-size: 0.66rem;
-		font-weight: 800;
-		letter-spacing: 0.05em;
-		text-transform: uppercase;
-		white-space: nowrap;
-		color: var(--paper);
-		background: color-mix(in srgb, var(--ink) 55%, transparent);
-		border-radius: 6px;
-		box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
-		pointer-events: none;
-	}
-	.why-enter {
-		background: #12a150;
-	}
-	.why-leave {
-		background: color-mix(in srgb, #c0392b 82%, var(--ink));
-	}
-	/* Enter beat 2: the label waits for the row to finish opening (0.5s == ciIn), then
-	   slides in, holds, and fades — so it never animates on top of the row opening. */
-	.row.enter .why {
-		animation:
-			whyIn 0.35s ease both,
-			whyOut 0.4s ease both;
-		animation-delay: calc(0.5s + var(--sd)), calc(1.6s + var(--sd));
-	}
-	/* Leave: label slides in, holds, then slides fully OUT before the row starts to
-	   collapse (whyOut finishes at 1.7s == the ciOut delay), so the two never overlap. */
-	.row.leave .why {
-		animation:
-			whyIn 0.35s ease both,
-			whyOut 0.35s ease both;
-		animation-delay: var(--sd), calc(1.35s + var(--sd));
-	}
-	/* Slide from the LEFT (toward centre): the chip rests just inside the board's
-	   right edge, so a rightward slide would push it past .scroll's overflow clip. */
-	@keyframes whyIn {
-		from {
-			opacity: 0;
-			transform: translate(-8px, -50%);
-		}
-		to {
-			opacity: 1;
-			transform: translate(0, -50%);
-		}
-	}
-	@keyframes whyOut {
-		from {
-			opacity: 1;
-			transform: translate(0, -50%);
-		}
-		to {
-			opacity: 0;
-			transform: translate(-8px, -50%);
-		}
-	}
 	@media (prefers-reduced-motion: reduce) {
 		.row.enter .ci,
 		.row.leave .ci,
 		.row.enter td,
-		.row.leave td,
-		.row.enter .why,
-		.row.leave .why {
+		.row.leave td {
 			animation: none;
 		}
 		.row.enter .ci,
