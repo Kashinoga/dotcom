@@ -158,9 +158,9 @@
 	// before the next row's begins. On enter the row opens showing its reason, then at
 	// ENTER_MS the Route cell flaps on to the real route; on leave the reason is held
 	// briefly, then the row collapses.
-	const ENTER_MS = 450; // reason shown, then the Route cell flaps to the real route ('live')
-	const LEAVE_HOLD_MS = 250; // reason held on a departing row before it collapses
-	const LEAVE_MS = 700; // on-board lifetime of a leaving row before removal
+	const ENTER_MS = 900; // reason held, then the Route cell flaps to the real route ('live')
+	const LEAVE_HOLD_MS = 600; // reason held on a departing row before it collapses
+	const LEAVE_MS = 1100; // on-board lifetime of a leaving row before removal
 
 	let sel = $state<Airport>(AIRPORTS[0]);
 	let radiusNm = $state(60);
@@ -1091,13 +1091,13 @@
 		animation-delay: var(--sd);
 	}
 	.row.leave .ci {
-		/* 0.25s = LEAVE_HOLD_MS: the reason flap shows, then the row eases shut. */
+		/* 0.6s = LEAVE_HOLD_MS: the reason flap shows and lingers, then the row eases shut. */
 		animation: ciOut 0.4s cubic-bezier(0.65, 0, 0.35, 1) both;
-		animation-delay: calc(0.25s + var(--sd));
+		animation-delay: calc(0.6s + var(--sd));
 	}
 	.row.leave td {
 		animation: padOut 0.4s cubic-bezier(0.65, 0, 0.35, 1) both;
-		animation-delay: calc(0.25s + var(--sd));
+		animation-delay: calc(0.6s + var(--sd));
 	}
 	/* Collapse the real content height (max-height sits just above a single line, so
 	   there's no dead zone before it starts moving). Opacity lives on the td below,
