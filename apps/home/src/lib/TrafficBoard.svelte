@@ -153,11 +153,12 @@
 	// Snappy split-flap timing for the board cells (the Home header's Solari flip).
 	const FLAP = { base: 70, stagger: 24, tick: 40, delay: 0 };
 	const ROW_STEP = 55; // per-row start delay so the board flips top row → bottom
-	// Enter/leave choreography (all ms; the CSS animation timings mirror these).
-	// Deliberately unhurried: a departing row lingers with its reason well before it
-	// collapses, so a 10s refresh doesn't read as "everything must move at once".
-	const ENTER_MS = 1900; // row eases in + reason chip shows, then settles to 'live'
-	const LEAVE_HOLD_MS = 1700; // reason held on a departing row before it collapses
+	// Enter/leave choreography (all ms; the CSS animation timings mirror these). Each
+	// row plays as distinct beats rather than all at once — enter: row opens, THEN the
+	// label slides in, holds, fades; leave: label slides in, holds, slides out, THEN
+	// the row collapses. So the reason never animates on top of the row's own motion.
+	const ENTER_MS = 2100; // row opens → label in → hold → label out, then settles 'live'
+	const LEAVE_HOLD_MS = 1700; // label shown, then slides out and the row collapses
 	const LEAVE_MS = 2400; // total on-board lifetime of a leaving row (hold + collapse)
 
 	let sel = $state<Airport>(AIRPORTS[0]);
@@ -440,11 +441,11 @@
 		stagger: number;
 	};
 	let tracks = $state<Track[]>([]);
-	// Per-row cascade step. Wider than the SplitFlap's 55ms on purpose: peak
-	// concurrent collapse animations ≈ collapse-duration / step, and each collapse
-	// forces a full table relayout per frame, so spreading them further (≈5 at once
-	// instead of ≈11) is what keeps a heavy "everyone lands at once" poll smooth.
-	const STAGGER_MS = 90;
+	// Per-row cascade step. Peak concurrent collapse animations ≈ collapse-duration /
+	// step; each collapse relayouts the board, so a wide step keeps a heavy "everyone
+	// lands at once" poll smooth (≈3 collapsing at any instant) and reads as a
+	// deliberate top-to-bottom ripple rather than a simultaneous burst.
+	const STAGGER_MS = 150;
 	const rowTimers = new Map<string, number>(); // hex → promote/remove timeout
 	let inRangeHexes = new Set<string>(); // every aircraft in range this poll
 	let prevInRange = new Set<string>(); // …and last poll, to explain arrivals
@@ -1060,11 +1061,11 @@
 	.row.leave .ci {
 		overflow: hidden;
 	}
-	/* Per-row cascade offset: the row's slot in the enter/leave sequence × 90ms (==
-	   STAGGER_MS), so a busy poll ripples top-to-bottom with only a handful of the
+	/* Per-row cascade offset: the row's slot in the enter/leave sequence × 150ms (==
+	   STAGGER_MS), so a busy poll ripples top-to-bottom with only ~3 of the
 	   layout-thrashing collapses running at any instant instead of all at once. */
 	.row {
-		--sd: calc(var(--stagger, 0) * 90ms);
+		--sd: calc(var(--stagger, 0) * 150ms);
 	}
 	.row.enter .ci {
 		animation: ciIn 0.5s cubic-bezier(0.33, 1, 0.68, 1) both;
@@ -1163,18 +1164,21 @@
 	.why-leave {
 		background: color-mix(in srgb, #c0392b 82%, var(--ink));
 	}
+	/* Enter beat 2: the label waits for the row to finish opening (0.5s == ciIn), then
+	   slides in, holds, and fades — so it never animates on top of the row opening. */
 	.row.enter .why {
 		animation:
 			whyIn 0.35s ease both,
 			whyOut 0.4s ease both;
-		animation-delay: calc(0.15s + var(--sd)), calc(1.5s + var(--sd));
+		animation-delay: calc(0.5s + var(--sd)), calc(1.6s + var(--sd));
 	}
+	/* Leave: label slides in, holds, then slides fully OUT before the row starts to
+	   collapse (whyOut finishes at 1.7s == the ciOut delay), so the two never overlap. */
 	.row.leave .why {
-		/* Slide in (staggered with the row), hold, then fade out as it collapses. */
 		animation:
 			whyIn 0.35s ease both,
-			whyOut 0.45s ease both;
-		animation-delay: var(--sd), calc(1.7s + var(--sd));
+			whyOut 0.35s ease both;
+		animation-delay: var(--sd), calc(1.35s + var(--sd));
 	}
 	/* Slide from the LEFT (toward centre): the chip rests just inside the board's
 	   right edge, so a rightward slide would push it past .scroll's overflow clip. */
