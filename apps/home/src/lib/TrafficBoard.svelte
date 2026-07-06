@@ -144,6 +144,7 @@
 	const MAX_LOOKUPS_PER_POLL = 8;
 	// Snappy split-flap timing for the board cells (the Home header's Solari flip).
 	const FLAP = { base: 70, stagger: 24, tick: 40, delay: 0 };
+	const ROW_STEP = 55; // per-row start delay so the board flips top row → bottom
 
 	let sel = $state<Airport>(AIRPORTS[0]);
 	let radiusNm = $state(60);
@@ -509,30 +510,39 @@
 					</tr>
 				</thead>
 				<tbody>
-					{#each rows as p (p.hex)}
+					{#each rows as p, i (p.hex)}
 						<tr>
 							<td>
 								{#if p.tag}<span class="tag {p.tag}">{TAG_LABEL[p.tag]}</span>{/if}
 							</td>
 							<td class="mono flight">
-								{#key p.call || p.hex}<SplitFlap {...FLAP} text={p.call || p.hex || '—'} />{/key}
+								{#key p.call || p.hex}<SplitFlap
+										{...FLAP}
+										start={i * ROW_STEP}
+										text={p.call || p.hex || '—'}
+									/>{/key}
 							</td>
 							<td class="mono">
 								{#if TYPE_TITLES[p.type]}
 									<button type="button" class="type-btn" onclick={() => openPhoto(p)}>
-										{#key p.type}<SplitFlap {...FLAP} text={p.type} />{/key}
+										{#key p.type}<SplitFlap {...FLAP} start={i * ROW_STEP} text={p.type} />{/key}
 									</button>
-								{:else}{#key p.type}<SplitFlap {...FLAP} text={p.type || '—'} />{/key}{/if}
+								{:else}{#key p.type}<SplitFlap
+										{...FLAP}
+										start={i * ROW_STEP}
+										text={p.type || '—'}
+									/>{/key}{/if}
 							</td>
 							<td class="mono num">
-								{#key fmtAlt(p.alt)}<SplitFlap {...FLAP} text={fmtAlt(p.alt)} />{/key}
+								{#key fmtAlt(p.alt)}<SplitFlap {...FLAP} start={i * ROW_STEP} text={fmtAlt(p.alt)} />{/key}
 							</td>
 							<td class="mono num">
-								{#key fmtSpd(p.gs)}<SplitFlap {...FLAP} text={fmtSpd(p.gs)} />{/key}
+								{#key fmtSpd(p.gs)}<SplitFlap {...FLAP} start={i * ROW_STEP} text={fmtSpd(p.gs)} />{/key}
 							</td>
 							<td class="mono route">
 								{#if p.route}{#key `${p.route.o.iata || p.route.o.icao} ${p.route.d.iata || p.route.d.icao}`}<SplitFlap
 										{...FLAP}
+										start={i * ROW_STEP}
 										text={`${p.route.o.iata || p.route.o.icao || '???'} → ${p.route.d.iata ||
 											p.route.d.icao ||
 											'???'}`}
@@ -540,7 +550,11 @@
 								{:else}<span class="hdg">hdg {fmtHdg(p.track)}</span>{/if}
 							</td>
 							<td class="mono num">
-								{#key fmtDist(p.distNm)}<SplitFlap {...FLAP} text={fmtDist(p.distNm)} />{/key}
+								{#key fmtDist(p.distNm)}<SplitFlap
+										{...FLAP}
+										start={i * ROW_STEP}
+										text={fmtDist(p.distNm)}
+									/>{/key}
 							</td>
 						</tr>
 					{/each}

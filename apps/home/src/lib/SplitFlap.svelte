@@ -11,8 +11,16 @@
 		delay = 150,
 		tick = 50,
 		stagger = 75,
-		base = 280
-	}: { text: string; delay?: number; tick?: number; stagger?: number; base?: number } = $props();
+		base = 280,
+		start = 0
+	}: {
+		text: string;
+		delay?: number;
+		tick?: number;
+		stagger?: number;
+		base?: number;
+		start?: number;
+	} = $props();
 
 	const UP = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 	const LO = 'abcdefghijklmnopqrstuvwxyz';
@@ -54,29 +62,38 @@
 
 	onMount(() => {
 		if (reduce) return;
-		spinning = pools.map((p) => p !== null);
-		glyphs = chars.map((c, i) => (pools[i] ? rand(pools[i]!) : c));
-		let elapsed = 0;
-		const id = setInterval(() => {
-			elapsed += tick;
-			const g = [...glyphs];
-			const sp = [...spinning];
-			let any = false;
-			for (let i = 0; i < chars.length; i++) {
-				if (!sp[i]) continue;
-				if (elapsed >= settleAt[i]) {
-					g[i] = chars[i];
-					sp[i] = false;
-				} else {
-					g[i] = rand(pools[i]!);
-					any = true;
+		let intervalId = 0;
+		// Scramble immediately, or after `start` ms so callers can cascade a set of
+		// flaps (e.g. a board flipping top row to bottom).
+		const kick = () => {
+			spinning = pools.map((p) => p !== null);
+			glyphs = chars.map((c, i) => (pools[i] ? rand(pools[i]!) : c));
+			let elapsed = 0;
+			intervalId = setInterval(() => {
+				elapsed += tick;
+				const g = [...glyphs];
+				const sp = [...spinning];
+				let any = false;
+				for (let i = 0; i < chars.length; i++) {
+					if (!sp[i]) continue;
+					if (elapsed >= settleAt[i]) {
+						g[i] = chars[i];
+						sp[i] = false;
+					} else {
+						g[i] = rand(pools[i]!);
+						any = true;
+					}
 				}
-			}
-			glyphs = g;
-			spinning = sp;
-			if (!any) clearInterval(id);
-		}, tick);
-		return () => clearInterval(id);
+				glyphs = g;
+				spinning = sp;
+				if (!any) clearInterval(intervalId);
+			}, tick);
+		};
+		const timeoutId = start > 0 ? setTimeout(kick, start) : (kick(), 0);
+		return () => {
+			clearTimeout(timeoutId);
+			if (intervalId) clearInterval(intervalId);
+		};
 	});
 </script>
 
