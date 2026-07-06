@@ -30,10 +30,10 @@
 	const pools = chars.map((c) =>
 		/[a-z]/.test(c) ? LO : /[A-Z]/.test(c) ? UP : /[0-9]/.test(c) ? NUM : null
 	);
-	// Each cell settles at `start` (the caller's cascade offset) + its own ramp. The
-	// scramble itself begins at mount — never after `start` — so a delayed cell shows
-	// motion, not its finished value, until it settles (no static pre-flash / pop-in).
-	const settleAt = chars.map((_, i) => start + delay + base + i * stagger);
+	// Per-cell settle time, measured from the moment this instance's flap BEGINS (which
+	// itself is deferred by `start`, the caller's cascade offset). So a board flaps row
+	// by row: each row's cells hold blank until their turn, then flap and settle.
+	const settleAt = chars.map((_, i) => delay + base + i * stagger);
 
 	const reduce =
 		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -65,32 +65,49 @@
 
 	onMount(() => {
 		if (reduce) return;
-		// Scramble from the first frame regardless of `start` — the caller's cascade
-		// offset is baked into settleAt, so the cell keeps flapping (never shows its
-		// final value) until its scheduled settle. `elapsed` is measured from mount.
-		spinning = pools.map((p) => p !== null);
-		glyphs = chars.map((c, i) => (pools[i] ? rand(pools[i]!) : c));
-		let elapsed = 0;
-		const intervalId = setInterval(() => {
-			elapsed += tick;
-			const g = [...glyphs];
-			const sp = [...spinning];
-			let any = false;
-			for (let i = 0; i < chars.length; i++) {
-				if (!sp[i]) continue;
-				if (elapsed >= settleAt[i]) {
-					g[i] = chars[i];
-					sp[i] = false;
-				} else {
-					g[i] = rand(pools[i]!);
-					any = true;
+		let intervalId = 0;
+		// Run the scramble → settle. `elapsed` is measured from here (the flap start),
+		// so settleAt needn't include `start`.
+		const begin = () => {
+			spinning = pools.map((p) => p !== null);
+			glyphs = chars.map((c, i) => (pools[i] ? rand(pools[i]!) : c));
+			let elapsed = 0;
+			intervalId = setInterval(() => {
+				elapsed += tick;
+				const g = [...glyphs];
+				const sp = [...spinning];
+				let any = false;
+				for (let i = 0; i < chars.length; i++) {
+					if (!sp[i]) continue;
+					if (elapsed >= settleAt[i]) {
+						g[i] = chars[i];
+						sp[i] = false;
+					} else {
+						g[i] = rand(pools[i]!);
+						any = true;
+					}
 				}
-			}
-			glyphs = g;
-			spinning = sp;
-			if (!any) clearInterval(intervalId);
-		}, tick);
-		return () => clearInterval(intervalId);
+				glyphs = g;
+				spinning = sp;
+				if (!any) clearInterval(intervalId);
+			}, tick);
+		};
+		// With a cascade offset, hold the cells BLANK until this instance's turn, then
+		// flap — so a staggered board fills row by row and no cell shows its finished
+		// value before it flaps (blank during the wait, not the answer). start === 0
+		// (e.g. the header wordmark) flaps immediately.
+		if (start > 0) {
+			glyphs = chars.map(() => '');
+			const timeoutId = setTimeout(begin, start);
+			return () => {
+				clearTimeout(timeoutId);
+				if (intervalId) clearInterval(intervalId);
+			};
+		}
+		begin();
+		return () => {
+			if (intervalId) clearInterval(intervalId);
+		};
 	});
 </script>
 

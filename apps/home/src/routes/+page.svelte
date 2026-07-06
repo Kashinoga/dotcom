@@ -1235,6 +1235,38 @@
 					{@const port = airports[v.code]}
 					{@const blocks = pages[v.code] ?? stub(port.title)}
 					{@const conns = [...new Set(adj[v.code] ?? [])]}
+					{#if v.code === 'ATFC'}
+						<!-- The Traffic board owns its whole panel interior so, when expanded, its
+						     controls + a live summary fill the header beside the title. It gets the
+						     panel chrome it can't reach from a child: title, code, back, expanded, and
+						     the Connections nav as a snippet (authored here so it keeps page styling). -->
+						<TrafficBoard
+							accent={accent[v.code]}
+							code={v.code}
+							title={port.title}
+							expanded={panelExpanded}
+							onback={home}
+						>
+							{#snippet connections()}
+								{#if conns.length}
+									<nav class="onward">
+										<p class="eyebrow">Connections</p>
+										<ul>
+											{#each conns as c}
+												<li>
+													<button class="chip" onclick={() => board(c)}>
+														<span class="chip-dot" style:background={accent[c]}></span>
+														<span class="chip-code">{c}</span>
+														<span class="chip-title">{airports[c].title}</span>
+													</button>
+												</li>
+											{/each}
+										</ul>
+									</nav>
+								{/if}
+							{/snippet}
+						</TrafficBoard>
+					{:else}
 					<div class="surface-head">
 						<button class="back" onclick={home}>&larr; route map</button>
 						<p class="eyebrow">Now arriving &middot; <span style:color={accent[v.code]}>{v.code}</span></p>
@@ -1443,8 +1475,6 @@
 									reloads to the source defaults. (Dev only.)
 								</p>
 							{/if}
-						{:else if v.code === 'ATFC'}
-							<TrafficBoard accent={accent[v.code]} />
 						{:else}
 						{@const edit = dev && editMode && !!pages[v.code]}
 						{#each blocks as b, i}
@@ -1522,6 +1552,7 @@
 							</nav>
 						{/if}
 					</div>
+					{/if}
 				{:else}
 					{@const a = airlines[v.idx]}
 					{@const stops = [...lineOf[v.idx]]}
@@ -1978,6 +2009,10 @@
 		width: min(94vw, 640px);
 		display: flex;
 		flex-direction: column;
+		/* Scroll at the panel level. Panels with a flex:1 inner body absorb this (their
+		   body scrolls, the surface never overflows); the Traffic board instead lets its
+		   body grow to the data's natural height and scrolls the whole panel when tall. */
+		overflow-y: auto;
 		/* Super-clear premium ice: a very transparent, faintly cool body with light
 		   refraction, and a crisp, well-defined left edge that catches the light —
 		   like the cut face of a perfect restaurant ice cube. */

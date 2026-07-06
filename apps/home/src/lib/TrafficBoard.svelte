@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy, untrack } from 'svelte';
+	import { onMount, onDestroy, untrack, type Snippet } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import { cubicOut } from 'svelte/easing';
@@ -11,7 +11,33 @@
 	// departing / overflight, relative to the selected field). No API key, no
 	// backend. Only polls while this panel is mounted.
 
-	let { accent = '#f06030' }: { accent?: string } = $props();
+	// This board owns the whole ATFC panel interior (header + scrolling body) so that,
+	// in the expanded wide layout, its controls + a live summary can sit beside the
+	// "Air Traffic" title in the fixed header instead of leaving that space empty. The
+	// parent passes the panel chrome it can't reach from here: title, station code, the
+	// back handler, the expanded flag, and the Connections nav (as a snippet).
+	let {
+		accent = '#f06030',
+		code = '',
+		title = '',
+		expanded = false,
+		onback,
+		connections
+	}: {
+		accent?: string;
+		code?: string;
+		title?: string;
+		expanded?: boolean;
+		onback?: () => void;
+		connections?: Snippet;
+	} = $props();
+
+	// The dense header deck is worth it only when the panel is both expanded AND wide
+	// enough to lay controls + summary beside the title; otherwise (compact panel, or a
+	// phone bottom-sheet that's "expanded" by persisted preference) fall back to the
+	// stacked controls in the body.
+	let wide = $state(false);
+	const showDeck = $derived(expanded && wide);
 
 	type Airport = { icao: string; iata: string; name: string; lat: number; lon: number };
 	// A small curated field list — the selector. KDSM (home) is the default.
@@ -76,20 +102,51 @@
 		P28A: 'Piper PA-28 Cherokee'
 	};
 	type Photo = { src: string; credit: string; url: string };
-	const imgCache = new Map<string, Photo | null>(); // type → photo, or null when none
+	// type → resolved photo (or null when Wikipedia has none). Caching the PROMISE also
+	// collapses concurrent taps of the same type onto one request. Module-lived, and
+	// mirrored to localStorage: a type→photo mapping is effectively permanent, so a
+	// reload should reuse it rather than re-query Wikipedia for the same 40 airframes.
+	const imgCache = new Map<string, Promise<Photo | null>>();
+	const PHOTO_LS_KEY = 'ksh-actype-photos';
+
+	function readPhotoStore(): Record<string, Photo | null> {
+		if (typeof localStorage === 'undefined') return {};
+		try {
+			return JSON.parse(localStorage.getItem(PHOTO_LS_KEY) || '{}');
+		} catch {
+			return {};
+		}
+	}
+	// Seed the in-memory cache from a prior session (called once on mount).
+	function loadPersistedPhotos() {
+		for (const [type, val] of Object.entries(readPhotoStore())) {
+			if (!imgCache.has(type)) imgCache.set(type, Promise.resolve(val));
+		}
+	}
+	function persistPhoto(type: string, val: Photo | null) {
+		if (typeof localStorage === 'undefined') return;
+		try {
+			const store = readPhotoStore();
+			store[type] = val;
+			localStorage.setItem(PHOTO_LS_KEY, JSON.stringify(store));
+		} catch {
+			/* private mode / quota — the in-memory cache still covers this session */
+		}
+	}
 
 	function stripHtml(html: string) {
 		const d = document.createElement('div');
 		d.innerHTML = html || '';
 		return (d.textContent || '').replace(/\s+/g, ' ').trim();
 	}
-	async function loadTypeImage(type: string): Promise<Photo | null> {
+	function loadTypeImage(type: string): Promise<Photo | null> {
 		const title = TYPE_TITLES[type];
-		if (!title) return null;
-		if (imgCache.has(type)) return imgCache.get(type)!;
+		if (!title) return Promise.resolve(null);
+		const cached = imgCache.get(type);
+		if (cached) return cached; // resolved OR in-flight — never a duplicate fetch
 		const base =
 			'https://en.wikipedia.org/w/api.php?origin=*&format=json&redirects=1&action=query&titles=';
-		try {
+		const req = (async (): Promise<Photo | null> => {
 			const r = await fetch(
 				base + encodeURIComponent(title) + '&prop=pageimages&piprop=thumbnail%7Cname&pithumbsize=480'
 			);
@@ -97,7 +154,7 @@
 			const pages = d?.query?.pages ?? {};
 			const pg = pages[Object.keys(pages)[0]];
 			if (!pg || !pg.thumbnail) {
-				imgCache.set(type, null);
+				persistPhoto(type, null); // genuinely no lead image — remember that too
 				return null;
 			}
 			const info: Photo = { src: pg.thumbnail.source, credit: '', url: '' };
@@ -117,11 +174,14 @@
 			} catch {
 				/* keep the photo even without a full credit */
 			}
-			imgCache.set(type, info);
+			persistPhoto(type, info);
 			return info;
-		} catch {
-			return null; // transient — don't cache, allow a later retry
-		}
+		})().catch(() => {
+			imgCache.delete(type); // transient network/API error — allow a later retry
+			return null;
+		});
+		imgCache.set(type, req);
+		return req;
 	}
 
 	type Field = { icao: string; iata: string; city: string; name: string };
@@ -147,7 +207,15 @@
 	};
 
 	const RANGES = [40, 60, 100, 150, 250]; // NM; 250 is the airplanes.live max
-	const POLL_MS = 10000;
+	// Auto-refresh cadence options. 1 minute is the default — ADS-B positions barely
+	// move between polls and it's easy on the upstream feeds. Also selectable in-UI,
+	// alongside a manual "refresh now".
+	const INTERVALS = [
+		{ ms: 30000, label: '30s' },
+		{ ms: 60000, label: '1m' },
+		{ ms: 120000, label: '2m' },
+		{ ms: 300000, label: '5m' }
+	];
 	const MAX_ROWS = 18;
 	const MAX_LOOKUPS_PER_POLL = 8;
 	// Snappy split-flap timing for the board cells (the Home header's Solari flip).
@@ -163,6 +231,7 @@
 
 	let sel = $state<Airport>(AIRPORTS[0]);
 	let radiusNm = $state(60);
+	let pollMs = $state(60000); // auto-refresh cadence; default 1 minute
 	let planes = $state<Plane[]>([]);
 	let status = $state<'loading' | 'ok' | 'empty' | 'error'>('loading');
 	let updatedAt = $state<number | null>(null);
@@ -174,16 +243,21 @@
 		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.23832 3.04445C5.65196 2.1818 3.75 3.31957 3.75 5.03299L3.75 18.9672C3.75 20.6806 5.65196 21.8184 7.23832 20.9557L20.0503 13.9886C21.6499 13.1188 21.6499 10.8814 20.0503 10.0116L7.23832 3.04445ZM2.25 5.03299C2.25 2.12798 5.41674 0.346438 7.95491 1.72669L20.7669 8.6938C23.411 10.1317 23.411 13.8685 20.7669 15.3064L7.95491 22.2735C5.41674 23.6537 2.25 21.8722 2.25 18.9672L2.25 5.03299Z" fill="currentColor"/></svg>';
 	const PAUSE_SVG =
 		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M5.948 1.25H6.052C6.95048 1.24997 7.6997 1.24995 8.29448 1.32991C8.92228 1.41432 9.48908 1.59999 9.94455 2.05546C10.4 2.51093 10.5857 3.07773 10.6701 3.70552C10.7501 4.30031 10.75 5.04953 10.75 5.94801V18.052C10.75 18.9505 10.7501 19.6997 10.6701 20.2945C10.5857 20.9223 10.4 21.4891 9.94455 21.9445C9.48908 22.4 8.92228 22.5857 8.29448 22.6701C7.6997 22.7501 6.95048 22.75 6.052 22.75H5.94801C5.04953 22.75 4.30031 22.7501 3.70552 22.6701C3.07773 22.5857 2.51093 22.4 2.05546 21.9445C1.59999 21.4891 1.41432 20.9223 1.32991 20.2945C1.24995 19.6997 1.24997 18.9505 1.25 18.052V5.948C1.24997 5.04952 1.24995 4.3003 1.32991 3.70552C1.41432 3.07773 1.59999 2.51093 2.05546 2.05546C2.51093 1.59999 3.07773 1.41432 3.70552 1.32991C4.3003 1.24995 5.04952 1.24997 5.948 1.25ZM3.90539 2.81654C3.44393 2.87858 3.24644 2.9858 3.11612 3.11612C2.9858 3.24644 2.87858 3.44393 2.81654 3.90539C2.7516 4.38843 2.75 5.03599 2.75 6V18C2.75 18.964 2.7516 19.6116 2.81654 20.0946C2.87858 20.5561 2.9858 20.7536 3.11612 20.8839C3.24644 21.0142 3.44393 21.1214 3.90539 21.1835C4.38843 21.2484 5.03599 21.25 6 21.25C6.96401 21.25 7.61157 21.2484 8.09461 21.1835C8.55607 21.1214 8.75357 21.0142 8.88389 20.8839C9.0142 20.7536 9.12143 20.5561 9.18347 20.0946C9.24841 19.6116 9.25 18.964 9.25 18V6C9.25 5.03599 9.24841 4.38843 9.18347 3.90539C9.12143 3.44393 9.0142 3.24644 8.88389 3.11612C8.75357 2.9858 8.55607 2.87858 8.09461 2.81654C7.61157 2.7516 6.96401 2.75 6 2.75C5.03599 2.75 4.38843 2.7516 3.90539 2.81654ZM17.948 1.25H18.052C18.9505 1.24997 19.6997 1.24995 20.2945 1.32991C20.9223 1.41432 21.4891 1.59999 21.9445 2.05546C22.4 2.51093 22.5857 3.07773 22.6701 3.70552C22.7501 4.30031 22.75 5.04953 22.75 5.94801V18.052C22.75 18.9505 22.7501 19.6997 22.6701 20.2945C22.5857 20.9223 22.4 21.4891 21.9445 21.9445C21.4891 22.4 20.9223 22.5857 20.2945 22.6701C19.6997 22.7501 18.9505 22.75 18.052 22.75H17.948C17.0495 22.75 16.3003 22.7501 15.7055 22.6701C15.0777 22.5857 14.5109 22.4 14.0555 21.9445C13.6 21.4891 13.4143 20.9223 13.3299 20.2945C13.2499 19.6997 13.25 18.9505 13.25 18.052V5.94801C13.25 5.04953 13.2499 4.3003 13.3299 3.70552C13.4143 3.07773 13.6 2.51093 14.0555 2.05546C14.5109 1.59999 15.0777 1.41432 15.7055 1.32991C16.3003 1.24995 17.0495 1.24997 17.948 1.25ZM15.9054 2.81654C15.4439 2.87858 15.2464 2.9858 15.1161 3.11612C14.9858 3.24644 14.8786 3.44393 14.8165 3.90539C14.7516 4.38843 14.75 5.03599 14.75 6V18C14.75 18.964 14.7516 19.6116 14.8165 20.0946C14.8786 20.5561 14.9858 20.7536 15.1161 20.8839C15.2464 21.0142 15.4439 21.1214 15.9054 21.1835C16.3884 21.2484 17.036 21.25 18 21.25C18.964 21.25 19.6116 21.2484 20.0946 21.1835C20.5561 21.1214 20.7536 21.0142 20.8839 20.8839C21.0142 20.7536 21.1214 20.5561 21.1835 20.0946C21.2484 19.6116 21.25 18.964 21.25 18V6C21.25 5.03599 21.2484 4.38843 21.1835 3.90539C21.1214 3.44393 21.0142 3.24644 20.8839 3.11612C20.7536 2.9858 20.5561 2.87858 20.0946 2.81654C19.6116 2.7516 18.964 2.75 18 2.75C17.036 2.75 16.3884 2.7516 15.9054 2.81654Z" fill="currentColor"/></svg>';
+	// Circular-arrow "refresh now" (outline).
+	const REFRESH_SVG =
+		'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>';
 
 	// Countdown-ring geometry + progress toward the next poll.
-	const POLL_S = Math.round(POLL_MS / 1000);
 	const RING_R = 15.5;
 	const RING_C = 2 * Math.PI * RING_R;
+	// Human label for the current cadence ("1m", "30s") — falls back to raw seconds.
+	const pollLabel = $derived(INTERVALS.find((i) => i.ms === pollMs)?.label ?? `${Math.round(pollMs / 1000)}s`);
 	const ringFrac = $derived(
-		updatedAt ? Math.min(1, Math.max(0, (nowTs - updatedAt) / POLL_MS)) : 0
+		updatedAt ? Math.min(1, Math.max(0, (nowTs - updatedAt) / pollMs)) : 0
 	);
 	const ringDash = $derived(RING_C * ringFrac);
-	const ringRemain = $derived(Math.max(0, Math.ceil((POLL_MS * (1 - ringFrac)) / 1000)));
+	// Seconds until the next poll — shown as a plain count (e.g. 60, not 1:00).
+	const ringRemain = $derived(Math.max(0, Math.ceil((pollMs * (1 - ringFrac)) / 1000)));
 
 	let timer = 0;
 	let ringTimer = 0;
@@ -286,11 +360,27 @@
 	// (Re)start the auto-poll interval — unless paused, in which case it stays off.
 	function restartInterval() {
 		clearInterval(timer);
-		timer = paused ? 0 : window.setInterval(poll, POLL_MS);
+		timer = paused ? 0 : window.setInterval(poll, pollMs);
 	}
 	// Poll now and re-sync the cadence (a one-off refresh while paused stays paused).
 	function kick() {
 		poll();
+		restartInterval();
+	}
+	// The manual "refresh now" button, throttled so mashing it can't spam the volunteer
+	// ADS-B mirrors — at most one on-demand fetch every few seconds. (Field/range changes
+	// call kick() directly since each is a genuinely different query.)
+	let lastManual = 0;
+	function manualRefresh() {
+		const now = Date.now();
+		if (now - lastManual < 3000) return;
+		lastManual = now;
+		kick();
+	}
+	// Switch auto-refresh cadence; adopt it immediately (stays off while paused).
+	function setPollMs(ms: number) {
+		if (ms === pollMs) return;
+		pollMs = ms;
 		restartInterval();
 	}
 	function togglePause() {
@@ -389,6 +479,17 @@
 			if (route) tag = route.d.icao === sel.icao ? 'arr' : route.o.icao === sel.icao ? 'dep' : 'over';
 			return { ...p, route, tag };
 		});
+	});
+
+	// Direction tally across the shown rows — the header summary's Arr · Dep · Ovr line.
+	const counts = $derived.by(() => {
+		let arr = 0, dep = 0, ovr = 0;
+		for (const r of rows) {
+			if (r.tag === 'arr') arr++;
+			else if (r.tag === 'dep') dep++;
+			else if (r.tag === 'over') ovr++;
+		}
+		return { arr, dep, ovr };
 	});
 
 	const fmtAlt = (a: Plane['alt']) => {
@@ -614,102 +715,188 @@
 		reconcile(rows);
 	});
 
+	// Is the viewport wide enough for the beside-the-title deck? (Expanded fills the
+	// viewport, so viewport width ≈ panel width.)
+	let mq: MediaQueryList | undefined;
+	const onMq = (e: MediaQueryListEvent) => (wide = e.matches);
+
 	onMount(() => {
+		loadPersistedPhotos(); // reuse last session's aircraft-type photos
 		poll();
-		timer = window.setInterval(poll, POLL_MS);
+		timer = window.setInterval(poll, pollMs);
 		ringTimer = window.setInterval(() => (nowTs = Date.now()), 200);
+		mq = window.matchMedia('(min-width: 900px)');
+		wide = mq.matches;
+		mq.addEventListener('change', onMq);
 	});
 	onDestroy(() => {
 		destroyed = true;
 		clearInterval(timer);
 		clearInterval(ringTimer);
+		mq?.removeEventListener('change', onMq);
 		for (const id of rowTimers.values()) clearTimeout(id);
 		rowTimers.clear();
 	});
 </script>
 
-<div class="tfc" style:--accent={accent}>
-	<p class="lead">Live traffic within {radiusNm} NM of a field — arriving, departing, or passing over.</p>
+<!-- Control-pill groups, shared between the compact body layout and the expanded
+     header deck (same handlers + state, just re-parented by width). -->
+{#snippet fieldButtons()}
+	{#each AIRPORTS as a}
+		<button
+			type="button"
+			class="field"
+			class:on={a.icao === sel.icao}
+			role="radio"
+			aria-checked={a.icao === sel.icao}
+			title={a.name}
+			onclick={() => select(a)}
+		>
+			{a.iata}
+		</button>
+	{/each}
+{/snippet}
+{#snippet rangeButtons()}
+	{#each RANGES as r}
+		<button
+			type="button"
+			class="field"
+			class:on={r === radiusNm}
+			role="radio"
+			aria-checked={r === radiusNm}
+			aria-label={`${r} nautical miles`}
+			onclick={() => setRange(r)}
+		>
+			{r}
+		</button>
+	{/each}
+{/snippet}
+{#snippet refreshButtons()}
+	{#each INTERVALS as iv}
+		<button
+			type="button"
+			class="field"
+			class:on={iv.ms === pollMs}
+			role="radio"
+			aria-checked={iv.ms === pollMs}
+			aria-label={`Auto-refresh every ${iv.label}`}
+			onclick={() => setPollMs(iv.ms)}
+		>
+			{iv.label}
+		</button>
+	{/each}
+{/snippet}
+{#snippet ringButtons()}
+	<button type="button" class="manual" aria-label="Refresh now" title="Refresh now" onclick={manualRefresh}>
+		{@html REFRESH_SVG}
+	</button>
+	<button
+		type="button"
+		class="refresh"
+		class:is-paused={paused}
+		aria-pressed={paused}
+		aria-label={paused
+			? 'Auto-refresh paused. Click to resume.'
+			: `Auto-refreshing every ${pollLabel}; next in about ${ringRemain} seconds. Click to pause.`}
+		onclick={togglePause}
+	>
+		<svg class="ring" viewBox="0 0 36 36" aria-hidden="true">
+			<circle class="ring-track" cx="18" cy="18" r={RING_R} />
+			<circle
+				class="ring-arc"
+				cx="18"
+				cy="18"
+				r={RING_R}
+				stroke-dasharray={RING_C}
+				stroke-dashoffset={ringDash}
+			/>
+		</svg>
+		<span class="ring-num" aria-hidden="true">{ringRemain}</span>
+		<span class="ring-ico" aria-hidden="true">{@html paused ? PLAY_SVG : PAUSE_SVG}</span>
+		<span class="tip" role="tooltip">
+			{#if paused}Auto-refresh paused — click to resume.
+			{:else}Auto-refreshing every {pollLabel} — the ring counts down to the next update. Click to
+				pause.{/if}
+		</span>
+	</button>
+{/snippet}
 
-	<div class="fields" role="radiogroup" aria-label="Airport">
-		{#each AIRPORTS as a}
-			<button
-				type="button"
-				class="field"
-				class:on={a.icao === sel.icao}
-				role="radio"
-				aria-checked={a.icao === sel.icao}
-				title={a.name}
-				onclick={() => select(a)}
-			>
-				{a.iata}
-			</button>
-		{/each}
-	</div>
-
-	<div class="fields ranges" role="radiogroup" aria-label="Radar range">
-		<span class="range-label">Range</span>
-		{#each RANGES as r}
-			<button
-				type="button"
-				class="field"
-				class:on={r === radiusNm}
-				role="radio"
-				aria-checked={r === radiusNm}
-				aria-label={`${r} nautical miles`}
-				onclick={() => setRange(r)}
-			>
-				{r}
-			</button>
-		{/each}
-		<span class="range-unit">NM</span>
-	</div>
-
-	<div class="board-head">
-		<h3>{sel.name} <span class="mono">· {sel.icao}</span></h3>
-		<div class="status">
-			<span class="upd" aria-live="polite">
-				{#if status === 'loading'}Loading…
-				{:else if status === 'error'}Feed unavailable
-				{:else}{rows.length} in range · {fmtClock(updatedAt)}{/if}
-			</span>
-			<button
-				type="button"
-				class="refresh"
-				class:is-paused={paused}
-				aria-pressed={paused}
-				aria-label={paused
-					? 'Auto-refresh paused. Click to resume.'
-					: `Auto-refreshing every ${POLL_S} seconds; next in about ${ringRemain} seconds. Click to pause.`}
-				onclick={togglePause}
-			>
-				<svg class="ring" viewBox="0 0 36 36" aria-hidden="true">
-					<circle class="ring-track" cx="18" cy="18" r={RING_R} />
-					<circle
-						class="ring-arc"
-						cx="18"
-						cy="18"
-						r={RING_R}
-						stroke-dasharray={RING_C}
-						stroke-dashoffset={ringDash}
-					/>
-				</svg>
-				<span class="ring-num" aria-hidden="true">{ringRemain}</span>
-				<span class="ring-ico" aria-hidden="true">{@html paused ? PLAY_SVG : PAUSE_SVG}</span>
-				<span class="tip" role="tooltip">
-					{#if paused}Auto-refresh paused — click to resume.
-					{:else}Auto-refreshing every {POLL_S}s — the ring counts down to the next update. Click
-						to pause.{/if}
-				</span>
-			</button>
+<div class="tfc" class:expanded style:--accent={accent}>
+	<header class="tfc-head">
+		{#if onback}<button type="button" class="back" onclick={onback}>&larr; route map</button>{/if}
+		<p class="eyebrow">Now arriving &middot; <span class="eyebrow-code">{code}</span></p>
+		<div class="title-row">
+			<h2 class="dest">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
+			{#if showDeck}
+				<!-- Expanded + wide: the controls + a live summary fill the whole band to the
+				     right of the title, on its row, and stay put while the table scrolls. -->
+				<div class="deck">
+					<div class="deck-controls">
+						<div class="ctl" role="radiogroup" aria-label="Airport">
+							<span class="ctl-label">Field</span>{@render fieldButtons()}
+						</div>
+						<div class="ctl" role="radiogroup" aria-label="Radar range">
+							<span class="ctl-label">Range</span>{@render rangeButtons()}<span class="range-unit"
+								>NM</span
+							>
+						</div>
+						<div class="ctl" role="radiogroup" aria-label="Auto-refresh interval">
+							<span class="ctl-label">Refresh</span>{@render refreshButtons()}<span class="ring-wrap"
+								>{@render ringButtons()}</span
+							>
+						</div>
+					</div>
+					<dl class="deck-summary" aria-label="Board summary">
+						<div class="stat">
+							<dt>In range</dt>
+							<dd>{status === 'loading' || status === 'error' ? '—' : rows.length}</dd>
+						</div>
+						<div class="stat">
+							<dt>Arr · Dep · Ovr</dt>
+							<dd>{counts.arr} · {counts.dep} · {counts.ovr}</dd>
+						</div>
+						<div class="stat">
+							<dt>Updated</dt>
+							<dd>{updatedAt ? fmtClock(updatedAt) : '—'}</dd>
+						</div>
+					</dl>
+				</div>
+			{/if}
 		</div>
-	</div>
+	</header>
 
-	<div class="key" aria-label="Tag key">
-		<span class="key-item"><span class="tag arr">Arr</span> Arriving</span>
-		<span class="key-item"><span class="tag dep">Dep</span> Departing</span>
-		<span class="key-item"><span class="tag over">Ovr</span> Overflight</span>
-	</div>
+	<div class="tfc-body">
+		<p class="lead">Live traffic within {radiusNm} NM of a field — arriving, departing, or passing over.</p>
+
+		{#if !showDeck}
+			<div class="fields" role="radiogroup" aria-label="Airport">{@render fieldButtons()}</div>
+
+			<div class="fields ranges" role="radiogroup" aria-label="Radar range">
+				<span class="range-label">Range</span>{@render rangeButtons()}<span class="range-unit">NM</span>
+			</div>
+
+			<div class="fields ranges" role="radiogroup" aria-label="Auto-refresh interval">
+				<span class="range-label">Refresh</span>{@render refreshButtons()}
+			</div>
+
+			<div class="board-head">
+				<h3>{sel.name} <span class="mono">· {sel.icao}</span></h3>
+				<div class="status">
+					<span class="upd" aria-live="polite">
+						{#if status === 'loading'}Loading…
+						{:else if status === 'error'}Feed unavailable
+						{:else}{rows.length} in range · {fmtClock(updatedAt)}{/if}
+					</span>
+					{@render ringButtons()}
+				</div>
+			</div>
+		{/if}
+
+		<div class="key" aria-label="Tag key">
+			<span class="key-item"><span class="tag arr">Arr</span> Arriving</span>
+			<span class="key-item"><span class="tag dep">Dep</span> Departing</span>
+			<span class="key-item"><span class="tag over">Ovr</span> Overflight</span>
+		</div>
 
 	{#if selected}
 		<div class="photo-card" transition:slide={{ duration: 220 }}>
@@ -860,21 +1047,152 @@
 		</div>
 	{/if}
 
-	<p class="src">
-		Live ADS-B via <span class="mono">airplanes.live</span> (<span class="mono">adsb.lol</span>
-		fallback); routes via <span class="mono">adsbdb</span>. Aircraft without a public route show a
-		heading instead.
-	</p>
+		<p class="src">
+			Live ADS-B via <span class="mono">airplanes.live</span> (<span class="mono">adsb.lol</span>
+			fallback); routes via <span class="mono">adsbdb</span>. Aircraft without a public route show a
+			heading instead.
+		</p>
+
+		{@render connections?.()}
+	</div>
 </div>
 
 <style>
+	/* The board owns the whole panel interior: a header + a body that grows to the
+	   table's natural height (the panel itself scrolls when the data runs long, rather
+	   than boxing the table into its own inner scroller). */
 	.tfc {
 		display: flex;
 		flex-direction: column;
+		min-height: 100%;
+	}
+	.tfc-head {
+		flex: none;
+		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) 1.25rem;
+		border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+	}
+	.tfc-body {
+		/* Grow to fill a short panel, but never shrink below the data's height. */
+		flex: 1 0 auto;
+		display: flex;
+		flex-direction: column;
 		gap: 0.9rem;
-		/* Query against the board's own width so extra columns appear only when the
+		padding: clamp(1.5rem, 4vw, 2.25rem) clamp(1.5rem, 4vw, 2.75rem) 3rem;
+		/* Query against the body's own width so extra columns appear only when the
 		   panel is wide (expanded on a big viewport) — the compact panel is untouched. */
 		container-type: inline-size;
+	}
+	/* Panel chrome, matched to the generic .surface-head so ATFC reads like every other
+	   destination panel (this board just renders it itself). */
+	.back {
+		align-self: flex-start;
+		margin-bottom: 1.4rem;
+		padding: 0.4rem 0.85rem;
+		font: inherit;
+		font-size: 0.9rem;
+		font-weight: 600;
+		color: var(--ink);
+		background: transparent;
+		border: 1.5px solid var(--ink);
+		border-radius: 999px;
+		cursor: pointer;
+	}
+	.eyebrow {
+		margin: 0 0 0.4rem;
+		font-size: 0.8rem;
+		font-weight: 600;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: var(--sub);
+	}
+	.eyebrow-code {
+		color: var(--accent);
+	}
+	.dest {
+		margin: 0;
+		font-size: clamp(2rem, 6vw, 3rem);
+		font-weight: 700;
+		letter-spacing: -0.02em;
+		line-height: 1;
+		color: var(--ink);
+	}
+	/* The title's own row: "Air Traffic" on the left, the control deck filling the
+	   whole band to its right. Wraps to stacked only if it ever gets tight (the deck
+	   renders past 900px, so that's a safety net). */
+	.title-row {
+		display: flex;
+		align-items: center;
+		gap: 1rem clamp(1.5rem, 4vw, 3rem);
+		flex-wrap: wrap;
+	}
+	.title-row .dest {
+		flex: none;
+	}
+	.deck {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem clamp(1.5rem, 3vw, 2.5rem);
+		flex-wrap: wrap;
+	}
+	/* Field / Range / Refresh share one row, each group bumping to its own line only
+	   when the band gets too narrow to hold them side by side. */
+	.deck-controls {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-flow: row wrap;
+		align-items: center;
+		gap: 0.5rem 1.5rem;
+	}
+	.ctl {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+	}
+	.ctl-label {
+		flex: none;
+		font-size: 0.72rem;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--sub);
+	}
+	.ring-wrap {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.15rem;
+		margin-left: 0.4rem;
+	}
+	/* Glanceable live stats, right end of the deck. */
+	.deck-summary {
+		flex: none;
+		display: flex;
+		gap: 1.5rem;
+		margin: 0;
+	}
+	.stat {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+	}
+	.stat dt {
+		font-size: 0.68rem;
+		font-weight: 700;
+		letter-spacing: 0.05em;
+		text-transform: uppercase;
+		color: var(--sub);
+		white-space: nowrap;
+	}
+	.stat dd {
+		margin: 0;
+		font-size: 1.1rem;
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+		color: var(--ink);
 	}
 	/* Extra board columns, revealed by width. x1 = narrow (reg / vertical rate /
 	   heading); x2 = the wide operator column, held back until there's real room. */
@@ -991,6 +1309,36 @@
 		outline: 2px solid var(--ink);
 		outline-offset: 2px;
 		border-radius: 50%;
+	}
+	/* Manual "refresh now" — a plain icon button beside the countdown ring. */
+	.manual {
+		display: inline-grid;
+		place-items: center;
+		width: 28px;
+		height: 28px;
+		flex: none;
+		padding: 0;
+		color: var(--sub);
+		background: none;
+		border: 0;
+		border-radius: 50%;
+		cursor: pointer;
+		transition: color 0.15s ease, transform 0.15s ease;
+	}
+	.manual:hover {
+		color: var(--ink);
+	}
+	.manual:active {
+		transform: rotate(-90deg);
+	}
+	.manual:focus-visible {
+		outline: 2px solid var(--ink);
+		outline-offset: 2px;
+	}
+	.manual :global(svg) {
+		width: 15px;
+		height: 15px;
+		display: block;
 	}
 	.ring {
 		width: 30px;
