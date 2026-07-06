@@ -36,7 +36,7 @@
 			name: 'Loess',
 			color: '#12a150',
 			legs: [['KSH', 'ABT'], ['ABT', 'PRJ'], ['ABT', 'WRK']],
-			body: 'Named after a trip I took in college, Loess possess some of my most formative moments.'
+			body: 'Named after a trip I took in college, Loess possesses some of my most formative moments.'
 		},
 		{
 			name: 'Gray’s',
@@ -45,10 +45,10 @@
 			body: 'Named after my childhood area, Gray’s holds a special place in my heart.'
 		},
 		{
-			name: 'Apps',
+			name: 'Terminal Way',
 			color: '#f06030',
 			legs: [['KSH', 'APP'], ['APP', 'ATFC']],
-			body: 'The little live apps I run — Air Traffic is the first stop on the line.'
+			body: 'Named after the airport, Terminal Way represents the opportunities taken to expand my horizons.'
 		}
 	];
 
@@ -107,6 +107,8 @@
 		}
 	}
 	const mapPhrase = $derived(mapMode === 'air' ? 'an airline route map' : 'a train route map');
+	// Tagline split into words so each raises in on a stagger (like the legend).
+	const taglineWords = 'a route map of my internet'.split(' ');
 
 	// Label style, toggled from Settings: station codes (WRK) or full stop names.
 	// No explicit choice yet: airline mode defaults to codes, train mode to full
@@ -451,7 +453,8 @@
 	function clearLocalStorage() {
 		if (!dev) return;
 		try {
-			for (const k of [MODE_KEY, NAMES_KEY, THEME_KEY, CONTENT_KEY]) localStorage.removeItem(k);
+			for (const k of [MODE_KEY, NAMES_KEY, THEME_KEY, CONTENT_KEY, EXPAND_KEY])
+				localStorage.removeItem(k);
 		} catch {
 			/* storage unavailable — nothing to clear */
 		}
@@ -625,7 +628,17 @@
 	// When navigating panel→panel, the whole panel slides off before its content swaps.
 	let panelLeaving = $state(false);
 	// Expand the panel to fill the viewport (handy for the wide Traffic board).
+	// Remembered across panels and reloads.
+	const EXPAND_KEY = 'ksh-panel-expanded';
 	let panelExpanded = $state(false);
+	function toggleExpand() {
+		panelExpanded = !panelExpanded;
+		try {
+			localStorage.setItem(EXPAND_KEY, panelExpanded ? '1' : '0');
+		} catch {
+			/* storage unavailable — keep the in-memory choice */
+		}
+	}
 	const MAXIMIZE_SVG =
 		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.1429 1.25C15.7286 1.25 15.3929 1.58579 15.3929 2C15.3929 2.41421 15.7286 2.75 16.1429 2.75H20.1893L14.4697 8.46967C14.1768 8.76256 14.1768 9.23744 14.4697 9.53033C14.7626 9.82322 15.2374 9.82322 15.5303 9.53033L21.25 3.81066V7.85714C21.25 8.27136 21.5858 8.60714 22 8.60714C22.4142 8.60714 22.75 8.27136 22.75 7.85714V2C22.75 1.58579 22.4142 1.25 22 1.25H16.1429Z" fill="currentColor"/><path d="M7.85714 22.75C8.27136 22.75 8.60714 22.4142 8.60714 22C8.60714 21.5858 8.27136 21.25 7.85714 21.25H3.81066L9.53033 15.5303C9.82322 15.2374 9.82322 14.7626 9.53033 14.4697C9.23744 14.1768 8.76256 14.1768 8.46967 14.4697L2.75 20.1893V16.1429C2.75 15.7286 2.41421 15.3929 2 15.3929C1.58579 15.3929 1.25 15.7286 1.25 16.1429V22C1.25 22.4142 1.58579 22.75 2 22.75H7.85714Z" fill="currentColor"/></svg>';
 	const MINIMIZE_SVG =
@@ -667,6 +680,19 @@
 	// Show a destination/line: fly the camera there and render its panel content.
 	function applyView(nv: View) {
 		view = nv;
+		// On mobile the panel is a full-screen sheet, so there's no "beside the panel"
+		// to bias toward — panning would just slide the map sideways behind the sheet.
+		// Instead dolly straight back from the home framing (further away, centred).
+		if (isMobile) {
+			const f = 1.3;
+			flyTo({
+				x: HOME.x - (HOME.w * (f - 1)) / 2,
+				y: HOME.y - (HOME.h * (f - 1)) / 2,
+				w: HOME.w * f,
+				h: HOME.h * f
+			});
+			return;
+		}
 		flyTo(nv.kind === 'port' ? crop(P[nv.code][0], P[nv.code][1], 720, 0.3) : fitLine(nv.idx));
 	}
 	// Reuse the open panel across destinations: slide the whole panel out, swap its
@@ -693,7 +719,8 @@
 	function home() {
 		clearTimeout(navTimer);
 		panelLeaving = false;
-		panelExpanded = false;
+		// Keep panelExpanded set so the panel flies out at its current width in one
+		// clean slide (it's reset on the next fresh open, not mid-close).
 		view = null;
 		flyTo(HOME);
 		// Drop focus off the selected node so its dot returns to its normal weight
@@ -703,9 +730,12 @@
 			(document.activeElement as HTMLElement | null)?.blur?.();
 		}
 	}
-	// Escape: close an open panel, or (if none) fly back to the KSH home view.
+	// Escape closes an open panel; on the overview map it opens Settings.
 	function onKey(e: KeyboardEvent) {
-		if (e.key === 'Escape') home();
+		if (e.key !== 'Escape') return;
+		e.preventDefault();
+		if (view) home();
+		else board('STG');
 	}
 
 	// ─── Drag-to-pan ────────────────────────────────────────────────────────────
@@ -867,6 +897,7 @@
 		if (n === '1' || n === '0') stopNamesPref = n === '1';
 		const th = localStorage.getItem(THEME_KEY);
 		if (th === 'light' || th === 'dark') theme = th;
+		if (localStorage.getItem(EXPAND_KEY) === '1') panelExpanded = true;
 		if (dev) applySavedContent();
 		// Snap to the resolved mode/orientation home framing.
 		cam = { ...HOME };
@@ -953,11 +984,12 @@
 			<h1><SplitFlap text="Kashinoga" /></h1>
 			<!-- Little display-mode bullets, like the route icons on a station sign. -->
 			<div class="theme" role="radiogroup" aria-label="Display mode">
-				{#each themeModes as m}
+				{#each themeModes as m, i}
 					<button
 						type="button"
 						class="theme-dot"
 						class:on={theme === m.id}
+						style="--n:{i}"
 						role="radio"
 						aria-checked={theme === m.id}
 						aria-label={m.label}
@@ -969,7 +1001,9 @@
 				{/each}
 			</div>
 		</div>
-		<p class="tagline">a route map of my internet</p>
+		<p class="tagline">{#each taglineWords as word, i}<span class="tw" style="--n:{i}"
+				>{word}</span
+			>{' '}{/each}</p>
 	</header>
 
 	<ul class="legend" class:hidden={view !== null}>
@@ -991,7 +1025,7 @@
 			class:expanded={panelExpanded}
 			transition:fly|global={isMobile
 				? { y: 900, opacity: 1, duration: 380 }
-				: { x: 680, opacity: 1, duration: 380 }}
+				: { x: panelExpanded ? vw : 680, opacity: 1, duration: 380 }}
 		>
 			<button
 				type="button"
@@ -999,7 +1033,7 @@
 				aria-pressed={panelExpanded}
 				aria-label={panelExpanded ? 'Collapse panel' : 'Expand panel to fill'}
 				title={panelExpanded ? 'Collapse' : 'Expand to fill'}
-				onclick={() => (panelExpanded = !panelExpanded)}
+				onclick={toggleExpand}
 			>
 				{@html panelExpanded ? MINIMIZE_SVG : MAXIMIZE_SVG}
 			</button>
@@ -1400,9 +1434,38 @@
 	/* Title and tagline animate on their own so open/close staggers like the entrance:
 	   the tagline trails the title coming in, and leads going out. */
 	.masthead h1,
-	.masthead .theme,
 	.masthead .tagline {
 		transition: opacity 0.4s ease, transform 0.4s ease;
+	}
+	/* The circles unfurl left→right: the leftmost fades in place (its --roll is 0),
+	   the rest roll out from behind it, each a beat later. Same effect on open/close
+	   (this transition) and on page load (the keyframe below). Longhand so only
+	   opacity/transform get the stagger delay — hover stays instant. */
+	.masthead .theme-dot {
+		transition-property: color, background, border-color, opacity, transform;
+		transition-duration: 0.15s, 0.15s, 0.15s, 0.4s, 0.4s;
+		transition-timing-function: ease, ease, ease, ease, cubic-bezier(0.34, 1.4, 0.64, 1);
+		transition-delay: 0s, 0s, 0s, calc(var(--n, 0) * 0.07s), calc(var(--n, 0) * 0.07s);
+	}
+	.masthead.hidden .theme-dot {
+		opacity: 0;
+		transform: translateX(var(--roll));
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.theme-dot {
+			animation: dot-roll 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) backwards;
+			animation-delay: calc(0.5s + var(--n, 0) * 0.07s);
+		}
+	}
+	@keyframes dot-roll {
+		from {
+			opacity: 0;
+			transform: translateX(var(--roll));
+		}
+		to {
+			opacity: 1;
+			transform: translateX(0);
+		}
 	}
 	.masthead .tagline {
 		transition-delay: 0.12s;
@@ -1431,6 +1494,9 @@
 		gap: 0.35rem;
 	}
 	.theme-dot {
+		/* Start offset for the roll-out: each circle begins stacked on the leftmost
+		   one (one circle-width + gap per index), then unfurls to the right. */
+		--roll: calc(var(--n, 0) * -2.23rem);
 		display: inline-grid;
 		place-items: center;
 		width: 30px;
@@ -1467,11 +1533,13 @@
 		color: var(--sub);
 	}
 	@media (prefers-reduced-motion: no-preference) {
-		.tagline {
-			/* Trails the title's flip by a short beat on entrance. `backwards` (not
-			   `both`) so it doesn't pin the tagline afterward and block the open/close
-			   transition above — its end state already equals the resting state. */
-			animation: rise 0.6s ease 0.3s backwards;
+		/* Each word raises in on a stagger (like the legend), trailing the title's
+		   flip. `backwards` (not `both`) so words aren't pinned afterward and the
+		   whole-tagline open/close transition above still works. */
+		.tw {
+			display: inline-block;
+			animation: rise 0.55s ease backwards;
+			animation-delay: calc(0.3s + var(--n, 0) * 0.06s);
 		}
 	}
 	/* Raise-in with a happy little bounce: rises past its resting spot, dips back
@@ -1506,10 +1574,18 @@
 		gap: 0.4rem 1.4rem;
 		font-size: 1rem;
 		font-weight: 500;
-		transition: opacity 0.4s ease, transform 0.4s ease;
 	}
+	/* Each item raises/fades on a stagger — on page load (the keyframe below) and
+	   on panel open/close (this transition), so the bar populates in sequence both
+	   times. Bouncy easing echoes the rise keyframe. */
 	.legend li {
 		display: flex;
+		transition: opacity 0.4s ease, transform 0.45s cubic-bezier(0.34, 1.5, 0.64, 1);
+		transition-delay: calc(var(--n, 0) * 0.05s);
+	}
+	.legend.hidden li {
+		opacity: 0;
+		transform: translateY(8px);
 	}
 	.legend-btn {
 		display: inline-flex;
@@ -1532,11 +1608,12 @@
 		outline: 2px solid var(--ink);
 		outline-offset: 3px;
 	}
-	/* Same rise as the tagline, staggered so the bottom bar populates in sequence.
-	 * On the li (not the ul, which owns the show/hide transform for navigation). */
+	/* Page-load entrance: same rise as the tagline, staggered. `backwards` (not
+	 * `both`) so the item isn't pinned afterward, leaving the open/close transition
+	 * above free to run. */
 	@media (prefers-reduced-motion: no-preference) {
 		.legend li {
-			animation: rise 0.5s ease both;
+			animation: rise 0.5s ease backwards;
 			animation-delay: calc(1.1s + var(--n, 0) * 0.07s);
 		}
 	}
@@ -1551,7 +1628,6 @@
 		pointer-events: none;
 	}
 	.masthead.hidden h1,
-	.masthead.hidden .theme,
 	.masthead.hidden .tagline {
 		opacity: 0;
 		transform: translateY(-8px);
@@ -1565,8 +1641,6 @@
 		transition-delay: 0s;
 	}
 	.legend.hidden {
-		opacity: 0;
-		transform: translateY(8px);
 		pointer-events: none;
 	}
 

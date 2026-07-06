@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { slide } from 'svelte/transition';
+	import SplitFlap from '$lib/SplitFlap.svelte';
 
 	// A live "what's in the air around <airport>" board. Same keyless, CORS-open
 	// stack as the dotcom-2 atc app: airplanes.live for live ADS-B traffic near a
@@ -141,6 +142,8 @@
 	const POLL_MS = 10000;
 	const MAX_ROWS = 18;
 	const MAX_LOOKUPS_PER_POLL = 8;
+	// Snappy split-flap timing for the board cells (the Home header's Solari flip).
+	const FLAP = { base: 70, stagger: 24, tick: 40, delay: 0 };
 
 	let sel = $state<Airport>(AIRPORTS[0]);
 	let planes = $state<Plane[]>([]);
@@ -149,10 +152,11 @@
 	let routeVer = $state(0); // bump when the route cache fills, to re-derive rows
 	let nowTs = $state(Date.now()); // ticks so the refresh ring can count down
 	let paused = $state(false); // auto-refresh on/off
-	const PAUSE_SVG =
-		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
+	// reicon play / pause (outline).
 	const PLAY_SVG =
-		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.14v13.72a1 1 0 0 0 1.53.84l10.79-6.86a1 1 0 0 0 0-1.68L9.53 4.3A1 1 0 0 0 8 5.14z"/></svg>';
+		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.23832 3.04445C5.65196 2.1818 3.75 3.31957 3.75 5.03299L3.75 18.9672C3.75 20.6806 5.65196 21.8184 7.23832 20.9557L20.0503 13.9886C21.6499 13.1188 21.6499 10.8814 20.0503 10.0116L7.23832 3.04445ZM2.25 5.03299C2.25 2.12798 5.41674 0.346438 7.95491 1.72669L20.7669 8.6938C23.411 10.1317 23.411 13.8685 20.7669 15.3064L7.95491 22.2735C5.41674 23.6537 2.25 21.8722 2.25 18.9672L2.25 5.03299Z" fill="currentColor"/></svg>';
+	const PAUSE_SVG =
+		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M5.948 1.25H6.052C6.95048 1.24997 7.6997 1.24995 8.29448 1.32991C8.92228 1.41432 9.48908 1.59999 9.94455 2.05546C10.4 2.51093 10.5857 3.07773 10.6701 3.70552C10.7501 4.30031 10.75 5.04953 10.75 5.94801V18.052C10.75 18.9505 10.7501 19.6997 10.6701 20.2945C10.5857 20.9223 10.4 21.4891 9.94455 21.9445C9.48908 22.4 8.92228 22.5857 8.29448 22.6701C7.6997 22.7501 6.95048 22.75 6.052 22.75H5.94801C5.04953 22.75 4.30031 22.7501 3.70552 22.6701C3.07773 22.5857 2.51093 22.4 2.05546 21.9445C1.59999 21.4891 1.41432 20.9223 1.32991 20.2945C1.24995 19.6997 1.24997 18.9505 1.25 18.052V5.948C1.24997 5.04952 1.24995 4.3003 1.32991 3.70552C1.41432 3.07773 1.59999 2.51093 2.05546 2.05546C2.51093 1.59999 3.07773 1.41432 3.70552 1.32991C4.3003 1.24995 5.04952 1.24997 5.948 1.25ZM3.90539 2.81654C3.44393 2.87858 3.24644 2.9858 3.11612 3.11612C2.9858 3.24644 2.87858 3.44393 2.81654 3.90539C2.7516 4.38843 2.75 5.03599 2.75 6V18C2.75 18.964 2.7516 19.6116 2.81654 20.0946C2.87858 20.5561 2.9858 20.7536 3.11612 20.8839C3.24644 21.0142 3.44393 21.1214 3.90539 21.1835C4.38843 21.2484 5.03599 21.25 6 21.25C6.96401 21.25 7.61157 21.2484 8.09461 21.1835C8.55607 21.1214 8.75357 21.0142 8.88389 20.8839C9.0142 20.7536 9.12143 20.5561 9.18347 20.0946C9.24841 19.6116 9.25 18.964 9.25 18V6C9.25 5.03599 9.24841 4.38843 9.18347 3.90539C9.12143 3.44393 9.0142 3.24644 8.88389 3.11612C8.75357 2.9858 8.55607 2.87858 8.09461 2.81654C7.61157 2.7516 6.96401 2.75 6 2.75C5.03599 2.75 4.38843 2.7516 3.90539 2.81654ZM17.948 1.25H18.052C18.9505 1.24997 19.6997 1.24995 20.2945 1.32991C20.9223 1.41432 21.4891 1.59999 21.9445 2.05546C22.4 2.51093 22.5857 3.07773 22.6701 3.70552C22.7501 4.30031 22.75 5.04953 22.75 5.94801V18.052C22.75 18.9505 22.7501 19.6997 22.6701 20.2945C22.5857 20.9223 22.4 21.4891 21.9445 21.9445C21.4891 22.4 20.9223 22.5857 20.2945 22.6701C19.6997 22.7501 18.9505 22.75 18.052 22.75H17.948C17.0495 22.75 16.3003 22.7501 15.7055 22.6701C15.0777 22.5857 14.5109 22.4 14.0555 21.9445C13.6 21.4891 13.4143 20.9223 13.3299 20.2945C13.2499 19.6997 13.25 18.9505 13.25 18.052V5.94801C13.25 5.04953 13.2499 4.3003 13.3299 3.70552C13.4143 3.07773 13.6 2.51093 14.0555 2.05546C14.5109 1.59999 15.0777 1.41432 15.7055 1.32991C16.3003 1.24995 17.0495 1.24997 17.948 1.25ZM15.9054 2.81654C15.4439 2.87858 15.2464 2.9858 15.1161 3.11612C14.9858 3.24644 14.8786 3.44393 14.8165 3.90539C14.7516 4.38843 14.75 5.03599 14.75 6V18C14.75 18.964 14.7516 19.6116 14.8165 20.0946C14.8786 20.5561 14.9858 20.7536 15.1161 20.8839C15.2464 21.0142 15.4439 21.1214 15.9054 21.1835C16.3884 21.2484 17.036 21.25 18 21.25C18.964 21.25 19.6116 21.2484 20.0946 21.1835C20.5561 21.1214 20.7536 21.0142 20.8839 20.8839C21.0142 20.7536 21.1214 20.5561 21.1835 20.0946C21.2484 19.6116 21.25 18.964 21.25 18V6C21.25 5.03599 21.2484 4.38843 21.1835 3.90539C21.1214 3.44393 21.0142 3.24644 20.8839 3.11612C20.7536 2.9858 20.5561 2.87858 20.0946 2.81654C19.6116 2.7516 18.964 2.75 18 2.75C17.036 2.75 16.3884 2.7516 15.9054 2.81654Z" fill="currentColor"/></svg>';
 
 	// Countdown-ring geometry + progress toward the next poll.
 	const POLL_S = Math.round(POLL_MS / 1000);
@@ -383,23 +387,15 @@
 			</span>
 			<button
 				type="button"
-				class="pause"
+				class="refresh"
+				class:is-paused={paused}
 				aria-pressed={paused}
-				aria-label={paused ? 'Resume auto-refresh' : 'Pause auto-refresh'}
-				title={paused ? 'Resume' : 'Pause'}
+				aria-label={paused
+					? 'Auto-refresh paused. Click to resume.'
+					: `Auto-refreshing every ${POLL_S} seconds; next in about ${ringRemain} seconds. Click to pause.`}
 				onclick={togglePause}
 			>
-				{@html paused ? PLAY_SVG : PAUSE_SVG}
-			</button>
-			<button
-				type="button"
-				class="refresh"
-				aria-label={paused
-					? 'Auto-refresh paused. Click to refresh once.'
-					: `Live data auto-refreshes every ${POLL_S} seconds; next in about ${ringRemain} seconds. Click to refresh now.`}
-				onclick={kick}
-			>
-				<svg class="ring" class:paused viewBox="0 0 36 36" aria-hidden="true">
+				<svg class="ring" viewBox="0 0 36 36" aria-hidden="true">
 					<circle class="ring-track" cx="18" cy="18" r={RING_R} />
 					<circle
 						class="ring-arc"
@@ -410,14 +406,21 @@
 						stroke-dashoffset={ringDash}
 					/>
 				</svg>
-				<span class="ring-num" aria-hidden="true">{paused ? '‖' : ringRemain}</span>
+				<span class="ring-num" aria-hidden="true">{ringRemain}</span>
+				<span class="ring-ico" aria-hidden="true">{@html paused ? PLAY_SVG : PAUSE_SVG}</span>
 				<span class="tip" role="tooltip">
-					{#if paused}Auto-refresh paused — click to refresh once, or press play to resume.
+					{#if paused}Auto-refresh paused — click to resume.
 					{:else}Auto-refreshing every {POLL_S}s — the ring counts down to the next update. Click
-						to refresh now.{/if}
+						to pause.{/if}
 				</span>
 			</button>
 		</div>
+	</div>
+
+	<div class="key" aria-label="Tag key">
+		<span class="key-item"><span class="tag arr">Arr</span> Arriving</span>
+		<span class="key-item"><span class="tag dep">Dep</span> Departing</span>
+		<span class="key-item"><span class="tag over">Ovr</span> Overflight</span>
 	</div>
 
 	{#if selected}
@@ -484,20 +487,26 @@
 							<td>
 								{#if p.tag}<span class="tag {p.tag}">{TAG_LABEL[p.tag]}</span>{/if}
 							</td>
-							<td class="mono flight">{p.call || p.hex || '—'}</td>
+							<td class="mono flight">
+								{#key p.call || p.hex}<SplitFlap {...FLAP} text={p.call || p.hex || '—'} />{/key}
+							</td>
 							<td class="mono">
 								{#if TYPE_TITLES[p.type]}
-									<button type="button" class="type-btn" onclick={() => openPhoto(p)}
-										>{p.type}</button
-									>
-								{:else}{p.type || '—'}{/if}
+									<button type="button" class="type-btn" onclick={() => openPhoto(p)}>
+										{#key p.type}<SplitFlap {...FLAP} text={p.type} />{/key}
+									</button>
+								{:else}{#key p.type}<SplitFlap {...FLAP} text={p.type || '—'} />{/key}{/if}
 							</td>
 							<td class="mono num">{fmtAlt(p.alt)}</td>
 							<td class="mono num">{fmtSpd(p.gs)}</td>
 							<td class="mono route">
-								{#if p.route}{p.route.o.iata || p.route.o.icao || '???'} → {p.route.d.iata ||
-										p.route.d.icao ||
-										'???'}{:else}<span class="hdg">hdg {fmtHdg(p.track)}</span>{/if}
+								{#if p.route}{#key `${p.route.o.iata || p.route.o.icao} ${p.route.d.iata || p.route.d.icao}`}<SplitFlap
+										{...FLAP}
+										text={`${p.route.o.iata || p.route.o.icao || '???'} → ${p.route.d.iata ||
+											p.route.d.icao ||
+											'???'}`}
+									/>{/key}
+								{:else}<span class="hdg">hdg {fmtHdg(p.track)}</span>{/if}
 							</td>
 							<td class="mono num">{fmtDist(p.distNm)}</td>
 						</tr>
@@ -579,35 +588,7 @@
 		color: var(--sub);
 		font-variant-numeric: tabular-nums;
 	}
-	/* Pause / resume auto-refresh. */
-	.pause {
-		display: inline-grid;
-		place-items: center;
-		width: 26px;
-		height: 26px;
-		padding: 0;
-		flex: none;
-		color: var(--sub);
-		background: none;
-		border: 0;
-		border-radius: 6px;
-		cursor: pointer;
-		transition: color 0.15s ease, background 0.15s ease;
-	}
-	.pause:hover {
-		color: var(--ink);
-		background: color-mix(in srgb, var(--ink) 7%, transparent);
-	}
-	.pause:focus-visible {
-		outline: 2px solid var(--ink);
-		outline-offset: 2px;
-	}
-	.pause :global(svg) {
-		width: 15px;
-		height: 15px;
-		display: block;
-	}
-	/* Refresh countdown ring + its tooltip. */
+	/* Refresh countdown ring — doubles as the play/pause toggle. */
 	.refresh {
 		position: relative;
 		display: inline-grid;
@@ -642,7 +623,7 @@
 		stroke-linecap: round;
 		transition: stroke-dashoffset 0.2s linear;
 	}
-	.ring.paused .ring-arc {
+	.is-paused .ring-arc {
 		stroke: color-mix(in srgb, var(--ink) 28%, transparent);
 	}
 	.ring-num {
@@ -651,6 +632,29 @@
 		font-weight: 700;
 		font-variant-numeric: tabular-nums;
 		color: var(--sub);
+	}
+	/* Center action glyph: pause (playing) or play (paused). Shown on hover/focus
+	   while playing, always while paused; the number hides to make room. */
+	.ring-ico {
+		position: absolute;
+		display: none;
+		place-items: center;
+		color: var(--ink);
+	}
+	.ring-ico :global(svg) {
+		width: 11px;
+		height: 11px;
+		display: block;
+	}
+	.refresh:hover .ring-num,
+	.refresh:focus-visible .ring-num,
+	.is-paused .ring-num {
+		display: none;
+	}
+	.refresh:hover .ring-ico,
+	.refresh:focus-visible .ring-ico,
+	.is-paused .ring-ico {
+		display: grid;
 	}
 	.tip {
 		position: absolute;
@@ -710,6 +714,14 @@
 	.num {
 		text-align: right;
 	}
+	/* Right-align the numeric headers too — `.board th` would otherwise force them
+	   left, so header and values drift apart in the wide expanded panel. Extra
+	   right padding keeps a right-aligned number off the next (left-aligned) column. */
+	.board th.num,
+	.board td.num {
+		text-align: right;
+		padding-right: 1.5rem;
+	}
 	.flight {
 		font-weight: 700;
 	}
@@ -739,6 +751,19 @@
 	}
 	.tag.over {
 		background: color-mix(in srgb, var(--ink) 45%, transparent);
+	}
+	/* Key for the arriving / departing / overflight tags. */
+	.key {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.35rem 1rem;
+		font-size: 0.78rem;
+		color: var(--sub);
+	}
+	.key-item {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
 	}
 	/* Clickable aircraft type → opens the photo card. */
 	.type-btn {

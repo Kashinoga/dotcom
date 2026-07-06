@@ -82,7 +82,7 @@
 
 <span class="flap" aria-label={text}>
 	{#each groups as grp}
-		{#if 'space' in grp}<span class="sp"> </span>{:else}
+		{#if 'space' in grp}<span class="sp">&nbsp;</span>{:else}
 			<span class="word">
 				{#each grp.idx as i}
 					<span class="cell" style:min-width={spinning[i] ? '0.4em' : undefined}>
