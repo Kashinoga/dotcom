@@ -23,7 +23,10 @@
 		expanded = false,
 		onback,
 		onToggleExpand,
-		connections
+		connections,
+		edit = false,
+		copyText,
+		onCopyEdit
 	}: {
 		accent?: string;
 		code?: string;
@@ -32,6 +35,12 @@
 		onback?: () => void;
 		onToggleExpand?: () => void;
 		connections?: Snippet;
+		// Edit Mode (dev authoring): `copyText(key)` reads the current/staged copy and
+		// `onCopyEdit(key, value)` stages an edit — both delegate to the page's Settings
+		// store so the board's prose saves/exports with the rest of the site copy.
+		edit?: boolean;
+		copyText?: (key: string) => string;
+		onCopyEdit?: (key: string, value: string) => void;
 	} = $props();
 
 	// The dense header deck is worth it only when the panel is both expanded AND wide
@@ -121,7 +130,8 @@
 		SU47: 'Sukhoi Su-47',
 		SU57: 'Sukhoi Su-57',
 		YF23: 'Northrop YF-23',
-		X29: 'Grumman X-29'
+		X29: 'Grumman X-29',
+		E3: 'Boeing E-3 Sentry'
 	};
 	type Photo = { src: string; credit: string; url: string };
 	// type → resolved photo (or null when Wikipedia has none). Caching the PROMISE also
@@ -392,7 +402,16 @@
 		{ hex: 'ACE011', call: 'CIPHER', type: 'F15', reg: 'UST-01', op: 'Ustio Air Force', year: 1995, alt: 'ground', gs: 0, track: 0, vrate: 0, distNm: 2, o: 'GRM', d: 'SIB' },
 		// Boss-tier aces, in real exotics (so a tapped row still shows a real photo).
 		{ hex: 'ACE012', call: 'MIHALY', type: 'SU57', reg: 'ERU-01', op: 'Erusean Air Force', year: 2020, alt: 41000, gs: 520, track: 200, vrate: 0, distNm: 28, o: 'FAR', d: 'OUR' },
-		{ hex: 'ACE013', call: 'BERKUT', type: 'SU47', reg: 'GRU-47', op: 'Gründer Industries', year: 2006, alt: 26000, gs: 440, track: 85, vrate: 900, distNm: 40, o: 'SUD', d: 'GRM' }
+		{ hex: 'ACE013', call: 'BERKUT', type: 'SU47', reg: 'GRU-47', op: 'Gründer Industries', year: 2006, alt: 26000, gs: 440, track: 85, vrate: 900, distNm: 40, o: 'SUD', d: 'GRM' },
+		// A fuller board — enough within range to fill it and make the panel scroll.
+		{ hex: 'ACE014', call: 'THUNDERHEAD', type: 'E3', reg: 'OAD-767', op: 'Osean Air Defense Force', year: 2005, alt: 31000, gs: 300, track: 90, vrate: 0, distNm: 26, o: 'SUD', d: 'GRM' },
+		{ hex: 'ACE015', call: 'EDGE', type: 'F14', reg: 'OMD-04', op: 'Osean Maritime Defense', year: 2010, alt: 19000, gs: 400, track: 110, vrate: -800, distNm: 15, o: 'OUR', d: 'GRM' },
+		{ hex: 'ACE016', call: 'CHOPPER', type: 'F14', reg: 'OMD-05', op: 'Osean Maritime Defense', year: 2010, alt: 22000, gs: 410, track: 100, vrate: 0, distNm: 37, o: 'FAR', d: 'GRM' },
+		{ hex: 'ACE017', call: 'ARCHER', type: 'F15', reg: 'OAD-21', op: 'Osean Air Defense Force', year: 2012, alt: 12000, gs: 350, track: 280, vrate: 1500, distNm: 24, o: 'GRM', d: 'NOV' },
+		{ hex: 'ACE018', call: 'SWORDSMAN', type: 'F15', reg: 'EMM-07', op: 'Emmeria Air Force', year: 2013, alt: 27000, gs: 440, track: 200, vrate: 0, distNm: 48, o: 'FAR', d: 'OUR' },
+		{ hex: 'ACE019', call: 'WISEMAN', type: 'F18', reg: 'OAD-115', op: 'Osean Air Defense Force', year: 2014, alt: 16000, gs: 380, track: 130, vrate: -1000, distNm: 33, o: 'NDV', d: 'GRM' },
+		{ hex: 'ACE020', call: 'COUNT', type: 'F22', reg: 'OAD-004', op: 'Osean Air Defense Force', year: 2019, alt: 34000, gs: 470, track: 70, vrate: 0, distNm: 51, o: 'SUD', d: 'FAR' },
+		{ hex: 'ACE021', call: 'SCARFACE1', type: 'F14', reg: 'USE-01', op: 'Usean Allied Forces', year: 2004, alt: 8000, gs: 300, track: 260, vrate: 1200, distNm: 11, o: 'GRM', d: 'SIB' }
 	];
 	// Prime the route cache once so rows derive arr/dep/over exactly like a live field.
 	const DEMO_ROUTES = new Map<string, Route>(
@@ -627,6 +646,15 @@
 		}
 		return { arr, dep, ovr };
 	});
+
+	// Board intro copy, Edit-Mode aware. The live variant substitutes {} with the range
+	// (NM); while editing, the raw template shows so the token stays editable (mirrors
+	// the Settings panel's note handling).
+	const leadKey = $derived(sel.demo ? 'atfcLeadDemo' : 'atfcLead');
+	function leadText() {
+		const raw = copyText?.(leadKey) ?? '';
+		return edit || sel.demo ? raw : raw.replace('{}', String(radiusNm));
+	}
 
 	const fmtAlt = (a: Plane['alt']) => {
 		if (a === 'ground') return 'GND';
@@ -958,19 +986,6 @@
 {/snippet}
 
 <div class="tfc" class:expanded style:--accent={accent}>
-	{#if onToggleExpand && !showDeck}
-		<!-- Compact panel: the expand toggle sits top-right (the super bar hosts its own
-		     collapse cap, so this only shows when there's no bar). -->
-		<button
-			type="button"
-			class="expand-compact"
-			onclick={onToggleExpand}
-			aria-label={expanded ? 'Collapse panel' : 'Expand panel to fill'}
-			title={expanded ? 'Collapse' : 'Expand to fill'}
-		>
-			{@html expanded ? MINIMIZE_SVG : MAXIMIZE_SVG}
-		</button>
-	{/if}
 	<header class="tfc-head" class:bar={showDeck}>
 		{#if showDeck}
 			<!-- Expanded: ONE super bar. The far edges are global app controls — back at the
@@ -1036,16 +1051,28 @@
 			<div class="title-row">
 				<h2 class="dest">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
 			</div>
+			{#if onToggleExpand}
+				<!-- Sits inside the (sticky) header so it stays put with it as the panel scrolls. -->
+				<button
+					type="button"
+					class="expand-compact"
+					onclick={onToggleExpand}
+					aria-label={expanded ? 'Collapse panel' : 'Expand panel to fill'}
+					title={expanded ? 'Collapse' : 'Expand to fill'}
+				>
+					{@html expanded ? MINIMIZE_SVG : MAXIMIZE_SVG}
+				</button>
+			{/if}
 		{/if}
 	</header>
 
 	<div class="tfc-body">
-		<p class="lead">
-			{#if sel.demo}Sample traffic around a fictional field — a self-contained demo (no live
-				data) so you can explore the board. Range and refresh still work; pick a real airport
-				above for live ADS-B.
-			{:else}Live traffic within {radiusNm} NM of a field — arriving, departing, or passing over.{/if}
-		</p>
+		<p
+			class="lead"
+			class:editable={edit}
+			contenteditable={edit}
+			oninput={edit ? (e) => onCopyEdit?.(leadKey, e.currentTarget.textContent ?? '') : undefined}
+		>{leadText()}</p>
 
 		{#if !showDeck}
 			<div class="fields" role="radiogroup" aria-label="Airport">{@render fieldButtons()}</div>
@@ -1291,7 +1318,16 @@
 	}
 	.tfc-head {
 		flex: none;
-		/* Keep the top inset matching the parent's pinned expand button; tighten below. */
+		/* Sticky in both layouts: the header (compact) / super bar (expanded) stays at the
+		   top while the table scrolls under it. Frosted glass — rows blur through as they
+		   pass beneath; the bottom border reads as the divider. Also the positioning
+		   context for the compact expand button, so it sticks along with the header. */
+		position: sticky;
+		top: 0;
+		z-index: 2;
+		background: color-mix(in srgb, var(--paper) 80%, transparent);
+		-webkit-backdrop-filter: blur(8px) saturate(1.1);
+		backdrop-filter: blur(8px) saturate(1.1);
 		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) 1rem;
 		border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
 	}
@@ -1426,6 +1462,7 @@
 	   Fonts step down from the compact header but keep the same hierarchy: the
 	   title is still the largest thing, then stat values, then labels/eyebrow. */
 	.tfc-head.bar {
+		/* Sticky + frosted background inherited from .tfc-head; this just re-lays the bar. */
 		display: flex;
 		align-items: center;
 		gap: clamp(0.85rem, 2vw, 1.75rem);
@@ -1529,6 +1566,21 @@
 		max-width: 62ch;
 		line-height: 1.5;
 		color: color-mix(in srgb, var(--ink) 82%, var(--sub));
+	}
+	/* Edit Mode affordance, matched to the page's .editable. */
+	.editable {
+		outline: 1px dashed color-mix(in srgb, var(--ink) 35%, transparent);
+		outline-offset: 3px;
+		border-radius: 3px;
+		cursor: text;
+		transition: outline-color 0.15s ease, background 0.15s ease;
+	}
+	.editable:hover {
+		background: color-mix(in srgb, var(--ink) 4%, transparent);
+	}
+	.editable:focus {
+		outline: 2px solid var(--ink);
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
 	}
 	.fields {
 		display: flex;

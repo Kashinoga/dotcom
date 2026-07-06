@@ -688,7 +688,12 @@
 		skyNote:
 			'{} The sky sets the palette while on, so the display mode above applies again when it’s off. Remembered next time.',
 		starsLead: 'Show tiny stars when the sky is Night.',
-		starsNote: '{} Remembered next time.'
+		starsNote: '{} Remembered next time.',
+		// Air Traffic board intro copy. `atfcLead` uses a `{}` token for the live range
+		// (NM); the demo variant has none. Edited via Edit Mode inside the board itself.
+		atfcLead: 'Live traffic within {} NM of a field — arriving, departing, or passing over.',
+		atfcLeadDemo:
+			'Sample traffic around a fictional field — a self-contained demo (no live data) so you can explore the board. Range and refresh still work; pick a real airport above for live ADS-B.'
 	};
 	let settings = $state<Record<string, string>>({ ...defaultSettings });
 	const settingsKey = (k: string) => `SETTINGS.${k}`;
@@ -1251,6 +1256,9 @@
 							expanded={panelExpanded}
 							onback={home}
 							onToggleExpand={toggleExpand}
+							edit={dev && editMode}
+							copyText={settingsText}
+							onCopyEdit={stageSettings}
 						>
 							{#snippet connections()}
 								{#if conns.length}
@@ -1725,7 +1733,9 @@
 	.node:focus-visible .port {
 		stroke-width: 5;
 	}
-	.node:focus-visible {
+	/* No UA focus box around the node group (it frames the dot + label). Keyboard focus
+	   is still shown via the bolder .port stroke on :focus-visible above. */
+	.node:focus {
 		outline: none;
 	}
 	.hub-ring {
@@ -2039,6 +2049,10 @@
 		background: color-mix(in srgb, var(--paper) 93%, transparent);
 		backdrop-filter: none;
 		-webkit-backdrop-filter: none;
+		/* Full-viewport: no left edge to catch light and no cast shadow — let the browser
+		   chrome be the frame around the app. */
+		border-left: none;
+		box-shadow: none;
 	}
 	.surface.expanded.leaving {
 		transform: translateX(100%);
