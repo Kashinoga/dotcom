@@ -95,6 +95,45 @@
 		}
 	}
 
+	// Display mode, a quick toggle in the header (light / dark / system). 'system'
+	// clears the override so the OS preference wins; the actual re-theming is done
+	// by color-scheme + light-dark() tokens. A pre-paint script in app.html applies
+	// the saved choice, so restoring it here just syncs the control's state.
+	const THEME_KEY = 'ksh-theme';
+	type Theme = 'light' | 'dark' | 'system';
+	let theme = $state<Theme>('system');
+	const themeModes: { id: Theme; label: string; svg: string }[] = [
+		{
+			id: 'light',
+			label: 'Light',
+			svg: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 1.25C12.4142 1.25 12.75 1.58579 12.75 2V3C12.75 3.41421 12.4142 3.75 12 3.75C11.5858 3.75 11.25 3.41421 11.25 3V2C11.25 1.58579 11.5858 1.25 12 1.25ZM4.39861 4.39861C4.6915 4.10572 5.16638 4.10572 5.45927 4.39861L5.85211 4.79145C6.145 5.08434 6.145 5.55921 5.85211 5.85211C5.55921 6.145 5.08434 6.145 4.79145 5.85211L4.39861 5.45927C4.10572 5.16638 4.10572 4.6915 4.39861 4.39861ZM19.6011 4.39887C19.894 4.69176 19.894 5.16664 19.6011 5.45953L19.2083 5.85237C18.9154 6.14526 18.4405 6.14526 18.1476 5.85237C17.8547 5.55947 17.8547 5.0846 18.1476 4.79171L18.5405 4.39887C18.8334 4.10598 19.3082 4.10598 19.6011 4.39887ZM12 6.75C9.1005 6.75 6.75 9.1005 6.75 12C6.75 14.8995 9.1005 17.25 12 17.25C14.8995 17.25 17.25 14.8995 17.25 12C17.25 9.1005 14.8995 6.75 12 6.75ZM5.25 12C5.25 8.27208 8.27208 5.25 12 5.25C15.7279 5.25 18.75 8.27208 18.75 12C18.75 15.7279 15.7279 18.75 12 18.75C8.27208 18.75 5.25 15.7279 5.25 12ZM1.25 12C1.25 11.5858 1.58579 11.25 2 11.25H3C3.41421 11.25 3.75 11.5858 3.75 12C3.75 12.4142 3.41421 12.75 3 12.75H2C1.58579 12.75 1.25 12.4142 1.25 12ZM20.25 12C20.25 11.5858 20.5858 11.25 21 11.25H22C22.4142 11.25 22.75 11.5858 22.75 12C22.75 12.4142 22.4142 12.75 22 12.75H21C20.5858 12.75 20.25 12.4142 20.25 12ZM18.1476 18.1476C18.4405 17.8547 18.9154 17.8547 19.2083 18.1476L19.6011 18.5405C19.894 18.8334 19.894 19.3082 19.6011 19.6011C19.3082 19.894 18.8334 19.894 18.5405 19.6011L18.1476 19.2083C17.8547 18.9154 17.8547 18.4405 18.1476 18.1476ZM5.85211 18.1479C6.145 18.4408 6.145 18.9157 5.85211 19.2086L5.45927 19.6014C5.16638 19.8943 4.6915 19.8943 4.39861 19.6014C4.10572 19.3085 4.10572 18.8336 4.39861 18.5407L4.79145 18.1479C5.08434 17.855 5.55921 17.855 5.85211 18.1479ZM12 20.25C12.4142 20.25 12.75 20.5858 12.75 21V22C12.75 22.4142 12.4142 22.75 12 22.75C11.5858 22.75 11.25 22.4142 11.25 22V21C11.25 20.5858 11.5858 20.25 12 20.25Z" fill="currentColor"/></svg>'
+		},
+		{
+			id: 'dark',
+			label: 'Dark',
+			svg: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.0174 2.80157C6.37072 3.29221 2.75 7.22328 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C16.7767 21.25 20.7078 17.6293 21.1984 12.9826C19.8717 14.6669 17.8126 15.75 15.5 15.75C11.4959 15.75 8.25 12.5041 8.25 8.5C8.25 6.18738 9.33315 4.1283 11.0174 2.80157ZM1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C12.7166 1.25 13.0754 1.82126 13.1368 2.27627C13.196 2.71398 13.0342 3.27065 12.531 3.57467C10.8627 4.5828 9.75 6.41182 9.75 8.5C9.75 11.6756 12.3244 14.25 15.5 14.25C17.5882 14.25 19.4172 13.1373 20.4253 11.469C20.7293 10.9658 21.286 10.804 21.7237 10.8632C22.1787 10.9246 22.75 11.2834 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12Z" fill="currentColor"/></svg>'
+		},
+		{
+			id: 'system',
+			label: 'System',
+			svg: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M9.94358 1.25H14.0564C15.8942 1.24998 17.3498 1.24997 18.489 1.40314C19.6614 1.56076 20.6104 1.89288 21.3588 2.64124C22.1071 3.38961 22.4392 4.33856 22.5969 5.51098C22.75 6.65019 22.75 8.10583 22.75 9.94359V11.0549C22.75 11.7174 22.75 12.3176 22.7368 12.8591C22.7455 12.9047 22.75 12.9518 22.75 13C22.75 13.0641 22.7419 13.1264 22.7268 13.1858C22.7103 13.6299 22.682 14.0312 22.6335 14.3918C22.5125 15.2919 22.2536 16.0497 21.6517 16.6517C21.0497 17.2536 20.2919 17.5125 19.3918 17.6335C18.5248 17.75 17.4225 17.75 16.0549 17.75H12.75V21.25H16C16.4142 21.25 16.75 21.5858 16.75 22C16.75 22.4142 16.4142 22.75 16 22.75H8C7.58579 22.75 7.25 22.4142 7.25 22C7.25 21.5858 7.58579 21.25 8 21.25H11.25V17.75H7.94513C6.57754 17.75 5.47522 17.75 4.60825 17.6335C3.70814 17.5125 2.95027 17.2536 2.34835 16.6517C1.74643 16.0497 1.48754 15.2919 1.36652 14.3918C1.31805 14.0312 1.28974 13.6299 1.2732 13.1858C1.25805 13.1264 1.25 13.0641 1.25 13C1.25 12.9518 1.25454 12.9047 1.26323 12.859C1.24998 12.3176 1.24999 11.7174 1.25 11.0549L1.25 9.94358C1.24998 8.10582 1.24997 6.65019 1.40314 5.51098C1.56076 4.33856 1.89288 3.38961 2.64124 2.64124C3.38961 1.89288 4.33856 1.56076 5.51098 1.40314C6.65019 1.24997 8.10582 1.24998 9.94358 1.25ZM2.80673 13.75C2.81924 13.9063 2.83451 14.0533 2.85315 14.1919C2.9518 14.9257 3.13225 15.3142 3.40901 15.591C3.68577 15.8678 4.07435 16.0482 4.80812 16.1469C5.56347 16.2484 6.56458 16.25 8 16.25H16C17.4354 16.25 18.4365 16.2484 19.1919 16.1469C19.9257 16.0482 20.3142 15.8678 20.591 15.591C20.8678 15.3142 21.0482 14.9257 21.1469 14.1919C21.1655 14.0533 21.1808 13.9063 21.1933 13.75H2.80673ZM21.2463 12.25H2.75371C2.75016 11.8736 2.75 11.459 2.75 11V10C2.75 8.09318 2.75159 6.73851 2.88976 5.71085C3.02503 4.70476 3.27869 4.12511 3.7019 3.7019C4.12511 3.27869 4.70476 3.02502 5.71085 2.88976C6.73851 2.75159 8.09318 2.75 10 2.75H14C15.9068 2.75 17.2615 2.75159 18.2892 2.88976C19.2952 3.02502 19.8749 3.27869 20.2981 3.7019C20.7213 4.12511 20.975 4.70476 21.1102 5.71085C21.2484 6.73851 21.25 8.09318 21.25 10V11C21.25 11.459 21.2498 11.8736 21.2463 12.25Z" fill="currentColor"/></svg>'
+		}
+	];
+	function setTheme(t: Theme) {
+		theme = t;
+		try {
+			if (t === 'system') {
+				document.documentElement.removeAttribute('data-theme');
+				localStorage.removeItem(THEME_KEY);
+			} else {
+				document.documentElement.dataset.theme = t;
+				localStorage.setItem(THEME_KEY, t);
+			}
+		} catch {
+			/* storage unavailable — keep the in-memory choice */
+		}
+	}
+
 	// Narrow/portrait screens get the vertical train layout (and a portrait camera).
 	let vw = $state(1200);
 	const isMobile = $derived(vw <= 720);
@@ -399,6 +438,7 @@
 
 	// Drag-to-pan.
 	let svgEl: SVGSVGElement;
+	let panelEl = $state<HTMLElement | undefined>(undefined);
 	let panning = $state(false);
 	let dragMoved = false;
 	const drag = { camX: 0, camY: 0, x: 0, y: 0, id: -1 };
@@ -514,6 +554,73 @@
 			dragMoved = false;
 		}
 	}
+	// Smallest screen-space shift that fits the dot inside [safeLo, safeHi], then
+	// reveals as much of the label as possible without pushing the dot back out.
+	function axisDelta(
+		dotLo: number,
+		dotHi: number,
+		labLo: number,
+		labHi: number,
+		safeLo: number,
+		safeHi: number
+	) {
+		let d = 0;
+		if (dotLo < safeLo) d = safeLo - dotLo;
+		else if (dotHi > safeHi) d = safeHi - dotHi;
+		const lo = Math.min(dotLo, labLo);
+		const hi = Math.max(dotHi, labHi);
+		if (hi + d > safeHi) {
+			// Pull toward the low edge to show the label, but keep the dot's low edge in.
+			d += Math.max(safeHi - (hi + d), safeLo - (dotLo + d));
+		} else if (lo + d < safeLo) {
+			d += Math.min(safeLo - (lo + d), safeHi - (dotHi + d));
+		}
+		return d;
+	}
+	// While a panel is open, hovering (or focusing) a node that's tucked behind the
+	// panel or off an edge nudges the camera just enough to bring the dot and its
+	// whole label into the clear — a small pan, not a re-frame. Measures the actual
+	// rendered dot/label rects so a label reaching toward the panel is fully shown.
+	function revealNode(e: Event) {
+		const g = e.currentTarget as SVGGElement | null;
+		if (!view || panning || !svgEl || !g) return;
+		const ctm = svgEl.getScreenCTM();
+		const dotEl = g.querySelector('.port');
+		const labelEl = g.querySelector('.code');
+		if (!ctm || !dotEl || !labelEl) return;
+		const dot = dotEl.getBoundingClientRect();
+		const label = labelEl.getBoundingClientRect();
+		const rect = svgEl.getBoundingClientRect();
+		const margin = 40;
+		let safeL = rect.left + margin;
+		let safeR = rect.right - margin;
+		let safeT = rect.top + margin;
+		let safeB = rect.bottom - margin;
+		// Carve the panel out of the safe area: a right-side column on desktop, a
+		// bottom sheet on mobile.
+		const pr = panelEl?.getBoundingClientRect();
+		if (pr && pr.width > 1 && pr.height > 1) {
+			const coversBottom = pr.bottom >= rect.bottom - 2;
+			const coversRightFull =
+				pr.right >= rect.right - 2 && pr.top <= rect.top + 2 && coversBottom;
+			if (coversRightFull) safeR = Math.min(safeR, pr.left - margin);
+			else if (coversBottom) safeB = Math.min(safeB, pr.top - margin);
+		}
+		// If the panel leaves too little room on an axis, don't nudge along it.
+		if (safeR - safeL < 80) ((safeL = rect.left), (safeR = rect.right));
+		if (safeB - safeT < 80) ((safeT = rect.top), (safeB = rect.bottom));
+		const needX = axisDelta(dot.left, dot.right, label.left, label.right, safeL, safeR);
+		const needY = axisDelta(dot.top, dot.bottom, label.top, label.bottom, safeT, safeB);
+		if (Math.hypot(needX, needY) < 3) return;
+		// Screen delta → world delta (content shifts opposite the camera origin).
+		const nx = target.x - needX / ctm.a;
+		const ny = target.y - needY / ctm.d;
+		// Clamp so we never pan off into empty world (same slack as drag).
+		const m = 220;
+		const cx = Math.min(worldMaxX + m, Math.max(worldMinX - m, nx + target.w / 2));
+		const cy = Math.min(worldMaxY + m, Math.max(worldMinY - m, ny + target.h / 2));
+		flyTo({ ...target, x: cx - target.w / 2, y: cy - target.h / 2 });
+	}
 	// Frame a whole airline: fit all its airports, biased left of the panel.
 	function fitLine(idx: number) {
 		const codes = [...lineOf[idx]];
@@ -558,6 +665,8 @@
 		else mapMode = 'rail';
 		const n = localStorage.getItem(NAMES_KEY);
 		if (n === '1' || n === '0') stopNamesPref = n === '1';
+		const th = localStorage.getItem(THEME_KEY);
+		if (th === 'light' || th === 'dark') theme = th;
 		// Snap to the resolved mode/orientation home framing.
 		cam = { ...HOME };
 		target = { ...HOME };
@@ -615,6 +724,8 @@
 				aria-label="Fly to {n.title}"
 				onclick={() => board(n.code)}
 				onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), board(n.code))}
+				onpointerenter={revealNode}
+				onfocus={revealNode}
 			>
 				<circle class="hit" cx={n.x} cy={n.y} r="26" />
 				{#if n.hub}
@@ -636,7 +747,26 @@
 	</svg>
 
 	<header class="masthead" class:hidden={view !== null}>
-		<h1><SplitFlap text="Kashinoga" /></h1>
+		<div class="brandline">
+			<h1><SplitFlap text="Kashinoga" /></h1>
+			<!-- Little display-mode bullets, like the route icons on a station sign. -->
+			<div class="theme" role="radiogroup" aria-label="Display mode">
+				{#each themeModes as m}
+					<button
+						type="button"
+						class="theme-dot"
+						class:on={theme === m.id}
+						role="radio"
+						aria-checked={theme === m.id}
+						aria-label={m.label}
+						title={m.label}
+						onclick={() => setTheme(m.id)}
+					>
+						{@html m.svg}
+					</button>
+				{/each}
+			</div>
+		</div>
 		<p class="tagline">a route map of one person&rsquo;s internet</p>
 	</header>
 
@@ -653,6 +783,7 @@
 	{#if view}
 		{@const v = view}
 		<aside
+			bind:this={panelEl}
 			class="surface"
 			class:leaving={panelLeaving}
 			transition:fly|global={isMobile
@@ -734,6 +865,27 @@
 							<p class="seg-note">
 								Now showing {showStopNames ? 'full stop names' : 'station codes'}. Remembered
 								next time.
+							</p>
+							<p class="seg-lead">Choose the display mode (also up by the wordmark).</p>
+							<div class="segmented three" role="radiogroup" aria-label="Display mode">
+								{#each themeModes as m}
+									<button
+										type="button"
+										class="seg"
+										class:on={theme === m.id}
+										role="radio"
+										aria-checked={theme === m.id}
+										onclick={() => setTheme(m.id)}
+									>
+										<span class="seg-icon">{@html m.svg}</span>
+										<span class="seg-title">{m.label}</span>
+									</button>
+								{/each}
+							</div>
+							<p class="seg-note">
+								{theme === 'system'
+									? 'Following your device setting.'
+									: `Always ${theme}.`} Remembered next time.
 							</p>
 						{:else}
 						{#each blocks as b}
@@ -947,6 +1099,7 @@
 	/* Title and tagline animate on their own so open/close staggers like the entrance:
 	   the tagline trails the title coming in, and leads going out. */
 	.masthead h1,
+	.masthead .theme,
 	.masthead .tagline {
 		transition: opacity 0.4s ease, transform 0.4s ease;
 	}
@@ -960,6 +1113,52 @@
 		line-height: 0.95;
 		letter-spacing: -0.02em;
 		color: var(--ink);
+	}
+	/* Wordmark + the display-mode bullets on one line, bullets riding to its right
+	   like the route icons beside a station name on a transit sign. */
+	.brandline {
+		display: flex;
+		/* Rest the bullets' bottoms on the wordmark's text baseline — a button with
+		   only an icon synthesizes its baseline at its bottom edge, so they sit on
+		   the line like the letters' bottom strokes. */
+		align-items: baseline;
+		gap: clamp(0.75rem, 2vw, 1.4rem);
+		flex-wrap: wrap;
+	}
+	.theme {
+		display: inline-flex;
+		gap: 0.35rem;
+	}
+	.theme-dot {
+		display: inline-grid;
+		place-items: center;
+		width: 30px;
+		height: 30px;
+		padding: 0;
+		color: var(--sub);
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		border: 1.5px solid color-mix(in srgb, var(--ink) 14%, transparent);
+		border-radius: 999px;
+		cursor: pointer;
+		transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+	}
+	.theme-dot :global(svg) {
+		width: 16px;
+		height: 16px;
+		display: block;
+	}
+	.theme-dot:hover {
+		color: var(--ink);
+		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
+	}
+	.theme-dot.on {
+		color: var(--paper);
+		background: var(--ink);
+		border-color: var(--ink);
+	}
+	.theme-dot:focus-visible {
+		outline: 2px solid var(--ink);
+		outline-offset: 2px;
 	}
 	.tagline {
 		margin: 0.5rem 0 0;
@@ -1051,6 +1250,7 @@
 		pointer-events: none;
 	}
 	.masthead.hidden h1,
+	.masthead.hidden .theme,
 	.masthead.hidden .tagline {
 		opacity: 0;
 		transform: translateY(-8px);
@@ -1260,6 +1460,33 @@
 	.seg-sub {
 		font-size: 0.85rem;
 		color: var(--sub);
+	}
+	/* Display-mode picker: three even columns, icon centred over its label. */
+	.segmented.three {
+		grid-template-columns: repeat(3, 1fr);
+	}
+	.segmented.three .seg {
+		align-items: center;
+		gap: 0.4rem;
+		padding: 0.85rem 0.5rem;
+		text-align: center;
+	}
+	.segmented.three .seg-title {
+		font-size: 1rem;
+	}
+	.seg-icon {
+		display: grid;
+		place-items: center;
+		color: var(--sub);
+		transition: color 0.15s ease;
+	}
+	.seg-icon :global(svg) {
+		width: 22px;
+		height: 22px;
+		display: block;
+	}
+	.seg.on .seg-icon {
+		color: var(--ink);
 	}
 	.seg-note {
 		font-size: 0.9rem;
