@@ -1215,16 +1215,20 @@
 				? { y: 900, opacity: 1, duration: 380 }
 				: { x: panelExpanded ? vw : 680, opacity: 1, duration: 380 }}
 		>
-			<button
-				type="button"
-				class="expand"
-				aria-pressed={panelExpanded}
-				aria-label={panelExpanded ? 'Collapse panel' : 'Expand panel to fill'}
-				title={panelExpanded ? 'Collapse' : 'Expand to fill'}
-				onclick={toggleExpand}
-			>
-				{@html panelExpanded ? MINIMIZE_SVG : MAXIMIZE_SVG}
-			</button>
+			{#if !(v.kind === 'port' && v.code === 'ATFC')}
+				<!-- ATFC's TrafficBoard renders its own expand toggle (bar cap when expanded,
+				     top-right when compact) so it aligns with the board's back control. -->
+				<button
+					type="button"
+					class="expand"
+					aria-pressed={panelExpanded}
+					aria-label={panelExpanded ? 'Collapse panel' : 'Expand panel to fill'}
+					title={panelExpanded ? 'Collapse' : 'Expand to fill'}
+					onclick={toggleExpand}
+				>
+					{@html panelExpanded ? MINIMIZE_SVG : MAXIMIZE_SVG}
+				</button>
+			{/if}
 			<!-- The panel is reused across destinations: on navigation the whole panel
 			     slides out, swaps to the new node's content while off-screen, then
 			     slides back in. transition:fly handles the map⇄panel open/close. The
@@ -1246,6 +1250,7 @@
 							title={port.title}
 							expanded={panelExpanded}
 							onback={home}
+							onToggleExpand={toggleExpand}
 						>
 							{#snippet connections()}
 								{#if conns.length}
