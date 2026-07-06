@@ -220,23 +220,18 @@
 			/* storage unavailable — keep the in-memory choice */
 		}
 	}
-	const STARS = (() => {
-		let s = 0x9e3779b9;
-		const rng = () => {
-			s = (s + 0x6d2b79f5) | 0;
-			let t = Math.imul(s ^ (s >>> 15), 1 | s);
-			t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-			return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-		};
-		return Array.from({ length: 72 }, () => ({
-			x: rng() * 100,
-			y: rng() * 96,
-			size: 0.6 + rng() * 1.7,
-			tw: rng() < 0.5,
-			delay: rng() * 4,
-			dur: 2.4 + rng() * 3.2
+	// Fresh random field each page load (stars only render client-side, so there's
+	// no SSR/hydration to keep deterministic). Regenerated on mount to be sure.
+	const makeStars = () =>
+		Array.from({ length: 72 }, () => ({
+			x: Math.random() * 100,
+			y: Math.random() * 96,
+			size: 0.6 + Math.random() * 1.7,
+			tw: Math.random() < 0.5,
+			delay: Math.random() * 4,
+			dur: 2.4 + Math.random() * 3.2
 		}));
-	})();
+	let STARS = $state<ReturnType<typeof makeStars>>([]);
 	const starsVisible = $derived(starsOn && skyMode !== 'off' && skyPhase === 'night');
 
 	// Live values the Settings notes interpolate into their `{}` placeholder.
@@ -1039,6 +1034,7 @@
 		if (sky === 'off' || sky === 'auto' || (sky && SKY_PHASES.includes(sky as SkyPhase)))
 			skyMode = sky as SkyMode; // else default 'auto'
 		applySky();
+		STARS = makeStars(); // fresh random field per load (client-side)
 		starsOn = localStorage.getItem(STARS_KEY) !== '0'; // default on
 		// While on Auto, keep the phase current if the tab is left open across a boundary.
 		skyTimer = window.setInterval(() => skyMode === 'auto' && applySky(), 5 * 60 * 1000);

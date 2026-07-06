@@ -138,7 +138,7 @@
 		distNm: number;
 	};
 
-	const RADIUS_NM = 60;
+	const RANGES = [40, 60, 100, 150, 250]; // NM; 250 is the airplanes.live max
 	const POLL_MS = 10000;
 	const MAX_ROWS = 18;
 	const MAX_LOOKUPS_PER_POLL = 8;
@@ -146,6 +146,7 @@
 	const FLAP = { base: 70, stagger: 24, tick: 40, delay: 0 };
 
 	let sel = $state<Airport>(AIRPORTS[0]);
+	let radiusNm = $state(60);
 	let planes = $state<Plane[]>([]);
 	let status = $state<'loading' | 'ok' | 'empty' | 'error'>('loading');
 	let updatedAt = $state<number | null>(null);
@@ -214,7 +215,7 @@
 	async function poll() {
 		const at = sel;
 		try {
-			const url = `https://api.airplanes.live/v2/point/${at.lat}/${at.lon}/${RADIUS_NM}`;
+			const url = `https://api.airplanes.live/v2/point/${at.lat}/${at.lon}/${radiusNm}`;
 			const r = await fetch(url);
 			if (destroyed || at.icao !== sel.icao) return;
 			if (!r.ok) throw new Error('bad response');
@@ -272,6 +273,14 @@
 		status = 'loading';
 		updatedAt = null;
 		closePhoto();
+		kick();
+	}
+	function setRange(r: number) {
+		if (r === radiusNm) return;
+		radiusNm = r;
+		planes = [];
+		status = 'loading';
+		updatedAt = null;
 		kick();
 	}
 
@@ -359,7 +368,7 @@
 </script>
 
 <div class="tfc" style:--accent={accent}>
-	<p class="lead">Live traffic within {RADIUS_NM} NM of a field — arriving, departing, or passing over.</p>
+	<p class="lead">Live traffic within {radiusNm} NM of a field — arriving, departing, or passing over.</p>
 
 	<div class="fields" role="radiogroup" aria-label="Airport">
 		{#each AIRPORTS as a}
@@ -375,6 +384,24 @@
 				{a.iata}
 			</button>
 		{/each}
+	</div>
+
+	<div class="fields ranges" role="radiogroup" aria-label="Radar range">
+		<span class="range-label">Range</span>
+		{#each RANGES as r}
+			<button
+				type="button"
+				class="field"
+				class:on={r === radiusNm}
+				role="radio"
+				aria-checked={r === radiusNm}
+				aria-label={`${r} nautical miles`}
+				onclick={() => setRange(r)}
+			>
+				{r}
+			</button>
+		{/each}
+		<span class="range-unit">NM</span>
 	</div>
 
 	<div class="board-head">
@@ -497,8 +524,12 @@
 									</button>
 								{:else}{#key p.type}<SplitFlap {...FLAP} text={p.type || '—'} />{/key}{/if}
 							</td>
-							<td class="mono num">{fmtAlt(p.alt)}</td>
-							<td class="mono num">{fmtSpd(p.gs)}</td>
+							<td class="mono num">
+								{#key fmtAlt(p.alt)}<SplitFlap {...FLAP} text={fmtAlt(p.alt)} />{/key}
+							</td>
+							<td class="mono num">
+								{#key fmtSpd(p.gs)}<SplitFlap {...FLAP} text={fmtSpd(p.gs)} />{/key}
+							</td>
 							<td class="mono route">
 								{#if p.route}{#key `${p.route.o.iata || p.route.o.icao} ${p.route.d.iata || p.route.d.icao}`}<SplitFlap
 										{...FLAP}
@@ -508,7 +539,9 @@
 									/>{/key}
 								{:else}<span class="hdg">hdg {fmtHdg(p.track)}</span>{/if}
 							</td>
-							<td class="mono num">{fmtDist(p.distNm)}</td>
+							<td class="mono num">
+								{#key fmtDist(p.distNm)}<SplitFlap {...FLAP} text={fmtDist(p.distNm)} />{/key}
+							</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -538,6 +571,21 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.4rem;
+	}
+	.ranges {
+		align-items: center;
+	}
+	.range-label {
+		font-size: 0.72rem;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--sub);
+		margin-right: 0.15rem;
+	}
+	.range-unit {
+		font-size: 0.8rem;
+		color: var(--sub);
 	}
 	.field {
 		padding: 0.35rem 0.6rem;
