@@ -80,6 +80,21 @@
 	}
 	const mapPhrase = $derived(mapMode === 'air' ? 'an airline route map' : 'a train route map');
 
+	// Label style, toggled from Settings: station codes (WRK) or full stop names.
+	// No explicit choice yet: airline mode defaults to codes, train mode to full
+	// names. An explicit pick is persisted and wins in either mode.
+	const NAMES_KEY = 'ksh-stop-names';
+	let stopNamesPref = $state<boolean | null>(null);
+	const showStopNames = $derived(stopNamesPref ?? mapMode === 'rail');
+	function setShowStopNames(v: boolean) {
+		stopNamesPref = v;
+		try {
+			localStorage.setItem(NAMES_KEY, v ? '1' : '0');
+		} catch {
+			/* storage unavailable — keep the in-memory choice */
+		}
+	}
+
 	// Narrow/portrait screens get the vertical train layout (and a portrait camera).
 	let vw = $state(1200);
 	const isMobile = $derived(vw <= 720);
@@ -278,9 +293,9 @@
 		],
 		// Work — a stop off About, from dotcom-2 About card K 202.
 		WRK: [
-			{ p: 'A digital infrastructure engineer for U.S. energy companies.' },
-			{ p: 'Formerly a software engineering consultant for Midwestern U.S. companies and the State of Iowa.' },
-			{ p: 'B.S. in Computer Science, Iowa State University; general education from Drake University.' },
+			{ p: 'I’m a digital infrastructure engineer for U.S. energy companies.' },
+			{ p: 'I was formerly a software engineering consultant for Midwestern U.S. companies and the State of Iowa.' },
+			{ p: 'I have a B.S. in Computer Science, Iowa State University; general education from Drake University.' },
 			{ quote: 'Midwest-made.' }
 		],
 		// Projects — a stop off About, from dotcom-2 About card K 203.
@@ -441,6 +456,12 @@
 		panelLeaving = false;
 		view = null;
 		flyTo(HOME);
+		// Drop focus off the selected node so its dot returns to its normal weight
+		// (the bolder stroke comes from :focus-visible, which otherwise lingers when
+		// the panel closes via Escape or an empty-space click).
+		if (typeof document !== 'undefined') {
+			(document.activeElement as HTMLElement | null)?.blur?.();
+		}
 	}
 	// Escape: close an open panel, or (if none) fly back to the KSH home view.
 	function onKey(e: KeyboardEvent) {
@@ -532,8 +553,11 @@
 		wasMobile = isMobile;
 		const s = localStorage.getItem(MODE_KEY);
 		if (s === 'air' || s === 'rail') mapMode = s;
-		// No saved preference: mobile defaults to the train map, desktop to airline.
-		else if (isMobile) mapMode = 'rail';
+		// First ever load (no saved preference): default to the train map on any
+		// device. With no label pref saved either, train mode shows full stop names.
+		else mapMode = 'rail';
+		const n = localStorage.getItem(NAMES_KEY);
+		if (n === '1' || n === '0') stopNamesPref = n === '1';
 		// Snap to the resolved mode/orientation home framing.
 		cam = { ...HOME };
 		target = { ...HOME };
@@ -552,6 +576,7 @@
 <svelte:window onkeydown={onKey} onresize={onResize} />
 
 <div class="stage" class:panning>
+	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<svg
 		bind:this={svgEl}
 		{viewBox}
@@ -561,6 +586,7 @@
 		onpointerup={onPointerUp}
 		onpointercancel={onPointerUp}
 		onclickcapture={onClickCapture}
+		onmousedown={(e) => e.detail > 1 && e.preventDefault()}
 		role="img"
 		aria-label="Kashinoga — {mapPhrase}"
 	>
@@ -602,8 +628,9 @@
 					class:code-hub={n.hub}
 					x={n.lx}
 					y={n.ly}
+					style:transform-origin="{n.lx}px {n.ly}px"
 					text-anchor={n.anchor}
-					dominant-baseline="central">{n.code}</text>
+					dominant-baseline="central">{showStopNames ? n.title : n.code}</text>
 			</g>
 		{/each}
 	</svg>
@@ -679,6 +706,35 @@
 								Now showing {mapPhrase}. The change applies across the whole map and is
 								remembered next time.
 							</p>
+							<p class="seg-lead">Choose how stations are labelled on the map.</p>
+							<div class="segmented" role="radiogroup" aria-label="Station label style">
+								<button
+									type="button"
+									class="seg"
+									class:on={!showStopNames}
+									role="radio"
+									aria-checked={!showStopNames}
+									onclick={() => setShowStopNames(false)}
+								>
+									<span class="seg-title">Codes</span>
+									<span class="seg-sub">e.g. WRK</span>
+								</button>
+								<button
+									type="button"
+									class="seg"
+									class:on={showStopNames}
+									role="radio"
+									aria-checked={showStopNames}
+									onclick={() => setShowStopNames(true)}
+								>
+									<span class="seg-title">Full names</span>
+									<span class="seg-sub">e.g. Work</span>
+								</button>
+							</div>
+							<p class="seg-note">
+								Now showing {showStopNames ? 'full stop names' : 'station codes'}. Remembered
+								next time.
+							</p>
 						{:else}
 						{#each blocks as b}
 							{#if 'h' in b}
@@ -700,7 +756,7 @@
 
 						{#if conns.length}
 							<nav class="onward">
-								<p class="eyebrow">Connecting flights</p>
+								<p class="eyebrow">Connections</p>
 								<ul>
 									{#each conns as c}
 										<li>
@@ -803,6 +859,12 @@
 	.node.dim {
 		opacity: 0.25;
 	}
+	/* Hovering a dimmed node (panel open) brings it back to full so it reads as
+	   the next place you could fly to. */
+	.node.dim:hover,
+	.node.dim:focus-visible {
+		opacity: 1;
+	}
 	.hit {
 		fill: transparent;
 	}
@@ -838,32 +900,40 @@
 		font-weight: 700;
 	}
 	/* Stations pop in by ring (--pop set per node from BFS depth): the dot springs up
-	   with a little overshoot, the label fades in just behind it. */
+	   past full size, dips back with inertia, then settles — a happy little bounce.
+	   The label pops in the same way just behind it. */
 	.port {
 		opacity: 0;
 		transform-box: fill-box;
 		transform-origin: center;
-		animation: pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+		animation: pop 0.58s ease-out both;
 		animation-delay: var(--pop, 0s);
 	}
 	.code {
 		opacity: 0;
-		animation: appear 0.4s ease both;
-		animation-delay: calc(var(--pop, 0s) + 0.1s);
+		/* transform-origin set inline to the label's own coords so it scales up from
+		   its resting spot (fill-box is unreliable on SVG <text>). */
+		animation: pop 0.52s ease-out both;
+		animation-delay: calc(var(--pop, 0s) + 0.12s);
 	}
 	@keyframes pop {
-		from {
+		0% {
 			opacity: 0;
 			transform: scale(0.3);
 		}
-		to {
+		55% {
+			opacity: 1;
+			transform: scale(1.08);
+		}
+		74% {
+			transform: scale(0.97);
+		}
+		88% {
+			transform: scale(1.015);
+		}
+		100% {
 			opacity: 1;
 			transform: scale(1);
-		}
-	}
-	@keyframes appear {
-		to {
-			opacity: 1;
 		}
 	}
 
@@ -904,14 +974,23 @@
 			animation: rise 0.6s ease 0.3s backwards;
 		}
 	}
+	/* Raise-in with a happy little bounce: rises past its resting spot, dips back
+	   with inertia, then settles. */
 	@keyframes rise {
-		from {
+		0% {
 			opacity: 0;
-			transform: translateY(6px);
+			transform: translateY(8px);
 		}
-		to {
+		60% {
 			opacity: 1;
-			transform: none;
+			transform: translateY(-2px);
+		}
+		82% {
+			transform: translateY(0.8px);
+		}
+		100% {
+			opacity: 1;
+			transform: translateY(0);
 		}
 	}
 
@@ -1033,10 +1112,17 @@
 		.surface.leaving {
 			transform: translateY(100%);
 		}
+		.surface-strip {
+			margin-left: 0;
+		}
 	}
 	.surface-strip {
 		flex: none;
 		height: 5px;
+		/* Pull left over the panel's 1.5px border so the accent bar reaches the very
+		   edge instead of the gray border showing beside it. Stretch keeps the right
+		   edge put. Reset on mobile, where the panel has no left border. */
+		margin-left: -1.5px;
 	}
 	.surface-head {
 		flex: none;
@@ -1178,6 +1264,11 @@
 	.seg-note {
 		font-size: 0.9rem;
 		color: var(--sub) !important;
+	}
+	.seg-lead {
+		margin-top: 1.4rem;
+		padding-top: 1.25rem;
+		border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
 	}
 
 	.onward {
