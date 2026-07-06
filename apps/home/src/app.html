@@ -5,10 +5,28 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
 		<script>
-			// Apply a saved display-mode override before first paint (no flash).
+			// Apply a saved display-mode override + time-of-day sky before first paint.
 			try {
 				var t = localStorage.getItem('ksh-theme');
 				if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+				var sky = localStorage.getItem('ksh-sky');
+				if (sky !== 'off') {
+					if (['dawn', 'morning', 'noon', 'dusk', 'night'].indexOf(sky) >= 0) {
+						document.documentElement.dataset.sky = sky;
+					} else {
+						var h = new Date().getHours();
+						document.documentElement.dataset.sky =
+							h < 5 || h >= 21
+								? 'night'
+								: h < 8
+									? 'dawn'
+									: h < 11
+										? 'morning'
+										: h < 17
+											? 'noon'
+											: 'dusk';
+					}
+				}
 			} catch (e) {}
 		</script>
 		%sveltekit.head%

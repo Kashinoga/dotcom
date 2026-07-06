@@ -111,6 +111,31 @@
 	}
 }
 
+/* Time-of-day sky (opt-in): set data-sky on <html> to a phase. Each phase paints
+ * a gradient into --sky (read by the map stage) and forces a color-scheme so the
+ * ink stays legible — light phases keep dark ink, dark phases flip to light ink.
+ * Placed after the theme rules so, while sky mode is on, it wins over data-theme. */
+:root[data-sky='dawn'] {
+	color-scheme: light;
+	--sky: linear-gradient(180deg, #f6cdb8 0%, #e7d3e4 45%, #dbe6f2 100%);
+}
+:root[data-sky='morning'] {
+	color-scheme: light;
+	--sky: linear-gradient(180deg, #bcd8f1 0%, #d8e8f6 60%, #eaf2fb 100%);
+}
+:root[data-sky='noon'] {
+	color-scheme: light;
+	--sky: linear-gradient(180deg, #9ec9ef 0%, #c4e0f6 55%, #e6f2fc 100%);
+}
+:root[data-sky='dusk'] {
+	color-scheme: dark;
+	--sky: linear-gradient(180deg, #7c4a5e 0%, #4a3a6a 50%, #1c1830 100%);
+}
+:root[data-sky='night'] {
+	color-scheme: dark;
+	--sky: linear-gradient(180deg, #16203a 0%, #0d1424 55%, #090d18 100%);
+}
+
 /* Minimal reset */
 *,
 *::before,

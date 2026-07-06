@@ -164,6 +164,50 @@
 		}
 	}
 
+	// Time-of-day sky (opt-in): paints a gradient behind the map and flips the
+	// palette per phase. data-sky on <html> drives the tokens (see tokens.css).
+	const SKY_KEY = 'ksh-sky';
+	type SkyPhase = 'dawn' | 'morning' | 'noon' | 'dusk' | 'night';
+	type SkyMode = 'off' | 'auto' | SkyPhase; // off, follow real time, or a fixed phase
+	const SKY_PHASES: SkyPhase[] = ['dawn', 'morning', 'noon', 'dusk', 'night'];
+	const skyOptions: { id: SkyMode; label: string }[] = [
+		{ id: 'off', label: 'Off' },
+		{ id: 'auto', label: 'Auto' },
+		{ id: 'dawn', label: 'Dawn' },
+		{ id: 'morning', label: 'Morning' },
+		{ id: 'noon', label: 'Noon' },
+		{ id: 'dusk', label: 'Dusk' },
+		{ id: 'night', label: 'Night' }
+	];
+	let skyMode = $state<SkyMode>('auto'); // on (auto) by default
+	let skyPhase = $state<SkyPhase>('morning'); // the phase actually painted (for the note)
+	let skyTimer = 0;
+	function currentPhase(): SkyPhase {
+		const h = new Date().getHours();
+		if (h < 5 || h >= 21) return 'night';
+		if (h < 8) return 'dawn';
+		if (h < 11) return 'morning';
+		if (h < 17) return 'noon';
+		return 'dusk';
+	}
+	function applySky() {
+		if (skyMode === 'off') {
+			document.documentElement.removeAttribute('data-sky');
+			return;
+		}
+		skyPhase = skyMode === 'auto' ? currentPhase() : skyMode;
+		document.documentElement.dataset.sky = skyPhase;
+	}
+	function setSkyMode(m: SkyMode) {
+		skyMode = m;
+		try {
+			localStorage.setItem(SKY_KEY, m);
+		} catch {
+			/* storage unavailable — keep the in-memory choice */
+		}
+		applySky();
+	}
+
 	// Narrow/portrait screens get the vertical train layout (and a portrait camera).
 	let vw = $state(1200);
 	const isMobile = $derived(vw <= 720);
@@ -453,7 +497,7 @@
 	function clearLocalStorage() {
 		if (!dev) return;
 		try {
-			for (const k of [MODE_KEY, NAMES_KEY, THEME_KEY, CONTENT_KEY, EXPAND_KEY])
+			for (const k of [MODE_KEY, NAMES_KEY, THEME_KEY, CONTENT_KEY, EXPAND_KEY, SKY_KEY])
 				localStorage.removeItem(k);
 		} catch {
 			/* storage unavailable — nothing to clear */
@@ -472,6 +516,10 @@
 			if (code === 'LINE') {
 				if (f === 'name') lineNames[Number(iStr)] = val;
 				else if (f === 'body') lineBodies[Number(iStr)] = val;
+				continue;
+			}
+			if (code === 'SETTINGS') {
+				if (iStr in settings) settings[iStr] = val;
 				continue;
 			}
 			const block = pages[code]?.[Number(iStr)] as Record<string, string> | undefined;
@@ -498,6 +546,9 @@
 			lineBodies.forEach((body, i) => {
 				if (body !== defaultLineBodies[i]) overrides[lineBodyKey(i)] = body;
 			});
+			for (const k of Object.keys(settings)) {
+				if (settings[k] !== defaultSettings[k]) overrides[settingsKey(k)] = settings[k];
+			}
 			if (Object.keys(overrides).length) localStorage.setItem(CONTENT_KEY, JSON.stringify(overrides));
 			else localStorage.removeItem(CONTENT_KEY);
 		} catch {
@@ -505,7 +556,11 @@
 		}
 		// Hand the full edited copy back: copy JSON to the clipboard (and log it).
 		const json = JSON.stringify(
-			{ pages, lines: airlines.map((_, i) => ({ name: lineNames[i], body: lineBodies[i] })) },
+			{
+				pages,
+				lines: airlines.map((_, i) => ({ name: lineNames[i], body: lineBodies[i] })),
+				settings
+			},
 			null,
 			2
 		);
@@ -531,6 +586,10 @@
 					const idx = Number(iStr);
 					if (f === 'name' && idx < lineNames.length) lineNames[idx] = val;
 					else if (f === 'body' && idx < lineBodies.length) lineBodies[idx] = val;
+					continue;
+				}
+				if (code === 'SETTINGS') {
+					if (iStr in settings) settings[iStr] = val;
 					continue;
 				}
 				const block = pages[code]?.[Number(iStr)] as Record<string, string> | undefined;
@@ -570,6 +629,24 @@
 	}
 	function stageLineBody(idx: number, text: string) {
 		drafts[lineBodyKey(idx)] = text;
+	}
+
+	// Editable Settings-panel copy — the section descriptions. Same Edit-Mode
+	// machinery, under a SETTINGS.<key> draft namespace.
+	const defaultSettings: Record<string, string> = {
+		routeLead: 'Choose how the network draws its routes between stations.',
+		labelLead: 'Choose how stations are labelled on the map.',
+		displayLead: 'Choose the display mode (also up by the wordmark).',
+		skyLead: 'Paint the map with a time-of-day sky.'
+	};
+	let settings = $state<Record<string, string>>({ ...defaultSettings });
+	const settingsKey = (k: string) => `SETTINGS.${k}`;
+	function settingsText(k: string) {
+		const key = settingsKey(k);
+		return key in drafts ? drafts[key] : settings[k];
+	}
+	function stageSettings(k: string, text: string) {
+		drafts[settingsKey(k)] = text;
 	}
 
 	// BFS depth from the hub, so the map reveals in rings: the hub pops first, then
@@ -898,6 +975,12 @@
 		const th = localStorage.getItem(THEME_KEY);
 		if (th === 'light' || th === 'dark') theme = th;
 		if (localStorage.getItem(EXPAND_KEY) === '1') panelExpanded = true;
+		const sky = localStorage.getItem(SKY_KEY);
+		if (sky === 'off' || sky === 'auto' || (sky && SKY_PHASES.includes(sky as SkyPhase)))
+			skyMode = sky as SkyMode; // else default 'auto'
+		applySky();
+		// While on Auto, keep the phase current if the tab is left open across a boundary.
+		skyTimer = window.setInterval(() => skyMode === 'auto' && applySky(), 5 * 60 * 1000);
 		if (dev) applySavedContent();
 		// Snap to the resolved mode/orientation home framing.
 		cam = { ...HOME };
@@ -908,6 +991,7 @@
 		if (raf) cancelAnimationFrame(raf);
 		clearTimeout(navTimer);
 		clearTimeout(toastTimer);
+		clearInterval(skyTimer);
 	});
 
 	const viewBox = $derived(
@@ -1055,7 +1139,14 @@
 					</div>
 					<div class="surface-body">
 						{#if v.code === 'STG'}
-							<p>Choose how the network draws its routes between stations.</p>
+							{@const editStg = dev && editMode}
+							<p
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('routeLead', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{settingsText('routeLead')}</p>
 							<div class="segmented" role="radiogroup" aria-label="Route map style">
 								<button
 									type="button"
@@ -1084,7 +1175,14 @@
 								Now showing {mapPhrase}. The change applies across the whole map and is
 								remembered next time.
 							</p>
-							<p class="seg-lead">Choose how stations are labelled on the map.</p>
+							<p
+								class="seg-lead"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('labelLead', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{settingsText('labelLead')}</p>
 							<div class="segmented" role="radiogroup" aria-label="Station label style">
 								<button
 									type="button"
@@ -1113,7 +1211,14 @@
 								Now showing {showStopNames ? 'full stop names' : 'station codes'}. Remembered
 								next time.
 							</p>
-							<p class="seg-lead">Choose the display mode (also up by the wordmark).</p>
+							<p
+								class="seg-lead"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('displayLead', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{settingsText('displayLead')}</p>
 							<div class="segmented three" role="radiogroup" aria-label="Display mode">
 								{#each themeModes as m}
 									<button
@@ -1134,6 +1239,35 @@
 									? 'Following your device setting.'
 									: `Always ${theme}.`} Remembered next time.
 							</p>
+							<p
+								class="seg-lead"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('skyLead', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{settingsText('skyLead')}</p>
+							<div class="sky-picker" role="radiogroup" aria-label="Sky background">
+								{#each skyOptions as o}
+									<button
+										type="button"
+										class="sky-opt"
+										class:on={skyMode === o.id}
+										role="radio"
+										aria-checked={skyMode === o.id}
+										onclick={() => setSkyMode(o.id)}
+									>
+										{o.label}
+									</button>
+								{/each}
+							</div>
+							<p class="seg-note">
+								{#if skyMode === 'off'}Off — the map uses the flat background.
+								{:else if skyMode === 'auto'}Auto — following the clock (currently {skyPhase}).
+								{:else}Fixed to {skyMode}.{/if}
+								{#if skyMode !== 'off'} The sky sets the palette, so the display mode above applies
+									again when it's off.{/if} Remembered next time.
+							</p>
 							{#if dev}
 								<p class="seg-lead">Edit the panel copy right in the app.</p>
 								<div class="dev-actions">
@@ -1150,9 +1284,9 @@
 									</button>
 								</div>
 								<p class="seg-note">
-									Turn on edit mode, then open any station or line and type over its text.
-									Save copies the result so it can be made permanent; discard drops your
-									changes. Clear local storage wipes saved edits and preferences, then
+									Turn on edit mode, then open any station, line, or Settings and type over
+									its text. Save copies the result so it can be made permanent; discard drops
+									your changes. Clear local storage wipes saved edits and preferences, then
 									reloads to the source defaults. (Dev only.)
 								</p>
 							{/if}
@@ -1298,7 +1432,8 @@
 		position: fixed;
 		inset: 0;
 		overflow: hidden;
-		background: var(--page);
+		/* Flat page colour, or the time-of-day sky gradient when sky mode is on. */
+		background: var(--sky, var(--page));
 	}
 
 	/* The stage never scrolls; the camera (viewBox) crops a world larger than the
@@ -2066,6 +2201,37 @@
 		margin-top: 1.4rem;
 		padding-top: 1.25rem;
 		border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+	}
+	/* Sky picker — Off / Auto / the five phases, as a wrapping chip row. */
+	.sky-picker {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		margin: 0.4rem 0 0.2rem;
+	}
+	.sky-opt {
+		padding: 0.45rem 0.85rem;
+		font: inherit;
+		font-weight: 700;
+		font-size: 0.9rem;
+		color: var(--ink);
+		background: color-mix(in srgb, var(--ink) 4%, transparent);
+		border: 1.5px solid color-mix(in srgb, var(--ink) 16%, transparent);
+		border-radius: 999px;
+		cursor: pointer;
+		transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+	}
+	.sky-opt:hover {
+		border-color: color-mix(in srgb, var(--ink) 32%, transparent);
+	}
+	.sky-opt.on {
+		color: var(--paper);
+		background: var(--ink);
+		border-color: var(--ink);
+	}
+	.sky-opt:focus-visible {
+		outline: 2px solid var(--ink);
+		outline-offset: 2px;
 	}
 
 	.onward {
