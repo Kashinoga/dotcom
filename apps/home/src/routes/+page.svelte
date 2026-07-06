@@ -765,6 +765,13 @@
 	let panelExpanded = $state(false);
 	function toggleExpand() {
 		panelExpanded = !panelExpanded;
+		// Expanding covers the map, so let it fade once it's rested; un-expanding puts
+		// the map back beside the panel, so bring it straight back.
+		if (panelExpanded) scheduleHide();
+		else {
+			clearTimeout(hideTimer);
+			mapHidden = false;
+		}
 		try {
 			localStorage.setItem(EXPAND_KEY, panelExpanded ? '1' : '0');
 		} catch {
@@ -779,6 +786,23 @@
 	let navTimer = 0;
 	let target = { ...HOME_AIR };
 	let raf = 0;
+
+	// With an EXPANDED panel the map is fully covered, so it keeps flying to its
+	// framing as usual — you see the movement — but once the camera settles there's
+	// nothing left to look at behind the panel, so fade the whole map out a beat
+	// later. A non-expanded panel sits beside the map, so it always stays visible.
+	// Each fresh open, panel→panel nav, un-expand, or close brings it back so the
+	// motion replays first.
+	let mapHidden = $state(false);
+	let hideTimer = 0;
+	const HIDE_LINGER = 520; // ms to let the settled map rest before it fades
+	function scheduleHide() {
+		clearTimeout(hideTimer);
+		if (!view || !panelExpanded) return;
+		hideTimer = window.setTimeout(() => {
+			if (view && panelExpanded) mapHidden = true;
+		}, HIDE_LINGER);
+	}
 
 	// Drag-to-pan.
 	let svgEl: SVGSVGElement;
@@ -796,6 +820,8 @@
 		if ((['x', 'y', 'w', 'h'] as const).every((k) => Math.abs(target[k] - cam[k]) < 0.4)) {
 			cam = { ...target };
 			raf = 0;
+			// Movement's done — if a panel's up, let the resting map fade out shortly.
+			if (view && !mapHidden) scheduleHide();
 			return;
 		}
 		raf = requestAnimationFrame(step);
@@ -804,6 +830,8 @@
 		target = t;
 		if (reduce) {
 			cam = { ...t };
+			// No fly to watch under reduced motion — settle straight into the fade.
+			if (view && !mapHidden) scheduleHide();
 			return;
 		}
 		if (!raf) raf = requestAnimationFrame(step);
@@ -812,6 +840,10 @@
 	// Show a destination/line: fly the camera there and render its panel content.
 	function applyView(nv: View) {
 		view = nv;
+		// Reveal the map for this open so the fly is seen; scheduleHide (on settle)
+		// fades it again if the panel is expanded.
+		clearTimeout(hideTimer);
+		mapHidden = false;
 		// On mobile the panel is a full-screen sheet, so there's no "beside the panel"
 		// to bias toward — panning would just slide the map sideways behind the sheet.
 		// Instead dolly straight back from the home framing (further away, centred).
@@ -850,7 +882,10 @@
 	}
 	function home() {
 		clearTimeout(navTimer);
+		clearTimeout(hideTimer);
 		panelLeaving = false;
+		// Bring the map back so the fly home is visible behind the closing panel.
+		mapHidden = false;
 		// Keep panelExpanded set so the panel flies out at its current width in one
 		// clean slide (it's reset on the next fresh open, not mid-close).
 		view = null;
@@ -1047,6 +1082,7 @@
 	onDestroy(() => {
 		if (raf) cancelAnimationFrame(raf);
 		clearTimeout(navTimer);
+		clearTimeout(hideTimer);
 		clearTimeout(toastTimer);
 		clearInterval(skyTimer);
 	});
@@ -1072,6 +1108,7 @@
 	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 	<svg
 		bind:this={svgEl}
+		class:map-hidden={mapHidden}
 		{viewBox}
 		preserveAspectRatio="xMidYMid meet"
 		onpointerdown={onPointerDown}
@@ -1590,6 +1627,13 @@
 		height: 100%;
 		display: block;
 		touch-action: none;
+		transition: opacity 0.6s ease;
+	}
+	/* Panel expanded and its fly settled: fade the covered map away (and let clicks
+	   fall through to the panel, since the map's no longer there to interact with). */
+	.stage svg.map-hidden {
+		opacity: 0;
+		pointer-events: none;
 	}
 	.bg {
 		fill: transparent;
@@ -1964,11 +2008,14 @@
 				transform 300ms cubic-bezier(0.6, 0, 0.3, 1);
 		}
 	}
-	/* Expand/collapse toggle, top-right of the panel. */
+	/* Expand/collapse toggle, top-right of the panel — sat on the same horizontal
+	   line as the "← route map" back button, its right inset mirroring the back
+	   button's left inset (the surface-head padding) so they read as one row. */
 	.expand {
 		position: absolute;
-		top: 0.85rem;
-		right: 0.85rem;
+		/* +2px centres the 34px square button against the taller (~37px) back pill. */
+		top: calc(clamp(1.5rem, 4vw, 2.5rem) + 2px);
+		right: clamp(1.5rem, 4vw, 2.75rem);
 		z-index: 3;
 		display: inline-grid;
 		place-items: center;
