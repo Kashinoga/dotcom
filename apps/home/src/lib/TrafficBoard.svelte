@@ -153,14 +153,13 @@
 	// Snappy split-flap timing for the board cells (the Home header's Solari flip).
 	const FLAP = { base: 70, stagger: 24, tick: 40, delay: 0 };
 	const ROW_STEP = 55; // per-row start delay so the board flips top row → bottom
-	// Enter/leave choreography (all ms). Rows transition ONE AT A TIME: STAGGER_MS
-	// (below) is a full per-row duration, so each row's flap + open/close finishes
-	// before the next row's begins. On enter the row opens showing its reason, then at
-	// ENTER_MS the Route cell flaps on to the real route; on leave the reason is held
-	// briefly, then the row collapses.
-	const ENTER_MS = 900; // reason held, then the Route cell flaps to the real route ('live')
-	const LEAVE_HOLD_MS = 600; // reason held on a departing row before it collapses
-	const LEAVE_MS = 1100; // on-board lifetime of a leaving row before removal
+	// Per-row transition timing (all ms). Rows transition ONE AT A TIME, and within a
+	// row the flap and the open/close MOTION never overlap:
+	//   enter: row opens (OPEN_MS) → cells flap → hold (HOLD_MS) → flap to real route
+	//   leave: hold the route → flap into the reason at its turn → hold → collapse (CLOSE_MS)
+	const OPEN_MS = 500; // row open motion, before the entering row's cells flap
+	const HOLD_MS = 1200; // reason held on screen before the value flap / collapse
+	const CLOSE_MS = 400; // row collapse motion
 
 	let sel = $state<Airport>(AIRPORTS[0]);
 	let radiusNm = $state(60);
@@ -440,6 +439,7 @@
 		reason: string;
 		kind: '' | 'enter' | 'leave';
 		stagger: number;
+		active: boolean; // a leaving row: true once it's this row's turn to flap its reason
 	};
 	let tracks = $state<Track[]>([]);
 	// Per-row step. Sized to a whole row's transition so only ONE row animates at a
@@ -454,10 +454,16 @@
 	// from its reason to the real route does so immediately (start 0) rather than
 	// waiting out the row's cascade delay, so the reason visibly flaps INTO the route.
 	let booted = $state(false);
-	// Split-flap start delay: live/initial rows cascade top-to-bottom (i × ROW_STEP);
-	// a row mid enter/leave flaps at its own turn in the one-at-a-time sequence.
+	// Split-flap start delay. Live/initial rows cascade top-to-bottom (i × ROW_STEP).
+	// An ENTERING row flaps only AFTER its open motion (turn + OPEN_MS), so the flap
+	// and the open never run together. A LEAVING row's cells are frozen; its reason
+	// flap is driven separately (start 0 the moment it's activated at its turn).
 	const flapStart = (p: Track, idx: number) =>
-		p.status === 'live' ? idx * ROW_STEP : p.stagger * STAGGER_MS;
+		p.status === 'enter'
+			? p.stagger * STAGGER_MS + OPEN_MS
+			: p.status === 'leave'
+				? p.stagger * STAGGER_MS
+				: idx * ROW_STEP;
 
 	// Why did this aircraft drop off the board? Still in range → the shown rows are
 	// capped and closer traffic pushed it past the cut. Gone from range → it left
@@ -482,29 +488,42 @@
 		if (id) clearTimeout(id);
 		rowTimers.delete(hex);
 	}
-	function promoteLater(hex: string, stagger: number) {
+	// Drive a row through its phases with chained timers (one live timer per hex).
+	// ENTER: opens (CSS) → cells flap (start delay) → after OPEN_MS+HOLD_MS, go live so
+	//        the Route cell flaps on to the real route.
+	// LEAVE: at its turn, flip `active` so the Route flaps route→reason; after
+	//        HOLD_MS+CLOSE_MS (reason held, then the CSS collapse), drop the row.
+	function scheduleTransition(hex: string, stagger: number, kind: 'enter' | 'leave') {
 		clearRowTimer(hex);
-		rowTimers.set(
-			hex,
-			window.setTimeout(() => {
-				rowTimers.delete(hex);
-				tracks = tracks.map((t) =>
-					t.hex === hex && t.status === 'enter'
-						? { ...t, status: 'live', reason: '', kind: '', stagger: 0 }
-						: t
-				);
-			}, ENTER_MS + stagger * STAGGER_MS)
-		);
-	}
-	function removeLater(hex: string, stagger: number) {
-		clearRowTimer(hex);
-		rowTimers.set(
-			hex,
-			window.setTimeout(() => {
-				rowTimers.delete(hex);
-				tracks = tracks.filter((t) => t.hex !== hex);
-			}, LEAVE_MS + stagger * STAGGER_MS)
-		);
+		const base = stagger * STAGGER_MS;
+		if (kind === 'enter') {
+			rowTimers.set(
+				hex,
+				window.setTimeout(() => {
+					rowTimers.delete(hex);
+					tracks = tracks.map((t) =>
+						t.hex === hex && t.status === 'enter'
+							? { ...t, status: 'live', reason: '', kind: '', stagger: 0, active: false }
+							: t
+					);
+				}, base + OPEN_MS + HOLD_MS)
+			);
+		} else {
+			rowTimers.set(
+				hex,
+				window.setTimeout(() => {
+					// The row's turn: flap the reason in (route → LANDED/BUMPED/…).
+					tracks = tracks.map((t) => (t.hex === hex ? { ...t, active: true } : t));
+					rowTimers.set(
+						hex,
+						window.setTimeout(() => {
+							rowTimers.delete(hex);
+							tracks = tracks.filter((t) => t.hex !== hex);
+						}, HOLD_MS + CLOSE_MS)
+					);
+				}, base)
+			);
+		}
 	}
 	function resetTracks() {
 		for (const id of rowTimers.values()) clearTimeout(id);
@@ -532,18 +551,25 @@
 				if (t.status === 'leave') {
 					// It came back before it finished leaving — cancel the exit.
 					clearRowTimer(t.hex);
-					out.push({ ...nr, status: 'live', reason: '', kind: '', stagger: 0 });
+					out.push({ ...nr, status: 'live', reason: '', kind: '', stagger: 0, active: false });
 				} else if (t.status === 'enter') {
 					// Keep animating in; hold its stagger so the delay doesn't shift.
-					out.push({ ...nr, status: 'enter', reason: t.reason, kind: t.kind, stagger: t.stagger });
+					out.push({
+						...nr,
+						status: 'enter',
+						reason: t.reason,
+						kind: t.kind,
+						stagger: t.stagger,
+						active: false
+					});
 				} else {
-					out.push({ ...nr, status: 'live', reason: '', kind: '', stagger: 0 });
+					out.push({ ...nr, status: 'live', reason: '', kind: '', stagger: 0, active: false });
 				}
 			} else if (t.status === 'leave') {
-				out.push(t); // already collapsing — keep its stagger + removal timer
+				out.push(t); // already leaving — keep its stagger, active flag, and timer
 			} else {
 				leaving.add(t.hex);
-				out.push({ ...t, status: 'leave', reason: leaveReason(t), kind: 'leave', stagger: 0 });
+				out.push({ ...t, status: 'leave', reason: leaveReason(t), kind: 'leave', stagger: 0, active: false });
 			}
 		}
 		// New arrivals. On the very first fill, drop them straight in as `live` so the
@@ -551,10 +577,10 @@
 		for (const nr of next) {
 			if (prevByHex.has(nr.hex)) continue;
 			if (firstLoad) {
-				out.push({ ...nr, status: 'live', reason: '', kind: '', stagger: 0 });
+				out.push({ ...nr, status: 'live', reason: '', kind: '', stagger: 0, active: false });
 			} else {
 				entering.add(nr.hex);
-				out.push({ ...nr, status: 'enter', reason: enterReason(nr), kind: 'enter', stagger: 0 });
+				out.push({ ...nr, status: 'enter', reason: enterReason(nr), kind: 'enter', stagger: 0, active: false });
 			}
 		}
 		// Nearest first; a leaving row keeps its last distance, so it collapses in place.
@@ -565,10 +591,10 @@
 		for (const t of out) {
 			if (entering.has(t.hex)) {
 				t.stagger = seq++;
-				promoteLater(t.hex, t.stagger);
+				scheduleTransition(t.hex, t.stagger, 'enter');
 			} else if (leaving.has(t.hex)) {
 				t.stagger = seq++;
-				removeLater(t.hex, t.stagger);
+				scheduleTransition(t.hex, t.stagger, 'leave');
 			}
 		}
 		if (!firstLoad) booted = true; // first fill has cascaded; later flaps are immediate
@@ -798,11 +824,16 @@
 								<div class="ci">{#key fmtHdg(p.track)}<SplitFlap {...FLAP} start={flapStart(p, i)} text={fmtHdg(p.track)} />{/key}</div>
 							</td>
 							<td class="mono route">
-								<!-- While a row is arriving/leaving, the Route cell flaps its reason like a
-								     board status; once it settles 'live' the flaps carry on to the real route. -->
-								<div class="ci">{#if p.status !== 'live'}{#key p.reason}<SplitFlap
+								<!-- Enter: show the reason (flaps after the row opens), then flap on to the
+								     real route once live. Leave: hold the real route until this row's turn,
+								     then flap route → reason (LANDED/…). -->
+								<div class="ci">{#if p.status === 'enter'}{#key p.reason}<SplitFlap
 											{...FLAP}
 											start={flapStart(p, i)}
+											text={p.reason}
+										/>{/key}{:else if p.status === 'leave' && p.active}{#key p.reason}<SplitFlap
+											{...FLAP}
+											start={0}
 											text={p.reason}
 										/>{/key}{:else if p.route}{#key `${p.route.o.iata || p.route.o.icao} ${p.route.d.iata || p.route.d.icao}`}<SplitFlap
 											{...FLAP}
@@ -1091,13 +1122,14 @@
 		animation-delay: var(--sd);
 	}
 	.row.leave .ci {
-		/* 0.6s = LEAVE_HOLD_MS: the reason flap shows and lingers, then the row eases shut. */
+		/* 1.2s = HOLD_MS: the reason flaps in at the row's turn and lingers, THEN the
+		   row eases shut — the collapse never overlaps the flap. */
 		animation: ciOut 0.4s cubic-bezier(0.65, 0, 0.35, 1) both;
-		animation-delay: calc(0.6s + var(--sd));
+		animation-delay: calc(1.2s + var(--sd));
 	}
 	.row.leave td {
 		animation: padOut 0.4s cubic-bezier(0.65, 0, 0.35, 1) both;
-		animation-delay: calc(0.6s + var(--sd));
+		animation-delay: calc(1.2s + var(--sd));
 	}
 	/* Collapse the real content height (max-height sits just above a single line, so
 	   there's no dead zone before it starts moving). Opacity lives on the td below,
