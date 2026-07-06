@@ -500,13 +500,20 @@
 			rowTimers.set(
 				hex,
 				window.setTimeout(() => {
-					rowTimers.delete(hex);
-					tracks = tracks.map((t) =>
-						t.hex === hex && t.status === 'enter'
-							? { ...t, status: 'live', reason: '', kind: '', stagger: 0, active: false }
-							: t
+					// After the open motion: flap the reason IN (Route cell was blank).
+					tracks = tracks.map((t) => (t.hex === hex ? { ...t, active: true } : t));
+					rowTimers.set(
+						hex,
+						window.setTimeout(() => {
+							rowTimers.delete(hex);
+							tracks = tracks.map((t) =>
+								t.hex === hex && t.status === 'enter'
+									? { ...t, status: 'live', reason: '', kind: '', stagger: 0, active: false }
+									: t
+							);
+						}, HOLD_MS)
 					);
-				}, base + OPEN_MS + HOLD_MS)
+				}, base + OPEN_MS)
 			);
 		} else {
 			rowTimers.set(
@@ -824,14 +831,10 @@
 								<div class="ci">{#key fmtHdg(p.track)}<SplitFlap {...FLAP} start={flapStart(p, i)} text={fmtHdg(p.track)} />{/key}</div>
 							</td>
 							<td class="mono route">
-								<!-- Enter: show the reason (flaps after the row opens), then flap on to the
-								     real route once live. Leave: hold the real route until this row's turn,
-								     then flap route → reason (LANDED/…). -->
-								<div class="ci">{#if p.status === 'enter'}{#key p.reason}<SplitFlap
-											{...FLAP}
-											start={flapStart(p, i)}
-											text={p.reason}
-										/>{/key}{:else if p.status === 'leave' && p.active}{#key p.reason}<SplitFlap
+								<!-- Enter: blank while the row opens, then the reason flaps IN (active), then
+								     flaps on to the real route once live. Leave: hold the real route until this
+								     row's turn, then flap route → reason (LANDED/…). -->
+								<div class="ci">{#if p.status === 'enter' && !p.active}{:else if p.active}{#key p.reason}<SplitFlap
 											{...FLAP}
 											start={0}
 											text={p.reason}
