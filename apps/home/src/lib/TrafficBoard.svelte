@@ -440,7 +440,11 @@
 		stagger: number;
 	};
 	let tracks = $state<Track[]>([]);
-	const STAGGER_MS = 55; // per-row cascade step (matches SplitFlap's ROW_STEP)
+	// Per-row cascade step. Wider than the SplitFlap's 55ms on purpose: peak
+	// concurrent collapse animations ≈ collapse-duration / step, and each collapse
+	// forces a full table relayout per frame, so spreading them further (≈5 at once
+	// instead of ≈11) is what keeps a heavy "everyone lands at once" poll smooth.
+	const STAGGER_MS = 90;
 	const rowTimers = new Map<string, number>(); // hex → promote/remove timeout
 	let inRangeHexes = new Set<string>(); // every aircraft in range this poll
 	let prevInRange = new Set<string>(); // …and last poll, to explain arrivals
@@ -743,7 +747,7 @@
 							class:enter={p.status === 'enter'}
 							class:leave={p.status === 'leave'}
 							style="--stagger:{p.stagger}"
-							animate:flip={{ duration: 460, easing: cubicOut }}
+							animate:flip={{ duration: 360, easing: cubicOut }}
 						>
 							<td>
 								<div class="ci">{#if p.tag}<span class="tag {p.tag}">{TAG_LABEL[p.tag]}</span>{/if}</div>
@@ -1056,26 +1060,28 @@
 	.row.leave .ci {
 		overflow: hidden;
 	}
-	/* Per-row cascade offset: the row's slot in the enter/leave sequence × 55ms, so a
-	   busy poll ripples top-to-bottom instead of firing every row at once. */
+	/* Per-row cascade offset: the row's slot in the enter/leave sequence × 90ms (==
+	   STAGGER_MS), so a busy poll ripples top-to-bottom with only a handful of the
+	   layout-thrashing collapses running at any instant instead of all at once. */
 	.row {
-		--sd: calc(var(--stagger, 0) * 55ms);
+		--sd: calc(var(--stagger, 0) * 90ms);
 	}
 	.row.enter .ci {
-		animation: ciIn 0.6s cubic-bezier(0.33, 1, 0.68, 1) both;
+		animation: ciIn 0.5s cubic-bezier(0.33, 1, 0.68, 1) both;
 		animation-delay: var(--sd);
 	}
 	.row.enter td {
-		animation: padIn 0.6s cubic-bezier(0.33, 1, 0.68, 1) both;
+		animation: padIn 0.5s cubic-bezier(0.33, 1, 0.68, 1) both;
 		animation-delay: var(--sd);
 	}
 	.row.leave .ci {
-		/* 1.7s = LEAVE_HOLD_MS: sit with the reason, then ease shut unhurriedly. */
-		animation: ciOut 0.6s cubic-bezier(0.65, 0, 0.35, 1) both;
+		/* 1.7s = LEAVE_HOLD_MS: sit with the reason, then ease shut (short = fewer
+		   frames of full-table relayout while it's collapsing). */
+		animation: ciOut 0.42s cubic-bezier(0.65, 0, 0.35, 1) both;
 		animation-delay: calc(1.7s + var(--sd));
 	}
 	.row.leave td {
-		animation: padOut 0.6s cubic-bezier(0.65, 0, 0.35, 1) both;
+		animation: padOut 0.42s cubic-bezier(0.65, 0, 0.35, 1) both;
 		animation-delay: calc(1.7s + var(--sd));
 	}
 	/* Collapse the real content height (max-height sits just above a single line, so
