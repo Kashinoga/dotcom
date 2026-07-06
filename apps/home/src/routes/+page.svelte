@@ -1989,9 +1989,16 @@
 			inset 0.5px 0 0 rgba(255, 255, 255, 0.14),
 			-20px 0 46px rgba(0, 0, 0, 0.07);
 	}
-	/* Expanded: fill the viewport (desktop) — useful for the wide Traffic board. */
+	/* Expanded: fill the viewport (desktop) — useful for the wide Traffic board.
+	   Expanded covers the (hidden) map with only the smooth sky behind it, so the
+	   glass blur buys almost nothing here — yet Safari re-rasterizes that backdrop
+	   layer every frame the board animates or scrolls, which is the Traffic board's
+	   hard lag. Drop the blur and lean opaque instead. */
 	.surface.expanded {
 		width: 100%;
+		background: color-mix(in srgb, var(--paper) 93%, transparent);
+		backdrop-filter: none;
+		-webkit-backdrop-filter: none;
 	}
 	.surface.expanded.leaving {
 		transform: translateX(100%);
