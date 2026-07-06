@@ -115,7 +115,13 @@
 		EUFI: 'Eurofighter Typhoon',
 		RFAL: 'Dassault Rafale',
 		SU27: 'Sukhoi Su-27',
-		SU37: 'Sukhoi Su-37'
+		SU37: 'Sukhoi Su-37',
+		// Exotics — the "boss plane" energy: forward-swept and stealth-prototype airframes
+		// that star in Ace Combat and, being real, still resolve a genuine Wikipedia photo.
+		SU47: 'Sukhoi Su-47',
+		SU57: 'Sukhoi Su-57',
+		YF23: 'Northrop YF-23',
+		X29: 'Grumman X-29'
 	};
 	type Photo = { src: string; credit: string; url: string };
 	// type → resolved photo (or null when Wikipedia has none). Caching the PROMISE also
@@ -383,7 +389,10 @@
 		{ hex: 'ACE008', call: 'STRIDER1', type: 'F22', reg: 'OAD-003', op: 'Osean Air Defense Force', year: 2019, alt: 28000, gs: 450, track: 265, vrate: 500, distNm: 18, o: 'GRM', d: 'NOV' },
 		{ hex: 'ACE009', call: 'GRYPHUS1', type: 'RFAL', reg: 'EMM-01', op: 'Emmeria Air Force', year: 2011, alt: 30000, gs: 460, track: 60, vrate: 0, distNm: 118, o: 'FAR', d: 'SUD' },
 		{ hex: 'ACE010', call: 'PIXY', type: 'F15', reg: 'GLM-02', op: 'Galm Team', year: 1995, alt: 15000, gs: 370, track: 130, vrate: -1000, distNm: 74, o: 'GBH', d: 'GRM' },
-		{ hex: 'ACE011', call: 'CIPHER', type: 'F15', reg: 'UST-01', op: 'Ustio Air Force', year: 1995, alt: 'ground', gs: 0, track: 0, vrate: 0, distNm: 2, o: 'GRM', d: 'SIB' }
+		{ hex: 'ACE011', call: 'CIPHER', type: 'F15', reg: 'UST-01', op: 'Ustio Air Force', year: 1995, alt: 'ground', gs: 0, track: 0, vrate: 0, distNm: 2, o: 'GRM', d: 'SIB' },
+		// Boss-tier aces, in real exotics (so a tapped row still shows a real photo).
+		{ hex: 'ACE012', call: 'MIHALY', type: 'SU57', reg: 'ERU-01', op: 'Erusean Air Force', year: 2020, alt: 41000, gs: 520, track: 200, vrate: 0, distNm: 28, o: 'FAR', d: 'OUR' },
+		{ hex: 'ACE013', call: 'BERKUT', type: 'SU47', reg: 'GRU-47', op: 'Gründer Industries', year: 2006, alt: 26000, gs: 440, track: 85, vrate: 900, distNm: 40, o: 'SUD', d: 'GRM' }
 	];
 	// Prime the route cache once so rows derive arr/dep/over exactly like a live field.
 	const DEMO_ROUTES = new Map<string, Route>(
