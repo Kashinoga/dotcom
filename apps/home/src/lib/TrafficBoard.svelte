@@ -4,6 +4,7 @@
 	import { flip } from 'svelte/animate';
 	import { cubicOut } from 'svelte/easing';
 	import SplitFlap from '$lib/SplitFlap.svelte';
+	import { MAXIMIZE_SVG, MINIMIZE_SVG } from '$lib/icons';
 
 	// A live "what's in the air around <airport>" board. Same keyless, CORS-open
 	// stack as the dotcom-2 atc app: airplanes.live for live ADS-B traffic near a
@@ -268,6 +269,17 @@
 	let status = $state<'loading' | 'ok' | 'empty' | 'error'>('loading');
 	let updatedAt = $state<number | null>(null);
 	let routeVer = $state(0); // bump when the route cache fills, to re-derive rows
+	// Route lookups run one-at-a-time against adsbdb (a volunteer API), so a cold field
+	// can spend a second or two resolving callsigns. This surfaces that wait as a
+	// determinate meter; null when nothing is in flight. `enrichGen` cancels a stale
+	// run's meter writes when a newer poll / field change supersedes it.
+	let routeProgress = $state<{ done: number; total: number } | null>(null);
+	let enrichGen = 0;
+	// True while a *user-initiated* live fetch is in flight (the manual refresh button) so
+	// the activity bar shows over the existing board without blanking it. Auto-refreshes
+	// leave this false — the countdown ring already signals those, and a bar flashing every
+	// poll would be noise. Field/range switches use `status === 'loading'` instead.
+	let polling = $state(false);
 	let nowTs = $state(Date.now()); // ticks so the refresh ring can count down
 	let paused = $state(false); // auto-refresh on/off
 	// reicon play / pause (outline).
@@ -281,13 +293,9 @@
 	// reicon "arrow-left2" (chevron) — the super bar's left end-cap, paired with expand.
 	const BACK_SVG =
 		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M15.4881 4.43057C15.8026 4.70014 15.839 5.17361 15.5694 5.48811L9.98781 12L15.5694 18.5119C15.839 18.8264 15.8026 19.2999 15.4881 19.5695C15.1736 19.839 14.7001 19.8026 14.4306 19.4881L8.43056 12.4881C8.18981 12.2072 8.18981 11.7928 8.43056 11.5119L14.4306 4.51192C14.7001 4.19743 15.1736 4.161 15.4881 4.43057Z" fill="currentColor"/></svg>';
-	// reicon maximize / minimize — the expand-panel toggle (this board owns it so the
-	// icon sits as the super bar's right end-cap, aligned with back, rather than the
-	// parent's absolute button floating loose against the short bar).
-	const MAXIMIZE_SVG =
-		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.1429 1.25C15.7286 1.25 15.3929 1.58579 15.3929 2C15.3929 2.41421 15.7286 2.75 16.1429 2.75H20.1893L14.4697 8.46967C14.1768 8.76256 14.1768 9.23744 14.4697 9.53033C14.7626 9.82322 15.2374 9.82322 15.5303 9.53033L21.25 3.81066V7.85714C21.25 8.27136 21.5858 8.60714 22 8.60714C22.4142 8.60714 22.75 8.27136 22.75 7.85714V2C22.75 1.58579 22.4142 1.25 22 1.25H16.1429Z" fill="currentColor"/><path d="M7.85714 22.75C8.27136 22.75 8.60714 22.4142 8.60714 22C8.60714 21.5858 8.27136 21.25 7.85714 21.25H3.81066L9.53033 15.5303C9.82322 15.2374 9.82322 14.7626 9.53033 14.4697C9.23744 14.1768 8.76256 14.1768 8.46967 14.4697L2.75 20.1893V16.1429C2.75 15.7286 2.41421 15.3929 2 15.3929C1.58579 15.3929 1.25 15.7286 1.25 16.1429V22C1.25 22.4142 1.58579 22.75 2 22.75H7.85714Z" fill="currentColor"/></svg>';
-	const MINIMIZE_SVG =
-		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.8571 9.75C21.2714 9.75 21.6071 9.41421 21.6071 9C21.6071 8.58579 21.2714 8.25 20.8571 8.25H16.8107L22.5303 2.53033C22.8232 2.23744 22.8232 1.76256 22.5303 1.46967C22.2374 1.17678 21.7626 1.17678 21.4697 1.46967L15.75 7.18934V3.14286C15.75 2.72864 15.4142 2.39286 15 2.39286C14.5858 2.39286 14.25 2.72864 14.25 3.14286V9C14.25 9.41421 14.5858 9.75 15 9.75H20.8571Z" fill="currentColor"/><path d="M3.14286 14.25C2.72864 14.25 2.39286 14.5858 2.39286 15C2.39286 15.4142 2.72864 15.75 3.14286 15.75H7.18934L1.46967 21.4697C1.17678 21.7626 1.17678 22.2374 1.46967 22.5303C1.76256 22.8232 2.23744 22.8232 2.53033 22.5303L8.25 16.8107V20.8571C8.25 21.2714 8.58579 21.6071 9 21.6071C9.41421 21.6071 9.75 21.2714 9.75 20.8571V15C9.75 14.5858 9.41421 14.25 9 14.25H3.14286Z" fill="currentColor"/></svg>';
+	// maximize / minimize (the expand-panel toggle) are shared with the page masthead,
+	// so they live in $lib/icons. This board owns its copy of the control so the icon
+	// sits as the super bar's right end-cap, aligned with back.
 
 	// Countdown-ring geometry + progress toward the next poll.
 	const RING_R = 15.5;
@@ -324,29 +332,56 @@
 	});
 
 	async function enrichRoutes(list: Plane[]) {
-		let budget = MAX_LOOKUPS_PER_POLL;
+		const gen = ++enrichGen;
+		// The callsigns still needing a route (unique, uncached), capped at the per-poll
+		// budget — that count is what the progress meter fills toward.
+		const queue: string[] = [];
+		const seen = new Set<string>();
 		for (const p of list) {
 			const cs = p.call.toUpperCase();
-			if (!cs || routeCache.has(cs)) continue;
-			if (budget-- <= 0) break;
+			if (!cs || seen.has(cs) || routeCache.has(cs)) continue;
+			seen.add(cs);
+			queue.push(cs);
+			if (queue.length >= MAX_LOOKUPS_PER_POLL) break;
+		}
+		if (!queue.length) {
+			routeProgress = null; // everything already cached — no wait to show
+			return;
+		}
+		routeProgress = { done: 0, total: queue.length };
+		for (const cs of queue) {
 			try {
 				const r = await fetch('https://api.adsbdb.com/v0/callsign/' + encodeURIComponent(cs));
-				if (destroyed) return;
-				if (!r.ok) continue; // leave uncached → retry next poll
-				const j = await r.json();
-				const fr = j?.response?.flightroute;
-				const al = fr?.airline;
-				const airline: Airline | null =
-					al && al.name ? { name: al.name, iata: al.iata || '', callsign: al.callsign || '' } : null;
-				const route: Route =
-					fr && fr.origin && fr.destination
-						? { o: field(fr.origin), d: field(fr.destination), airline }
-						: null;
-				routeCache.set(cs, route);
-				routeVer++;
+				if (destroyed || gen !== enrichGen) return; // superseded — drop this run
+				if (r.ok) {
+					const j = await r.json();
+					const fr = j?.response?.flightroute;
+					const al = fr?.airline;
+					const airline: Airline | null =
+						al && al.name ? { name: al.name, iata: al.iata || '', callsign: al.callsign || '' } : null;
+					const route: Route =
+						fr && fr.origin && fr.destination
+							? { o: field(fr.origin), d: field(fr.destination), airline }
+							: null;
+					routeCache.set(cs, route);
+					routeVer++;
+				}
+				// !r.ok → leave uncached so a later poll retries
 			} catch {
 				/* transient — leave uncached so a later poll retries */
 			}
+			// Count every attempt (resolved or not) so the meter always reaches full.
+			if (gen === enrichGen && routeProgress) {
+				routeProgress = { done: routeProgress.done + 1, total: routeProgress.total };
+			}
+		}
+		// Hold at a full bar briefly before hiding: the last increment and the hide would
+		// otherwise batch into one render, so the meter would slide away still showing the
+		// second-to-last step. The pause lets 100% paint (and its width transition finish)
+		// so the fill visibly completes. Guarded again in case a newer run supersedes us mid-hold.
+		if (gen === enrichGen) {
+			await new Promise((r) => setTimeout(r, 500));
+			if (gen === enrichGen) routeProgress = null;
 		}
 	}
 
@@ -459,12 +494,13 @@
 		updatedAt = Date.now();
 	}
 
-	async function poll() {
+	async function poll(showBusy = false) {
 		const at = sel;
 		if (at.demo) {
 			loadDemo(); // fictional field — canned traffic, no live feeds
 			return;
 		}
+		if (showBusy) polling = true; // manual refresh: show the activity bar over the live board
 		try {
 			// Same-origin proxy (src/routes/api/traffic) — it fans out to airplanes.live
 			// with an adsb.lol fallback server-side, dodging the mirrors' missing CORS.
@@ -509,6 +545,8 @@
 			enrichRoutes(list);
 		} catch {
 			if (!destroyed && at.icao === sel.icao) status = planes.length ? 'ok' : 'error';
+		} finally {
+			polling = false; // fetch done (or aborted) — enrichment now owns the bar, if any
 		}
 	}
 
@@ -518,8 +556,9 @@
 		timer = paused ? 0 : window.setInterval(poll, pollMs);
 	}
 	// Poll now and re-sync the cadence (a one-off refresh while paused stays paused).
-	function kick() {
-		poll();
+	// `showBusy` surfaces the activity bar for user-initiated refreshes (the manual button).
+	function kick(showBusy = false) {
+		poll(showBusy);
 		restartInterval();
 	}
 	// The manual "refresh now" button, throttled so mashing it can't spam the volunteer
@@ -530,7 +569,7 @@
 		const now = Date.now();
 		if (now - lastManual < 3000) return;
 		lastManual = now;
-		kick();
+		kick(true); // surface the activity bar so the click has visible feedback
 	}
 	// Switch auto-refresh cadence; adopt it immediately (stays off while paused).
 	function setPollMs(ms: number) {
@@ -555,6 +594,8 @@
 		sel = a;
 		planes = [];
 		resetTracks(); // a new field is a fresh board — don't animate the old rows out
+		enrichGen++; // cancel any in-flight enrichment from the old field
+		routeProgress = null;
 		status = 'loading';
 		updatedAt = null;
 		closePhoto();
@@ -565,6 +606,8 @@
 		radiusNm = r;
 		planes = [];
 		resetTracks();
+		enrichGen++; // cancel any in-flight enrichment for the old range
+		routeProgress = null;
 		status = 'loading';
 		updatedAt = null;
 		kick();
@@ -599,7 +642,7 @@
 			type: p.type,
 			reg: p.reg,
 			desc: p.desc,
-			op: opName(p),
+			op: p.opLabel,
 			year: p.year,
 			title,
 			route: p.route,
@@ -625,14 +668,18 @@
 		photoToken++;
 	}
 
-	type Row = Plane & { tag: 'arr' | 'dep' | 'over' | null; route: Route };
+	// `opLabel` is the resolved operator display string. Computing it here (once per row
+	// when the data changes) rather than in the template keeps its regex tidy/title-case
+	// off the hot path — the row's cells re-render on every transition tick during a
+	// cascade, and it was otherwise recomputed twice per row on each of those.
+	type Row = Plane & { tag: 'arr' | 'dep' | 'over' | null; route: Route; opLabel: string };
 	const rows = $derived.by<Row[]>(() => {
 		routeVer; // dependency: re-derive when the route cache fills
 		return planes.map((p) => {
 			const route = routeCache.get(p.call.toUpperCase()) ?? null;
 			let tag: Row['tag'] = null;
 			if (route) tag = route.d.icao === sel.icao ? 'arr' : route.o.icao === sel.icao ? 'dep' : 'over';
-			return { ...p, route, tag };
+			return { ...p, route, tag, opLabel: opName({ op: p.op, route }) };
 		});
 	});
 
@@ -1076,6 +1123,34 @@
 	</header>
 
 	<div class="tfc-body">
+		<!-- Live-data activity meter, covering the whole wait so there's feedback BEFORE and
+		     DURING, not just after. Two phases share one bar (so it never disappears between
+		     them): while the board is first loading a field, the ADS-B fetch is in flight and
+		     the bar is indeterminate; once rows land, route lookups run one-at-a-time against
+		     adsbdb (a polite, sequential API) and the bar becomes a determinate meter that
+		     fills as each route resolves and its Route cell flaps in. Background refreshes keep
+		     status 'ok', so this doesn't flash every poll — only on a fresh field/range/mount. -->
+		{#if (status === 'loading' && !sel.demo) || polling || routeProgress}
+			<div
+				class="route-prog"
+				role="status"
+				aria-label={routeProgress
+					? `Resolving routes: ${routeProgress.done} of ${routeProgress.total}`
+					: 'Loading live traffic'}
+				transition:slide={{ duration: 180 }}
+			>
+				<div class="rp-track">
+					{#if routeProgress}
+						<div class="rp-fill" style:width="{(routeProgress.done / routeProgress.total) * 100}%"></div>
+					{:else}
+						<div class="rp-fill rp-indef"></div>
+					{/if}
+				</div>
+				<span class="rp-text mono">
+					{#if routeProgress}Resolving routes {routeProgress.done}/{routeProgress.total}…{:else}Loading live traffic…{/if}
+				</span>
+			</div>
+		{/if}
 		{#if edit || leadText().trim()}
 			<p
 				class="lead"
@@ -1216,7 +1291,7 @@
 										>{:else}{#key p.type}<SplitFlap {...FLAP} start={flapStart(p, i)} text={p.type || '—'} />{/key}{/if}</div>
 							</td>
 							<td class="mono op x2">
-								<div class="ci">{#key opName(p)}<SplitFlap {...FLAP} start={flapStart(p, i)} text={opName(p) || '—'} />{/key}</div>
+								<div class="ci">{#key p.opLabel}<SplitFlap {...FLAP} start={flapStart(p, i)} text={p.opLabel || '—'} />{/key}</div>
 							</td>
 							<td class="mono num">
 								<div class="ci">{#key fmtAlt(p.alt)}<SplitFlap {...FLAP} start={flapStart(p, i)} text={fmtAlt(p.alt)} />{/key}</div>
@@ -1291,9 +1366,13 @@
 		min-height: 100%;
 		position: relative; /* anchors the compact expand toggle */
 	}
-	/* Expand/collapse toggle for the compact panel (the super bar hosts its own). Matches
-	   the generic panel button so it reads identically to every other destination. */
-	.expand-compact {
+	/* Icon-circle control — the compact expand toggle, the panel-chrome back button, and
+	   the expanded super-bar's end caps are all one 30px pill with a centred 15px glyph, so
+	   they read identically to every other destination panel. Only per-button layout
+	   (below, near each usage) differs. Matches the parent page's .expand button. */
+	.expand-compact,
+	.back,
+	.nav-edge {
 		display: inline-grid;
 		place-items: center;
 		width: 30px;
@@ -1306,15 +1385,21 @@
 		cursor: pointer;
 		transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 	}
-	.expand-compact:hover {
+	.expand-compact:hover,
+	.back:hover,
+	.nav-edge:hover {
 		color: var(--ink);
 		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
 	}
-	.expand-compact:focus-visible {
-		outline: 2px solid var(--ink);
+	.expand-compact:focus-visible,
+	.back:focus-visible,
+	.nav-edge:focus-visible {
+		outline: var(--focus-ring);
 		outline-offset: 2px;
 	}
-	.expand-compact :global(svg) {
+	.expand-compact :global(svg),
+	.back :global(svg),
+	.nav-edge :global(svg) {
 		width: 15px;
 		height: 15px;
 		display: block;
@@ -1355,7 +1440,7 @@
 		/* Extra bottom room so the now-large title's descenders ("g", "y") clear the
 		   header's bottom border. */
 		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(1.5rem, 2.5vw, 2.25rem);
-		border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+		border-bottom: 1px solid var(--line);
 	}
 	.tfc-body {
 		/* Grow to fill a short panel, but never shrink below the data's height. */
@@ -1370,34 +1455,11 @@
 	}
 	/* Panel chrome, matched to the generic .surface-head so ATFC reads like every other
 	   destination panel (this board just renders it itself). */
-	/* Back is an icon circle on the left, matching the refresh control. */
+	/* Back is an icon circle on the left, matching the refresh control (shared styling
+	   in the .icon-circle group above; only its placement is set here). */
 	.back {
 		align-self: flex-start;
-		display: inline-grid;
-		place-items: center;
-		width: 30px;
-		height: 30px;
 		margin-bottom: 1rem;
-		padding: 0;
-		color: var(--sub);
-		background: color-mix(in srgb, var(--ink) 5%, transparent);
-		border: 1.5px solid color-mix(in srgb, var(--ink) 14%, transparent);
-		border-radius: 999px;
-		cursor: pointer;
-		transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-	}
-	.back:hover {
-		color: var(--ink);
-		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
-	}
-	.back:focus-visible {
-		outline: 2px solid var(--ink);
-		outline-offset: 2px;
-	}
-	.back :global(svg) {
-		width: 15px;
-		height: 15px;
-		display: block;
 	}
 	.eyebrow {
 		margin: 0 0 0.3rem;
@@ -1550,33 +1612,9 @@
 		padding-inline: clamp(0.9rem, 1.6vw, 1.4rem);
 	}
 	/* Global-control end caps — matched to the parent's expand button so back/expand
-	   read as one set framing the bar. */
+	   read as one set framing the bar (shared styling in the .icon-circle group above). */
 	.nav-edge {
 		flex: none;
-		display: inline-grid;
-		place-items: center;
-		width: 30px;
-		height: 30px;
-		padding: 0;
-		color: var(--sub);
-		background: color-mix(in srgb, var(--ink) 5%, transparent);
-		border: 1.5px solid color-mix(in srgb, var(--ink) 14%, transparent);
-		border-radius: 999px;
-		cursor: pointer;
-		transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-	}
-	.nav-edge:hover {
-		color: var(--ink);
-		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
-	}
-	.nav-edge:focus-visible {
-		outline: 2px solid var(--ink);
-		outline-offset: 2px;
-	}
-	.nav-edge :global(svg) {
-		width: 15px;
-		height: 15px;
-		display: block;
 	}
 	.ident {
 		flex: none;
@@ -1671,7 +1709,7 @@
 		background: color-mix(in srgb, var(--ink) 4%, transparent);
 	}
 	.editable:focus {
-		outline: 2px solid var(--ink);
+		outline: var(--focus-ring);
 		background: color-mix(in srgb, var(--ink) 5%, transparent);
 	}
 	.fields {
@@ -1725,7 +1763,7 @@
 		border-color: var(--accent);
 	}
 	.field:focus-visible {
-		outline: 2px solid var(--ink);
+		outline: var(--focus-ring);
 		outline-offset: 2px;
 	}
 	/* Range / Refresh are dropdowns — styled to echo the .field pills, with a custom
@@ -1753,7 +1791,7 @@
 		border-color: color-mix(in srgb, var(--ink) 32%, transparent);
 	}
 	.field-select:focus-visible {
-		outline: 2px solid var(--ink);
+		outline: var(--focus-ring);
 		outline-offset: 2px;
 	}
 	.board-head {
@@ -1794,7 +1832,7 @@
 		cursor: pointer;
 	}
 	.refresh:focus-visible {
-		outline: 2px solid var(--ink);
+		outline: var(--focus-ring);
 		outline-offset: 2px;
 		border-radius: 50%;
 	}
@@ -1828,7 +1866,7 @@
 		transform: rotate(-90deg);
 	}
 	.manual:focus-visible {
-		outline: 2px solid var(--ink);
+		outline: var(--focus-ring);
 		outline-offset: 2px;
 	}
 	.manual :global(svg) {
@@ -1916,6 +1954,58 @@
 	.msg {
 		margin: 0.4rem 0;
 		color: var(--sub);
+	}
+	/* Live-data activity meter — a slim accent bar. Determinate (width fills) while route
+	   lookups land one by one; indeterminate (a segment sweeps) while the ADS-B fetch is in
+	   flight before any rows exist. Auto-hides (slides away) once everything's resolved. */
+	.route-prog {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+	}
+	.rp-track {
+		position: relative; /* anchors the sweeping indeterminate segment */
+		flex: 1;
+		height: 3px;
+		border-radius: 999px;
+		background: var(--line);
+		overflow: hidden;
+	}
+	.rp-fill {
+		height: 100%;
+		border-radius: 999px;
+		background: var(--accent);
+		transition: width 0.3s ease;
+	}
+	/* Indeterminate: a 40%-wide segment sweeping left→right, for the pre-results fetch when
+	   there's no count to fill toward yet. */
+	.rp-indef {
+		position: absolute;
+		inset: 0 auto 0 0;
+		width: 40%;
+		animation: rp-sweep 1.1s ease-in-out infinite;
+	}
+	@keyframes rp-sweep {
+		0% {
+			transform: translateX(-100%);
+		}
+		100% {
+			transform: translateX(250%);
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.rp-indef {
+			position: static;
+			width: 100%;
+			opacity: 0.55;
+			animation: none;
+		}
+	}
+	.rp-text {
+		flex: none;
+		font-size: 0.72rem;
+		color: var(--sub);
+		font-variant-numeric: tabular-nums;
 	}
 	.scroll {
 		overflow-x: auto;
@@ -2148,7 +2238,7 @@
 		color: var(--accent);
 	}
 	.type-btn:focus-visible {
-		outline: 2px solid var(--ink);
+		outline: var(--focus-ring);
 		outline-offset: 2px;
 		border-radius: 3px;
 	}
@@ -2244,7 +2334,7 @@
 		color: var(--ink);
 	}
 	.pc-close:focus-visible {
-		outline: 2px solid var(--ink);
+		outline: var(--focus-ring);
 		outline-offset: 2px;
 	}
 	@media (max-width: 520px) {

@@ -30,6 +30,11 @@
 	--orange: #f06030; /* Penguin orange accent */
 	--sub: light-dark(#717171, #9a9a9a); /* subtext */
 
+	/* Shared interaction tokens — reused across every app control so focus rings
+	 * and divider lines stay consistent (and re-theme in one place). */
+	--focus-ring: 2px solid var(--ink); /* :focus-visible outline (paired with a 2px offset) */
+	--line: color-mix(in srgb, var(--ink) 10%, transparent); /* hairline divider / border */
+
 	/* Grid background — 1px lines on a tile. Faint over the page field. */
 	--grid-size: 32px;
 	--grid-line: rgba(10, 10, 10, 0.05);

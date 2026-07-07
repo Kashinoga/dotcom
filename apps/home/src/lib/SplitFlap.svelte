@@ -1,3 +1,41 @@
+<script module lang="ts">
+	// Reduced-motion is a device-level setting, identical for every cell — evaluate it
+	// once at module load rather than in each of the (up to ~180) SplitFlap instances a
+	// full board spins up. Client-only (matchMedia is undefined during SSR → false, which
+	// is fine: the scramble is driven from onMount, so it never runs on the server).
+	const reduceMotion =
+		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	// One shared requestAnimationFrame loop drives EVERY animating cell, instead of each
+	// SplitFlap owning a setInterval — a full board fill spins up ~180 cells at once, so
+	// that's ~180 timers collapsed into a single rAF. Each subscriber receives the real
+	// ms elapsed since the last frame and returns false when its flap has settled, at
+	// which point it's dropped; the loop stops once the last cell finishes. rAF also
+	// parks the whole animation while the tab is hidden, for free.
+	type FlapTick = (dtMs: number) => boolean; // return false when this cell is done
+	const flapSubs = new Set<FlapTick>();
+	let flapRaf = 0;
+	let flapPrev = 0;
+
+	function flapFrame(now: number) {
+		const dt = now - flapPrev;
+		flapPrev = now;
+		for (const sub of flapSubs) {
+			if (!sub(dt)) flapSubs.delete(sub);
+		}
+		flapRaf = flapSubs.size ? requestAnimationFrame(flapFrame) : 0;
+	}
+	// Register a per-frame handler; returns an unsubscribe for the instance's cleanup.
+	function flapSubscribe(sub: FlapTick): () => void {
+		flapSubs.add(sub);
+		if (!flapRaf) {
+			flapPrev = performance.now();
+			flapRaf = requestAnimationFrame(flapFrame);
+		}
+		return () => flapSubs.delete(sub);
+	}
+</script>
+
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 
@@ -35,9 +73,6 @@
 	// by row: each row's cells hold blank until their turn, then flap and settle.
 	const settleAt = chars.map((_, i) => delay + base + i * stagger);
 
-	const reduce =
-		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 	// Group into words so per-char cells never wrap mid-word.
 	type Group = { space: true } | { idx: number[] };
 	const groups: Group[] = [];
@@ -64,33 +99,46 @@
 	const rand = (s: string) => s[Math.floor(Math.random() * s.length)];
 
 	onMount(() => {
-		if (reduce) return;
-		let intervalId = 0;
+		if (reduceMotion) return;
+		let unsubscribe = () => {};
 		// Run the scramble → settle. `elapsed` is measured from here (the flap start),
-		// so settleAt needn't include `start`.
+		// so settleAt needn't include `start`. The shared clock ticks every frame; a cell
+		// only re-picks a glyph once its own `tick` interval has passed (keeping the flip
+		// speed), but settles precisely on time regardless of frame cadence.
 		const begin = () => {
 			spinning = pools.map((p) => p !== null);
 			glyphs = chars.map((c, i) => (pools[i] ? rand(pools[i]!) : c));
 			let elapsed = 0;
-			intervalId = setInterval(() => {
-				elapsed += tick;
+			let sinceShuffle = 0;
+			unsubscribe = flapSubscribe((dt) => {
+				elapsed += dt;
+				sinceShuffle += dt;
+				const shuffle = sinceShuffle >= tick;
+				if (shuffle) sinceShuffle = 0;
 				const g = [...glyphs];
 				const sp = [...spinning];
 				let any = false;
+				let changed = false;
 				for (let i = 0; i < chars.length; i++) {
 					if (!sp[i]) continue;
 					if (elapsed >= settleAt[i]) {
 						g[i] = chars[i];
 						sp[i] = false;
-					} else {
+						changed = true;
+					} else if (shuffle) {
 						g[i] = rand(pools[i]!);
 						any = true;
+						changed = true;
+					} else {
+						any = true; // still spinning, just not re-picked this frame
 					}
 				}
-				glyphs = g;
-				spinning = sp;
-				if (!any) clearInterval(intervalId);
-			}, tick);
+				if (changed) {
+					glyphs = g;
+					spinning = sp;
+				}
+				return any; // keep this cell subscribed while any glyph is still spinning
+			});
 		};
 		// With a cascade offset, hold the cells BLANK until this instance's turn, then
 		// flap — so a staggered board fills row by row and no cell shows its finished
@@ -101,13 +149,11 @@
 			const timeoutId = setTimeout(begin, start);
 			return () => {
 				clearTimeout(timeoutId);
-				if (intervalId) clearInterval(intervalId);
+				unsubscribe();
 			};
 		}
 		begin();
-		return () => {
-			if (intervalId) clearInterval(intervalId);
-		};
+		return () => unsubscribe();
 	});
 </script>
 
