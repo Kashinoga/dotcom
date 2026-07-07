@@ -1067,15 +1067,20 @@
 	</header>
 
 	<div class="tfc-body">
-		<p
-			class="lead"
-			class:editable={edit}
-			contenteditable={edit}
-			oninput={edit ? (e) => onCopyEdit?.(leadKey, e.currentTarget.textContent ?? '') : undefined}
-		>{leadText()}</p>
+		{#if edit || leadText().trim()}
+			<p
+				class="lead"
+				class:editable={edit}
+				contenteditable={edit}
+				oninput={edit ? (e) => onCopyEdit?.(leadKey, e.currentTarget.textContent ?? '') : undefined}
+			>{leadText()}</p>
+		{/if}
 
 		{#if !showDeck}
-			<div class="fields" role="radiogroup" aria-label="Airport">{@render fieldButtons()}</div>
+			<div class="fields ranges" role="radiogroup" aria-label="Airport">
+				<span class="range-label">Airport</span>
+				<div class="field-wrap">{@render fieldButtons()}</div>
+			</div>
 
 			<div class="fields ranges" role="radiogroup" aria-label="Radar range">
 				<span class="range-label">Range</span>{@render rangeButtons()}<span class="range-unit">NM</span>
@@ -1086,7 +1091,7 @@
 			</div>
 
 			<div class="board-head">
-				<h3>{sel.name} <span class="mono">· {sel.icao}</span></h3>
+				<h3>{sel.name} · <span class="mono">{sel.icao}</span></h3>
 				<div class="status">
 					<span class="upd" aria-live="polite">
 						{#if status === 'loading'}Loading…
@@ -1099,9 +1104,9 @@
 		{/if}
 
 		<div class="key" aria-label="Tag key">
-			<span class="key-item"><span class="tag arr">Arr</span> Arriving</span>
-			<span class="key-item"><span class="tag dep">Dep</span> Departing</span>
-			<span class="key-item"><span class="tag over">Ovr</span> Overflight</span>
+			<span class="key-item"><span class="tag arr">Arr</span> <span class="key-label">Arriving</span> <span class="key-count">({counts.arr})</span></span>
+			<span class="key-item"><span class="tag dep">Dep</span> <span class="key-label">Departing</span> <span class="key-count">({counts.dep})</span></span>
+			<span class="key-item"><span class="tag over">Ovr</span> <span class="key-label">Overflight</span> <span class="key-count">({counts.ovr})</span></span>
 		</div>
 
 	{#if selected}
@@ -1588,15 +1593,28 @@
 		gap: 0.4rem;
 	}
 	.ranges {
-		align-items: center;
+		align-items: flex-start;
+	}
+	/* The airport row has enough buttons to wrap; grouping them in their own flex box
+	   (offset past the label) keeps every wrapped line indented to the first row rather
+	   than falling back under the label. */
+	.field-wrap {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
 	}
 	.range-label {
+		/* Fixed width so the three rows' buttons line up in a column, with room for the
+		   longest label ("Airport"). */
+		flex: none;
+		min-width: 4.5rem;
 		font-size: 0.72rem;
 		font-weight: 700;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
 		color: var(--sub);
-		margin-right: 0.15rem;
 	}
 	.range-unit {
 		font-size: 0.8rem;
@@ -1605,7 +1623,7 @@
 	.field {
 		padding: 0.35rem 0.6rem;
 		font: inherit;
-		font-weight: 700;
+		font-weight: 500;
 		font-size: 0.85rem;
 		letter-spacing: 0.03em;
 		color: var(--ink);
@@ -1673,8 +1691,8 @@
 	.manual {
 		display: inline-grid;
 		place-items: center;
-		width: 28px;
-		height: 28px;
+		width: 24px;
+		height: 24px;
 		flex: none;
 		padding: 0;
 		color: var(--sub);
@@ -1929,7 +1947,10 @@
 	}
 	.tag {
 		display: inline-block;
-		min-width: 2.4em;
+		/* Wide enough that all 3-letter tags sit inside it, so every pill is identical
+		   width regardless of the letters' natural widths. */
+		box-sizing: border-box;
+		width: 3.4em;
 		text-align: center;
 		padding: 0.05rem 0.35rem;
 		font-size: 0.68rem;
@@ -1948,10 +1969,11 @@
 	.tag.over {
 		background: color-mix(in srgb, var(--ink) 45%, transparent);
 	}
-	/* Key for the arriving / departing / overflight tags. */
+	/* Key for the arriving / departing / overflight tags — one row. */
 	.key {
 		display: flex;
 		flex-wrap: wrap;
+		align-items: center;
 		gap: 0.35rem 1rem;
 		font-size: 0.78rem;
 		color: var(--sub);
@@ -1960,6 +1982,10 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4rem;
+	}
+	.key-count {
+		font-variant-numeric: tabular-nums;
+		color: color-mix(in srgb, var(--sub) 75%, transparent);
 	}
 	/* Clickable aircraft type → opens the photo card. */
 	.type-btn {

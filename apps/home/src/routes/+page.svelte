@@ -692,8 +692,7 @@
 		// Air Traffic board intro copy. `atfcLead` uses a `{}` token for the live range
 		// (NM); the demo variant has none. Edited via Edit Mode inside the board itself.
 		atfcLead: 'Live traffic within {} NM of a field — arriving, departing, or passing over.',
-		atfcLeadDemo:
-			'Sample traffic around a fictional field — a self-contained demo (no live data) so you can explore the board. Range and refresh still work; pick a real airport above for live ADS-B.'
+		atfcLeadDemo: ''
 	};
 	let settings = $state<Record<string, string>>({ ...defaultSettings });
 	const settingsKey = (k: string) => `SETTINGS.${k}`;
