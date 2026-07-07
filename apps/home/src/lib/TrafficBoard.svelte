@@ -1049,7 +1049,7 @@
 				{/if}
 			</div>
 		{:else}
-			{#if onback}<button type="button" class="back" onclick={onback}>&larr; route map</button>{/if}
+			{#if onback}<button type="button" class="back" onclick={onback} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>{/if}
 			<p class="eyebrow">Now arriving &middot; <span class="eyebrow-code">{code}</span></p>
 			<div class="title-row">
 				<h2 class="dest">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
@@ -1296,13 +1296,13 @@
 	.expand-compact {
 		display: inline-grid;
 		place-items: center;
-		width: 34px;
-		height: 34px;
+		width: 30px;
+		height: 30px;
 		padding: 0;
 		color: var(--sub);
-		background: color-mix(in srgb, var(--paper) 70%, transparent);
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
 		border: 1.5px solid color-mix(in srgb, var(--ink) 14%, transparent);
-		border-radius: 8px;
+		border-radius: 999px;
 		cursor: pointer;
 		transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 	}
@@ -1370,24 +1370,34 @@
 	}
 	/* Panel chrome, matched to the generic .surface-head so ATFC reads like every other
 	   destination panel (this board just renders it itself). */
+	/* Back is an icon circle on the left, matching the refresh control. */
 	.back {
 		align-self: flex-start;
-		/* Center the label: flex + line-height:1 so the arrow/text sit on the pill's
-		   optical centre instead of riding high on an inherited (taller) line box. */
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		line-height: 1;
+		display: inline-grid;
+		place-items: center;
+		width: 30px;
+		height: 30px;
 		margin-bottom: 1rem;
-		padding: 0.5rem 0.85rem;
-		font: inherit;
-		font-size: 0.9rem;
-		font-weight: 600;
-		color: var(--ink);
-		background: transparent;
-		border: 1.5px solid var(--ink);
+		padding: 0;
+		color: var(--sub);
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		border: 1.5px solid color-mix(in srgb, var(--ink) 14%, transparent);
 		border-radius: 999px;
 		cursor: pointer;
+		transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+	}
+	.back:hover {
+		color: var(--ink);
+		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
+	}
+	.back:focus-visible {
+		outline: 2px solid var(--ink);
+		outline-offset: 2px;
+	}
+	.back :global(svg) {
+		width: 15px;
+		height: 15px;
+		display: block;
 	}
 	.eyebrow {
 		margin: 0 0 0.3rem;
@@ -1528,13 +1538,13 @@
 		flex: none;
 		display: inline-grid;
 		place-items: center;
-		width: 34px;
-		height: 34px;
+		width: 30px;
+		height: 30px;
 		padding: 0;
 		color: var(--sub);
-		background: color-mix(in srgb, var(--paper) 70%, transparent);
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
 		border: 1.5px solid color-mix(in srgb, var(--ink) 14%, transparent);
-		border-radius: 8px;
+		border-radius: 999px;
 		cursor: pointer;
 		transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 	}
@@ -1547,8 +1557,8 @@
 		outline-offset: 2px;
 	}
 	.nav-edge :global(svg) {
-		width: 16px;
-		height: 16px;
+		width: 15px;
+		height: 15px;
 		display: block;
 	}
 	.ident {
@@ -1569,6 +1579,11 @@
 	.bar .accent-dot {
 		width: 20px;
 		height: 20px;
+	}
+	/* In the dense bar the small title's baseline would leave the (relatively large) dot
+	   poking above the caps; centre it on the text instead so it reads as aligned. */
+	.bar .head-refresh {
+		align-self: center;
 	}
 	/* Denser, lighter pills + labels in the bar — the table is the focus, so the
 	   surrounding controls read quietly (regular weight, not bold). */
