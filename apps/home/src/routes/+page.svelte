@@ -1175,22 +1175,12 @@
 		<div class="brandline">
 			<h1><SplitFlap text="Kashinoga" /></h1>
 			<!-- Little display-mode bullets, like the route icons on a station sign. -->
-			<div class="theme" role="radiogroup" aria-label="Display mode">
-				{#each themeModes as m, i}
-					<button
-						type="button"
-						class="theme-dot"
-						class:on={theme === m.id}
-						style="--n:{i}"
-						role="radio"
-						aria-checked={theme === m.id}
-						aria-label={m.label}
-						title={m.label}
-						onclick={() => setTheme(m.id)}
-					>
-						{@html m.svg}
-					</button>
-				{/each}
+			<!-- Decorative station-sign bullets (nonfunctional); theme switching lives in the
+			     Settings panel's Display-mode control. -->
+			<div class="theme" aria-hidden="true">
+				<span class="theme-dot" style="--n:0; --dot:#e6b93c"></span>
+				<span class="theme-dot" style="--n:1; --dot:#29b0a1"></span>
+				<span class="theme-dot" style="--n:2; --dot:#e05a4e"></span>
 			</div>
 		</div>
 		<p class="tagline">{#each taglineWords as word, i}<span class="tw" style="--n:{i}"
@@ -1799,6 +1789,8 @@
 		top: clamp(1.5rem, 5vw, 3.5rem);
 		left: clamp(1.5rem, 5vw, 3.5rem);
 		max-width: min(90vw, 640px);
+		/* Shared so the tagline's offsets below scale with the wordmark. */
+		--wordmark: clamp(2.25rem, 9vw, 5.5rem);
 	}
 	/* Title and tagline animate on their own so open/close staggers like the entrance:
 	   the tagline trails the title coming in, and leads going out. */
@@ -1842,7 +1834,7 @@
 	.masthead h1 {
 		margin: 0;
 		font-weight: 700;
-		font-size: clamp(2.25rem, 9vw, 5.5rem);
+		font-size: var(--wordmark);
 		line-height: 0.95;
 		letter-spacing: -0.02em;
 		color: var(--ink);
@@ -1859,45 +1851,35 @@
 		flex-wrap: wrap;
 	}
 	.theme {
-		display: inline-flex;
-		gap: 0.35rem;
+		/* Non-flex, so the dots are ordinary inline-blocks that keep their true bottom-edge
+		   baseline and rest on the wordmark's baseline. As flex items their baseline gets
+		   synthesized from the glyph (Firefox) and floats them off the line. font-size:0
+		   collapses the inter-dot whitespace; the gap is restored with margins below. */
+		display: inline-block;
+		font-size: 0;
 	}
 	.theme-dot {
 		/* Start offset for the roll-out: each circle begins stacked on the leftmost
 		   one (one circle-width + gap per index), then unfurls to the right. */
 		--roll: calc(var(--n, 0) * -2.23rem);
-		display: inline-grid;
-		place-items: center;
+		/* Decorative, nonfunctional colour bullet. Empty inline-block → bottom-edge
+		   baseline, so it rests on the wordmark's baseline (see .theme). */
+		display: inline-block;
 		width: 30px;
 		height: 30px;
-		padding: 0;
-		color: var(--sub);
-		background: color-mix(in srgb, var(--ink) 5%, transparent);
-		border: 1.5px solid color-mix(in srgb, var(--ink) 14%, transparent);
+		background: var(--dot);
 		border-radius: 999px;
-		cursor: pointer;
-		transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
 	}
-	.theme-dot :global(svg) {
-		width: 16px;
-		height: 16px;
-		display: block;
-	}
-	.theme-dot:hover {
-		color: var(--ink);
-		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
-	}
-	.theme-dot.on {
-		color: var(--paper);
-		background: var(--ink);
-		border-color: var(--ink);
-	}
-	.theme-dot:focus-visible {
-		outline: 2px solid var(--ink);
-		outline-offset: 2px;
+	.theme-dot + .theme-dot {
+		margin-left: 0.35rem;
 	}
 	.tagline {
-		margin: 0.5rem 0 0;
+		/* Sit just below the wordmark (top) and indent to the "K"'s optical left edge — the
+		   SplitFlap centres each glyph in its cell, so the "K" is inset from the wordmark's
+		   box edge by ~0.05em. Both scale with the wordmark. The small positive top keeps
+		   the tagline's ascenders ("f" in "of") clear of the wordmark's descenders.
+		   (Coefficients are optical — nudge to taste.) */
+		margin: calc(var(--wordmark) * 0.05) 0 0 calc(var(--wordmark) * 0.05);
 		font-size: clamp(0.95rem, 2.2vw, 1.15rem);
 		color: var(--sub);
 	}
@@ -2027,10 +2009,10 @@
 		   body scrolls, the surface never overflows); the Traffic board instead lets its
 		   body grow to the data's natural height and scrolls the whole panel when tall. */
 		overflow-y: auto;
-		/* Super-clear premium ice: a very transparent, faintly cool body with light
-		   refraction, and a crisp, well-defined left edge that catches the light —
-		   like the cut face of a perfect restaurant ice cube. */
-		background: color-mix(in srgb, var(--paper) 78%, transparent);
+		/* Frosted ice: mostly opaque so the route map behind doesn't read as stray lines
+		   through the body, but still faintly translucent at the edges with the blur — a
+		   crisp, well-defined left edge that catches the light like a cut ice cube. */
+		background: color-mix(in srgb, var(--paper) 92%, transparent);
 		backdrop-filter: blur(7px) saturate(1.1);
 		-webkit-backdrop-filter: blur(7px) saturate(1.1);
 		border-left: 0.5px solid rgba(255, 255, 255, 0.16);
@@ -2126,13 +2108,21 @@
 	}
 	.surface-head {
 		flex: none;
-		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) 1.25rem;
+		/* Extra bottom room so the now-large title's descenders ("g", "y") clear the
+		   header's bottom border. */
+		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(1.5rem, 2.5vw, 2.25rem);
 		border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
 	}
 	.back {
 		align-self: flex-start;
+		/* Center the label: flex + line-height:1 so the arrow/text sit on the pill's
+		   optical centre instead of riding high on an inherited (taller) line box. */
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		line-height: 1;
 		margin-bottom: 1.4rem;
-		padding: 0.4rem 0.85rem;
+		padding: 0.5rem 0.85rem;
 		font: inherit;
 		font-size: 0.9rem;
 		font-weight: 600;
@@ -2152,11 +2142,16 @@
 	}
 	.dest {
 		margin: 0;
-		font-size: clamp(2rem, 6vw, 3rem);
+		/* Homepage wordmark scale, so every panel's masthead title reads at the same size
+		   as "Kashinoga" (matches the ATFC panel's title). */
+		font-size: clamp(2.25rem, 9vw, 5.5rem);
 		font-weight: 700;
 		letter-spacing: -0.02em;
 		line-height: 1;
 		color: var(--ink);
+		/* One line always — see the ATFC .dest note (flip animation transiently widens the
+		   wordmark and would otherwise wrap a two-word title). */
+		white-space: nowrap;
 	}
 	.surface-body {
 		flex: 1;

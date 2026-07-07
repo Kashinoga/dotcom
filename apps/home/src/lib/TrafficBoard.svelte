@@ -921,39 +921,44 @@
 	{/each}
 {/snippet}
 {#snippet rangeButtons()}
-	{#each RANGES as r}
-		<button
-			type="button"
-			class="field"
-			class:on={r === radiusNm}
-			role="radio"
-			aria-checked={r === radiusNm}
-			aria-label={`${r} nautical miles`}
-			onclick={() => setRange(r)}
-		>
-			{r}
-		</button>
-	{/each}
+	<select
+		class="field-select"
+		aria-label="Radar range (nautical miles)"
+		value={radiusNm}
+		onchange={(e) => setRange(Number(e.currentTarget.value))}
+	>
+		<!-- Unit lives on the group header so it shows once, not repeated per option. -->
+		<optgroup label="NM">
+			{#each RANGES as r}
+				<option value={r}>{r}</option>
+			{/each}
+		</optgroup>
+	</select>
 {/snippet}
 {#snippet refreshButtons()}
-	{#each INTERVALS as iv}
-		<button
-			type="button"
-			class="field"
-			class:on={iv.ms === pollMs}
-			role="radio"
-			aria-checked={iv.ms === pollMs}
-			aria-label={`Auto-refresh every ${iv.label}`}
-			onclick={() => setPollMs(iv.ms)}
-		>
-			{iv.label}
-		</button>
-	{/each}
+	<select
+		class="field-select"
+		aria-label="Auto-refresh interval"
+		value={pollMs}
+		onchange={(e) => setPollMs(Number(e.currentTarget.value))}
+	>
+		{#each INTERVALS as iv}
+			<option value={iv.ms}>{iv.label}</option>
+		{/each}
+	</select>
 {/snippet}
-{#snippet ringButtons()}
-	<button type="button" class="manual" aria-label="Refresh now" title="Refresh now" onclick={manualRefresh}>
-		{@html REFRESH_SVG}
-	</button>
+{#snippet manualButton()}
+	<!-- Keep {@html} flush with the tags: surrounding whitespace becomes an in-flow text
+	     node, which would give this inline-block a line box and pull its baseline up off
+	     its bottom edge (see .manual). -->
+	<button type="button" class="manual" aria-label="Refresh now" title="Refresh now" onclick={manualRefresh}>{@html REFRESH_SVG}</button>
+{/snippet}
+{#snippet accentDot()}
+	<!-- Decorative, nonfunctional: the app's accent colour as a station-sign bullet beside
+	     the title. The live refresh control lives up in the top-right corner. -->
+	<span class="accent-dot" aria-hidden="true"></span>
+{/snippet}
+{#snippet ringButton()}
 	<button
 		type="button"
 		class="refresh"
@@ -1002,21 +1007,19 @@
 				</button>
 			{/if}
 			<div class="ident">
-				<p class="eyebrow">Now arriving &middot; <span class="eyebrow-code">{code}</span></p>
 				<h2 class="dest">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
+				<div class="head-refresh">{@render accentDot()}</div>
 			</div>
 			<div class="deck">
 				<div class="deck-controls">
 					<div class="ctl" role="radiogroup" aria-label="Airport">
 						<span class="ctl-label">Field</span>{@render fieldButtons()}
 					</div>
-					<div class="ctl" role="radiogroup" aria-label="Radar range">
-						<span class="ctl-label">Range</span>{@render rangeButtons()}<span class="range-unit">NM</span>
+					<div class="ctl">
+						<span class="ctl-label">Range</span>{@render rangeButtons()}
 					</div>
-					<div class="ctl" role="radiogroup" aria-label="Auto-refresh interval">
-						<span class="ctl-label">Refresh</span>{@render refreshButtons()}<span class="ring-wrap"
-							>{@render ringButtons()}</span
-						>
+					<div class="ctl">
+						<span class="ctl-label">Refresh</span>{@render refreshButtons()}
 					</div>
 				</div>
 				<dl class="deck-summary" aria-label="Board summary">
@@ -1025,44 +1028,50 @@
 						<dd>{status === 'loading' || status === 'error' ? '—' : rows.length}</dd>
 					</div>
 					<div class="stat">
-						<dt>Arr · Dep · Ovr</dt>
-						<dd>{counts.arr} · {counts.dep} · {counts.ovr}</dd>
-					</div>
-					<div class="stat">
 						<dt>Updated</dt>
 						<dd>{updatedAt ? fmtClock(updatedAt) : '—'}</dd>
 					</div>
 				</dl>
 			</div>
-			{#if onToggleExpand}
-				<button
-					type="button"
-					class="nav-edge cap-right"
-					onclick={onToggleExpand}
-					aria-label="Collapse panel"
-					title="Collapse"
-				>
-					{@html MINIMIZE_SVG}
-				</button>
-			{/if}
+			<!-- Right end-cap: the live refresh control paired with the collapse toggle. -->
+			<div class="corner corner-bar">
+				{@render manualButton()}
+				{#if onToggleExpand}
+					<button
+						type="button"
+						class="nav-edge"
+						onclick={onToggleExpand}
+						aria-label="Collapse panel"
+						title="Collapse"
+					>
+						{@html MINIMIZE_SVG}
+					</button>
+				{/if}
+			</div>
 		{:else}
 			{#if onback}<button type="button" class="back" onclick={onback}>&larr; route map</button>{/if}
 			<p class="eyebrow">Now arriving &middot; <span class="eyebrow-code">{code}</span></p>
 			<div class="title-row">
 				<h2 class="dest">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
+				<!-- Decorative accent dot beside the title (station-sign bullet). -->
+				<div class="head-refresh">{@render accentDot()}</div>
 			</div>
-			{#if onToggleExpand}
-				<!-- Sits inside the (sticky) header so it stays put with it as the panel scrolls. -->
-				<button
-					type="button"
-					class="expand-compact"
-					onclick={onToggleExpand}
-					aria-label={expanded ? 'Collapse panel' : 'Expand panel to fill'}
-					title={expanded ? 'Collapse' : 'Expand to fill'}
-				>
-					{@html expanded ? MINIMIZE_SVG : MAXIMIZE_SVG}
-				</button>
-			{/if}
+			<!-- Top-right corner: the live refresh control paired with the expand toggle. Sits
+			     inside the (sticky) header so it stays put as the panel scrolls. -->
+			<div class="corner corner-compact">
+				{@render manualButton()}
+				{#if onToggleExpand}
+					<button
+						type="button"
+						class="expand-compact"
+						onclick={onToggleExpand}
+						aria-label={expanded ? 'Collapse panel' : 'Expand panel to fill'}
+						title={expanded ? 'Collapse' : 'Expand to fill'}
+					>
+						{@html expanded ? MINIMIZE_SVG : MAXIMIZE_SVG}
+					</button>
+				{/if}
+			</div>
 		{/if}
 	</header>
 
@@ -1082,11 +1091,11 @@
 				<div class="field-wrap">{@render fieldButtons()}</div>
 			</div>
 
-			<div class="fields ranges" role="radiogroup" aria-label="Radar range">
-				<span class="range-label">Range</span>{@render rangeButtons()}<span class="range-unit">NM</span>
+			<div class="fields ranges">
+				<span class="range-label">Range</span>{@render rangeButtons()}
 			</div>
 
-			<div class="fields ranges" role="radiogroup" aria-label="Auto-refresh interval">
+			<div class="fields ranges">
 				<span class="range-label">Refresh</span>{@render refreshButtons()}
 			</div>
 
@@ -1098,16 +1107,9 @@
 						{:else if status === 'error'}Feed unavailable
 						{:else}{rows.length} in range · {fmtClock(updatedAt)}{/if}
 					</span>
-					{@render ringButtons()}
 				</div>
 			</div>
 		{/if}
-
-		<div class="key" aria-label="Tag key">
-			<span class="key-item"><span class="tag arr">Arr</span> <span class="key-label">Arriving</span> <span class="key-count">({counts.arr})</span></span>
-			<span class="key-item"><span class="tag dep">Dep</span> <span class="key-label">Departing</span> <span class="key-count">({counts.dep})</span></span>
-			<span class="key-item"><span class="tag over">Ovr</span> <span class="key-label">Overflight</span> <span class="key-count">({counts.ovr})</span></span>
-		</div>
 
 	{#if selected}
 		<div class="photo-card" transition:slide={{ duration: 220 }}>
@@ -1170,7 +1172,7 @@
 			<table class="board">
 				<thead>
 					<tr>
-						<th title="Direction relative to this field — arriving, departing, or passing overhead"></th>
+						<th class="dir-head" title="Direction relative to this field — arriving, departing, or passing overhead"><span class="dir-timer">{@render ringButton()}</span></th>
 						<th title="Callsign (or Mode-S hex code when no callsign is broadcast)">Flight</th>
 						<th class="x1" title="Registration / tail number">Reg</th>
 						<th title="ICAO aircraft type — tap a row to see a photo">Type</th>
@@ -1256,6 +1258,11 @@
 				</tbody>
 			</table>
 		</div>
+		<div class="key" aria-label="Tag key">
+			<span class="key-item"><span class="tag arr">Arr</span> <span class="key-label">Arriving</span> <span class="key-count">({counts.arr})</span></span>
+			<span class="key-item"><span class="tag dep">Dep</span> <span class="key-label">Departing</span> <span class="key-count">({counts.dep})</span></span>
+			<span class="key-item"><span class="tag over">Ovr</span> <span class="key-label">Overflight</span> <span class="key-count">({counts.ovr})</span></span>
+		</div>
 	{/if}
 
 		<p class="src">
@@ -1287,10 +1294,6 @@
 	/* Expand/collapse toggle for the compact panel (the super bar hosts its own). Matches
 	   the generic panel button so it reads identically to every other destination. */
 	.expand-compact {
-		position: absolute;
-		top: calc(clamp(1.5rem, 4vw, 2.5rem) + 2px);
-		right: clamp(1.5rem, 4vw, 2.75rem);
-		z-index: 3;
 		display: inline-grid;
 		place-items: center;
 		width: 34px;
@@ -1321,6 +1324,22 @@
 			display: none; /* phone bottom-sheet is already full width */
 		}
 	}
+	/* Top-right corner: the live refresh control paired with the expand/collapse toggle. */
+	.corner {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.corner-compact {
+		position: absolute;
+		top: calc(clamp(1.5rem, 4vw, 2.5rem) + 2px);
+		right: clamp(1.5rem, 4vw, 2.75rem);
+		z-index: 3;
+	}
+	.corner-bar {
+		/* The deck (flex:1) pushes this to the far-right edge, opposite the back cap. */
+		margin-left: auto;
+	}
 	.tfc-head {
 		flex: none;
 		/* Sticky in both layouts: the header (compact) / super bar (expanded) stays at the
@@ -1333,7 +1352,9 @@
 		background: color-mix(in srgb, var(--paper) 80%, transparent);
 		-webkit-backdrop-filter: blur(8px) saturate(1.1);
 		backdrop-filter: blur(8px) saturate(1.1);
-		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) 1rem;
+		/* Extra bottom room so the now-large title's descenders ("g", "y") clear the
+		   header's bottom border. */
+		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(1.5rem, 2.5vw, 2.25rem);
 		border-bottom: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
 	}
 	.tfc-body {
@@ -1351,8 +1372,14 @@
 	   destination panel (this board just renders it itself). */
 	.back {
 		align-self: flex-start;
+		/* Center the label: flex + line-height:1 so the arrow/text sit on the pill's
+		   optical centre instead of riding high on an inherited (taller) line box. */
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		line-height: 1;
 		margin-bottom: 1rem;
-		padding: 0.4rem 0.85rem;
+		padding: 0.5rem 0.85rem;
 		font: inherit;
 		font-size: 0.9rem;
 		font-weight: 600;
@@ -1375,23 +1402,50 @@
 	}
 	.dest {
 		margin: 0;
-		font-size: clamp(2rem, 6vw, 3rem);
+		/* Exact homepage wordmark scale, so the title dominates the 30px refresh circle the
+		   same way "Kashinoga" dominates its control dots. */
+		font-size: clamp(2.25rem, 9vw, 5.5rem);
 		font-weight: 700;
 		letter-spacing: -0.02em;
 		line-height: 1;
 		color: var(--ink);
+		/* One line always: the flip animation floors narrow cells to a min-width so shuffle
+		   glyphs aren't clipped, which widens the wordmark mid-flip — enough, at this scale,
+		   to wrap a two-word title (e.g. "Terminal Way") until it settles. */
+		white-space: nowrap;
 	}
 	/* The title's own row: "Air Traffic" on the left, the control deck filling the
 	   whole band to its right. Wraps to stacked only if it ever gets tight (the deck
 	   renders past 900px, so that's a safety net). */
 	.title-row {
 		display: flex;
-		align-items: center;
-		gap: 1rem clamp(1.5rem, 4vw, 3rem);
+		/* Rest the refresh controls' bottoms on the title's text baseline (an icon-only
+		   button synthesizes its baseline at its bottom edge) — like the masthead's
+		   quick-settings bullets sitting on the wordmark baseline. */
+		align-items: baseline;
+		gap: 0.5rem clamp(0.85rem, 2vw, 1.5rem);
 		flex-wrap: wrap;
 	}
 	.title-row .dest {
 		flex: none;
+	}
+	/* Decorative accent dot beside the title — mirrors the homepage masthead's dots sitting
+	   next to the wordmark. Deliberately NOT a flex container: as a plain inline-block the
+	   dot keeps its true bottom-edge baseline so `align-items: baseline` on the row rests it
+	   on the title's text baseline (a flex item's baseline synthesizes from the wrong edge in
+	   Firefox and floats it). font-size:0 collapses whitespace so nothing perturbs that. */
+	.head-refresh {
+		display: inline-block;
+		font-size: 0;
+	}
+	/* Nonfunctional station-sign bullet in the app's accent colour (the live refresh control
+	   lives in the top-right corner). Empty inline-block → bottom-edge baseline. */
+	.accent-dot {
+		display: inline-block;
+		width: 30px;
+		height: 30px;
+		border-radius: 999px;
+		background: var(--accent);
 	}
 	.deck {
 		flex: 1;
@@ -1425,12 +1479,6 @@
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
 		color: var(--sub);
-	}
-	.ring-wrap {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.15rem;
-		margin-left: 0.4rem;
 	}
 	/* Glanceable live stats, right end of the deck. */
 	.deck-summary {
@@ -1474,10 +1522,6 @@
 		padding-block: 0.55rem;
 		padding-inline: clamp(0.9rem, 1.6vw, 1.4rem);
 	}
-	/* The deck grows to push the collapse cap to the far-right edge, opposite back. */
-	.cap-right {
-		margin-left: auto;
-	}
 	/* Global-control end caps — matched to the parent's expand button so back/expand
 	   read as one set framing the bar. */
 	.nav-edge {
@@ -1510,8 +1554,8 @@
 	.ident {
 		flex: none;
 		display: flex;
-		flex-direction: column;
-		gap: 0.05rem;
+		align-items: baseline;
+		gap: 0.5rem;
 	}
 	.bar .eyebrow {
 		margin: 0;
@@ -1519,6 +1563,12 @@
 	.bar .dest {
 		font-size: clamp(1.15rem, 1.5vw, 1.5rem);
 		line-height: 1.05;
+	}
+	/* Scale the decorative dot down to match the dense bar title, so it reads as a small
+	   accent beside "Air Traffic" rather than towering over it. */
+	.bar .accent-dot {
+		width: 20px;
+		height: 20px;
 	}
 	/* Denser, lighter pills + labels in the bar — the table is the focus, so the
 	   surrounding controls read quietly (regular weight, not bold). */
@@ -1529,6 +1579,11 @@
 	}
 	.bar .field.on {
 		font-weight: 600;
+	}
+	.bar .field-select {
+		padding: 0.25rem 1.5rem 0.25rem 0.5rem;
+		font-size: 0.8rem;
+		background-size: 0.75rem;
 	}
 	.bar .ctl-label {
 		font-size: 0.66rem;
@@ -1606,18 +1661,14 @@
 		gap: 0.4rem;
 	}
 	.range-label {
-		/* Fixed width so the three rows' buttons line up in a column, with room for the
-		   longest label ("Airport"). */
+		/* Fixed width so the three rows' controls line up in a column, with room for the
+		   longest label ("Airport" / "Refresh"). */
 		flex: none;
 		min-width: 4.5rem;
 		font-size: 0.72rem;
 		font-weight: 700;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
-		color: var(--sub);
-	}
-	.range-unit {
-		font-size: 0.8rem;
 		color: var(--sub);
 	}
 	.field {
@@ -1642,6 +1693,34 @@
 		border-color: var(--accent);
 	}
 	.field:focus-visible {
+		outline: 2px solid var(--ink);
+		outline-offset: 2px;
+	}
+	/* Range / Refresh are dropdowns — styled to echo the .field pills, with a custom
+	   chevron (neutral grey reads on both themes) since a native arrow can't be themed. */
+	.field-select {
+		appearance: none;
+		-webkit-appearance: none;
+		padding: 0.35rem 1.7rem 0.35rem 0.6rem;
+		font: inherit;
+		font-weight: 500;
+		font-size: 0.85rem;
+		letter-spacing: 0.03em;
+		color: var(--ink);
+		background-color: color-mix(in srgb, var(--ink) 4%, transparent);
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 0.5rem center;
+		background-size: 0.8rem;
+		border: 1.5px solid color-mix(in srgb, var(--ink) 15%, transparent);
+		border-radius: 8px;
+		cursor: pointer;
+		transition: border-color 0.15s ease, background-color 0.15s ease;
+	}
+	.field-select:hover {
+		border-color: color-mix(in srgb, var(--ink) 32%, transparent);
+	}
+	.field-select:focus-visible {
 		outline: 2px solid var(--ink);
 		outline-offset: 2px;
 	}
@@ -1687,23 +1766,31 @@
 		outline-offset: 2px;
 		border-radius: 50%;
 	}
-	/* Manual "refresh now" — a plain icon button beside the countdown ring. */
+	/* Manual "refresh now" — an icon button beside the title, circled like the homepage
+	   masthead's control dots (subtle fill + ring around the glyph). The glyph is
+	   ABSOLUTELY positioned (centred via inset:0 + margin:auto) so the button has no
+	   in-flow content: as a flex item its baseline is then synthesized from the bottom
+	   border edge, which is what `align-items: baseline` rests on the title's text
+	   baseline. (If the glyph were in flow, the button would inherit the glyph's own
+	   baseline — mid-circle — and float up off the line.) */
 	.manual {
-		display: inline-grid;
-		place-items: center;
-		width: 24px;
-		height: 24px;
+		position: relative;
+		display: inline-block;
+		box-sizing: border-box;
+		width: 30px;
+		height: 30px;
 		flex: none;
 		padding: 0;
 		color: var(--sub);
-		background: none;
-		border: 0;
-		border-radius: 50%;
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		border: 1.5px solid color-mix(in srgb, var(--ink) 14%, transparent);
+		border-radius: 999px;
 		cursor: pointer;
-		transition: color 0.15s ease, transform 0.15s ease;
+		transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 	}
 	.manual:hover {
 		color: var(--ink);
+		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
 	}
 	.manual:active {
 		transform: rotate(-90deg);
@@ -1713,6 +1800,9 @@
 		outline-offset: 2px;
 	}
 	.manual :global(svg) {
+		position: absolute;
+		inset: 0;
+		margin: auto;
 		width: 15px;
 		height: 15px;
 		display: block;
@@ -1805,6 +1895,9 @@
 	}
 	.board th {
 		text-align: left;
+		/* The direction column's header holds the countdown timer (taller than the text
+		   labels), so centre every header in the row. */
+		vertical-align: middle;
 		font-size: 0.72rem;
 		font-weight: 700;
 		letter-spacing: 0.06em;
@@ -1816,6 +1909,26 @@
 	/* Each header carries a title tooltip explaining its abbreviation. */
 	.board th[title] {
 		cursor: help;
+	}
+	/* Direction column header — the refresh countdown timer lives here, with a little
+	   breathing room above the first row's tag pill. */
+	.board th.dir-head {
+		padding-bottom: 0.55rem;
+		line-height: 0;
+	}
+	/* Box the timer to a tag pill's width and centre it inside, so it sits directly over
+	   the left-aligned ARR/DEP/OVR pills regardless of how wide the column stretches. */
+	.dir-timer {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 3.4em;
+		font-size: 0.68rem;
+	}
+	/* At the left edge, open the timer's tooltip rightward so it isn't clipped. */
+	.board th.dir-head .tip {
+		right: auto;
+		left: 0;
 	}
 	.board td {
 		--row-line: color-mix(in srgb, var(--ink) 8%, transparent);
