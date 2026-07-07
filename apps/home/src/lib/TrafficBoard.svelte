@@ -1457,6 +1457,23 @@
 		border-radius: 999px;
 		background: var(--accent);
 	}
+	@media (prefers-reduced-motion: no-preference) {
+		/* Roll + fade in on mount, matching the homepage masthead dots (same easing, duration,
+		   and delay) — it slides in from the left with a little bounce as the title flips. */
+		.accent-dot {
+			animation: dot-in 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) 0.5s backwards;
+		}
+	}
+	@keyframes dot-in {
+		from {
+			opacity: 0;
+			transform: translateX(-1.2rem);
+		}
+		to {
+			opacity: 1;
+			transform: translateX(0);
+		}
+	}
 	.deck {
 		flex: 1;
 		min-width: 0;
