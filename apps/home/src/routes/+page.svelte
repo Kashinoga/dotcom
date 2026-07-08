@@ -4,7 +4,7 @@
 	import { dev } from '$app/environment';
 	import SplitFlap from '$lib/SplitFlap.svelte';
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
-	import { MAXIMIZE_SVG, MINIMIZE_SVG } from '$lib/icons';
+	import { MAXIMIZE_SVG, MINIMIZE_SVG, BACK_SVG } from '$lib/icons';
 
 	// Airline route-map homepage. The network is deliberately LARGER than the
 	// viewport: routes run off every edge, and visible nodes lead outward to the
@@ -326,10 +326,12 @@
 
 	// Draw a station chain with rounded corners: straight runs joined by a short
 	// quadratic sweep at each interior stop — Chicago's soft turns, not sharp miters.
-	// The bend's curve is kept within MAX_DEV of the station point so a through-stop's
-	// dot always sits on the line (tighter turns shrink the radius, not the accuracy).
+	// The bend's curve is kept within MAX_DEV px of the station point so a through-stop's
+	// dot stays visually centred on the line (tighter turns shrink the radius, not the
+	// accuracy). Kept well under the node radius (~6.5) so the line never reads off-centre
+	// through a dot — even a gentle bend cut a ~1.6px notch at MAX_DEV 2.5.
 	const CORNER = 30;
-	const MAX_DEV = 2.5;
+	const MAX_DEV = 0.6;
 	function roundedPath(pts: Pt[], r = CORNER): string {
 		const f = ([x, y]: Pt) => `${x.toFixed(1)},${y.toFixed(1)}`;
 		if (pts.length < 2) return '';
@@ -1041,12 +1043,14 @@
 	function isActive(code: string) {
 		return view?.kind === 'port' && view.code === code;
 	}
+	// Dimming only applies to the expanded panel (where the map fades out behind it anyway).
+	// With an unexpanded panel the map sits beside it in full colour — no dimming.
 	function nodeDim(code: string) {
-		if (!view) return false;
+		if (!view || !panelExpanded) return false;
 		return view.kind === 'port' ? view.code !== code : !lineOf[view.idx].has(code);
 	}
 	function arcDim(airlineIdx: number) {
-		if (!view) return false;
+		if (!view || !panelExpanded) return false;
 		return view.kind === 'port' ? true : view.idx !== airlineIdx;
 	}
 
@@ -1153,16 +1157,19 @@
 		<!-- empty-space click flies home -->
 		<rect class="bg" x={bg.x} y={bg.y} width={bg.w} height={bg.h} ondblclick={home} role="presentation" />
 
-		{#each arcs as a}
-			<path
-				class="arc"
-				class:dim={arcDim(a.i)}
-				d={a.d}
-				stroke={a.color}
-				pathLength="1"
-				style="--draw:{a.delay}s"
-			/>
-		{/each}
+		<!-- Routes grouped so one soft grounding shadow lifts the whole layer off the map. -->
+		<g class="arcs">
+			{#each arcs as a}
+				<path
+					class="arc"
+					class:dim={arcDim(a.i)}
+					d={a.d}
+					stroke={a.color}
+					pathLength="1"
+					style="--draw:{a.delay}s"
+				/>
+			{/each}
+		</g>
 
 		{#each nodes as n}
 			<g
@@ -1179,12 +1186,8 @@
 				onfocus={revealNode}
 			>
 				<circle class="hit" cx={n.x} cy={n.y} r="26" />
-				{#if n.hub}
-					<circle class="port hub-ring" cx={n.x} cy={n.y} r="15" />
-					<circle class="port hub-dot" cx={n.x} cy={n.y} r="6" />
-				{:else}
-					<circle class="port" cx={n.x} cy={n.y} r="6.5" />
-				{/if}
+				<!-- Just a white circle; the hub is the same, only larger. -->
+				<circle class="port" class:hub={n.hub} cx={n.x} cy={n.y} r={n.hub ? 15 : 6.5} />
 				<text
 					class="code"
 					class:code-hub={n.hub}
@@ -1240,7 +1243,7 @@
 				     top-right when compact) so it aligns with the board's back control. -->
 				<button
 					type="button"
-					class="expand"
+					class="icon-btn expand"
 					aria-pressed={panelExpanded}
 					aria-label={panelExpanded ? 'Collapse panel' : 'Expand panel to fill'}
 					title={panelExpanded ? 'Collapse' : 'Expand to fill'}
@@ -1281,7 +1284,7 @@
 						</TrafficBoard>
 					{:else}
 					<div class="surface-head">
-						<button class="back" onclick={home}>&larr; route map</button>
+						<button class="icon-btn back" onclick={home} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>
 						<p class="eyebrow">Now arriving &middot; <span style:color={accent[v.code]}>{v.code}</span></p>
 						<h2 class="dest"><SplitFlap text={port.title} base={160} stagger={45} /></h2>
 					</div>
@@ -1556,7 +1559,7 @@
 					{@const stops = [...lineOf[v.idx]]}
 					{@const editLine = dev && editMode}
 					<div class="surface-head">
-						<button class="back" onclick={home}>&larr; route map</button>
+						<button class="icon-btn back" onclick={home} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>
 						<p class="eyebrow">Route line</p>
 						{#if editLine}
 							<h2
@@ -1657,7 +1660,7 @@
 
 	.arc {
 		fill: none;
-		stroke-width: 5.5;
+		stroke-width: 4.5;
 		/* butt (not round) caps: an undrawn arc's dash would otherwise leave a round
 		   dot at its endpoint before the line draws. Corners stay round via linejoin,
 		   and the flat ends sit under the station circles. */
@@ -1696,26 +1699,31 @@
 		fill: transparent;
 	}
 	.port {
-		fill: var(--paper);
-		stroke: var(--ink);
-		stroke-width: 3;
+		/* Just a flat white circle — no rim or shadow at rest (white in both themes, not the
+		   theme --paper which goes near-black in dark mode). The ring (masthead yellow) only
+		   appears on hover/keyboard focus. */
+		fill: #fff;
+		stroke: #e6b93c; /* matches the masthead's first station-sign dot */
+		stroke-width: 0;
 		transition: stroke-width 0.15s ease;
 	}
+	/* Selected (open) node carries the accent ring persistently — same look as hover/focus. */
 	.node:hover .port,
-	.node:focus-visible .port {
-		stroke-width: 5;
+	.node:focus-visible .port,
+	.node.active .port {
+		stroke-width: 3;
+	}
+	/* The hub is ~2.3× the radius (15 vs 6.5), so scale its ring up to keep the same
+	   ring-to-node proportion as the smaller stations (3 ÷ 6.5 ≈ 7 ÷ 15). */
+	.node:hover .port.hub,
+	.node:focus-visible .port.hub,
+	.node.active .port.hub {
+		stroke-width: 7;
 	}
 	/* No UA focus box around the node group (it frames the dot + label). Keyboard focus
-	   is still shown via the bolder .port stroke on :focus-visible above. */
+	   is shown via the accent ring on :focus-visible above. */
 	.node:focus {
 		outline: none;
-	}
-	.hub-ring {
-		stroke-width: 4;
-	}
-	.hub-dot {
-		fill: var(--ink);
-		stroke: none;
 	}
 	.code {
 		fill: var(--ink);
@@ -1992,27 +2000,16 @@
 		   body scrolls, the surface never overflows); the Traffic board instead lets its
 		   body grow to the data's natural height and scrolls the whole panel when tall. */
 		overflow-y: auto;
-		/* Frosted ice: mostly opaque so the route map behind doesn't read as stray lines
-		   through the body, but still faintly translucent at the edges with the blur — a
-		   crisp, well-defined left edge that catches the light like a cut ice cube. */
-		background: color-mix(in srgb, var(--paper) 92%, transparent);
-		backdrop-filter: blur(7px) saturate(1.1);
-		-webkit-backdrop-filter: blur(7px) saturate(1.1);
-		border-left: 0.5px solid rgba(255, 255, 255, 0.16);
-		box-shadow:
-			inset 0.5px 0 0 rgba(255, 255, 255, 0.14),
-			-20px 0 46px rgba(0, 0, 0, 0.07);
+		/* Flat plastic: a cool moulded translucent panel (not warm paper). A top gloss sheen
+		   over a mostly-opaque tint and a crisp left edge — no blur, no rim/drop shadow. */
+		background: var(--panel-sheen), var(--panel-fill);
+		border-left: 1px solid var(--panel-edge);
 	}
-	/* Expanded: fill the viewport (desktop) — useful for the wide Traffic board.
-	   Expanded covers the (hidden) map with only the smooth sky behind it, so the
-	   glass blur buys almost nothing here — yet Safari re-rasterizes that backdrop
-	   layer every frame the board animates or scrolls, which is the Traffic board's
-	   hard lag. Drop the blur and lean opaque instead. */
+	/* Expanded: fill the viewport (desktop) — useful for the wide Traffic board. Covers the
+	   (hidden) map, so lean on the slightly more opaque --solid tint; keep the top sheen. */
 	.surface.expanded {
 		width: 100%;
-		background: color-mix(in srgb, var(--paper) 93%, transparent);
-		backdrop-filter: none;
-		-webkit-backdrop-filter: none;
+		background: var(--panel-sheen), var(--panel-solid);
 		/* Full-viewport: no left edge to catch light and no cast shadow — let the browser
 		   chrome be the frame around the app. */
 		border-left: none;
@@ -2033,39 +2030,14 @@
 				transform 300ms cubic-bezier(0.6, 0, 0.3, 1);
 		}
 	}
-	/* Expand/collapse toggle, top-right of the panel — sat on the same horizontal
-	   line as the "← route map" back button, its right inset mirroring the back
-	   button's left inset (the surface-head padding) so they read as one row. */
+	/* Expand/collapse toggle (shared .icon-btn), top-right of the panel on the same
+	   horizontal line as the back control; only its placement is set here. */
 	.expand {
 		position: absolute;
-		/* +2px centres the 34px square button against the taller (~37px) back pill. */
-		top: calc(clamp(1.5rem, 4vw, 2.5rem) + 2px);
 		right: clamp(1.5rem, 4vw, 2.75rem);
+		/* Aligns with the back circle, which sits at the surface-head's top padding. */
+		top: clamp(1.5rem, 4vw, 2.5rem);
 		z-index: 3;
-		display: inline-grid;
-		place-items: center;
-		width: 34px;
-		height: 34px;
-		padding: 0;
-		color: var(--sub);
-		background: color-mix(in srgb, var(--paper) 70%, transparent);
-		border: 1.5px solid color-mix(in srgb, var(--ink) 14%, transparent);
-		border-radius: 8px;
-		cursor: pointer;
-		transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-	}
-	.expand :global(svg) {
-		width: 15px;
-		height: 15px;
-		display: block;
-	}
-	.expand:hover {
-		color: var(--ink);
-		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
-	}
-	.expand:focus-visible {
-		outline: var(--focus-ring);
-		outline-offset: 2px;
 	}
 	/* On phones the panel is a bottom sheet: full width, anchored to the bottom, and
 	   it slides down (rather than off to the right) both to close and between stops. */
@@ -2079,7 +2051,6 @@
 			height: 100%;
 			border-left: none;
 			border-radius: 0;
-			box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.12);
 		}
 		.surface.leaving {
 			transform: translateY(100%);
@@ -2096,24 +2067,10 @@
 		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(1.5rem, 2.5vw, 2.25rem);
 		border-bottom: 1px solid var(--line);
 	}
+	/* Icon-circle back control (shared .icon-btn); only its placement is set here. */
 	.back {
 		align-self: flex-start;
-		/* Center the label: flex + line-height:1 so the arrow/text sit on the pill's
-		   optical centre instead of riding high on an inherited (taller) line box. */
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		line-height: 1;
-		margin-bottom: 1.4rem;
-		padding: 0.5rem 0.85rem;
-		font: inherit;
-		font-size: 0.9rem;
-		font-weight: 600;
-		color: var(--ink);
-		background: transparent;
-		border: 1.5px solid var(--ink);
-		border-radius: 999px;
-		cursor: pointer;
+		margin-bottom: 1rem;
 	}
 	.eyebrow {
 		margin: 0 0 0.4rem;
@@ -2244,7 +2201,6 @@
 		backdrop-filter: blur(12px);
 		border: 1.5px solid color-mix(in srgb, var(--ink) 16%, transparent);
 		border-radius: 999px;
-		box-shadow: 0 10px 34px rgba(0, 0, 0, 0.18);
 	}
 	.edit-flag {
 		font-size: 0.8rem;
@@ -2295,7 +2251,6 @@
 		color: var(--paper);
 		background: color-mix(in srgb, var(--ink) 92%, transparent);
 		border-radius: 12px;
-		box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
 	}
 
 	/* Contact address — underlined mailto with the mailbox icon riding at its end. */

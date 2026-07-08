@@ -4,7 +4,7 @@
 	import { flip } from 'svelte/animate';
 	import { cubicOut } from 'svelte/easing';
 	import SplitFlap from '$lib/SplitFlap.svelte';
-	import { MAXIMIZE_SVG, MINIMIZE_SVG } from '$lib/icons';
+	import { MAXIMIZE_SVG, MINIMIZE_SVG, BACK_SVG } from '$lib/icons';
 
 	// A live "what's in the air around <airport>" board. Same keyless, CORS-open
 	// stack as the dotcom-2 atc app: airplanes.live for live ADS-B traffic near a
@@ -290,9 +290,7 @@
 	// reicon "refresh" (outline) — the manual refresh-now button.
 	const REFRESH_SVG =
 		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M2.93077 11.2003C3.00244 6.23968 7.07619 2.25 12.0789 2.25C15.3873 2.25 18.287 3.99427 19.8934 6.60721C20.1103 6.96007 20.0001 7.42199 19.6473 7.63892C19.2944 7.85585 18.8325 7.74565 18.6156 7.39279C17.2727 5.20845 14.8484 3.75 12.0789 3.75C7.8945 3.75 4.50372 7.0777 4.431 11.1982L4.83138 10.8009C5.12542 10.5092 5.60029 10.511 5.89203 10.8051C6.18377 11.0991 6.18191 11.574 5.88787 11.8657L4.20805 13.5324C3.91565 13.8225 3.44398 13.8225 3.15157 13.5324L1.47176 11.8657C1.17772 11.574 1.17585 11.0991 1.46759 10.8051C1.75933 10.5111 2.2342 10.5092 2.52824 10.8009L2.93077 11.2003ZM19.7864 10.4666C20.0786 10.1778 20.5487 10.1778 20.8409 10.4666L22.5271 12.1333C22.8217 12.4244 22.8245 12.8993 22.5333 13.1939C22.2421 13.4885 21.7673 13.4913 21.4727 13.2001L21.0628 12.7949C20.9934 17.7604 16.9017 21.75 11.8825 21.75C8.56379 21.75 5.65381 20.007 4.0412 17.3939C3.82366 17.0414 3.93307 16.5793 4.28557 16.3618C4.63806 16.1442 5.10016 16.2536 5.31769 16.6061C6.6656 18.7903 9.09999 20.25 11.8825 20.25C16.0887 20.25 19.4922 16.9171 19.5625 12.7969L19.1546 13.2001C18.86 13.4913 18.3852 13.4885 18.094 13.1939C17.8028 12.8993 17.8056 12.4244 18.1002 12.1333L19.7864 10.4666Z" fill="currentColor"/></svg>';
-	// reicon "arrow-left2" (chevron) — the super bar's left end-cap, paired with expand.
-	const BACK_SVG =
-		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M15.4881 4.43057C15.8026 4.70014 15.839 5.17361 15.5694 5.48811L9.98781 12L15.5694 18.5119C15.839 18.8264 15.8026 19.2999 15.4881 19.5695C15.1736 19.839 14.7001 19.8026 14.4306 19.4881L8.43056 12.4881C8.18981 12.2072 8.18981 11.7928 8.43056 11.5119L14.4306 4.51192C14.7001 4.19743 15.1736 4.161 15.4881 4.43057Z" fill="currentColor"/></svg>';
+	// back (BACK_SVG) is shared with the page's panels, so it lives in $lib/icons.
 	// maximize / minimize (the expand-panel toggle) are shared with the page masthead,
 	// so they live in $lib/icons. This board owns its copy of the control so the icon
 	// sits as the super bar's right end-cap, aligned with back.
@@ -1045,7 +1043,7 @@
 			{#if onback}
 				<button
 					type="button"
-					class="nav-edge"
+					class="icon-btn nav-edge"
 					onclick={onback}
 					aria-label="Back to route map"
 					title="Route map"
@@ -1086,7 +1084,7 @@
 				{#if onToggleExpand}
 					<button
 						type="button"
-						class="nav-edge"
+						class="icon-btn nav-edge"
 						onclick={onToggleExpand}
 						aria-label="Collapse panel"
 						title="Collapse"
@@ -1096,7 +1094,7 @@
 				{/if}
 			</div>
 		{:else}
-			{#if onback}<button type="button" class="back" onclick={onback} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>{/if}
+			{#if onback}<button type="button" class="icon-btn back" onclick={onback} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>{/if}
 			<p class="eyebrow">Now arriving &middot; <span class="eyebrow-code">{code}</span></p>
 			<div class="title-row">
 				<h2 class="dest">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
@@ -1110,7 +1108,7 @@
 				{#if onToggleExpand}
 					<button
 						type="button"
-						class="expand-compact"
+						class="icon-btn expand-compact"
 						onclick={onToggleExpand}
 						aria-label={expanded ? 'Collapse panel' : 'Expand panel to fill'}
 						title={expanded ? 'Collapse' : 'Expand to fill'}
@@ -1366,44 +1364,9 @@
 		min-height: 100%;
 		position: relative; /* anchors the compact expand toggle */
 	}
-	/* Icon-circle control — the compact expand toggle, the panel-chrome back button, and
-	   the expanded super-bar's end caps are all one 30px pill with a centred 15px glyph, so
-	   they read identically to every other destination panel. Only per-button layout
-	   (below, near each usage) differs. Matches the parent page's .expand button. */
-	.expand-compact,
-	.back,
-	.nav-edge {
-		display: inline-grid;
-		place-items: center;
-		width: 30px;
-		height: 30px;
-		padding: 0;
-		color: var(--sub);
-		background: color-mix(in srgb, var(--ink) 5%, transparent);
-		border: 1.5px solid color-mix(in srgb, var(--ink) 14%, transparent);
-		border-radius: 999px;
-		cursor: pointer;
-		transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-	}
-	.expand-compact:hover,
-	.back:hover,
-	.nav-edge:hover {
-		color: var(--ink);
-		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
-	}
-	.expand-compact:focus-visible,
-	.back:focus-visible,
-	.nav-edge:focus-visible {
-		outline: var(--focus-ring);
-		outline-offset: 2px;
-	}
-	.expand-compact :global(svg),
-	.back :global(svg),
-	.nav-edge :global(svg) {
-		width: 15px;
-		height: 15px;
-		display: block;
-	}
+	/* Back / super-bar end caps / compact expand toggle all use the shared .icon-btn (in
+	   tokens.css) so every panel control reads the same; only per-button placement differs
+	   (below, near each usage). */
 	@media (max-width: 720px) {
 		.expand-compact {
 			display: none; /* phone bottom-sheet is already full width */
@@ -1428,15 +1391,13 @@
 	.tfc-head {
 		flex: none;
 		/* Sticky in both layouts: the header (compact) / super bar (expanded) stays at the
-		   top while the table scrolls under it. Frosted glass — rows blur through as they
-		   pass beneath; the bottom border reads as the divider. Also the positioning
-		   context for the compact expand button, so it sticks along with the header. */
+		   top while the table scrolls under it. Near-opaque (no blur) so the rows passing
+		   beneath don't read through it; the bottom border is the divider. Also the
+		   positioning context for the compact expand button, so it sticks along with it. */
 		position: sticky;
 		top: 0;
 		z-index: 2;
-		background: color-mix(in srgb, var(--paper) 80%, transparent);
-		-webkit-backdrop-filter: blur(8px) saturate(1.1);
-		backdrop-filter: blur(8px) saturate(1.1);
+		background: var(--panel-head); /* cool plastic tint, matching the panel body */
 		/* Extra bottom room so the now-large title's descenders ("g", "y") clear the
 		   header's bottom border. */
 		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(1.5rem, 2.5vw, 2.25rem);
@@ -1940,7 +1901,7 @@
 		color: var(--paper);
 		background: color-mix(in srgb, var(--ink) 92%, transparent);
 		border-radius: 8px;
-		box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+		box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
 		opacity: 0;
 		transform: translateY(-3px);
 		pointer-events: none;

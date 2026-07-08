@@ -85,6 +85,32 @@
 	--sleeve-rim-hi: rgba(255, 255, 255, 0.5);
 	--sleeve-drop: 0 1px 2px rgba(0, 0, 0, 0.04), 0 14px 36px rgba(0, 0, 0, 0.07);
 
+	/* Panel material — "premium plastic": the app's sliding panel (and its sticky header)
+	 * as a cool molded translucent surface rather than warm paper. Built from a faint cool
+	 * tint, a top-lit gloss, a bright Fresnel rim, and a soft grounding drop, so it reads as
+	 * polished acrylic. Colours use light-dark() so a manual [data-theme] toggle flips them
+	 * (unlike the OS-only --surface). --fill is the compact (lightly blurred) tint; --solid
+	 * is a hair more opaque for the un-blurred expanded/full-viewport state; --head is the
+	 * frosted sticky-header tint. */
+	--panel-fill: light-dark(rgba(236, 238, 243, 0.9), rgba(28, 30, 37, 0.9));
+	--panel-solid: light-dark(rgba(238, 240, 244, 0.94), rgba(30, 32, 39, 0.94));
+	/* Near-opaque: the ATFC header is sticky over scrolling rows and no longer blurs, so it
+	   must hide what passes beneath. */
+	--panel-head: light-dark(rgba(233, 236, 242, 0.97), rgba(26, 28, 34, 0.97));
+	--panel-blur: blur(3px) saturate(1.05);
+	--panel-sheen: linear-gradient(
+		180deg,
+		light-dark(rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.1)) 0%,
+		transparent 20%
+	);
+	--panel-edge: light-dark(rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.1));
+	/* Fresnel rim: bright top + left inner bevel — light catching the moulded edge. */
+	--panel-rim: inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.12)),
+		inset 1px 0 0 light-dark(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.05));
+	/* Flat look: the panel's depth reads from its rim + tint, so the cast is just a whisper
+	   to lift the edge off the map (not a big drop). */
+	--panel-drop: -6px 0 18px light-dark(rgba(24, 28, 44, 0.05), rgba(0, 0, 0, 0.2));
+
 	--font-body: 'Jost', system-ui, -apple-system, sans-serif;
 }
 
@@ -179,4 +205,34 @@ body {
 	/* Tile sizes are set by the gridFit action to whole-tile-fit the viewport;
 	 * --grid-size is the target and the pre-hydration fallback. */
 	background-size: var(--grid-tile-x, var(--grid-size)) var(--grid-tile-y, var(--grid-size));
+}
+
+/* Icon-circle control — the shared panel button (back / expand / collapse / refresh):
+ * a 30px pill with a centred 15px glyph. Used across every panel so all panel controls
+ * read the same; per-button placement (margins, absolute positioning) is set locally. */
+.icon-btn {
+	display: inline-grid;
+	place-items: center;
+	width: 30px;
+	height: 30px;
+	padding: 0;
+	color: var(--sub);
+	background: color-mix(in srgb, var(--ink) 5%, transparent);
+	border: 1.5px solid color-mix(in srgb, var(--ink) 14%, transparent);
+	border-radius: 999px;
+	cursor: pointer;
+	transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.icon-btn:hover {
+	color: var(--ink);
+	border-color: color-mix(in srgb, var(--ink) 30%, transparent);
+}
+.icon-btn:focus-visible {
+	outline: var(--focus-ring);
+	outline-offset: 2px;
+}
+.icon-btn svg {
+	display: block;
+	width: 15px;
+	height: 15px;
 }
