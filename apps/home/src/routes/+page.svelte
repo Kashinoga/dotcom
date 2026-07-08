@@ -4,6 +4,7 @@
 	import { dev } from '$app/environment';
 	import SplitFlap from '$lib/SplitFlap.svelte';
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
+	import PresentationBuilder from '$lib/PresentationBuilder.svelte';
 	import { MAXIMIZE_SVG, MINIMIZE_SVG, BACK_SVG } from '$lib/icons';
 
 	// Airline route-map homepage. The network is deliberately LARGER than the
@@ -29,7 +30,10 @@
 		// Apps — a hub for the little live apps, fanning out on the orange line.
 		APP: { at: [540, 410], title: 'Apps' },
 		// Air Traffic — a live "what's in the air" board; first app off the Apps hub.
-		ATFC: { at: [620, 520], title: 'Air Traffic' }
+		ATFC: { at: [620, 520], title: 'Air Traffic' },
+		// Presentation Builder — a visual editor for the route-map slide decks; second app off
+		// the Apps hub, branching left-down opposite Air Traffic.
+		PRES: { at: [460, 520], title: 'Presentation Builder' }
 	};
 
 	const airlines: { name: string; color: string; legs: [string, string][]; body?: string }[] = [
@@ -48,7 +52,7 @@
 		{
 			name: 'Terminal Way',
 			color: '#f06030',
-			legs: [['KSH', 'APP'], ['APP', 'ATFC']],
+			legs: [['KSH', 'APP'], ['APP', 'ATFC'], ['APP', 'PRES']],
 			body: 'Named after the airport, Terminal Way represents the opportunities taken to expand my horizons.'
 		}
 	];
@@ -74,9 +78,11 @@
 		PRJ: [175, 430],
 		// Gray's — Settings, east of the hub.
 		STG: [560, 375],
-		// Apps — orange line dropping south of the hub, then on to Air Traffic.
+		// Apps — orange line dropping south of the hub, then on to Air Traffic (right)
+		// and the Presentation Builder (left).
 		APP: [430, 500],
-		ATFC: [500, 610]
+		ATFC: [520, 610],
+		PRES: [340, 610]
 	};
 
 	// Train mode (mobile, portrait): the same sparse network stacked vertically — the
@@ -90,9 +96,11 @@
 		PRJ: [315, 262],
 		// Gray's — Settings, below the hub.
 		STG: [230, 590],
-		// Apps — orange line branching down-right of the hub, then on to Air Traffic.
+		// Apps — orange line branching down-right of the hub, then on to Air Traffic
+		// (right) and the Presentation Builder (left).
 		APP: [360, 515],
-		ATFC: [450, 615]
+		ATFC: [450, 615],
+		PRES: [270, 615]
 	};
 
 	// Route drawing style, toggled from the Settings (STG) stop; persisted so the
@@ -848,6 +856,9 @@
 	// Show a destination/line: fly the camera there and render its panel content.
 	function applyView(nv: View) {
 		view = nv;
+		// The Presentation Builder is a three-column editor — force the full-viewport layout on
+		// open (its compact form is a fallback, not the intended experience).
+		if (nv.kind === 'port' && nv.code === 'PRES') panelExpanded = true;
 		// Reveal the map for this open so the fly is seen; scheduleHide (on settle)
 		// fades it again if the panel is expanded.
 		clearTimeout(hideTimer);
@@ -1238,7 +1249,11 @@
 				? { y: 900, opacity: 1, duration: 380 }
 				: { x: panelExpanded ? vw : 680, opacity: 1, duration: 380 }}
 		>
-			{#if !(v.kind === 'port' && v.code === 'ATFC')}
+			<!-- Frosted glass pane. Held OFF the scroller (a static, non-scrolling layer) so
+			     WebKit rasterises the backdrop blur once instead of re-blurring every scroll
+			     frame - the fix for Safari big-surface backdrop-filter cost. -->
+			<div class="surface-backdrop" aria-hidden="true"></div>
+			{#if !(v.kind === 'port' && (v.code === 'ATFC' || v.code === 'PRES'))}
 				<!-- ATFC's TrafficBoard renders its own expand toggle (bar cap when expanded,
 				     top-right when compact) so it aligns with the board's back control. -->
 				<button
@@ -1257,6 +1272,7 @@
 			     slides back in. transition:fly handles the map⇄panel open/close. The
 			     inner key (no transition) just remounts content so the arrival-board
 			     titles re-flip on each destination. -->
+			<div class="surface-scroll">
 			{#key (v.kind === 'port' ? 'p' + v.code : 'l' + v.idx) + ':' + editRev}
 				{#if v.kind === 'port'}
 					{@const port = airports[v.code]}
@@ -1282,6 +1298,11 @@
 								{@render onward('Connections', conns)}
 							{/snippet}
 						</TrafficBoard>
+					{:else if v.code === 'PRES'}
+						<!-- The Presentation Builder owns its whole panel interior (its own toolbar +
+						     three-column editor), like the Traffic board. It's always full-viewport —
+						     forced expanded on open (applyView), with no collapse toggle. -->
+						<PresentationBuilder accent={accent[v.code]} title={port.title} onback={home} />
 					{:else}
 					<div class="surface-head">
 						<button class="icon-btn back" onclick={home} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>
@@ -1583,6 +1604,7 @@
 					</div>
 				{/if}
 			{/key}
+			</div>
 		</aside>
 	{/if}
 
@@ -1996,20 +2018,42 @@
 		width: min(94vw, 640px);
 		display: flex;
 		flex-direction: column;
-		/* Scroll at the panel level. Panels with a flex:1 inner body absorb this (their
-		   body scrolls, the surface never overflows); the Traffic board instead lets its
-		   body grow to the data's natural height and scrolls the whole panel when tall. */
-		overflow-y: auto;
-		/* Flat plastic: a cool moulded translucent panel (not warm paper). A top gloss sheen
-		   over a mostly-opaque tint and a crisp left edge — no blur, no rim/drop shadow. */
-		background: var(--panel-sheen), var(--panel-fill);
+		/* The frame itself never scrolls (see .surface-scroll) — this keeps the frosted
+		   .surface-backdrop pane static, so WebKit rasterises its blur once rather than
+		   re-blurring on every scroll frame (the Safari big-surface cost). */
+		overflow: hidden;
+		/* The frosted fill + backdrop blur live on .surface-backdrop, not here; the frame
+		   only carries the crisp left edge. */
 		border-left: 1px solid var(--panel-edge);
 	}
-	/* Expanded: fill the viewport (desktop) — useful for the wide Traffic board. Covers the
-	   (hidden) map, so lean on the slightly more opaque --solid tint; keep the top sheen. */
+	/* Frosted plastic pane: a cool moulded translucent surface (not warm paper). A top gloss
+	   sheen over a frosted tint that lets the map's colour bleed through — blurred illegible by
+	   the shared backdrop filter. Absolutely positioned and OUTSIDE the scroller, so it stays
+	   pinned to the panel box while content scrolls above it. Same fill + blur in every state. */
+	.surface-backdrop {
+		position: absolute;
+		inset: 0;
+		z-index: 0;
+		pointer-events: none;
+		background: var(--panel-sheen), var(--panel-fill);
+		backdrop-filter: var(--panel-blur);
+	}
+	/* The actual scroller: fills the frame and holds all panel content above the frosted pane.
+	   Non-ATFC panels scroll their own .surface-body; the Traffic board grows to its data's
+	   natural height and scrolls here (with its sticky header pinned to this box). */
+	.surface-scroll {
+		position: relative;
+		z-index: 1;
+		flex: 1 1 auto;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		overflow-y: auto;
+	}
+	/* Expanded: fill the viewport (desktop) — useful for the wide Traffic board. Same frosted
+	   background + backdrop blur as the compact state; only the width and edge treatment change. */
 	.surface.expanded {
 		width: 100%;
-		background: var(--panel-sheen), var(--panel-solid);
 		/* Full-viewport: no left edge to catch light and no cast shadow — let the browser
 		   chrome be the frame around the app. */
 		border-left: none;

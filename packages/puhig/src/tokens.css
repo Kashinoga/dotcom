@@ -86,18 +86,20 @@
 	--sleeve-drop: 0 1px 2px rgba(0, 0, 0, 0.04), 0 14px 36px rgba(0, 0, 0, 0.07);
 
 	/* Panel material — "premium plastic": the app's sliding panel (and its sticky header)
-	 * as a cool molded translucent surface rather than warm paper. Built from a faint cool
+	 * as a cool molded translucent surface rather than warm paper. Built from a frosted
 	 * tint, a top-lit gloss, a bright Fresnel rim, and a soft grounding drop, so it reads as
 	 * polished acrylic. Colours use light-dark() so a manual [data-theme] toggle flips them
-	 * (unlike the OS-only --surface). --fill is the compact (lightly blurred) tint; --solid
-	 * is a hair more opaque for the un-blurred expanded/full-viewport state; --head is the
-	 * frosted sticky-header tint. */
-	--panel-fill: light-dark(rgba(236, 238, 243, 0.9), rgba(28, 30, 37, 0.9));
-	--panel-solid: light-dark(rgba(238, 240, 244, 0.94), rgba(30, 32, 39, 0.94));
+	 * (unlike the OS-only --surface). --fill is the single frosted tint used in BOTH the
+	 * compact and expanded states (their background is identical); --head is the near-opaque
+	 * sticky-header tint. */
+	--panel-fill: light-dark(rgba(236, 238, 243, 0.75), rgba(28, 30, 37, 0.75));
 	/* Near-opaque: the ATFC header is sticky over scrolling rows and no longer blurs, so it
 	   must hide what passes beneath. */
 	--panel-head: light-dark(rgba(233, 236, 242, 0.97), rgba(26, 28, 34, 0.97));
-	--panel-blur: blur(3px) saturate(1.05);
+	/* Backdrop filter shared by both panel states (compact + expanded): blur enough that the
+	   map beneath reads as diffuse colour — never a legible shape — and saturate so that
+	   transmitted colour stays lively rather than washing out grey. */
+	--panel-blur: blur(18px) saturate(1.3);
 	--panel-sheen: linear-gradient(
 		180deg,
 		light-dark(rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.1)) 0%,
