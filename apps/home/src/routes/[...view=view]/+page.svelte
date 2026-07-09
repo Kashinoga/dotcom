@@ -75,9 +75,11 @@
 	};
 
 	// Route drawing style, toggled from the Settings (STG) stop; persisted so the
-	// choice survives reloads (loaded in onMount to avoid SSR skew).
+	// choice survives reloads (a saved pick is applied in onMount, where localStorage
+	// exists). The default is the train map — declared here rather than patched in
+	// onMount, so the server renders the same map the client hydrates into.
 	const MODE_KEY = 'ksh-map-mode';
-	let mapMode = $state<'air' | 'rail'>('air');
+	let mapMode = $state<'air' | 'rail'>('rail');
 	function setMapMode(m: 'air' | 'rail') {
 		mapMode = m;
 		try {
@@ -91,11 +93,11 @@
 	const taglineWords = 'a route map of my internet'.split(' ');
 
 	// Label style, toggled from Settings: station codes (WRK) or full stop names.
-	// No explicit choice yet: airline mode defaults to codes, train mode to full
-	// names. An explicit pick is persisted and wins in either mode.
+	// Full names by default, in either map mode. Null means "no explicit choice yet";
+	// an explicit pick is persisted and wins.
 	const NAMES_KEY = 'ksh-stop-names';
 	let stopNamesPref = $state<boolean | null>(null);
-	const showStopNames = $derived(stopNamesPref ?? mapMode === 'rail');
+	const showStopNames = $derived(stopNamesPref ?? true);
 	function setShowStopNames(v: boolean) {
 		stopNamesPref = v;
 		try {
@@ -749,11 +751,18 @@
 
 	// ─── Camera: crop the world, fly between crops to "move pages" ───────────────
 	// Landscape viewBox on desktop; a portrait one for the vertical mobile train map.
-	const ASPECT = $derived(mapMode === 'rail' && isMobile ? 0.64 : 1.5); // viewBox w/h
+	// viewBox w/h. Only the portrait train map is tall; everything else is the wide crop.
+	const ASPECT_WIDE = 1.5;
+	const ASPECT_TALL = 0.64;
+	const ASPECT = $derived(mapMode === 'rail' && isMobile ? ASPECT_TALL : ASPECT_WIDE);
 	// Home is zoomed to the hub so routes bleed off every edge; a node focus keeps
 	// the node in the left-of-panel area (biasX) with its neighbours in view.
-	function crop(cx: number, cy: number, w: number, biasX = 0.5, biasY = 0.5) {
-		const h = w / ASPECT;
+	// `aspect` defaults to the live ASPECT — right for a fly-to, which always targets the
+	// map as it's currently drawn. The home framings below pass theirs explicitly: each
+	// belongs to one (mode, orientation) pair, so it must not be built from whatever
+	// ASPECT happened to hold when the module initialised.
+	function crop(cx: number, cy: number, w: number, biasX = 0.5, biasY = 0.5, aspect = ASPECT) {
+		const h = w / aspect;
 		return { x: cx - w * biasX, y: cy - h * biasY, w, h };
 	}
 	// Home framing: the whole left column is UI (masthead top-left, legend
@@ -761,18 +770,15 @@
 	// spokes fanning right — keeping the left clear of routes and nodes. Both modes
 	// zoom into the hub at a comfortable scale so the outermost stations run off the
 	// edges (reached by flying to them), rather than shrinking to fit everything in.
-	const HOME_AIR = crop(P_air.KSH[0], P_air.KSH[1], 860, 0.66, 0.56);
-	const HOME = $derived(
-		mapMode === 'air'
-			? HOME_AIR
-			: isMobile
-				? crop(P_rail_v.KSH[0], P_rail_v.KSH[1], 340, 0.5, 0.55)
-				: crop(P_rail.KSH[0], P_rail.KSH[1], 900, 0.62, 0.54)
-	);
+	const HOME_AIR = crop(P_air.KSH[0], P_air.KSH[1], 860, 0.66, 0.56, ASPECT_WIDE);
+	const HOME_RAIL = crop(P_rail.KSH[0], P_rail.KSH[1], 900, 0.62, 0.54, ASPECT_WIDE);
+	const HOME_RAIL_V = crop(P_rail_v.KSH[0], P_rail_v.KSH[1], 340, 0.5, 0.55, ASPECT_TALL);
+	const HOME = $derived(mapMode === 'air' ? HOME_AIR : isMobile ? HOME_RAIL_V : HOME_RAIL);
 
-	// Default mode is airline, so the camera starts on the airline home framing;
-	// onMount resets it if a train-mode preference is restored from storage.
-	let cam = $state({ ...HOME_AIR });
+	// Default mode is the train map, so the camera starts on its desktop home framing —
+	// the same framing the server renders, since `vw` starts at its desktop default.
+	// onMount re-seeds this once the real viewport and any saved mode are known.
+	let cam = $state({ ...HOME_RAIL });
 	// A destination page, a highlighted airline line, or neither. `View` and the slug
 	// mapping live in $lib/views.ts; the incoming URL seeds this so a deep link renders
 	// its panel on the server.
@@ -809,7 +815,7 @@
 	// they live in $lib/icons.
 	const PANEL_SLIDE = 300;
 	let navTimer = 0;
-	let target = { ...HOME_AIR };
+	let target = { ...HOME_RAIL };
 	let raf = 0;
 
 	// With an EXPANDED panel the map is fully covered, so it keeps flying to its
@@ -1203,11 +1209,9 @@
 	onMount(() => {
 		vw = window.innerWidth;
 		wasMobile = isMobile;
+		// No saved preference keeps the declared default (the train map) — nothing to do.
 		const s = localStorage.getItem(MODE_KEY);
 		if (s === 'air' || s === 'rail') mapMode = s;
-		// First ever load (no saved preference): default to the train map on any
-		// device. With no label pref saved either, train mode shows full stop names.
-		else mapMode = 'rail';
 		const n = localStorage.getItem(NAMES_KEY);
 		if (n === '1' || n === '0') stopNamesPref = n === '1';
 		const th = localStorage.getItem(THEME_KEY);
