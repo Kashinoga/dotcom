@@ -13,7 +13,14 @@ declare global {
 		// interface Error {}
 		// interface Locals {}
 		// interface PageData {}
-		// interface PageState {}
+		interface PageState {
+			/**
+			 * The panel a shallow-routed history entry stands for — see $lib/views.ts.
+			 * `null` is the overview map; absent means the entry came from a real
+			 * navigation, so the panel is whatever that route's `load` returned.
+			 */
+			view?: import('$lib/views').View | null;
+		}
 		// interface Platform {}
 	}
 }

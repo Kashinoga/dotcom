@@ -1,11 +1,16 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 	import { fly, fade } from 'svelte/transition';
 	import { dev } from '$app/environment';
+	import { page } from '$app/state';
+	import { pushState } from '$app/navigation';
 	import SplitFlap from '$lib/SplitFlap.svelte';
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
 	import PresentationBuilder from '$lib/PresentationBuilder.svelte';
 	import { MAXIMIZE_SVG, MINIMIZE_SVG, BACK_SVG } from '$lib/icons';
+	import { airports, airlines, type Pt } from '$lib/network';
+	import { viewPath, sameView, viewTitle, viewDescription, type View } from '$lib/views';
+	import type { PageData } from './$types';
 
 	// Airline route-map homepage. The network is deliberately LARGER than the
 	// viewport: routes run off every edge, and visible nodes lead outward to the
@@ -13,49 +18,14 @@
 	// node to node. Flat-forward — the isometric look is a 2D affine projection
 	// baked into coordinates, not a CSS 3D/perspective transform. The stage never
 	// scrolls; the camera crops the world.
-	type Pt = [number, number];
+	//
+	// Every panel is addressable — see $lib/views.ts. `data.view` is the panel the
+	// incoming URL asked for, so a shared /atfc link renders that board server-side
+	// instead of flashing the overview map first.
+	let { data }: { data: PageData } = $props();
 
-	// Airports on a 60px grid (grid space, pre-projection). KSH = home hub.
-	// Tier 1 sits near the hub (visible from home); tier 2 sits far out (reached by
-	// flying to its tier-1 leader). Each maps to a page/section — rename freely.
-	// Only real destinations for now — placeholders removed. The map is deliberately
-	// sparse until more real sections are added; new stations slot straight in here.
-	const airports: Record<string, { at: Pt; title: string }> = {
-		KSH: { at: [480, 300], title: 'Home' },
-		STG: { at: [620, 360], title: 'Settings' },
-		// About splits into its own two stops — Work and Projects.
-		ABT: { at: [340, 220], title: 'About' },
-		WRK: { at: [240, 180], title: 'Work' },
-		PRJ: { at: [460, 160], title: 'Projects' },
-		// Apps — a hub for the little live apps, fanning out on the orange line.
-		APP: { at: [540, 410], title: 'Apps' },
-		// Air Traffic — a live "what's in the air" board; first app off the Apps hub.
-		ATFC: { at: [620, 520], title: 'Air Traffic' },
-		// Presentation Builder — a visual editor for the route-map slide decks; second app off
-		// the Apps hub, branching left-down opposite Air Traffic.
-		PRES: { at: [460, 520], title: 'Presentation Builder' }
-	};
-
-	const airlines: { name: string; color: string; legs: [string, string][]; body?: string }[] = [
-		{
-			name: 'Loess',
-			color: '#12a150',
-			legs: [['KSH', 'ABT'], ['ABT', 'PRJ'], ['ABT', 'WRK']],
-			body: 'Named after a trip I took in college, Loess possesses some of my most formative moments.'
-		},
-		{
-			name: 'Gray’s',
-			color: '#8b46e0',
-			legs: [['KSH', 'STG']],
-			body: 'Named after my childhood area, Gray’s holds a special place in my heart.'
-		},
-		{
-			name: 'Terminal Way',
-			color: '#f06030',
-			legs: [['KSH', 'APP'], ['APP', 'ATFC'], ['APP', 'PRES']],
-			body: 'Named after the airport, Terminal Way represents the opportunities taken to expand my horizons.'
-		}
-	];
+	// `airports` and `airlines` now live in $lib/network.ts — the URL layer derives its
+	// slugs from the same definitions the map draws from, so codes and links can't drift.
 
 	// Two layouts, same station codes; mapMode picks which screen coords are live.
 	// Airline mode: an isometric (true 30°) projection of the grid — a skewed
@@ -802,9 +772,17 @@
 	// Default mode is airline, so the camera starts on the airline home framing;
 	// onMount resets it if a train-mode preference is restored from storage.
 	let cam = $state({ ...HOME_AIR });
-	// A destination page, a highlighted airline line, or neither.
-	type View = { kind: 'port'; code: string } | { kind: 'line'; idx: number };
-	let view = $state<View | null>(null);
+	// A destination page, a highlighted airline line, or neither. `View` and the slug
+	// mapping live in $lib/views.ts; the incoming URL seeds this so a deep link renders
+	// its panel on the server.
+	//
+	// `data.view` is read once, on purpose: from here on the open panel is local state
+	// (clicks mutate it directly, and the panel-slide animation needs to defer the swap).
+	// The URL is mirrored onto it by `syncUrl`, and any change coming the other way —
+	// back/forward, or a full navigation that swaps `data` — is picked up by the
+	// `page.url` effect below. So this staying pinned to the initial value is correct.
+	// svelte-ignore state_referenced_locally
+	let view = $state<View | null>(data.view);
 	// When navigating panel→panel, the whole panel slides off before its content swaps.
 	let panelLeaving = $state(false);
 	// Expand the panel to fill the viewport (handy for the wide Traffic board).
@@ -886,9 +864,40 @@
 		if (!raf) raf = requestAnimationFrame(step);
 	}
 
+	// Keep the address bar on the panel that's actually showing.
+	//
+	// The URL is pushed here, at the moment the content swaps — not when navigation
+	// starts — because a panel→panel move holds the old content on screen for
+	// PANEL_SLIDE ms while it slides out. Pushing early would leave the URL naming a
+	// panel you can't see yet, and would trip the reconciler below.
+	//
+	// `push` is false when the change *came from* history (a back/forward), which would
+	// otherwise re-push the entry we just popped.
+	function syncUrl(nv: View | null) {
+		const path = viewPath(nv);
+		// Compare against the address bar, NOT `page.url`. Shallow routing leaves
+		// `page.url` pinned to the last real navigation — `pushState` only assigns
+		// `page.state`, and a shallow popstate restores the pre-push URL. So `page.url`
+		// would still say `/` long after we'd pushed `/atfc`.
+		if (location.pathname === path) return;
+		// Shallow: updates the address bar and history without re-running `load`, so the
+		// camera, panel, and live board state all survive. Only legal after hydration.
+		// The view rides along in `page.state` so back/forward can restore it.
+		pushState(path, { view: nv });
+	}
+
+	// The panel the current history entry stands for.
+	//
+	// Shallow entries carry it in `page.state`; entries from a real navigation (the
+	// first load, a reload, a link opened in this tab) have no state, so they fall back
+	// to what `load` resolved from the URL. `null` is a real value here — the overview
+	// map — which is why this tests for `undefined` rather than truthiness.
+	const urlView = $derived(page.state.view !== undefined ? page.state.view : data.view);
+
 	// Show a destination/line: fly the camera there and render its panel content.
-	function applyView(nv: View) {
+	function applyView(nv: View, push = true) {
 		view = nv;
+		if (push) syncUrl(nv);
 		// The Presentation Builder is a three-column editor — force the full-viewport layout on
 		// open (its compact form is a fallback, not the intended experience).
 		if (nv.kind === 'port' && nv.code === 'PRES') panelExpanded = true;
@@ -914,16 +923,16 @@
 	// Reuse the open panel across destinations: slide the whole panel out, swap its
 	// content off-screen, then slide it back in. A fresh open (no panel yet) or
 	// reduced-motion just applies immediately.
-	function navigate(nv: View) {
+	function navigate(nv: View, push = true) {
 		clearTimeout(navTimer);
 		if (view && !reduce) {
 			panelLeaving = true;
 			navTimer = window.setTimeout(() => {
-				applyView(nv);
+				applyView(nv, push);
 				panelLeaving = false;
 			}, PANEL_SLIDE);
 		} else {
-			applyView(nv);
+			applyView(nv, push);
 		}
 	}
 	function board(code: string) {
@@ -932,7 +941,7 @@
 	function openLine(idx: number) {
 		navigate({ kind: 'line', idx });
 	}
-	function home() {
+	function home(push = true) {
 		clearTimeout(navTimer);
 		clearTimeout(hideTimer);
 		panelLeaving = false;
@@ -941,6 +950,7 @@
 		// Keep panelExpanded set so the panel flies out at its current width in one
 		// clean slide (it's reset on the next fresh open, not mid-close).
 		view = null;
+		if (push) syncUrl(null);
 		flyTo(HOME);
 		// Drop focus off the selected node so its dot returns to its normal weight
 		// (the bolder stroke comes from :focus-visible, which otherwise lingers when
@@ -1001,10 +1011,36 @@
 	// If the pointer moved (a pan), swallow the click so it doesn't board a node.
 	function onClickCapture(e: MouseEvent) {
 		if (dragMoved) {
+			// preventDefault as well as stopPropagation: the map's stations are real <a>
+			// elements now, and stopping propagation alone would still let the browser
+			// follow the href on the click that ends a pan.
+			e.preventDefault();
 			e.stopPropagation();
 			dragMoved = false;
 		}
 	}
+
+	// Shared by every in-map link (stations, line legend, onward chips).
+	//
+	// Left-click with no modifier is ours: cancel the navigation and fly the camera.
+	// Anything else — ⌘/ctrl (new tab), shift (new window), alt (download), middle-click —
+	// is the browser's, so the link behaves like a link.
+	function onNodeClick(e: MouseEvent, run: () => void) {
+		if (e.defaultPrevented) return; // a pan just ended; onClickCapture killed it
+		if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+		e.preventDefault();
+		run();
+	}
+
+	// Stations carry an explicit tabindex because SVG <a> is not reliably in the tab
+	// order across browsers. Enter needs no handler — the browser fires a click on a
+	// focused link, which `onNodeClick` picks up. Space does not, so it's wired here to
+	// keep the behaviour the old role="button" nodes had.
+	const onNodeKey = (code: string) => (e: KeyboardEvent) => {
+		if (e.key !== ' ') return;
+		e.preventDefault();
+		board(code);
+	};
 	// Smallest screen-space shift that fits the dot inside [safeLo, safeHi], then
 	// reveals as much of the label as possible without pushing the dot back out.
 	function axisDelta(
@@ -1134,6 +1170,30 @@
 		// Snap to the resolved mode/orientation home framing.
 		cam = { ...HOME };
 		target = { ...HOME };
+		// Arrived on a deep link (/atfc, /terminal-way, …): its panel already rendered on
+		// the server, but the camera is still parked at home. Fly it in — same motion a
+		// click would produce. `push: false` — this URL is already the current entry.
+		//
+		// This runs after the localStorage reads above because the framing depends on the
+		// restored map mode, and after `cam`/`target` are seeded so the fly has an origin.
+		if (view) applyView(view, false);
+	});
+
+	// Reconcile the panel when history moves without us — the back/forward buttons
+	// popping an entry. A click-driven change lands here too, but as a no-op: `applyView`
+	// sets `view` *before* `syncUrl` pushes, so the two already agree by the time this
+	// runs.
+	//
+	// The read of `view` is untracked: this effect must fire on history changes only.
+	// Tracking `view` as well would re-run it on every panel open and break the
+	// PANEL_SLIDE hand-off, since mid-slide the history entry still names the old panel.
+	$effect(() => {
+		const next = urlView;
+		untrack(() => {
+			if (sameView(next, view)) return;
+			if (next) navigate(next, false);
+			else home(false);
+		});
 	});
 
 	onDestroy(() => {
@@ -1151,6 +1211,20 @@
 
 <svelte:window onkeydown={onKey} onresize={onResize} />
 
+<!-- Titled per panel, so a shared /atfc link reads as "Air Traffic — Kashinoga" in the
+     tab and in the unfurled preview card rather than as a generic homepage. These track
+     `view` (not `data.view`), so the title updates as you fly around the map too. -->
+<svelte:head>
+	<title>{viewTitle(view)}</title>
+	<meta name="description" content={viewDescription(view)} />
+	<link rel="canonical" href={new URL(viewPath(view), page.url.origin).href} />
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content={viewTitle(view)} />
+	<meta property="og:description" content={viewDescription(view)} />
+	<meta property="og:url" content={new URL(viewPath(view), page.url.origin).href} />
+	<meta name="twitter:card" content="summary" />
+</svelte:head>
+
 <!-- Onward-travel chip row, shared by every panel: a destination's connections, a
      line's station list, and the Traffic board's Connections slot. `label` names the
      section; `codes` are the station codes to link to. -->
@@ -1161,11 +1235,16 @@
 			<ul>
 				{#each codes as c}
 					<li>
-						<button class="chip" onclick={() => board(c)}>
+						<a
+							class="chip"
+							href={viewPath({ kind: 'port', code: c })}
+							data-sveltekit-preload-data="off"
+							onclick={(e) => onNodeClick(e, () => board(c))}
+						>
 							<span class="chip-dot" style:background={accent[c]}></span>
 							<span class="chip-code">{c}</span>
 							<span class="chip-title">{airports[c].title}</span>
-						</button>
+						</a>
 					</li>
 				{/each}
 			</ul>
@@ -1211,7 +1290,7 @@
 		</defs>
 
 		<!-- empty-space click flies home -->
-		<rect class="bg" x={bg.x} y={bg.y} width={bg.w} height={bg.h} ondblclick={home} role="presentation" />
+		<rect class="bg" x={bg.x} y={bg.y} width={bg.w} height={bg.h} ondblclick={() => home()} role="presentation" />
 
 		<!-- Routes grouped so one soft grounding shadow lifts the whole layer off the map. -->
 		<g class="arcs">
@@ -1228,16 +1307,21 @@
 		</g>
 
 		{#each nodes as n}
-			<g
+			<!-- A real SVG hyperlink, not a role="button" group: the station's URL shows in the
+			     status bar, right-click offers Copy Link Address, and ⌘/ctrl/middle-click opens
+			     it in a new tab. A plain left-click is intercepted below and handled as a camera
+			     fly instead, so the map never does a full page navigation. -->
+			<a
 				class="node"
 				class:active={isActive(n.code)}
 				class:dim={nodeDim(n.code)}
 				style="--pop:{n.pop}s"
-				role="button"
-				tabindex="0"
+				href={viewPath({ kind: 'port', code: n.code })}
 				aria-label="Fly to {n.title}"
-				onclick={() => board(n.code)}
-				onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), board(n.code))}
+				data-sveltekit-preload-data="off"
+				tabindex="0"
+				onclick={(e) => onNodeClick(e, () => board(n.code))}
+				onkeydown={onNodeKey(n.code)}
 				onpointerenter={revealNode}
 				onfocus={revealNode}
 			>
@@ -1252,7 +1336,7 @@
 					style:transform-origin="{n.lx}px {n.ly}px"
 					text-anchor={n.anchor}
 					dominant-baseline="central">{showStopNames ? n.title : n.code}</text>
-			</g>
+			</a>
 		{/each}
 	</svg>
 
@@ -1276,9 +1360,14 @@
 	<ul class="legend" class:hidden={view !== null}>
 		{#each airlines as a, i}
 			<li style="--n:{i}">
-				<button class="legend-btn" onclick={() => openLine(i)}>
+				<a
+					class="legend-btn"
+					href={viewPath({ kind: 'line', idx: i })}
+					data-sveltekit-preload-data="off"
+					onclick={(e) => onNodeClick(e, () => openLine(i))}
+				>
 					<span class="swatch" style="background:{a.color}"></span>{lineNames[i]}
-				</button>
+				</a>
 			</li>
 		{/each}
 	</ul>
@@ -1333,7 +1422,7 @@
 							code={v.code}
 							title={port.title}
 							expanded={panelExpanded}
-							onback={home}
+							onback={() => home()}
 							onToggleExpand={toggleExpand}
 							edit={dev && editMode}
 							copyText={settingsText}
@@ -1347,10 +1436,10 @@
 						<!-- The Presentation Builder owns its whole panel interior (its own toolbar +
 						     three-column editor), like the Traffic board. It's always full-viewport —
 						     forced expanded on open (applyView), with no collapse toggle. -->
-						<PresentationBuilder accent={accent[v.code]} title={port.title} onback={home} />
+						<PresentationBuilder accent={accent[v.code]} title={port.title} onback={() => home()} />
 					{:else}
 					<div class="surface-head">
-						<button class="icon-btn back" onclick={home} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>
+						<button class="icon-btn back" onclick={() => home()} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>
 						<p class="eyebrow">Now arriving &middot; <span style:color={accent[v.code]}>{v.code}</span></p>
 						<h2 class="dest"><SplitFlap text={port.title} base={160} stagger={45} /></h2>
 					</div>
@@ -1656,7 +1745,7 @@
 					{@const stops = [...lineOf[v.idx]]}
 					{@const editLine = dev && editMode}
 					<div class="surface-head">
-						<button class="icon-btn back" onclick={home} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>
+						<button class="icon-btn back" onclick={() => home()} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>
 						<p class="eyebrow">Route line</p>
 						{#if editLine}
 							<h2
@@ -1783,6 +1872,8 @@
 	.node {
 		cursor: pointer;
 		transition: opacity 0.5s ease;
+		/* Stations are <a> elements — keep the browser from underlining the station code. */
+		text-decoration: none;
 	}
 	.node.dim {
 		opacity: 0.25;
@@ -2074,6 +2165,7 @@
 		border: 0;
 		border-radius: 6px;
 		cursor: pointer;
+		text-decoration: none;
 		transition: opacity 0.15s ease;
 	}
 	.legend-btn:hover {
@@ -2596,6 +2688,7 @@
 		border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
 		border-radius: 999px;
 		cursor: pointer;
+		text-decoration: none;
 	}
 	.chip:hover {
 		background: var(--line);
