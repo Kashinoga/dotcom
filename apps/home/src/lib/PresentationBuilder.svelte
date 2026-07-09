@@ -1000,13 +1000,17 @@
 	/* Press = depressed: squash + dim + an inset shadow so the button reads as pushed IN.
 	   This pressed look belongs to the click, never the hover (see .tb:hover). The inset works
 	   over any fill, so the orange primary presses in without losing its colour. */
-	.tb:active:not(:disabled),
-	.chip:active:not(:disabled),
-	.mini:active,
-	.swatch-btn:active {
+	/* .pb-scoped so :active out-specifies the :hover rules below it (equal specificity would
+	   otherwise let the later :hover win on press, and the button would never depress). The
+	   uniform black inset darkens the fill in both themes; the top inset reads as pushed-in. */
+	.pb .tb:active:not(:disabled),
+	.pb .chip:active:not(:disabled),
+	.pb .mini:active,
+	.pb .swatch-btn:active {
 		transform: scale(0.94);
-		opacity: 0.9;
-		box-shadow: inset 0 2px 4px rgba(10, 10, 10, 0.13);
+		box-shadow:
+			inset 0 2px 4px rgba(0, 0, 0, 0.2),
+			inset 0 0 0 999px rgba(0, 0, 0, 0.08);
 		transition-duration: 0.09s;
 	}
 	/* Respect reduced-motion: keep the colour/opacity feedback, drop the scale + lift. */

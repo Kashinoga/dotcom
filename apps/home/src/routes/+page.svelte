@@ -1199,6 +1199,17 @@
 		role="img"
 		aria-label="Kashinoga — {mapPhrase}"
 	>
+		<defs>
+			<!-- Glossy bead fill for the map nodes in Bubble mode (data-ui="bubble"): a bright
+			     top-left highlight fading to a soft cool edge so each white node reads as a raised
+			     pearl. objectBoundingBox units, so the one gradient maps to every node + the hub. -->
+			<radialGradient id="node-bubble" cx="0.34" cy="0.26" r="0.82">
+				<stop offset="0%" stop-color="#ffffff" />
+				<stop offset="42%" stop-color="#eef0f5" />
+				<stop offset="100%" stop-color="#b9c0cf" />
+			</radialGradient>
+		</defs>
+
 		<!-- empty-space click flies home -->
 		<rect class="bg" x={bg.x} y={bg.y} width={bg.w} height={bg.h} ondblclick={home} role="presentation" />
 
@@ -1811,6 +1822,41 @@
 	   is shown via the accent ring on :focus-visible above. */
 	.node:focus {
 		outline: none;
+	}
+
+	/* ── Bubble mode (data-ui="bubble"): the same bubbly pass as the buttons, applied to the
+	   map nodes ── Each flat white dot becomes a glossy raised bead: a pearly radial sheen fill
+	   plus a soft drop shadow that lifts it off the map, and it swells a touch on hover/focus
+	   (via the SVG `r` geometry property, so it doesn't fight the mount `pop` transform). */
+	:global(html[data-ui='bubble']) .port {
+		fill: url(#node-bubble);
+		/* Two shadows: a dark ground shadow (reads in light mode) + a faint light halo so the
+		   bead still lifts off a dark map, where a dark shadow alone would vanish. */
+		filter: drop-shadow(0 1.4px 1.6px rgba(8, 10, 14, 0.55))
+			drop-shadow(0 0 1px rgba(255, 255, 255, 0.5));
+		transition: stroke-width 0.15s ease, filter 0.2s ease;
+	}
+	:global(html[data-ui='bubble']) .node:hover .port,
+	:global(html[data-ui='bubble']) .node:focus-visible .port,
+	:global(html[data-ui='bubble']) .node.active .port {
+		filter: drop-shadow(0 3px 4px rgba(8, 10, 14, 0.6))
+			drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.55));
+	}
+	/* The swell on hover/focus is motion, so it (and its transition) is gated here — under
+	   reduced-motion the nodes keep their resting `r` (from the attribute) and just re-shadow. */
+	@media (prefers-reduced-motion: no-preference) {
+		:global(html[data-ui='bubble']) .port {
+			transition: stroke-width 0.15s ease, filter 0.2s ease,
+				r 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+		}
+		:global(html[data-ui='bubble']) .node:hover .port:not(.hub),
+		:global(html[data-ui='bubble']) .node:focus-visible .port:not(.hub) {
+			r: 8;
+		}
+		:global(html[data-ui='bubble']) .node:hover .port.hub,
+		:global(html[data-ui='bubble']) .node:focus-visible .port.hub {
+			r: 17.5;
+		}
 	}
 	.code {
 		fill: var(--ink);
@@ -2685,8 +2731,8 @@
 	:global(html[data-ui='bubble'] .field-select:active:not(:disabled)),
 	:global(html[data-ui='bubble'] .manual:active:not(:disabled)) {
 		box-shadow:
-			inset 0 2px 5px rgba(8, 10, 14, 0.17),
-			inset 0 1px 0 rgba(255, 255, 255, 0.35);
+			inset 0 2px 4px rgba(0, 0, 0, 0.2),
+			inset 0 0 0 999px rgba(0, 0, 0, 0.08);
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		/* Everything pops forward on hover. The header icon circles (.icon-btn) scale from
@@ -2720,27 +2766,42 @@
 		}
 	}
 
-	/* ── Universal pressed state ── Every button pushes IN on click — a subtle squash plus an
-	   inset shadow — regardless of the Bubble setting. The html-prefixed specificity wins over
-	   each control's own :hover; Bubble mode layers its glossier inset on top (higher still).
-	   The inset (not motion) always applies; the squash is gated on reduced-motion. */
+	/* ── Universal pressed state ── Every button visibly pushes IN on click, regardless of the
+	   Bubble setting. Rather than repaint the fill (which turned coloured buttons grey), we
+	   just DARKEN whatever colour the button already is: the theme-proof black inset overlay
+	   darkens the fill in BOTH light and dark, so a neutral button gets a darker neutral and
+	   the orange field/primary gets a darker orange. The top inset gives the pushed-in feel;
+	   the html-prefixed specificity wins over each control's own :hover. Squash is gated on
+	   reduced-motion. */
 	:global(html .seg:active:not(:disabled)),
 	:global(html .sky-opt:active:not(:disabled)),
 	:global(html .icon-btn:active:not(:disabled)),
 	:global(html .field:active:not(:disabled)),
 	:global(html .field-select:active:not(:disabled)),
 	:global(html .edit-enter:active:not(:disabled)),
-	:global(html .chip:active:not(:disabled)) {
-		box-shadow: inset 0 2px 4px rgba(8, 10, 14, 0.14);
+	:global(html .chip:active:not(:disabled)),
+	:global(html .legend-btn:active:not(:disabled)),
+	:global(html .edit-btn:active:not(:disabled)),
+	:global(html .pc-close:active:not(:disabled)),
+	:global(html .refresh:active:not(:disabled)),
+	:global(html .manual:active:not(:disabled)) {
+		box-shadow:
+			inset 0 2px 4px rgba(0, 0, 0, 0.18),
+			inset 0 0 0 999px rgba(0, 0, 0, 0.07);
 	}
 	@media (prefers-reduced-motion: no-preference) {
+		/* .manual keeps its own rotate and .refresh is a countdown ring, so they darken but
+		   don't squash. */
 		:global(html .seg:active:not(:disabled)),
 		:global(html .sky-opt:active:not(:disabled)),
 		:global(html .icon-btn:active:not(:disabled)),
 		:global(html .field:active:not(:disabled)),
 		:global(html .field-select:active:not(:disabled)),
 		:global(html .edit-enter:active:not(:disabled)),
-		:global(html .chip:active:not(:disabled)) {
+		:global(html .chip:active:not(:disabled)),
+		:global(html .legend-btn:active:not(:disabled)),
+		:global(html .edit-btn:active:not(:disabled)),
+		:global(html .pc-close:active:not(:disabled)) {
 			transform: scale(0.95);
 		}
 	}
