@@ -868,14 +868,17 @@
 
 	/* ── Header + toolbar ── */
 	.pb-head {
+		/* One inset drives both the padding (all sides) and the flex gap, so the back button
+		   sits in an evenly-framed pocket — equal space above, below, left, and to the brand. */
+		--pb-inset: 0.9rem;
 		position: sticky;
 		top: 0;
 		z-index: 5;
 		display: flex;
 		align-items: center;
-		gap: 0.6rem;
+		gap: var(--pb-inset);
 		flex-wrap: wrap;
-		padding: 0.7rem clamp(1rem, 3vw, 1.5rem);
+		padding: var(--pb-inset);
 		background: var(--panel-head);
 		border-bottom: 1px solid var(--line);
 	}
@@ -942,6 +945,23 @@
 		padding: 0.1rem 0.45rem;
 		line-height: 1.5;
 	}
+	/* The Beta pill enters just after the accent dot (same spring, a beat later), so the
+	   masthead ornaments cascade in left-to-right on mount. */
+	@media (prefers-reduced-motion: no-preference) {
+		.beta {
+			animation: beta-in 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) 0.38s backwards;
+		}
+	}
+	@keyframes beta-in {
+		from {
+			opacity: 0;
+			transform: translateX(-0.5rem) scale(0.85);
+		}
+		to {
+			opacity: 1;
+			transform: translateX(0) scale(1);
+		}
+	}
 	.pb-tools {
 		display: flex;
 		gap: 0.4rem;
@@ -962,25 +982,31 @@
 	}
 
 	/* Buttery button interaction: blur + scale + opacity. Translucent controls read as
-	   frosted glass, lift + scale a touch on hover, and squash on press — all on a springy
-	   curve. --btn-ease is the spring; the press is quick so it feels tactile. */
+	   frosted glass, scale a touch toward the viewer on hover, and squash on press.
+	   --btn-ease is a gentle spring for the scale; --soft is a symmetric ease-in-out so the
+	   blur and shadow ramp in AND out gracefully (never popping) on both enter and leave. */
 	.tb,
 	.chip,
 	.mini,
 	.swatch-btn {
-		--btn-ease: cubic-bezier(0.34, 1.56, 0.64, 1);
+		--btn-ease: cubic-bezier(0.34, 1.4, 0.64, 1);
+		--soft: cubic-bezier(0.4, 0, 0.2, 1);
 		-webkit-backdrop-filter: blur(6px) saturate(1.3);
 		backdrop-filter: blur(6px) saturate(1.3);
-		transition: transform 0.24s var(--btn-ease), background 0.15s ease,
-			border-color 0.15s ease, box-shadow 0.24s ease, opacity 0.15s ease,
-			backdrop-filter 0.24s ease, color 0.15s ease;
+		transition: transform 0.3s var(--btn-ease), background 0.3s var(--soft),
+			border-color 0.3s var(--soft), box-shadow 0.42s var(--soft),
+			opacity 0.3s var(--soft), backdrop-filter 0.5s var(--soft), color 0.2s ease;
 	}
+	/* Press = depressed: squash + dim + an inset shadow so the button reads as pushed IN.
+	   This pressed look belongs to the click, never the hover (see .tb:hover). The inset works
+	   over any fill, so the orange primary presses in without losing its colour. */
 	.tb:active:not(:disabled),
 	.chip:active:not(:disabled),
 	.mini:active,
 	.swatch-btn:active {
 		transform: scale(0.94);
 		opacity: 0.9;
+		box-shadow: inset 0 2px 4px rgba(10, 10, 10, 0.13);
 		transition-duration: 0.09s;
 	}
 	/* Respect reduced-motion: keep the colour/opacity feedback, drop the scale + lift. */
@@ -1021,11 +1047,14 @@
 		display: block;
 		flex-shrink: 0;
 	}
+	/* Hover = raised: lift toward the viewer via scale + a soft outer drop, matching the
+	   other apps' buttons. The fill stays at its resting tint (NOT darkened) — a darker fill
+	   read as a pressed-in dent, which belongs to :active, not hover. */
 	.tb:hover:not(:disabled) {
 		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
-		background: color-mix(in srgb, var(--ink) 9%, transparent);
-		transform: translateY(-1.5px) scale(1.02);
-		box-shadow: 0 2px 6px rgba(10, 10, 10, 0.1), 0 6px 16px rgba(10, 10, 10, 0.08);
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		transform: scale(1.05);
+		box-shadow: 0 3px 12px rgba(10, 10, 10, 0.11), 0 1px 4px rgba(10, 10, 10, 0.08);
 		-webkit-backdrop-filter: blur(10px) saturate(1.5);
 		backdrop-filter: blur(10px) saturate(1.5);
 	}
@@ -1068,8 +1097,8 @@
 	.chip:hover:not(:disabled) {
 		color: var(--ink);
 		border-color: color-mix(in srgb, var(--ink) 26%, transparent);
-		transform: translateY(-1px) scale(1.05);
-		box-shadow: 0 2px 6px rgba(10, 10, 10, 0.1);
+		transform: scale(1.09);
+		box-shadow: 0 3px 10px rgba(10, 10, 10, 0.11);
 	}
 	.chip.danger:hover:not(:disabled) {
 		color: #c93328;
@@ -1467,8 +1496,8 @@
 	}
 	.mini:hover {
 		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
-		transform: translateY(-1px) scale(1.04);
-		box-shadow: 0 2px 6px rgba(10, 10, 10, 0.1);
+		transform: scale(1.07);
+		box-shadow: 0 3px 10px rgba(10, 10, 10, 0.11);
 	}
 	.swatch-row {
 		display: flex;
@@ -1491,8 +1520,8 @@
 	}
 	.swatch-btn:hover {
 		border-color: color-mix(in srgb, var(--pb-accent) 45%, transparent);
-		transform: translateY(-1px) scale(1.03);
-		box-shadow: 0 2px 6px rgba(10, 10, 10, 0.1);
+		transform: scale(1.06);
+		box-shadow: 0 3px 10px rgba(10, 10, 10, 0.11);
 	}
 	.swatch-btn.on {
 		border-color: var(--pb-accent);
@@ -1533,18 +1562,85 @@
 	@media (max-width: 860px) {
 		.pb-main {
 			grid-template-columns: 1fr;
-			grid-template-rows: auto minmax(300px, 1fr) auto;
+			grid-template-rows: auto minmax(320px, 1fr) auto;
 		}
 		.pb-left,
 		.pb-right {
 			border: 0;
 			border-bottom: 1px solid var(--line);
 		}
+		/* Slides on top, then the preview, then the inspector — each a capped scroll
+		   region so the preview always stays in view between the two panels. */
 		.pb-left .col-body {
-			max-height: 26vh;
+			max-height: 30vh;
 		}
 		.pb-right .col-body {
-			max-height: 40vh;
+			max-height: 44vh;
+		}
+	}
+
+	/* ── Phone: the panel is a full-width bottom sheet. Tame the header so it reads as a
+	   tidy stack (back + brand, then a swipeable toolbar rail, then the filename) instead
+	   of five ragged wrapped rows, and give the preview room to breathe. ── */
+	@media (max-width: 560px) {
+		.pb {
+			font-size: 0.88rem;
+		}
+		.pb-head {
+			/* Keep the even-pocket inset, a touch tighter for the phone sheet. */
+			--pb-inset: 0.7rem;
+		}
+		/* Back button + brand share the first row; the brand fills the rest of it. */
+		.pb-brand {
+			flex: 1 1 auto;
+			font-size: 1rem;
+		}
+		/* Toolbar becomes a single horizontally-scrollable rail — swipe to reach Preview —
+		   bleeding to the sheet edges so the last button hints it continues off-screen. */
+		.pb-tools {
+			flex: 1 1 100%;
+			flex-wrap: nowrap;
+			overflow-x: auto;
+			-webkit-overflow-scrolling: touch;
+			scrollbar-width: none;
+			margin: 0 calc(-1 * var(--pb-inset));
+			padding: 0.1rem var(--pb-inset) 0.15rem;
+		}
+		.pb-tools::-webkit-scrollbar {
+			display: none;
+		}
+		.pb-tools .tb {
+			flex: 0 0 auto;
+		}
+		/* Filename drops to its own row rather than being flung to a far corner. */
+		.pb-file {
+			flex: 1 1 100%;
+			margin-left: 0;
+			max-width: 100%;
+		}
+		/* Preview gets the lion's share; the two panels stay compact but scrollable. Column
+		   headers pin so their add/duplicate/delete controls are always reachable. */
+		.pb-main {
+			grid-template-rows: auto minmax(300px, 58vh) auto;
+		}
+		.pb-left .col-body {
+			max-height: 34vh;
+		}
+		.pb-right .col-body {
+			max-height: 50vh;
+		}
+		.col-head {
+			position: sticky;
+			top: 0;
+			z-index: 2;
+			background: var(--panel-head);
+		}
+		/* Roomier tap targets for the toolbar and the swatch/mini controls on touch. */
+		.tb {
+			padding: 0.5rem 0.9rem;
+		}
+		.insert-grid {
+			grid-template-columns: 1fr 1fr;
 		}
 	}
 </style>

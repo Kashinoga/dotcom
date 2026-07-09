@@ -229,6 +229,32 @@
 			/* storage unavailable — keep the in-memory choice */
 		}
 	}
+
+	// Button style (opt-in): 'bubble' gives every panel button a glossy, gel-like,
+	// pops-forward look borrowed from the presentation deck's controls; 'flat' is the
+	// default minimal chrome. data-ui="bubble" on the html element drives the global
+	// button CSS (see the :global bubble block in the style section); a pre-paint script
+	// in app.html applies the saved choice so there's no flash on load.
+	const UI_KEY = 'ksh-ui';
+	type UiStyle = 'flat' | 'bubble';
+	const uiOptions: { id: UiStyle; label: string; sub: string }[] = [
+		{ id: 'flat', label: 'Flat', sub: 'clean & minimal' },
+		{ id: 'bubble', label: 'Bubble', sub: 'glossy & springy' }
+	];
+	let uiStyle = $state<UiStyle>('flat');
+	function setUiStyle(s: UiStyle) {
+		uiStyle = s;
+		if (typeof document !== 'undefined') {
+			if (s === 'bubble') document.documentElement.dataset.ui = s;
+			else document.documentElement.removeAttribute('data-ui');
+		}
+		try {
+			if (s === 'bubble') localStorage.setItem(UI_KEY, s);
+			else localStorage.removeItem(UI_KEY);
+		} catch {
+			/* storage unavailable — keep the in-memory choice */
+		}
+	}
 	// Fresh random field each page load (stars only render client-side, so there's
 	// no SSR/hydration to keep deterministic). Regenerated on mount to be sure.
 	const makeStars = () =>
@@ -254,6 +280,11 @@
 			: skyMode === 'auto'
 				? `Auto — following the clock (currently ${skyPhase}).`
 				: `Fixed to ${skyMode}.`
+	);
+	const uiStatus = $derived(
+		uiStyle === 'bubble'
+			? 'Glossy, bubbly buttons that pop forward across the site.'
+			: 'Flat, minimal buttons.'
 	);
 	const starsStatus = $derived(
 		starsOn ? 'Tiny stars twinkle when the sky is Night.' : 'Stars off.'
@@ -550,7 +581,7 @@
 	function clearLocalStorage() {
 		if (!dev) return;
 		try {
-			for (const k of [MODE_KEY, NAMES_KEY, THEME_KEY, CONTENT_KEY, EXPAND_KEY, SKY_KEY, STARS_KEY])
+			for (const k of [MODE_KEY, NAMES_KEY, THEME_KEY, CONTENT_KEY, EXPAND_KEY, SKY_KEY, STARS_KEY, UI_KEY])
 				localStorage.removeItem(k);
 		} catch {
 			/* storage unavailable — nothing to clear */
@@ -700,6 +731,8 @@
 			'{} The sky sets the palette while on, so the display mode above applies again when it’s off. Remembered next time.',
 		starsLead: 'Show tiny stars when the sky is Night.',
 		starsNote: '{} Remembered next time.',
+		uiLead: 'Choose how buttons across the site look and feel.',
+		uiNote: '{} Remembered next time.',
 		// Air Traffic board intro copy. `atfcLead` uses a `{}` token for the live range
 		// (NM); the demo variant has none. Edited via Edit Mode inside the board itself.
 		atfcLead: 'Live traffic within {} NM of a field — arriving, departing, or passing over.',
@@ -1094,6 +1127,7 @@
 		applySky();
 		STARS = makeStars(); // fresh random field per load (client-side)
 		starsOn = localStorage.getItem(STARS_KEY) !== '0'; // default on
+		if (localStorage.getItem(UI_KEY) === 'bubble') setUiStyle('bubble'); // else default flat
 		// While on Auto, keep the phase current if the tab is left open across a boundary.
 		skyTimer = window.setInterval(() => skyMode === 'auto' && applySky(), 5 * 60 * 1000);
 		if (dev) applySavedContent();
@@ -1422,6 +1456,37 @@
 									? (e) => stageSettings('displayNote', e.currentTarget.textContent ?? '')
 									: undefined}
 							>{noteText('displayNote', displayValue, editStg)}</p>
+							<p
+								class="seg-lead"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('uiLead', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{settingsText('uiLead')}</p>
+							<div class="segmented" role="radiogroup" aria-label="Button style">
+								{#each uiOptions as o}
+									<button
+										type="button"
+										class="seg"
+										class:on={uiStyle === o.id}
+										role="radio"
+										aria-checked={uiStyle === o.id}
+										onclick={() => setUiStyle(o.id)}
+									>
+										<span class="seg-title">{o.label}</span>
+										<span class="seg-sub">{o.sub}</span>
+									</button>
+								{/each}
+							</div>
+							<p
+								class="seg-note"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('uiNote', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{noteText('uiNote', uiStatus, editStg)}</p>
 							<p
 								class="seg-lead"
 								class:editable={editStg}
@@ -2111,10 +2176,12 @@
 		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(1.5rem, 2.5vw, 2.25rem);
 		border-bottom: 1px solid var(--line);
 	}
-	/* Icon-circle back control (shared .icon-btn); only its placement is set here. */
+	/* Icon-circle back control (shared .icon-btn); only its placement is set here. The gap
+	   below it (to the eyebrow/title) matches the header's top/left edge inset, so the back
+	   button sits in an evenly-framed pocket rather than crowding the text below it. */
 	.back {
 		align-self: flex-start;
-		margin-bottom: 1rem;
+		margin-bottom: clamp(1.5rem, 4vw, 2.5rem);
 	}
 	.eyebrow {
 		margin: 0 0 0.4rem;
@@ -2499,5 +2566,182 @@
 	}
 	.chip-title {
 		color: var(--sub);
+	}
+
+	/* ── "Bubble" button style (Settings → Button style; data-ui="bubble" on the html
+	   element) ── Opt-in glossy, gel-like buttons across every panel, echoing the deck's
+	   bubbly controls. A convex SHEEN rides on top as a background-IMAGE so each button's own
+	   background-color still shows through (orange ATFC fields, active segments, …). The ATFC
+	   Range/Refresh <select>s keep their chevron — we give them depth but never touch their
+	   background-image. Kept :global so it reaches the buttons in every panel. */
+
+	/* Sheen — solid-background controls only (NOT .field-select, whose bg-image IS its
+	   chevron arrow). */
+	:global(html[data-ui='bubble'] .seg),
+	:global(html[data-ui='bubble'] .sky-opt),
+	:global(html[data-ui='bubble'] .icon-btn),
+	:global(html[data-ui='bubble'] .edit-enter),
+	:global(html[data-ui='bubble'] .chip),
+	:global(html[data-ui='bubble'] .tb),
+	:global(html[data-ui='bubble'] .mini),
+	:global(html[data-ui='bubble'] .swatch-btn),
+	:global(html[data-ui='bubble'] .field),
+	:global(html[data-ui='bubble'] .manual) {
+		background-image: linear-gradient(
+			to bottom,
+			rgba(255, 255, 255, 0.3),
+			rgba(255, 255, 255, 0.04) 48%,
+			rgba(8, 10, 14, 0.05)
+		);
+	}
+
+	/* Depth — every bubble control, selects included. A soft top gloss + a light drop;
+	   deliberately NO heavy bottom-inset at rest (that read as a too-strong bottom border). */
+	:global(html[data-ui='bubble'] .seg),
+	:global(html[data-ui='bubble'] .sky-opt),
+	:global(html[data-ui='bubble'] .icon-btn),
+	:global(html[data-ui='bubble'] .edit-enter),
+	:global(html[data-ui='bubble'] .chip),
+	:global(html[data-ui='bubble'] .tb),
+	:global(html[data-ui='bubble'] .mini),
+	:global(html[data-ui='bubble'] .swatch-btn),
+	:global(html[data-ui='bubble'] .field),
+	:global(html[data-ui='bubble'] .field-select),
+	:global(html[data-ui='bubble'] .manual) {
+		border-radius: 999px;
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.55),
+			0 1px 1px rgba(8, 10, 14, 0.05),
+			0 3px 8px rgba(8, 10, 14, 0.08);
+		transform-origin: center;
+		transition:
+			transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
+			box-shadow 0.28s ease,
+			background-color 0.18s ease,
+			border-color 0.18s ease,
+			color 0.15s ease;
+	}
+	/* Two-line settings segments stay softly rounded rather than full pill. */
+	:global(html[data-ui='bubble'] .seg) {
+		border-radius: 16px;
+	}
+	/* The 30px header icon circles (back / expand / refresh) sit flush at the top of a
+	   sticky header inside a scroll container that clips vertically. Anchoring their scale to
+	   the TOP edge means the hover pop grows only downward (into the header's padding), so the
+	   full scale animation is preserved without the top ever crossing the clip boundary. */
+	:global(html[data-ui='bubble'] .icon-btn),
+	:global(html[data-ui='bubble'] .manual) {
+		transform-origin: center top;
+	}
+
+	/* Selected controls get the FULL convex bubble: a brighter top sheen with real bottom
+	   shading and a deeper drop, so an active pill no longer reads flat. */
+	:global(html[data-ui='bubble'] .seg.on),
+	:global(html[data-ui='bubble'] .sky-opt.on),
+	:global(html[data-ui='bubble'] .field.on) {
+		/* Convex shading comes from the SHEEN (light top → dark bottom, reaching the very
+		   edge) rather than an inset bottom-shade. An inset shadow is clipped short of the
+		   border, so it left a bright rim at the bottom edge — the "white underline". */
+		background-image: linear-gradient(
+			to bottom,
+			rgba(255, 255, 255, 0.4),
+			rgba(255, 255, 255, 0.05) 42%,
+			rgba(8, 10, 14, 0.16)
+		);
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.4),
+			0 2px 5px rgba(8, 10, 14, 0.13),
+			0 7px 18px rgba(8, 10, 14, 0.16);
+	}
+
+	/* Hover: brighten the gloss and lift the drop so the button reads as inflating toward
+	   you; the scale-forward (motion) is gated on reduced-motion below. */
+	:global(html[data-ui='bubble'] .seg:hover:not(:disabled)),
+	:global(html[data-ui='bubble'] .sky-opt:hover:not(:disabled)),
+	:global(html[data-ui='bubble'] .icon-btn:hover:not(:disabled)),
+	:global(html[data-ui='bubble'] .edit-enter:hover:not(:disabled)),
+	:global(html[data-ui='bubble'] .chip:hover:not(:disabled)),
+	:global(html[data-ui='bubble'] .tb:hover:not(:disabled)),
+	:global(html[data-ui='bubble'] .mini:hover:not(:disabled)),
+	:global(html[data-ui='bubble'] .swatch-btn:hover:not(:disabled)),
+	:global(html[data-ui='bubble'] .field:hover:not(:disabled)),
+	:global(html[data-ui='bubble'] .field-select:hover:not(:disabled)),
+	:global(html[data-ui='bubble'] .manual:hover:not(:disabled)) {
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.8),
+			0 2px 5px rgba(8, 10, 14, 0.09),
+			0 9px 22px rgba(8, 10, 14, 0.13);
+	}
+	/* Pressed: sink the gloss inward for a tactile squash. */
+	:global(html[data-ui='bubble'] .seg:active:not(:disabled)),
+	:global(html[data-ui='bubble'] .sky-opt:active:not(:disabled)),
+	:global(html[data-ui='bubble'] .icon-btn:active:not(:disabled)),
+	:global(html[data-ui='bubble'] .edit-enter:active:not(:disabled)),
+	:global(html[data-ui='bubble'] .chip:active:not(:disabled)),
+	:global(html[data-ui='bubble'] .tb:active:not(:disabled)),
+	:global(html[data-ui='bubble'] .mini:active:not(:disabled)),
+	:global(html[data-ui='bubble'] .swatch-btn:active:not(:disabled)),
+	:global(html[data-ui='bubble'] .field:active:not(:disabled)),
+	:global(html[data-ui='bubble'] .field-select:active:not(:disabled)),
+	:global(html[data-ui='bubble'] .manual:active:not(:disabled)) {
+		box-shadow:
+			inset 0 2px 5px rgba(8, 10, 14, 0.17),
+			inset 0 1px 0 rgba(255, 255, 255, 0.35);
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		/* Everything pops forward on hover. The header icon circles (.icon-btn) scale from
+		   their top edge (set above) so the pop grows downward and never clips at the top. */
+		:global(html[data-ui='bubble'] .seg:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .sky-opt:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .icon-btn:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .edit-enter:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .chip:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .tb:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .mini:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .swatch-btn:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .field:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .field-select:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .manual:hover:not(:disabled)) {
+			transform: scale(1.05);
+		}
+		:global(html[data-ui='bubble'] .seg:active:not(:disabled)),
+		:global(html[data-ui='bubble'] .sky-opt:active:not(:disabled)),
+		:global(html[data-ui='bubble'] .icon-btn:active:not(:disabled)),
+		:global(html[data-ui='bubble'] .edit-enter:active:not(:disabled)),
+		:global(html[data-ui='bubble'] .chip:active:not(:disabled)),
+		:global(html[data-ui='bubble'] .tb:active:not(:disabled)),
+		:global(html[data-ui='bubble'] .mini:active:not(:disabled)),
+		:global(html[data-ui='bubble'] .swatch-btn:active:not(:disabled)),
+		:global(html[data-ui='bubble'] .field:active:not(:disabled)),
+		:global(html[data-ui='bubble'] .field-select:active:not(:disabled)),
+		:global(html[data-ui='bubble'] .manual:active:not(:disabled)) {
+			transform: scale(0.94);
+			transition-duration: 0.1s;
+		}
+	}
+
+	/* ── Universal pressed state ── Every button pushes IN on click — a subtle squash plus an
+	   inset shadow — regardless of the Bubble setting. The html-prefixed specificity wins over
+	   each control's own :hover; Bubble mode layers its glossier inset on top (higher still).
+	   The inset (not motion) always applies; the squash is gated on reduced-motion. */
+	:global(html .seg:active:not(:disabled)),
+	:global(html .sky-opt:active:not(:disabled)),
+	:global(html .icon-btn:active:not(:disabled)),
+	:global(html .field:active:not(:disabled)),
+	:global(html .field-select:active:not(:disabled)),
+	:global(html .edit-enter:active:not(:disabled)),
+	:global(html .chip:active:not(:disabled)) {
+		box-shadow: inset 0 2px 4px rgba(8, 10, 14, 0.14);
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		:global(html .seg:active:not(:disabled)),
+		:global(html .sky-opt:active:not(:disabled)),
+		:global(html .icon-btn:active:not(:disabled)),
+		:global(html .field:active:not(:disabled)),
+		:global(html .field-select:active:not(:disabled)),
+		:global(html .edit-enter:active:not(:disabled)),
+		:global(html .chip:active:not(:disabled)) {
+			transform: scale(0.95);
+		}
 	}
 </style>

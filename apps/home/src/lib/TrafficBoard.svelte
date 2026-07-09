@@ -1420,7 +1420,9 @@
 	   in the .icon-circle group above; only its placement is set here). */
 	.back {
 		align-self: flex-start;
-		margin-bottom: 1rem;
+		/* Match the header's top/left edge inset so the back button is evenly framed rather
+		   than crowding the eyebrow/title below it (mirrors the generic .surface-head). */
+		margin-bottom: clamp(1.5rem, 4vw, 2.5rem);
 	}
 	.eyebrow {
 		margin: 0 0 0.3rem;
@@ -1565,12 +1567,15 @@
 	   Fonts step down from the compact header but keep the same hierarchy: the
 	   title is still the largest thing, then stat values, then labels/eyebrow. */
 	.tfc-head.bar {
-		/* Sticky + frosted background inherited from .tfc-head; this just re-lays the bar. */
+		/* Sticky + frosted background inherited from .tfc-head; this just re-lays the bar.
+		   One inset drives the padding (all four sides) AND the flex gap, so the back cap sits
+		   in an evenly-framed pocket — equal space above, below, left, and to the title — and
+		   the right collapse cap mirrors it. */
+		--bar-inset: clamp(0.7rem, 1.3vw, 1rem);
 		display: flex;
 		align-items: center;
-		gap: clamp(0.85rem, 2vw, 1.75rem);
-		padding-block: 0.55rem;
-		padding-inline: clamp(0.9rem, 1.6vw, 1.4rem);
+		gap: var(--bar-inset);
+		padding: var(--bar-inset);
 	}
 	/* Global-control end caps — matched to the parent's expand button so back/expand
 	   read as one set framing the bar (shared styling in the .icon-circle group above). */
@@ -1825,6 +1830,8 @@
 	}
 	.manual:active {
 		transform: rotate(-90deg);
+		/* Depress on click like every other button (the spin stays its own flourish). */
+		box-shadow: inset 0 2px 4px rgba(10, 10, 10, 0.14);
 	}
 	.manual:focus-visible {
 		outline: var(--focus-ring);
