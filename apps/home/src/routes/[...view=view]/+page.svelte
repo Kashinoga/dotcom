@@ -3,13 +3,14 @@
 	import { fly, fade } from 'svelte/transition';
 	import { dev } from '$app/environment';
 	import { page } from '$app/state';
-	import { pushState } from '$app/navigation';
+	import { pushState, replaceState } from '$app/navigation';
 	import SplitFlap from '$lib/SplitFlap.svelte';
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
 	import PresentationBuilder from '$lib/PresentationBuilder.svelte';
 	import { MAXIMIZE_SVG, MINIMIZE_SVG, BACK_SVG } from '$lib/icons';
 	import { airports, airlines, type Pt } from '$lib/network';
-	import { viewPath, sameView, viewTitle, viewDescription, type View } from '$lib/views';
+	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
+	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
 	import type { PageData } from './$types';
 
 	// Airline route-map homepage. The network is deliberately LARGER than the
@@ -873,17 +874,28 @@
 	//
 	// `push` is false when the change *came from* history (a back/forward), which would
 	// otherwise re-push the entry we just popped.
-	function syncUrl(nv: View | null) {
-		const path = viewPath(nv);
+	function syncUrl(nv: View | null, fld: string | null = null, replace = false) {
+		// A panel's URL is its path plus, for the Traffic board, the field it's showing.
+		// The default field carries no param — it's what you get with none.
+		const path = viewPath(nv) + (fld ? `?field=${fld.toLowerCase()}` : '');
 		// Compare against the address bar, NOT `page.url`. Shallow routing leaves
 		// `page.url` pinned to the last real navigation — `pushState` only assigns
 		// `page.state`, and a shallow popstate restores the pre-push URL. So `page.url`
-		// would still say `/` long after we'd pushed `/atfc`.
-		if (location.pathname === path) return;
+		// would still say `/` long after we'd pushed `/apps/air-traffic`.
+		if (location.pathname + location.search === path) return;
 		// Shallow: updates the address bar and history without re-running `load`, so the
 		// camera, panel, and live board state all survive. Only legal after hydration.
-		// The view rides along in `page.state` so back/forward can restore it.
-		pushState(path, { view: nv });
+		// View and field ride along in `page.state` so back/forward can restore them —
+		// and both must be written every time, or a replace would drop the other.
+		//
+		// `$state.snapshot` is load-bearing: history entries are structured-cloned, and a
+		// `$state` proxy (which `view` is, once assigned) throws DataCloneError. Callers
+		// that hand us a fresh object literal are unaffected; `setField` passes `view`.
+		const state = { view: nv ? ($state.snapshot(nv) as View) : null, field: fld };
+		// Picking a field *replaces* the entry: it's a control on the open panel, not a
+		// new place. Otherwise every chip click would need its own press of Back.
+		if (replace) replaceState(path, state);
+		else pushState(path, state);
 	}
 
 	// The panel the current history entry stands for.
@@ -893,11 +905,51 @@
 	// to what `load` resolved from the URL. `null` is a real value here — the overview
 	// map — which is why this tests for `undefined` rather than truthiness.
 	const urlView = $derived(page.state.view !== undefined ? page.state.view : data.view);
+	const urlField = $derived(page.state.field !== undefined ? page.state.field : data.field);
+
+	// The Traffic board's field, mirrored into `?field=`. Seeded from the URL; see the
+	// note on `view` above for why reading `data` once is right.
+	// svelte-ignore state_referenced_locally
+	let field = $state<string | null>(data.field);
+
+	// The board picked a new field: record it and rewrite the URL in place.
+	function setField(a: { iata: string; icao: string }) {
+		field = a.icao === DEFAULT_FIELD.icao ? null : a.iata;
+		if (view) syncUrl(view, field, true);
+	}
+
+	// ── What a shared link says it is ───────────────────────────────────────────
+	// A field-specific board names its field, so `?field=sfo` unfurls as San Francisco
+	// rather than as the generic board. Gated on the board actually being open, so a
+	// stale `field` can never bleed into another panel's title or canonical URL.
+	const onBoard = $derived(view?.kind === 'port' && view.code === 'ATFC');
+	const selectedField = $derived(onBoard ? fieldByIata(field) : null);
+	const headTitle = $derived(
+		selectedField ? `Air Traffic · ${selectedField.name} — ${SITE}` : viewTitle(view)
+	);
+	const headDescription = $derived(
+		selectedField
+			? `Live traffic around ${selectedField.name} (${selectedField.icao}) — arriving, departing, or passing over.`
+			: viewDescription(view)
+	);
+	// `page.url.origin` is safe where `page.url` is not: shallow routing never changes it.
+	const canonicalHref = $derived(
+		new URL(
+			viewPath(view) + (selectedField ? `?field=${selectedField.iata.toLowerCase()}` : ''),
+			page.url.origin
+		).href
+	);
 
 	// Show a destination/line: fly the camera there and render its panel content.
 	function applyView(nv: View, push = true) {
 		view = nv;
-		if (push) syncUrl(nv);
+		// A fresh open starts the board on its default field — the previous visit's
+		// `?field=` belongs to the history entry we left, not to this new one. On a
+		// history-driven open (`push` false) the reconciler has already set `field`.
+		if (push) {
+			field = null;
+			syncUrl(nv, null);
+		}
 		// The Presentation Builder is a three-column editor — force the full-viewport layout on
 		// open (its compact form is a fallback, not the intended experience).
 		if (nv.kind === 'port' && nv.code === 'PRES') panelExpanded = true;
@@ -950,7 +1002,11 @@
 		// Keep panelExpanded set so the panel flies out at its current width in one
 		// clean slide (it's reset on the next fresh open, not mid-close).
 		view = null;
-		if (push) syncUrl(null);
+		if (push) {
+			// The overview map has no field; leaving it set would linger in the head tags.
+			field = null;
+			syncUrl(null);
+		}
 		flyTo(HOME);
 		// Drop focus off the selected node so its dot returns to its normal weight
 		// (the bolder stroke comes from :focus-visible, which otherwise lingers when
@@ -1188,10 +1244,18 @@
 	// Tracking `view` as well would re-run it on every panel open and break the
 	// PANEL_SLIDE hand-off, since mid-slide the history entry still names the old panel.
 	$effect(() => {
-		const next = urlView;
+		const nextView = urlView;
+		const nextField = urlField;
 		untrack(() => {
-			if (sameView(next, view)) return;
-			if (next) navigate(next, false);
+			if (sameView(nextView, view)) {
+				// Same panel, different field — a `?field=` restored by back/forward.
+				if (nextField !== field) field = nextField;
+				return;
+			}
+			// Set the field before the panel swaps: the board reads it as a prop when the
+			// keyed block remounts it, and `navigate` defers that swap by PANEL_SLIDE.
+			field = nextField;
+			if (nextView) navigate(nextView, false);
 			else home(false);
 		});
 	});
@@ -1211,17 +1275,18 @@
 
 <svelte:window onkeydown={onKey} onresize={onResize} />
 
-<!-- Titled per panel, so a shared /atfc link reads as "Air Traffic — Kashinoga" in the
-     tab and in the unfurled preview card rather than as a generic homepage. These track
-     `view` (not `data.view`), so the title updates as you fly around the map too. -->
+<!-- Titled per panel, so a shared /apps/air-traffic link reads as "Air Traffic —
+     Kashinoga" in the tab and in the unfurled preview card rather than as a generic
+     homepage. These track `view`/`field` (not `data.*`), so they update as you fly around
+     the map and switch fields, without a navigation. -->
 <svelte:head>
-	<title>{viewTitle(view)}</title>
-	<meta name="description" content={viewDescription(view)} />
-	<link rel="canonical" href={new URL(viewPath(view), page.url.origin).href} />
+	<title>{headTitle}</title>
+	<meta name="description" content={headDescription} />
+	<link rel="canonical" href={canonicalHref} />
 	<meta property="og:type" content="website" />
-	<meta property="og:title" content={viewTitle(view)} />
-	<meta property="og:description" content={viewDescription(view)} />
-	<meta property="og:url" content={new URL(viewPath(view), page.url.origin).href} />
+	<meta property="og:title" content={headTitle} />
+	<meta property="og:description" content={headDescription} />
+	<meta property="og:url" content={canonicalHref} />
 	<meta name="twitter:card" content="summary" />
 </svelte:head>
 
@@ -1427,6 +1492,8 @@
 							edit={dev && editMode}
 							copyText={settingsText}
 							onCopyEdit={stageSettings}
+							initialField={field}
+							onFieldChange={setField}
 						>
 							{#snippet connections()}
 								{@render onward('Connections', conns)}

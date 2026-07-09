@@ -5,6 +5,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import SplitFlap from '$lib/SplitFlap.svelte';
 	import { MAXIMIZE_SVG, MINIMIZE_SVG, BACK_SVG } from '$lib/icons';
+	import { AIRPORTS, DEFAULT_FIELD, fieldByIata, type Airport } from '$lib/fields';
 
 	// A live "what's in the air around <airport>" board. Same keyless, CORS-open
 	// stack as the dotcom-2 atc app: airplanes.live for live ADS-B traffic near a
@@ -27,7 +28,9 @@
 		connections,
 		edit = false,
 		copyText,
-		onCopyEdit
+		onCopyEdit,
+		initialField = null,
+		onFieldChange
 	}: {
 		accent?: string;
 		code?: string;
@@ -36,6 +39,12 @@
 		onback?: () => void;
 		onToggleExpand?: () => void;
 		connections?: Snippet;
+		// The field this board opens on, as an IATA code, resolved from `?field=` by the
+		// page. Null means the default. `onFieldChange` reports a pick back so the page can
+		// put it in the URL — the board doesn't touch history itself. (Named `initialField`
+		// because `field` is taken by the API-record mapper further down.)
+		initialField?: string | null;
+		onFieldChange?: (picked: Airport) => void;
 		// Edit Mode (dev authoring): `copyText(key)` reads the current/staged copy and
 		// `onCopyEdit(key, value)` stages an edit — both delegate to the page's Settings
 		// store so the board's prose saves/exports with the rest of the site copy.
@@ -51,24 +60,8 @@
 	let wide = $state(false);
 	const showDeck = $derived(expanded && wide);
 
-	type Airport = { icao: string; iata: string; name: string; lat: number; lon: number; demo?: boolean };
-	// A small curated field list — the selector. The default is GRACEMERIA, a fictional
-	// Ace Combat field whose traffic is canned (see the demo block below) — so a first
-	// visit exercises the whole board without touching the live ADS-B / route APIs. Pick
-	// any real field to go live.
-	const AIRPORTS: Airport[] = [
-		{ icao: 'EMGR', iata: 'GRM', name: 'Gracemeria', lat: 0, lon: 0, demo: true },
-		{ icao: 'KDSM', iata: 'DSM', name: 'Des Moines', lat: 41.534, lon: -93.6631 },
-		{ icao: 'KORD', iata: 'ORD', name: 'Chicago O’Hare', lat: 41.9742, lon: -87.9073 },
-		{ icao: 'KMSP', iata: 'MSP', name: 'Minneapolis', lat: 44.8848, lon: -93.2223 },
-		{ icao: 'KDEN', iata: 'DEN', name: 'Denver', lat: 39.8561, lon: -104.6737 },
-		{ icao: 'KDFW', iata: 'DFW', name: 'Dallas–Fort Worth', lat: 32.8998, lon: -97.0403 },
-		{ icao: 'KATL', iata: 'ATL', name: 'Atlanta', lat: 33.6407, lon: -84.4277 },
-		{ icao: 'KJFK', iata: 'JFK', name: 'New York JFK', lat: 40.6413, lon: -73.7781 },
-		{ icao: 'KLAX', iata: 'LAX', name: 'Los Angeles', lat: 33.9416, lon: -118.4085 },
-		{ icao: 'KSFO', iata: 'SFO', name: 'San Francisco', lat: 37.6213, lon: -122.379 },
-		{ icao: 'KSEA', iata: 'SEA', name: 'Seattle', lat: 47.4502, lon: -122.3088 }
-	];
+	// `AIRPORTS` (the field selector) now lives in $lib/fields.ts, so `?field=` resolves
+	// against the same list these chips render from.
 
 	// ICAO type code → Wikipedia article title (from the dotcom-2 atc app). Only
 	// mapped types get a clickable photo; the lookup resolves the article's lead
@@ -262,7 +255,11 @@
 	const HOLD_MS = 1200; // reason held on screen before the value flap / collapse
 	const CLOSE_MS = 400; // row collapse motion
 
-	let sel = $state<Airport>(AIRPORTS[0]);
+	// Seeded from the URL's `?field=` (via the page) so a shared link opens on that field
+	// server-side, with no flash of the default. Read once — from here the board owns it,
+	// and history changes arrive as a remount.
+	// svelte-ignore state_referenced_locally
+	let sel = $state<Airport>(fieldByIata(initialField) ?? DEFAULT_FIELD);
 	let radiusNm = $state(60);
 	let pollMs = $state(60000); // auto-refresh cadence; default 1 minute
 	let planes = $state<Plane[]>([]);
@@ -590,6 +587,7 @@
 	function select(a: Airport) {
 		if (a.icao === sel.icao) return;
 		sel = a;
+		onFieldChange?.(a); // let the page mirror the pick into `?field=`
 		planes = [];
 		resetTracks(); // a new field is a fresh board — don't animate the old rows out
 		enrichGen++; // cancel any in-flight enrichment from the old field

@@ -188,7 +188,7 @@ export function sameView(a: View | null, b: View | null): boolean {
 	return false;
 }
 
-const SITE = 'Kashinoga';
+export const SITE = 'Kashinoga';
 
 /** Document title for a view — what a shared link shows in the tab and the preview card. */
 export function viewTitle(view: View | null): string {

@@ -20,6 +20,11 @@ declare global {
 			 * navigation, so the panel is whatever that route's `load` returned.
 			 */
 			view?: import('$lib/views').View | null;
+			/**
+			 * The Air Traffic board's selected field, as an IATA code (`?field=`).
+			 * `null` is the default field. Absent means "whatever `load` resolved".
+			 */
+			field?: string | null;
 		}
 		// interface Platform {}
 	}
