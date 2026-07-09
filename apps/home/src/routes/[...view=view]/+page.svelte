@@ -228,6 +228,45 @@
 			/* storage unavailable — keep the in-memory choice */
 		}
 	}
+
+	// ── Reset ────────────────────────────────────────────────────────────────
+	// The six preferences this panel owns. Deliberately NOT the dev `clearLocalStorage`
+	// set: that one also drops authored content drafts (CONTENT_KEY) and the panel's
+	// expanded flag, and reloads the page.
+	const PREF_KEYS = [MODE_KEY, NAMES_KEY, THEME_KEY, SKY_KEY, STARS_KEY, UI_KEY];
+
+	// Compared against what's on screen, not against what's stored: an explicit pick of
+	// the default value reads as "already default", which is what the button implies.
+	const settingsAreDefault = $derived(
+		mapMode === 'rail' &&
+			showStopNames &&
+			theme === 'system' &&
+			uiStyle === 'flat' &&
+			skyMode === 'auto' &&
+			starsOn
+	);
+
+	function resetSettings() {
+		mapMode = 'rail';
+		stopNamesPref = null; // null = never chose, which falls back to full names
+		skyMode = 'auto';
+		starsOn = true;
+		setTheme('system'); // also strips data-theme and its key
+		setUiStyle('flat'); // also strips data-ui and its key
+		applySky();
+		// Forget the stored picks rather than saving the defaults over them, so a reset
+		// leaves exactly the state a first-ever visitor has.
+		try {
+			for (const k of PREF_KEYS) localStorage.removeItem(k);
+		} catch {
+			/* storage unavailable — the in-memory reset above still stands */
+		}
+		// The map's coordinates change with the mode, so re-frame on whatever's open.
+		if (view) applyView(view, false);
+		else flyTo(HOME);
+		showToast('Settings reset to defaults');
+	}
+
 	// Fresh random field each page load (stars only render client-side, so there's
 	// no SSR/hydration to keep deterministic). Regenerated on mount to be sure.
 	const makeStars = () =>
@@ -704,6 +743,7 @@
 			'{} The sky sets the palette while on, so the display mode above applies again when it’s off. Remembered next time.',
 		starsLead: 'Show tiny stars when the sky is Night.',
 		starsNote: '{} Remembered next time.',
+		resetLead: 'Start over with the settings this page ships with.',
 		uiLead: 'Choose how buttons across the site look and feel.',
 		uiNote: '{} Remembered next time.',
 		// Air Traffic board intro copy. `atfcLead` uses a `{}` token for the live range
@@ -1726,6 +1766,30 @@
 									? (e) => stageSettings('starsNote', e.currentTarget.textContent ?? '')
 									: undefined}
 							>{noteText('starsNote', starsStatus, editStg)}</p>
+							<p
+								class="seg-lead"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('resetLead', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{settingsText('resetLead')}</p>
+							<div class="reset-row">
+								<button
+									type="button"
+									class="edit-enter ghost"
+									onclick={resetSettings}
+									disabled={settingsAreDefault}
+								>
+									Reset to defaults
+								</button>
+							</div>
+							<!-- Not editable copy: it states what the button does, and it swaps on state. -->
+							<p class="seg-note">
+								{settingsAreDefault
+									? 'Everything on this page is already at its default.'
+									: 'Puts the settings above back to Train, Full names, System, Flat, Auto and On. Saved edits elsewhere are left alone.'}
+							</p>
 							{#if dev}
 								<p class="seg-lead">Edit the panel copy right in the app.</p>
 								<div class="dev-actions">
@@ -2471,6 +2535,11 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5rem;
+		margin: 0.5rem 0 0.2rem;
+	}
+	/* Matches .dev-actions' rhythm, so Reset sits in the column like any other control. */
+	.reset-row {
+		display: flex;
 		margin: 0.5rem 0 0.2rem;
 	}
 	.edit-enter {
