@@ -63,6 +63,18 @@
 	let elText = $state('#000000');
 	let elBg = $state('#000000');
 	// Rail geometry (grey line spans all stations; accent fill runs to the active one).
+	// ── Motto ticker ─────────────────────────────────────────────────────────
+	// The scrolling strip under the title slide. It lives outside #deck, so it isn't part
+	// of a slide's markup and can't be edited in the preview — it gets its own inspector
+	// section, and buildOutput writes it back into the file.
+	//
+	// On disk the phrases are repeated: each `.ticker-group` holds the cycle a few times
+	// over, and the whole group is duplicated so the -50% scroll wraps seamlessly. We
+	// model only the cycle, and remember how many times a group repeated it.
+	let tickerPhrases = $state<string[]>([]);
+	let hasTicker = $state(false);
+	let tickerRepeat = 1;
+
 	let railTop = $state(0);
 	let railH = $state(0);
 	let railFgH = $state(0);
@@ -180,6 +192,28 @@
 	}
 
 	// ── Parsing ────────────────────────────────────────────────────────────
+	// The shortest prefix that, repeated, reproduces the whole list. ['a','b','a','b']
+	// → ['a','b']. Falls back to the list itself when nothing repeats, so a hand-edited
+	// ticker with no repetition still round-trips unchanged.
+	function smallestCycle(items: string[]): string[] {
+		for (let k = 1; k < items.length; k++) {
+			if (items.length % k !== 0) continue;
+			if (items.every((it, i) => it === items[i % k])) return items.slice(0, k);
+		}
+		return items;
+	}
+
+	function parseTicker(doc: Document) {
+		const group = doc.querySelector('#ticker .ticker-group');
+		if (!group) return { phrases: [], repeat: 1, present: false };
+		const items = Array.from(group.querySelectorAll('.ticker-item')).map((el) =>
+			(el.textContent ?? '').trim()
+		);
+		if (!items.length) return { phrases: [], repeat: 1, present: true };
+		const phrases = smallestCycle(items);
+		return { phrases, repeat: items.length / phrases.length, present: true };
+	}
+
 	function parsePresentation(text: string) {
 		const doc = new DOMParser().parseFromString(text, 'text/html');
 		const deck = doc.getElementById('deck');
@@ -223,7 +257,12 @@
 		const headClone = doc.head.cloneNode(true) as HTMLHeadElement;
 		headClone.querySelectorAll('title').forEach((t) => t.remove());
 
-		return { slides: parsedSlides, themeVars: vars, headHTML: headClone.innerHTML };
+		return {
+			slides: parsedSlides,
+			themeVars: vars,
+			headHTML: headClone.innerHTML,
+			ticker: parseTicker(doc)
+		};
 	}
 
 	// ── Preview iframe ───────────────────────────────────────────────────────
@@ -460,6 +499,9 @@
 		headHTML = parsed.headHTML;
 		themeVars = parsed.themeVars;
 		themeChanges = {};
+		tickerPhrases = parsed.ticker.phrases;
+		tickerRepeat = parsed.ticker.repeat;
+		hasTicker = parsed.ticker.present;
 		fileHandle = handle || null;
 		fileName = name || 'presentation.html';
 		slides = parsed.slides;
@@ -580,6 +622,7 @@
 			/const\s+stationLabels\s*=\s*\[[\s\S]*?\];/,
 			`const stationLabels = [\n    ${labels}\n  ];`
 		);
+		out = writeTicker(out);
 		for (const [name, val] of Object.entries(themeChanges)) {
 			const re = new RegExp('(--' + name.replace(/[-]/g, '\\-') + '\\s*:\\s*)([^;]+)(;)');
 			out = out.replace(re, '$1' + val + '$3');
@@ -589,6 +632,49 @@
 			.replace(/\s+spellcheck="false"/g, '');
 		out = out.replace(/\s+data-builder-sel(?:="[^"]*")?/g, '');
 		return out;
+	}
+
+	// ── Ticker editing ─────────────────────────────────────────────────────
+	function setTickerPhrase(i: number, v: string) {
+		tickerPhrases[i] = v;
+		markDirty(true);
+	}
+	function addTickerPhrase() {
+		tickerPhrases.push('New phrase');
+		markDirty(true);
+	}
+	function deleteTickerPhrase(i: number) {
+		tickerPhrases.splice(i, 1);
+		markDirty(true);
+	}
+	function moveTickerPhrase(i: number, delta: number) {
+		const to = i + delta;
+		if (to < 0 || to >= tickerPhrases.length) return;
+		const [p] = tickerPhrases.splice(i, 1);
+		tickerPhrases.splice(to, 0, p);
+		markDirty(true);
+	}
+
+	const escapeHTML = (s: string) =>
+		s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+	// Rewrite each `.ticker-group`'s contents in place, re-expanding the cycle to the
+	// repeat count the file arrived with. Only the innards are touched, so the wrapper's
+	// attributes (the second group's aria-hidden) and the file's indentation survive.
+	//
+	// Emptying the list writes an empty strip rather than quietly restoring the file's
+	// original phrases: the export has to say what the editor says.
+	function writeTicker(out: string) {
+		if (!hasTicker) return out;
+		const phrases = tickerPhrases.map((p) => p.trim()).filter(Boolean);
+		const items = Array.from({ length: tickerRepeat }, () => phrases)
+			.flat()
+			.map((p) => `      <span class="ticker-item">${escapeHTML(p)}</span>`)
+			.join('\n');
+		return out.replace(
+			/(<div class="ticker-group"[^>]*>)[\s\S]*?(<\/div>)/g,
+			(_m, open, close) => (items ? `${open}\n${items}\n    ${close}` : `${open}${close}`)
+		);
 	}
 
 	// ── Rail geometry ──────────────────────────────────────────────────────
@@ -828,6 +914,51 @@
 							<button class="tb" onclick={() => insertSnippet(SNIPPETS[k])}>{k}</button>
 						{/each}
 					</div>
+
+					<!-- Ticker -->
+					{#if hasTicker}
+						<div class="section-title">Motto ticker</div>
+						<p class="hint sm">
+							The scrolling strip on the title slide. Phrases cycle in order; the deck repeats
+							them to fill the strip, so you only list each one once.
+						</p>
+						{#each tickerPhrases as phrase, i}
+							<div class="ticker-row">
+								<input
+									class="tv-val grow"
+									type="text"
+									value={phrase}
+									oninput={(e) => setTickerPhrase(i, e.currentTarget.value)}
+									placeholder="A phrase for the ticker"
+									aria-label="Ticker phrase {i + 1}"
+								/>
+								<button
+									class="mini icon-only"
+									onclick={() => moveTickerPhrase(i, -1)}
+									disabled={i === 0}
+									title="Move up"
+									aria-label="Move phrase {i + 1} up">↑</button>
+								<button
+									class="mini icon-only"
+									onclick={() => moveTickerPhrase(i, 1)}
+									disabled={i === tickerPhrases.length - 1}
+									title="Move down"
+									aria-label="Move phrase {i + 1} down">↓</button>
+								<button
+									class="mini icon-only danger"
+									onclick={() => deleteTickerPhrase(i)}
+									title="Remove phrase"
+									aria-label="Remove phrase {i + 1}">{@html CLOSE_SVG}</button>
+							</div>
+						{:else}
+							<p class="hint">No phrases — the strip will export empty.</p>
+						{/each}
+						<button class="mini" onclick={addTickerPhrase}>+ Add phrase</button>
+						<p class="hint sm">
+							The ticker sits outside the slide, so it won't show in the preview — open the
+							exported deck to see it run.
+						</p>
+					{/if}
 
 					<!-- Theme -->
 					<div class="section-title">Theme colors</div>
@@ -1492,13 +1623,30 @@
 	.mini.icon-only {
 		padding: 0.24rem 0.4rem;
 	}
+	.mini.danger:hover:not(:disabled) {
+		color: #c93328;
+		border-color: #c93328;
+	}
+	.mini:disabled {
+		opacity: 0.38;
+		cursor: default;
+		transform: none;
+	}
+	/* One ticker phrase: the text fills the row, its reorder/remove controls sit tight
+	   at the end — same rhythm as .theme-row. */
+	.ticker-row {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+		margin-bottom: 0.45rem;
+	}
 	.mini :global(svg) {
 		width: 13px;
 		height: 13px;
 		display: block;
 		flex-shrink: 0;
 	}
-	.mini:hover {
+	.mini:hover:not(:disabled) {
 		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
 		transform: scale(1.07);
 		box-shadow: 0 3px 10px rgba(10, 10, 10, 0.11);
