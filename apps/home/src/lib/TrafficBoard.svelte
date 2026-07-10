@@ -1051,6 +1051,24 @@
 		</button>
 	{/each}
 {/snippet}
+{#snippet fieldSelect()}
+	<!-- Mobile counterpart to the field pills (hidden on wide panels). A dropdown of the fields
+	     by name, so it costs one line instead of the pills' several — its option value is the icao
+	     (what select() and sel.icao key on). -->
+	<select
+		class="field-select field-select-airport"
+		aria-label="Airport"
+		value={sel.icao}
+		onchange={(e) => {
+			const a = AIRPORTS.find((x) => x.icao === e.currentTarget.value);
+			if (a) select(a);
+		}}
+	>
+		{#each AIRPORTS as a}
+			<option value={a.icao}>{a.name}</option>
+		{/each}
+	</select>
+{/snippet}
 {#snippet rangeButtons()}
 	<select
 		class="field-select"
@@ -1160,8 +1178,9 @@
 						<span class="ctl-label">Refresh</span>{@render refreshButtons()}
 					</div>
 				</div>
-				<!-- --bn 14: the readout lands just past Refresh, one rung before the right cap. -->
-				<dl class="deck-summary" aria-label="Board summary" style="--bn:14">
+				<!-- The readout lands just past Refresh; its label/value pairs stagger 14→17 (see the
+				     .deck-summary dt/dd rules), so In range and Updated deal in one after another. -->
+				<dl class="deck-summary" aria-label="Board summary">
 					<div class="stat">
 						<dt>In range</dt>
 						<dd>{status === 'loading' || status === 'error' ? '—' : rows.length}</dd>
@@ -1175,13 +1194,13 @@
 			<!-- Right end-cap: the live refresh control paired with the collapse toggle. --bn on
 			     the wrapper (manual inherits it); the collapse cap takes the last beat, so the
 			     ripple finishes where the eye ends up — at the far right of the bar. -->
-			<div class="corner corner-bar" style="--bn:15">
+			<div class="corner corner-bar" style="--bn:18">
 				{@render manualButton()}
 				{#if onToggleExpand}
 					<button
 						type="button"
 						class="icon-btn nav-edge"
-						style="--bn:16"
+						style="--bn:19"
 						onclick={onToggleExpand}
 						aria-label="Collapse panel"
 						title="Collapse"
@@ -1220,7 +1239,10 @@
 		{/if}
 	</header>
 
-	<div class="tfc-body">
+	<!-- `booting` (= not yet booted) gates the body's one-time entrance: the summary, the table
+	     headers, the row rules, and the legend animate in on the first fill, then the flag clears
+	     on the next poll so a live update never re-runs the assembly. -->
+	<div class="tfc-body" class:booting={!booted}>
 		<!-- Live-data activity meter, covering the whole wait so there's feedback BEFORE and
 		     DURING, not just after. Two phases share one bar (so it never disappears between
 		     them): while the board is first loading a field, the ADS-B fetch is in flight and
@@ -1259,20 +1281,27 @@
 		{/if}
 
 		{#if !showDeck}
-			<!-- --bn 1: the "Airport" label rides in with the first pill (pills self-index 1…11). -->
-			<div class="fields ranges" role="radiogroup" aria-label="Airport" style="--bn:1">
-				<span class="range-label">Airport</span>
-				<div class="field-wrap">{@render fieldButtons()}</div>
-			</div>
+			<!-- Compact controls. On a wide panel these stack as three labelled rows, the field a
+			     row of pills. On mobile (bottom sheet) the pills would wrap to several lines, so the
+			     field collapses to a dropdown and all three sit on one row — see the media query. -->
+			<div class="controls-compact">
+				<!-- --bn 1: the "Airport" label rides in with the first pill (pills self-index 1…11). -->
+				<div class="fields ranges" role="radiogroup" aria-label="Airport" style="--bn:1">
+					<span class="range-label">Airport</span>
+					<!-- Wide panel: the pills. Mobile: the dropdown (one or the other shows). -->
+					<div class="field-wrap">{@render fieldButtons()}</div>
+					{@render fieldSelect()}
+				</div>
 
-			<!-- --bn continues the ripple past the field pills (which self-index 1…11), so the
-			     compact rows populate top-to-bottom after the pills settle, select inheriting it. -->
-			<div class="fields ranges" style="--bn:12">
-				<span class="range-label">Range</span>{@render rangeButtons()}
-			</div>
+				<!-- --bn continues the ripple past the field pills (which self-index 1…11), so the
+				     compact rows populate top-to-bottom after the pills settle, select inheriting it. -->
+				<div class="fields ranges" style="--bn:12">
+					<span class="range-label">Range</span>{@render rangeButtons()}
+				</div>
 
-			<div class="fields ranges" style="--bn:13">
-				<span class="range-label">Refresh</span>{@render refreshButtons()}
+				<div class="fields ranges" style="--bn:13">
+					<span class="range-label">Refresh</span>{@render refreshButtons()}
+				</div>
 			</div>
 
 			<div class="board-head">
@@ -1367,7 +1396,7 @@
 							class="row"
 							class:enter={p.status === 'enter'}
 							class:leave={p.status === 'leave'}
-							style="--stagger:{p.stagger}"
+							style="--stagger:{p.stagger}; --ri:{i}"
 							animate:flip={{ duration: 360, easing: cubicOut }}
 						>
 							<td>
@@ -1637,12 +1666,27 @@
 		.tfc-head .manual,
 		.tfc-head .eyebrow,
 		.tfc-head .ctl-label,
-		.tfc-head .deck-summary .stat,
+		.tfc-head .deck-summary dt,
+		.tfc-head .deck-summary dd,
 		.fields .field,
 		.fields .field-select,
 		.fields .range-label {
 			animation: btn-in 0.42s var(--spring) backwards;
 			animation-delay: calc(var(--enter-lead) + var(--bn, 0) * var(--btn-enter-step));
+		}
+		/* The readout deals in label-then-value, In range before Updated — four beats past
+		   Refresh (13), before the right end-cap (18/19). */
+		.deck-summary .stat:nth-child(1) dt {
+			--bn: 14;
+		}
+		.deck-summary .stat:nth-child(1) dd {
+			--bn: 15;
+		}
+		.deck-summary .stat:nth-child(2) dt {
+			--bn: 16;
+		}
+		.deck-summary .stat:nth-child(2) dd {
+			--bn: 17;
 		}
 		/* The Connections nav closes the board's body — it rises in like any panel's content,
 		   one layer-beat after the header chrome, so the interior reads top (title) to bottom
@@ -1650,6 +1694,92 @@
 		.tfc-connections {
 			animation: rise 0.5s ease backwards;
 			animation-delay: calc(var(--enter-lead) + var(--enter-layer));
+		}
+	}
+
+	/* ── Board body entrance — first fill only (.booting) ────────────────────────────────────
+	   The header assembles via the chrome ripple above; the body follows the same idea a layer
+	   deeper. The compact summary rises, the table headers slide in left-to-right, then each
+	   row's top rule draws and its cells rise into it — the lines visibly emerging the rows —
+	   and the Arr/Dep/Ovr legend deals in. Keyed off the column order or the row index (--ri),
+	   capped so a long board doesn't trail on. `backwards` throughout: the type buttons nested
+	   in the rows are in the universal hover/press list. */
+	@media (prefers-reduced-motion: no-preference) {
+		.booting .board-head {
+			animation: rise 0.5s ease backwards;
+			animation-delay: var(--enter-lead);
+		}
+		.booting thead th {
+			animation: btn-in 0.42s var(--spring) backwards;
+			animation-delay: calc(var(--enter-lead) + var(--bn, 0) * var(--btn-enter-step));
+		}
+		.booting thead th:nth-child(1) {
+			--bn: 0;
+		}
+		.booting thead th:nth-child(2) {
+			--bn: 1;
+		}
+		.booting thead th:nth-child(3) {
+			--bn: 2;
+		}
+		.booting thead th:nth-child(4) {
+			--bn: 3;
+		}
+		.booting thead th:nth-child(5) {
+			--bn: 4;
+		}
+		.booting thead th:nth-child(6) {
+			--bn: 5;
+		}
+		.booting thead th:nth-child(7) {
+			--bn: 6;
+		}
+		.booting thead th:nth-child(8) {
+			--bn: 7;
+		}
+		.booting thead th:nth-child(9) {
+			--bn: 8;
+		}
+		.booting thead th:nth-child(10) {
+			--bn: 9;
+		}
+		.booting thead th:nth-child(11) {
+			--bn: 10;
+		}
+		/* Each row's top rule draws in, then its cells rise into it — line, then row. A tight
+		   per-row beat one layer past the headers, capped since a full board runs to a couple
+		   dozen rows. The cells' flaps run inside, so the row keeps materialising after it lands. */
+		.booting tbody td {
+			animation: line-in 0.3s ease backwards;
+			animation-delay: calc(
+				var(--enter-lead) + var(--enter-layer) + min(var(--ri, 0), 14) * 0.028s
+			);
+		}
+		.booting tbody .ci {
+			animation: rise 0.44s ease backwards;
+			animation-delay: calc(
+				var(--enter-lead) + var(--enter-layer) + min(var(--ri, 0), 14) * 0.028s + 0.05s
+			);
+		}
+		.booting .key-item {
+			animation: btn-in 0.42s var(--spring) backwards;
+			animation-delay: calc(var(--enter-lead) + var(--enter-layer) + var(--bn, 0) * var(--btn-enter-step));
+		}
+		.booting .key-item:nth-child(1) {
+			--bn: 0;
+		}
+		.booting .key-item:nth-child(2) {
+			--bn: 1;
+		}
+		.booting .key-item:nth-child(3) {
+			--bn: 2;
+		}
+	}
+	/* The row rule fades up from nothing to its resting hairline (omitting `to` animates toward
+	   the base border-top-color) — the line drawing itself in ahead of the cells that rise into it. */
+	@keyframes line-in {
+		from {
+			border-top-color: transparent;
 		}
 	}
 	.deck {
@@ -1831,6 +1961,18 @@
 		outline: var(--focus-ring);
 		background: color-mix(in srgb, var(--ink) 5%, transparent);
 	}
+	/* The three compact control rows, grouped. On a wide panel this is a plain column (each row
+	   stacks, matching the body's own gap), so nothing about the desktop look changes. The group
+	   exists so the mobile media query can turn it into a single row. */
+	.controls-compact {
+		display: flex;
+		flex-direction: column;
+		gap: 0.7rem;
+	}
+	/* The field dropdown is mobile-only; wide panels use the pills. (Shown by the media query.) */
+	.field-select-airport {
+		display: none;
+	}
 	.fields {
 		display: flex;
 		flex-wrap: wrap;
@@ -1912,6 +2054,39 @@
 	.field-select:focus-visible {
 		outline: var(--focus-ring);
 		outline-offset: 2px;
+	}
+	/* Mobile: field pills → dropdown, and all three controls onto one row. Placed AFTER the base
+	   .controls-compact / .field-wrap / .field-select rules on purpose — same specificity, so it
+	   has to come later in source to win inside the media match. The pills wrap to several lines
+	   on a phone; a dropdown costs one line, and the space saved lets Airport, Range and Refresh
+	   sit side by side, each a labelled column. */
+	@media (max-width: 720px) {
+		.controls-compact {
+			flex-direction: row;
+			align-items: flex-start;
+			gap: 0.5rem;
+		}
+		.controls-compact .fields.ranges {
+			flex: 1;
+			min-width: 0;
+			flex-direction: column;
+			align-items: stretch;
+			gap: 0.25rem;
+		}
+		.controls-compact .range-label {
+			min-width: 0; /* drop the desktop column-alignment width; the label just caps its control */
+		}
+		.field-wrap {
+			display: none; /* the pills give way to the dropdown */
+		}
+		.field-select-airport {
+			display: block;
+		}
+		/* Each control fills its column, so the three read as one even row of dropdowns. */
+		.controls-compact .field-select {
+			width: 100%;
+			box-sizing: border-box;
+		}
 	}
 	.board-head {
 		display: flex;
@@ -2327,6 +2502,17 @@
 	}
 	.tag.over {
 		background: color-mix(in srgb, var(--ink) 45%, transparent);
+	}
+	/* The direction chip springs in whenever it mounts — which, once the board has booted, is on
+	   a field switch: the table re-keys, the cells flap, and the tags used to just appear beside
+	   them. Staggered down the board by row (--ri). On the first fill and on a live arrival the
+	   row's own reveal (the .booting .ci rise, or .enter's padIn) holds the whole cell at opacity
+	   0 across this pop, so it's masked there and only actually shows on a field switch. */
+	@media (prefers-reduced-motion: no-preference) {
+		.tag {
+			animation: pop 0.4s ease-out backwards;
+			animation-delay: calc(min(var(--ri, 0), 14) * 0.028s);
+		}
 	}
 	/* Key for the arriving / departing / overflight tags — one row. */
 	.key {

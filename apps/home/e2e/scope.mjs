@@ -30,9 +30,11 @@ async function open(path) {
 }
 
 const url = (page) => page.url().slice(B.length);
-// The range/refresh controls are <select>s in the board's control strip.
-const rangeSel = (page) => page.locator('select').first();
-const refreshSel = (page) => page.locator('select').nth(1);
+// The range/refresh controls are <select>s in the board's control strip. Target them by
+// aria-label, not position: the compact panel also carries a hidden Airport <select> (the
+// mobile field dropdown), so `select` order is no longer Range-then-Refresh.
+const rangeSel = (page) => page.locator('select[aria-label="Radar range (nautical miles)"]');
+const refreshSel = (page) => page.locator('select[aria-label="Auto-refresh interval"]');
 
 // ── 1. Defaults carry no params, and a param spelling a default is stripped ──
 {

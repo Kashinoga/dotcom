@@ -926,8 +926,8 @@
 					<div class="section-title">Insert element</div>
 					<p class="hint sm">Inserts at the cursor in the preview (click into the slide first).</p>
 					<div class="insert-grid">
-						{#each Object.keys(SNIPPETS) as k, i}
-							<button class="tb" style="--bn:{i}" onclick={() => insertSnippet(SNIPPETS[k])}>{k}</button>
+						{#each Object.keys(SNIPPETS) as k}
+							<button class="tb" onclick={() => insertSnippet(SNIPPETS[k])}>{k}</button>
 						{/each}
 					</div>
 
@@ -939,7 +939,7 @@
 							them to fill the strip, so you only list each one once.
 						</p>
 						{#each tickerPhrases as phrase, i}
-							<div class="ticker-row" style="--n:{i}">
+							<div class="ticker-row">
 								<input
 									class="tv-val grow"
 									type="text"
@@ -1370,6 +1370,10 @@
 		position: relative;
 		display: grid;
 		grid-template-columns: 30px 1fr auto;
+		/* Two EXPLICIT rows — label line, then title line. Explicit so the dot/drag can span the
+		   whole cell with `grid-row: 1 / -1` (a negative line counts from the end of the explicit
+		   grid; with implicit rows -1 would fold back to line 1 and the span collapse). */
+		grid-template-rows: auto auto;
 		align-items: start;
 		column-gap: 0.55rem;
 		row-gap: 0.1rem;
@@ -1400,9 +1404,14 @@
 		z-index: 1;
 	}
 	.stn-dot {
-		grid-row: 1 / span 2;
+		/* 1 / -1, not span 2: the row auto-places its title into a THIRD grid row (the middle row
+		   resolves to 0px), so span 2 only reached the label line + that empty row and left the dot
+		   up at the label. Spanning every row and centring lands it mid-way between the label and
+		   title lines — the middle of the active row's highlight. The drag handle opposite matches;
+		   the rail is measured from the dots, so it follows. */
+		grid-row: 1 / -1;
 		justify-self: center;
-		margin-top: 3px;
+		align-self: center;
 		width: 15px;
 		height: 15px;
 		/* 999px (not 50%) so the active dot's spread box-shadow can't render squared
@@ -1447,6 +1456,7 @@
 	}
 	.stn-title {
 		grid-column: 2 / 3;
+		grid-row: 2; /* explicit, so it can't auto-place into a phantom third row */
 		font-size: 0.72rem;
 		color: var(--sub);
 		overflow: hidden;
@@ -1455,7 +1465,7 @@
 		opacity: 0.85;
 	}
 	.stn-drag {
-		grid-row: 1 / span 2;
+		grid-row: 1 / -1; /* span every row (see .stn-dot) so it centres level with the node */
 		align-self: center;
 		display: flex;
 		color: var(--sub);
@@ -1472,14 +1482,11 @@
 		opacity: 0.55;
 	}
 
-	/* ── Building-content entrance — the deck's own elements, cohesion with the app ──────────
-	   Unlike the header and columns (which enter on panel open), these mount later — when a deck
-	   loads or a slide is selected — so each runs its own short cascade the moment it appears:
-	   the slide rail builds station by station (each row rises while its route-line dot pops, the
-	   same spring the homepage map's station dots use), the Insert palette ripples left-to-right,
-	   and the ticker phrases deal out top to bottom. Staggers cap with min() so a long deck or a
-	   long ticker list doesn't trail on. `backwards` throughout: the .tb and .mini nested here are
-	   in the universal hover/press list, and a held transform would freeze their scale(). */
+	/* ── Slide rail entrance — the deck's route line ─────────────────────────────────────────
+	   Mounts when a deck loads (later than the header/columns), so it runs its own cascade the
+	   moment it appears: the rail builds station by station, each row rising while its route-line
+	   dot pops on the same spring the homepage map's station dots use. Capped with min() so a
+	   long deck doesn't trail on. `backwards` — the row is clickable and must not stay pinned. */
 	@media (prefers-reduced-motion: no-preference) {
 		.stn-v {
 			animation: rise 0.5s ease backwards;
@@ -1490,13 +1497,66 @@
 			animation: pop 0.5s ease-out backwards;
 			animation-delay: calc(var(--enter-lead) + min(var(--n, 0), 9) * var(--enter-step));
 		}
-		.insert-grid .tb {
+	}
+
+	/* ── Column interiors — one layer past the columns' own slide ────────────────────────────
+	   The header ripples, the three columns slide in (both above), and their contents settle into
+	   them a beat later: each column head deals label-then-actions, the empty-state stack rises,
+	   the sidebar hints fade up, and the whole Inspector deals out top-to-bottom (its section
+	   titles, fields, swatches, the Insert palette, the ticker rows — one uniform run rather than
+	   some parts rippling while others sit drawn). Whatever's mounted for the current state runs
+	   its own short cascade. `backwards` throughout: chips, tb, minis and swatch buttons nested in
+	   here are all in the universal hover/press list, so the fill must lift or it freezes them. */
+	@media (prefers-reduced-motion: no-preference) {
+		/* Column heads slide in horizontally (like all chrome), label then actions. btn-in, NOT
+		   rise: the Add-slide "+" is disabled with no deck loaded, and rise ends at opacity 1 —
+		   so it faded fully in, then snapped to its disabled 0.4. btn-in animates toward each
+		   element's own resting opacity, so a disabled control fades straight to its faded state. */
+		.col-head > * {
 			animation: btn-in 0.42s var(--spring) backwards;
-			animation-delay: calc(var(--enter-lead) + var(--bn, 0) * var(--btn-enter-step));
+			animation-delay: calc(var(--enter-lead) + var(--enter-layer) + min(var(--n, 0), 8) * var(--enter-step));
 		}
-		.ticker-row {
+		.empty > *,
+		.pb-left .col-body > .hint,
+		.pb-right .col-body > * {
 			animation: rise 0.46s ease backwards;
-			animation-delay: calc(var(--enter-lead) + min(var(--n, 0), 9) * var(--enter-step));
+			animation-delay: calc(var(--enter-lead) + var(--enter-layer) + min(var(--n, 0), 8) * var(--enter-step));
+		}
+		/* Column heads: the label, then its actions. */
+		.col-head > *:nth-child(2) {
+			--n: 1;
+		}
+		/* Empty state: heading, blurb, then the action buttons. */
+		.empty > *:nth-child(2) {
+			--n: 1;
+		}
+		.empty > *:nth-child(3) {
+			--n: 2;
+		}
+		/* Inspector body: top-to-bottom, capped so a tall panel doesn't trail on. */
+		.pb-right .col-body > *:nth-child(1) {
+			--n: 0;
+		}
+		.pb-right .col-body > *:nth-child(2) {
+			--n: 1;
+		}
+		.pb-right .col-body > *:nth-child(3) {
+			--n: 2;
+		}
+		.pb-right .col-body > *:nth-child(4) {
+			--n: 3;
+		}
+		.pb-right .col-body > *:nth-child(5) {
+			--n: 4;
+		}
+		.pb-right .col-body > *:nth-child(6) {
+			--n: 5;
+		}
+		.pb-right .col-body > *:nth-child(7) {
+			--n: 6;
+		}
+		.pb-right .col-body > *:nth-child(n + 8) {
+			--n: 7;
 		}
 	}
 

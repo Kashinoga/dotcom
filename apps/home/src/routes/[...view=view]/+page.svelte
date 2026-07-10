@@ -1715,9 +1715,10 @@
 							{@render accentDot(accent[v.code])}
 						</div>
 					</div>
-					<div class="surface-body">
+					<div class="surface-body" class:settings={v.code === 'STG'}>
 						{#if v.code === 'STG'}
 							{@const editStg = dev && editMode}
+							<div class="stg-group">
 							<p
 								class:editable={editStg}
 								contenteditable={editStg}
@@ -1757,6 +1758,8 @@
 									? (e) => stageSettings('routeNote', e.currentTarget.textContent ?? '')
 									: undefined}
 							>{noteText('routeNote', mapPhrase, editStg)}</p>
+							</div>
+							<div class="stg-group">
 							<p
 								class="seg-lead"
 								class:editable={editStg}
@@ -1797,6 +1800,8 @@
 									? (e) => stageSettings('labelNote', e.currentTarget.textContent ?? '')
 									: undefined}
 							>{noteText('labelNote', labelValue, editStg)}</p>
+							</div>
+							<div class="stg-group">
 							<p
 								class="seg-lead"
 								class:editable={editStg}
@@ -1828,6 +1833,8 @@
 									? (e) => stageSettings('displayNote', e.currentTarget.textContent ?? '')
 									: undefined}
 							>{noteText('displayNote', displayValue, editStg)}</p>
+							</div>
+							<div class="stg-group">
 							<p
 								class="seg-lead"
 								class:editable={editStg}
@@ -1859,6 +1866,8 @@
 									? (e) => stageSettings('uiNote', e.currentTarget.textContent ?? '')
 									: undefined}
 							>{noteText('uiNote', uiStatus, editStg)}</p>
+							</div>
+							<div class="stg-group">
 							<p
 								class="seg-lead"
 								class:editable={editStg}
@@ -1889,6 +1898,8 @@
 									? (e) => stageSettings('skyNote', e.currentTarget.textContent ?? '')
 									: undefined}
 							>{noteText('skyNote', skyStatus, editStg)}</p>
+							</div>
+							<div class="stg-group">
 							<p
 								class="seg-lead"
 								class:editable={editStg}
@@ -1927,6 +1938,8 @@
 									? (e) => stageSettings('starsNote', e.currentTarget.textContent ?? '')
 									: undefined}
 							>{noteText('starsNote', starsStatus, editStg)}</p>
+							</div>
+							<div class="stg-group">
 							<p
 								class="seg-lead"
 								class:editable={editStg}
@@ -1951,7 +1964,9 @@
 									? 'Everything on this page is already at its default.'
 									: 'Puts the settings above back to Train, Full names, System, Flat, Auto and On. Saved edits elsewhere are left alone.'}
 							</p>
+							</div>
 							{#if dev}
+								<div class="stg-group">
 								<p class="seg-lead">Edit the panel copy right in the app.</p>
 								<div class="dev-actions">
 									<button
@@ -1972,6 +1987,7 @@
 									your changes. Clear local storage wipes saved edits and preferences, then
 									reloads to the source defaults. (Dev only.)
 								</p>
+								</div>
 							{/if}
 						{:else}
 						{@const edit = dev && editMode && !!pages[v.code]}
@@ -3037,6 +3053,42 @@
 		margin-top: 1.4rem;
 		padding-top: 1.25rem;
 		border-top: 1px solid var(--line);
+	}
+	/* Each settings group — its lead, control and note — is wrapped in a .stg-group so it can be
+	   laid out and kept together as a unit. In the normal (compact) panel the wrapper is inert:
+	   the group is a block whose children space themselves by the same amount the body's old flex
+	   gap gave them, so the stacked look is unchanged. */
+	.stg-group > * + * {
+		margin-top: 1.05rem;
+	}
+	/* Expanded settings spread into a grid — a full-viewport panel has far more width than one
+	   column of controls needs. Groups flow into as many ~19rem tracks as fit (two or three on a
+	   wide desktop). Grid, not multicol: a group is one cell, so it can never split across a
+	   column the way multicol's break rules let a note orphan. The Connections nav spans the full
+	   width beneath. (The panel can't be expanded on mobile, so this is desktop-only in practice.) */
+	.surface.expanded .settings {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr));
+		align-content: start;
+		gap: 1.75rem 2.75rem;
+	}
+	.surface.expanded .settings > .onward {
+		grid-column: 1 / -1;
+	}
+	/* The per-lead divider line reads as a stray rule atop a grid cell, so the groups separate by
+	   the grid gap alone; the lead that led each group no longer needs its top border. */
+	.surface.expanded .settings .stg-group > .seg-lead,
+	.surface.expanded .settings .stg-group > p {
+		border-top: none;
+		padding-top: 0;
+		margin-top: 0;
+	}
+	/* Level the group headers so the controls beneath them line up across a grid row. Each group's
+	   lead is its first child; a one-line description and a two-line one would otherwise push their
+	   controls to different heights, and the eye zig-zags reading the row left to right. Flooring
+	   every lead at two lines lands all the controls on the same line. */
+	.surface.expanded .settings .stg-group > :first-child {
+		min-height: 3.25rem;
 	}
 	/* Sky picker — Off / Auto / the five phases, as a wrapping chip row. */
 	.sky-picker {
