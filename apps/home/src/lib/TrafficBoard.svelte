@@ -677,12 +677,13 @@
 	};
 	const rows = $derived.by<Row[]>(() => {
 		routeVer; // dependency: re-derive when the route cache fills
+		opFlaps; // …and when the board crosses a width tier, re-cutting every operator
 		return planes.map((p) => {
 			const route = routeCache.get(p.call.toUpperCase()) ?? null;
 			let tag: Row['tag'] = null;
 			if (route) tag = route.d.icao === sel.icao ? 'arr' : route.o.icao === sel.icao ? 'dep' : 'over';
 			const opLabel = opName({ op: p.op, route });
-			return { ...p, route, tag, opLabel, opShort: fitFlaps(opLabel) };
+			return { ...p, route, tag, opLabel, opShort: fitFlaps(opLabel, opFlaps) };
 		});
 	});
 
@@ -744,8 +745,30 @@
 	// letter, so the table's auto layout sizes this column from the letters it's given.
 	// A CSS max-width here is simply ignored — which is how the untruncated name came to
 	// overflow `visible` and paint on top of the Alt column.
-	const OP_FLAPS = 24; // total visible chars, ellipsis included
-	function fitFlaps(s: string, max = OP_FLAPS) {
+	//
+	// How many flaps the column gets depends on how wide the board is. Quantised into tiers
+	// rather than computed continuously from `bodyW`, for two reasons: the cell is keyed on
+	// its text (`{#key p.opShort}`), so every change to the budget re-mounts the flap and
+	// re-runs its scramble — a continuous budget would make the column shimmer through a
+	// whole window drag; and the truncation feeds back into the column's own width, so a
+	// width→chars→width loop would need damping. Tiers only cross on a real size change.
+	//
+	// Thresholds are CONTAINER widths, the same units the .x2 breakpoints below use — so 940
+	// here is the same 940 that reveals the column. Measured off `.scroll`, a plain block
+	// child of `.tfc-body`: its clientWidth is the container's content box. (`.tfc-body`
+	// itself would give the padding box, and its padding is `clamp(1.5rem, 4vw, 2.75rem)` —
+	// it varies with the viewport, so there's no constant to subtract.)
+	const OP_TIERS = [
+		{ at: 1510, flaps: 40 }, // expanded on a wide desktop; fits all but the longest names
+		{ at: 1280, flaps: 32 },
+		{ at: 1080, flaps: 26 },
+		{ at: 940, flaps: 22 }, // the narrowest the column is ever seen at
+		{ at: 0, flaps: 18 } // unreachable while .x2 hides the column — a floor, not a tier
+	];
+	let boardW = $state(0);
+	const opFlaps = $derived(OP_TIERS.find((t) => boardW >= t.at)!.flaps);
+
+	function fitFlaps(s: string, max: number) {
 		if (s.length <= max) return s;
 		const hard = s.slice(0, max - 1);
 		// Prefer to break on a word, but not when backing up guts the label: for a long
@@ -1269,7 +1292,7 @@
 	{:else if status === 'empty'}
 		<p class="msg">No aircraft in range right now. Quiet skies over {sel.iata}.</p>
 	{:else}
-		<div class="scroll">
+		<div class="scroll" bind:clientWidth={boardW}>
 			<table class="board">
 				<thead>
 					<tr>
