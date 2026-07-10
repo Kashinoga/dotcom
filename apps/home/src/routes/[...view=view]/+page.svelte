@@ -2392,20 +2392,33 @@
 		   .surface-backdrop pane static, so WebKit rasterises its blur once rather than
 		   re-blurring on every scroll frame (the Safari big-surface cost). */
 		overflow: hidden;
-		/* The frosted fill + backdrop blur live on .surface-backdrop, not here; the frame
-		   only carries the crisp left edge. */
-		border-left: 1px solid var(--panel-edge);
+		/* The fill lives on .surface-backdrop, not here; the frame only carries the left edge.
+		   Flat: a hairline in the same ink as every other divider — the panel is separated
+		   from the map by a drawn line. Bubble: a bright Fresnel rim, since there it's a
+		   moulded edge catching light. */
+		border-left: 1px solid var(--line);
 	}
-	/* Frosted plastic pane: a cool moulded translucent surface (not warm paper). A top gloss
-	   sheen over a frosted tint that lets the map's colour bleed through — blurred illegible by
-	   the shared backdrop filter. Absolutely positioned and OUTSIDE the scroller, so it stays
-	   pinned to the panel box while content scrolls above it. Same fill + blur in every state. */
+	:global(html[data-ui='bubble']) .surface {
+		border-left-color: var(--panel-edge);
+	}
+	/* The panel's material.
+	   Flat — an opaque sheet. No sheen, no backdrop blur: depth comes from the edge above and
+	   from the map simply being covered, not from glass you can half-see through. Dropping the
+	   blur also retires the Safari big-surface backdrop-filter cost in this mode entirely.
+	   Bubble — frosted plastic: a top gloss sheen over a translucent tint, with the map beneath
+	   blurred to illegible colour.
+	   Either way it's absolutely positioned OUTSIDE the scroller, so it stays pinned to the
+	   panel box while content scrolls above it, and it's identical in compact and expanded. */
 	.surface-backdrop {
 		position: absolute;
 		inset: 0;
 		z-index: 0;
 		pointer-events: none;
+		background: var(--panel-fill-solid);
+	}
+	:global(html[data-ui='bubble']) .surface-backdrop {
 		background: var(--panel-sheen), var(--panel-fill);
+		-webkit-backdrop-filter: var(--panel-blur);
 		backdrop-filter: var(--panel-blur);
 	}
 	/* The actual scroller: fills the frame and holds all panel content above the frosted pane.

@@ -93,6 +93,14 @@
 	 * compact and expanded states (their background is identical); --head is the near-opaque
 	 * sticky-header tint. */
 	--panel-fill: light-dark(rgba(236, 238, 243, 0.75), rgba(28, 30, 37, 0.75));
+	/* Flat mode's panel body: opaque. A panel is a sheet laid over the map, separated by its
+	   edge, not a pane of glass separated by what shows through it. (Bubble keeps the frosted
+	   --panel-fill.)
+	   Deliberately a few steps LIGHTER than --panel-head rather than the same tint: the
+	   frosted body used to borrow contrast from the map beneath, which is what made the
+	   header read as a darker band. An opaque body borrows nothing, so the step has to be
+	   built into the token or the header band disappears. */
+	--panel-fill-solid: light-dark(rgb(243, 245, 249), rgb(33, 35, 42));
 	/* Near-opaque: the ATFC header is sticky over scrolling rows and no longer blurs, so it
 	   must hide what passes beneath. */
 	--panel-head: light-dark(rgba(233, 236, 242, 0.97), rgba(26, 28, 34, 0.97));

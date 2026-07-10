@@ -1828,8 +1828,10 @@
 	}
 	.manual:active {
 		transform: rotate(-90deg);
-		/* Depress on click like every other button (the spin stays its own flourish). */
-		box-shadow: inset 0 2px 4px rgba(10, 10, 10, 0.14);
+		/* Depress on click like every other button (the spin stays its own flourish). The
+		   press is a flat fill darkening, not an inset bevel — Flat mode uses no shadow of
+		   any kind. Bubble supplies its own sunk gloss globally (see +page.svelte). */
+		background: color-mix(in srgb, var(--ink) 13%, transparent);
 	}
 	.manual:focus-visible {
 		outline: var(--focus-ring);
@@ -1904,9 +1906,10 @@
 		font-size: 0.78rem;
 		line-height: 1.45;
 		color: var(--paper);
+		/* Reads above the board by inverting — near-solid ink on a light panel — the same
+		   device the site's .edit-toast uses. No drop shadow. */
 		background: color-mix(in srgb, var(--ink) 92%, transparent);
 		border-radius: 8px;
-		box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
 		opacity: 0;
 		transform: translateY(-3px);
 		pointer-events: none;

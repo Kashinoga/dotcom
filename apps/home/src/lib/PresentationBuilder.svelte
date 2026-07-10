@@ -1122,11 +1122,18 @@
 	.swatch-btn {
 		--btn-ease: cubic-bezier(0.34, 1.4, 0.64, 1);
 		--soft: cubic-bezier(0.4, 0, 0.2, 1);
-		-webkit-backdrop-filter: blur(6px) saturate(1.3);
-		backdrop-filter: blur(6px) saturate(1.3);
 		transition: transform 0.3s var(--btn-ease), background 0.3s var(--soft),
 			border-color 0.3s var(--soft), box-shadow 0.42s var(--soft),
 			opacity 0.3s var(--soft), backdrop-filter 0.5s var(--soft), color 0.2s ease;
+	}
+	/* The glassy button material is Bubble's, not Flat's — a flat button is a fill inside a
+	   line, with nothing showing through it. */
+	:global(html[data-ui='bubble']) .tb,
+	:global(html[data-ui='bubble']) .chip,
+	:global(html[data-ui='bubble']) .mini,
+	:global(html[data-ui='bubble']) .swatch-btn {
+		-webkit-backdrop-filter: blur(6px) saturate(1.3);
+		backdrop-filter: blur(6px) saturate(1.3);
 	}
 	/* Press = depressed: squash + dim + an inset shadow so the button reads as pushed IN.
 	   This pressed look belongs to the click, never the hover (see .tb:hover). The inset works
@@ -1139,9 +1146,12 @@
 	.pb .mini:active,
 	.pb .swatch-btn:active {
 		transform: scale(0.94);
-		box-shadow:
-			inset 0 2px 4px rgba(0, 0, 0, 0.2),
-			inset 0 0 0 999px rgba(0, 0, 0, 0.08);
+		/* Press reads as a flat fill darkening plus the scale — the flood tint below is an
+		   inset with no blur, so it's a fill, not a shadow. The blurred `inset 0 2px 4px`
+		   that used to sit above it was the only bevel here; Flat mode carries depth with
+		   line, colour and motion, never with a shadow. Bubble adds its own (see the
+		   data-ui='bubble' block in +page.svelte). */
+		box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.08);
 		transition-duration: 0.09s;
 	}
 	/* Respect reduced-motion: keep the colour/opacity feedback, drop the scale + lift. */
@@ -1185,11 +1195,14 @@
 	/* Hover = raised: lift toward the viewer via scale + a soft outer drop, matching the
 	   other apps' buttons. The fill stays at its resting tint (NOT darkened) — a darker fill
 	   read as a pressed-in dent, which belongs to :active, not hover. */
+	/* Hover lifts by line and motion — a darker border, a denser fill, a small scale —
+	   not by a drop shadow. Bubble reinstates its gloss globally (+page.svelte). */
 	.tb:hover:not(:disabled) {
 		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
 		background: color-mix(in srgb, var(--ink) 5%, transparent);
 		transform: scale(1.05);
-		box-shadow: 0 3px 12px rgba(10, 10, 10, 0.11), 0 1px 4px rgba(10, 10, 10, 0.08);
+	}
+	:global(html[data-ui='bubble']) .tb:hover:not(:disabled) {
 		-webkit-backdrop-filter: blur(10px) saturate(1.5);
 		backdrop-filter: blur(10px) saturate(1.5);
 	}
@@ -1202,11 +1215,11 @@
 		background: var(--orange);
 		border-color: var(--orange);
 	}
+	/* The primary action brightened by a coloured glow; the glow was a shadow. It lifts on
+	   opacity + the shared scale instead. */
 	.tb.primary:hover:not(:disabled) {
 		opacity: 0.92;
 		background: var(--orange);
-		box-shadow: 0 2px 6px color-mix(in srgb, var(--orange) 40%, transparent),
-			0 8px 18px color-mix(in srgb, var(--orange) 30%, transparent);
 	}
 	.tb:disabled {
 		opacity: 0.4;
@@ -1233,7 +1246,6 @@
 		color: var(--ink);
 		border-color: color-mix(in srgb, var(--ink) 26%, transparent);
 		transform: scale(1.09);
-		box-shadow: 0 3px 10px rgba(10, 10, 10, 0.11);
 	}
 	.chip.danger:hover:not(:disabled) {
 		color: #c93328;
@@ -1649,7 +1661,6 @@
 	.mini:hover:not(:disabled) {
 		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
 		transform: scale(1.07);
-		box-shadow: 0 3px 10px rgba(10, 10, 10, 0.11);
 	}
 	.swatch-row {
 		display: flex;
@@ -1673,7 +1684,6 @@
 	.swatch-btn:hover {
 		border-color: color-mix(in srgb, var(--pb-accent) 45%, transparent);
 		transform: scale(1.06);
-		box-shadow: 0 3px 10px rgba(10, 10, 10, 0.11);
 	}
 	.swatch-btn.on {
 		border-color: var(--pb-accent);
@@ -1700,7 +1710,8 @@
 		padding: 0.55rem 1.1rem;
 		border-radius: 999px;
 		font-size: 0.85rem;
-		box-shadow: 0 12px 34px rgba(10, 10, 10, 0.16);
+		/* Floats above the editor on its border and fill alone — the same way the site's own
+		   .edit-toast separates itself, by inverting rather than by casting a shadow. */
 		z-index: 20;
 	}
 	.toast.ok {
