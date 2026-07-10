@@ -793,6 +793,7 @@
 							class:active={i === current}
 							class:passed={i < current}
 							class:dragover={i === dragOverIdx}
+							style="--n:{i}"
 							draggable="true"
 							role="button"
 							tabindex="0"
@@ -925,8 +926,8 @@
 					<div class="section-title">Insert element</div>
 					<p class="hint sm">Inserts at the cursor in the preview (click into the slide first).</p>
 					<div class="insert-grid">
-						{#each Object.keys(SNIPPETS) as k}
-							<button class="tb" onclick={() => insertSnippet(SNIPPETS[k])}>{k}</button>
+						{#each Object.keys(SNIPPETS) as k, i}
+							<button class="tb" style="--bn:{i}" onclick={() => insertSnippet(SNIPPETS[k])}>{k}</button>
 						{/each}
 					</div>
 
@@ -938,7 +939,7 @@
 							them to fill the strip, so you only list each one once.
 						</p>
 						{#each tickerPhrases as phrase, i}
-							<div class="ticker-row">
+							<div class="ticker-row" style="--n:{i}">
 								<input
 									class="tv-val grow"
 									type="text"
@@ -1066,16 +1067,12 @@
 		height: 18px;
 		display: block;
 	}
-	/* Keep the wordmark on one line and lock each SplitFlap cell to its SETTLED letter
-	   width. The flap otherwise floors spinning cells at 0.4em, which — with Jost's narrow
-	   letters (i, l, t, r) — transiently widens the title mid-flip and shoves the accent
-	   dot / Beta sideways. Dropping the floor here keeps the masthead layout rock-steady
-	   (the standalone panel titles keep the floor; they have room to their right). */
+	/* Keep the wordmark on one line. (The SplitFlap cell no longer widens mid-flip — the
+	   spin-time 0.4em min-width floor that used to shove the accent dot and Beta sideways was
+	   retired in the component itself, so every title is rock-steady now — leaving this only to
+	   hold the brand to a single row.) */
 	.brand-title {
 		white-space: nowrap;
-	}
-	.brand-title :global(.cell) {
-		min-width: 0 !important;
 	}
 	/* Decorative station-sign bullet in the app accent — the same treatment as the ATFC
 	   masthead, scaled to this smaller header. */
@@ -1088,7 +1085,7 @@
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		.accent-dot {
-			animation: dot-in 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) 0.25s backwards;
+			animation: dot-in 0.45s var(--spring) 0.25s backwards;
 		}
 	}
 	@keyframes dot-in {
@@ -1116,7 +1113,7 @@
 	   masthead ornaments cascade in left-to-right on mount. */
 	@media (prefers-reduced-motion: no-preference) {
 		.beta {
-			animation: beta-in 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) 0.38s backwards;
+			animation: beta-in 0.45s var(--spring) 0.38s backwards;
 		}
 	}
 	@keyframes beta-in {
@@ -1146,6 +1143,60 @@
 	.pb-file.dirty {
 		color: var(--orange);
 		font-weight: 600;
+	}
+
+	/* ── Entrance cascade — cohesion with the rest of the app (see puhig's --enter-* tokens) ──
+	   The Builder rides in on the same panel .surface every board uses (layer 0, the fly), so it
+	   owns only the layers ON that sheet: the header toolbar, then the three editor columns. The
+	   header chrome ripples left-to-right on the shared btn-in keyframe exactly like the ATFC
+	   super bar — Back, then the five tools, then the filename — while the brand's own dot→Beta
+	   cascade plays beside it. The columns follow a beat deeper (layer 2), left to right, so the
+	   frame draws before the workspace fills.
+
+	   `backwards` is load-bearing here as everywhere: .tb (and the .chip / .mini / .swatch-btn
+	   nested inside the columns) are in the universal hover/press list, and a held transform
+	   would outrank and freeze their scale(). Lifting the fill on end hands them back untouched. */
+	@media (prefers-reduced-motion: no-preference) {
+		/* Layer 1 — the header toolbar, left to right. */
+		.pb-head .icon-btn,
+		.pb-tools .tb,
+		.pb-file {
+			animation: btn-in 0.42s var(--spring) backwards;
+			animation-delay: calc(var(--enter-lead) + var(--bn, 0) * var(--btn-enter-step));
+		}
+		/* Back is --bn 0; the tools count up past the brand's gap; the filename lands last. */
+		.pb-tools .tb:nth-child(1) {
+			--bn: 2;
+		}
+		.pb-tools .tb:nth-child(2) {
+			--bn: 3;
+		}
+		.pb-tools .tb:nth-child(3) {
+			--bn: 4;
+		}
+		.pb-tools .tb:nth-child(4) {
+			--bn: 5;
+		}
+		.pb-tools .tb:nth-child(5) {
+			--bn: 6;
+		}
+		.pb-file {
+			--bn: 7;
+		}
+
+		/* Layer 2 — the three editor columns, one --enter-layer deeper, left to right. */
+		.pb-col {
+			animation: btn-in 0.5s var(--spring) backwards;
+			animation-delay: calc(
+				var(--enter-lead) + var(--enter-layer) + var(--cn, 0) * var(--enter-step)
+			);
+		}
+		.pb-center {
+			--cn: 1;
+		}
+		.pb-right {
+			--cn: 2;
+		}
 	}
 
 	/* Buttery button interaction: blur + scale + opacity. Translucent controls read as
@@ -1421,6 +1472,34 @@
 		opacity: 0.55;
 	}
 
+	/* ── Building-content entrance — the deck's own elements, cohesion with the app ──────────
+	   Unlike the header and columns (which enter on panel open), these mount later — when a deck
+	   loads or a slide is selected — so each runs its own short cascade the moment it appears:
+	   the slide rail builds station by station (each row rises while its route-line dot pops, the
+	   same spring the homepage map's station dots use), the Insert palette ripples left-to-right,
+	   and the ticker phrases deal out top to bottom. Staggers cap with min() so a long deck or a
+	   long ticker list doesn't trail on. `backwards` throughout: the .tb and .mini nested here are
+	   in the universal hover/press list, and a held transform would freeze their scale(). */
+	@media (prefers-reduced-motion: no-preference) {
+		.stn-v {
+			animation: rise 0.5s ease backwards;
+			animation-delay: calc(var(--enter-lead) + min(var(--n, 0), 9) * var(--enter-step));
+		}
+		/* The route-line node pops as its row rises — a slide station coming alive like a map one. */
+		.stn-dot {
+			animation: pop 0.5s ease-out backwards;
+			animation-delay: calc(var(--enter-lead) + min(var(--n, 0), 9) * var(--enter-step));
+		}
+		.insert-grid .tb {
+			animation: btn-in 0.42s var(--spring) backwards;
+			animation-delay: calc(var(--enter-lead) + var(--bn, 0) * var(--btn-enter-step));
+		}
+		.ticker-row {
+			animation: rise 0.46s ease backwards;
+			animation-delay: calc(var(--enter-lead) + min(var(--n, 0), 9) * var(--enter-step));
+		}
+	}
+
 	/* ── Preview ── */
 	.pb-center {
 		background: var(--page);
@@ -1629,8 +1708,15 @@
 		padding: 0.24rem 0.6rem;
 		cursor: pointer;
 	}
+	/* Icon-only minis are a fixed square, so the ticker's Move-up / Move-down / Remove read as
+	   one set. They used to share a symmetric padding, but their contents differ — ↑ and ↓ are
+	   text glyphs, Remove is a 13px SVG — so each sized to its own content and the three came out
+	   visibly different widths. A fixed box (with the glyph/SVG centred) makes them identical. */
 	.mini.icon-only {
-		padding: 0.24rem 0.4rem;
+		width: 1.72rem;
+		height: 1.72rem;
+		padding: 0;
+		justify-content: center;
 	}
 	.mini.danger:hover:not(:disabled) {
 		color: #c93328;

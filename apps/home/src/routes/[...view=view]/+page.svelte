@@ -2277,26 +2277,8 @@
 		animation: pop 0.52s ease-out both;
 		animation-delay: calc(var(--pop, 0s) + 0.12s);
 	}
-	@keyframes pop {
-		0% {
-			opacity: 0;
-			transform: scale(0.3);
-		}
-		55% {
-			opacity: 1;
-			transform: scale(1.08);
-		}
-		74% {
-			transform: scale(0.97);
-		}
-		88% {
-			transform: scale(1.015);
-		}
-		100% {
-			opacity: 1;
-			transform: scale(1);
-		}
-	}
+	/* `pop` (the station-dot spring) now lives in puhig's tokens — global, shared with the
+	   Builder's slide-rail nodes so a node coming alive reads the same here and there. */
 
 	/* Overlays — upright, outside the camera, so they never skew or scroll. */
 	.masthead {
@@ -2320,7 +2302,7 @@
 	.masthead .theme-dot {
 		transition-property: color, background, border-color, opacity, transform;
 		transition-duration: 0.15s, 0.15s, 0.15s, 0.4s, 0.4s;
-		transition-timing-function: ease, ease, ease, ease, cubic-bezier(0.34, 1.4, 0.64, 1);
+		transition-timing-function: ease, ease, ease, ease, var(--spring);
 		transition-delay: 0s, 0s, 0s, calc(var(--n, 0) * 0.07s), calc(var(--n, 0) * 0.07s);
 	}
 	.masthead.hidden .theme-dot {
@@ -2329,7 +2311,7 @@
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		.theme-dot {
-			animation: dot-roll 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) backwards;
+			animation: dot-roll 0.45s var(--spring) backwards;
 			animation-delay: calc(0.5s + var(--n, 0) * 0.07s);
 		}
 	}
@@ -2408,25 +2390,8 @@
 			animation-delay: calc(0.3s + var(--n, 0) * 0.06s);
 		}
 	}
-	/* Raise-in with a happy little bounce: rises past its resting spot, dips back
-	   with inertia, then settles. */
-	@keyframes rise {
-		0% {
-			opacity: 0;
-			transform: translateY(8px);
-		}
-		60% {
-			opacity: 1;
-			transform: translateY(-2px);
-		}
-		82% {
-			transform: translateY(0.8px);
-		}
-		100% {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
+	/* `rise` (the raise-in-with-a-bounce) now lives in puhig's tokens — global, shared with the
+	   Traffic board's Connections and the Builder's rail / ticker rows. */
 
 	.legend {
 		position: absolute;
@@ -2675,7 +2640,7 @@
 		/* Rolls in from the left with a little bounce as the title flips — same easing,
 		   duration and delay as the masthead dots and ATFC's. */
 		.accent-dot {
-			animation: dot-in 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) 0.5s backwards;
+			animation: dot-in 0.45s var(--spring) 0.5s backwards;
 		}
 	}
 	@keyframes dot-in {
@@ -2698,8 +2663,8 @@
 		letter-spacing: -0.02em;
 		line-height: 1;
 		color: var(--ink);
-		/* One line always — see the ATFC .dest note (flip animation transiently widens the
-		   wordmark and would otherwise wrap a two-word title). */
+		/* One line always — see the ATFC .dest note. A two-word destination would otherwise
+		   wrap at narrow panel widths, taking the accent dot beside it down with it. */
 		white-space: nowrap;
 	}
 	.surface-body {
@@ -2738,6 +2703,83 @@
 		font-style: italic;
 		color: var(--ink);
 	}
+
+	/* ── Panel arrival — the depth cascade (see puhig's --enter-* tokens) ─────────────────
+	   The sheet flies in first (transition:fly, layer 0). Then the layer sitting on it — the
+	   header's eyebrow and chrome — rides in at --enter-lead. Then the layer deeper still, the
+	   body content, at one --enter-layer beyond that. The map's overlay always assembled this
+	   way (title, then dots, then tagline, then legend); this gives the panel the same reading,
+	   where it used to arrive as one rigid slab with every word already at full opacity.
+
+	   The body column deals out top-to-bottom on the `rise` keyframe — the same one the tagline
+	   and legend use — so a station's contents settle on the same spring as the words they
+	   replaced. It replays on every destination, because the {#key} above rebuilds this subtree:
+	   swapping station→station never flies the panel (the aside stays mounted), so before this
+	   the new copy simply blinked into place.
+
+	   `backwards`, never `both`. The fill has to lift when the animation ends, or the animated
+	   transform would outrank the hover scale() on the buttons nested inside these wrappers and
+	   pin them at rest. Direct children of .surface-body are always prose or a wrapper
+	   (nav.onward, div.segmented, div.sky-picker) — never a button — so the transform only ever
+	   lands on an ancestor; the chrome buttons get their own horizontal entrance below. */
+	@media (prefers-reduced-motion: no-preference) {
+		/* Layer 1: the eyebrow, on the surface with the chrome. */
+		.surface-head .eyebrow {
+			animation: rise 0.5s ease backwards;
+			animation-delay: var(--enter-lead);
+		}
+		/* Layer 2: the body content, a beat deeper — it fills the sheet the frame just drew. */
+		.surface-body > * {
+			animation: rise 0.5s ease backwards;
+			animation-delay: calc(var(--enter-lead) + var(--enter-layer) + var(--n, 0) * var(--enter-step));
+		}
+		/* The beat per item. Settings runs to twenty children, and a delay that kept counting
+		   would still be dealing them out most of a second after the panel landed — so the
+		   ladder caps, and everything past the eighth arrives with it. */
+		.surface-body > *:nth-child(1) {
+			--n: 1;
+		}
+		.surface-body > *:nth-child(2) {
+			--n: 2;
+		}
+		.surface-body > *:nth-child(3) {
+			--n: 3;
+		}
+		.surface-body > *:nth-child(4) {
+			--n: 4;
+		}
+		.surface-body > *:nth-child(5) {
+			--n: 5;
+		}
+		.surface-body > *:nth-child(6) {
+			--n: 6;
+		}
+		.surface-body > *:nth-child(7) {
+			--n: 7;
+		}
+		.surface-body > *:nth-child(n + 8) {
+			--n: 8;
+		}
+	}
+
+	/* Panel chrome slides in horizontally while the content column rises — the two axes read
+	   as two groups arriving, not one wall. Back sits at the head's left, Expand at the panel's
+	   top-right, so Back leads and Expand lands last (its --bn puts it at the far end of the
+	   ripple). `backwards` again, and here it is load-bearing in a way the content rule only
+	   worried about second-hand: these ARE buttons in the universal hover/press list, so the
+	   fill must lift the moment the entrance ends or the animated translate would pin their
+	   scale() — the e2e buttons suite hovers long after, and asserts exactly 1.05. */
+	@media (prefers-reduced-motion: no-preference) {
+		.surface-head .back,
+		.expand {
+			animation: btn-in 0.42s var(--spring) backwards;
+			animation-delay: calc(var(--enter-lead) + var(--bn, 0) * var(--btn-enter-step));
+		}
+		.expand {
+			--bn: 3;
+		}
+	}
+
 	/* Edit Mode — editable copy gets a dashed field; focus firms it up. */
 	.editable {
 		outline: 1px dashed color-mix(in srgb, var(--ink) 35%, transparent);

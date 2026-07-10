@@ -166,7 +166,7 @@
 		{#if 'space' in grp}<span class="sp">&nbsp;</span>{:else}
 			<span class="word">
 				{#each grp.idx as i}
-					<span class="cell" style:min-width={spinning[i] ? '0.4em' : undefined}>
+					<span class="cell">
 						<span class="sizer" aria-hidden="true">{chars[i]}</span>
 						<span class="glyph" class:spin={spinning[i]} aria-hidden="true">{glyphs[i]}</span>
 					</span>
@@ -190,11 +190,24 @@
 	.cell {
 		position: relative;
 		display: inline-block;
-		/* Sized to the FINAL letter so total width never changes and the settled
-		 * wordmark keeps its exact spacing (the spin-time min-width floor for narrow
-		 * cells like "i" is applied inline, only while spinning). clip-path clips
-		 * wider shuffle glyphs HORIZONTALLY to the cell (no overlap) while leaving
-		 * top/bottom free — so descenders/ascenders like "g" aren't cut off. */
+		/* Sized to the FINAL letter, at every moment of the flap — the whole point of the
+		 * hidden .sizer. Nothing may widen a cell while it spins: the flap is laid out in
+		 * normal flow, so a cell that grows pushes the rest of the wordmark, and the wordmark
+		 * pushes whatever sits beside it. That is not theoretical. Narrow cells used to floor
+		 * to a 0.4em min-width while spinning, which grew "Air Traffic" by 10px and slid the
+		 * ATFC super bar's Field/Range/Refresh controls left, one step per letter, as they
+		 * settled.
+		 *
+		 * The floor bought little anyway: a shuffle glyph wider than its cell is clipped to
+		 * the cell regardless, so an "m" in an "i" slot went from 33% visible to 51% — a slab
+		 * either way. And the clip cannot simply be relaxed to let it show: cells settle
+		 * left-to-right, so a glyph allowed past its own box would paint over the finished
+		 * letter next to it.
+		 *
+		 * So: clip wider shuffle glyphs HORIZONTALLY to the cell, leaving top/bottom free so
+		 * descenders and ascenders like "g" aren't cut off. Narrow cells flicker as clipped
+		 * slabs mid-flip, which is what a real split-flap does, and the settled wordmark keeps
+		 * its exact spacing because the box never moved. */
 		clip-path: inset(-100% 0 -100% 0);
 		text-align: center;
 	}

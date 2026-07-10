@@ -1032,7 +1032,11 @@
 <!-- Control-pill groups, shared between the compact body layout and the expanded
      header deck (same handlers + state, just re-parented by width). -->
 {#snippet fieldButtons()}
-	{#each AIRPORTS as a}
+	{#each AIRPORTS as a, i}
+		<!-- --bn: the pill's place in the chrome's left-to-right entrance ripple. The field row
+		     is the same horizontal run of pills in both the compact panel and the expanded super
+		     bar, so it rides right behind the Back cap (--bn 0) in either — Range/Refresh/Expand
+		     pick up the count past the last pill (see the .tfc-head chrome rule). -->
 		<button
 			type="button"
 			class="field"
@@ -1040,6 +1044,7 @@
 			role="radio"
 			aria-checked={a.icao === sel.icao}
 			title={a.name}
+			style="--bn:{1 + i}"
 			onclick={() => select(a)}
 		>
 			{a.iata}
@@ -1122,9 +1127,12 @@
 			<!-- Expanded: ONE super bar. The far edges are global app controls — back at the
 			     left cap, collapse at the right — framing the identity, controls, and summary. -->
 			{#if onback}
+				<!-- --bn 0: the left cap leads the chrome's entrance ripple; the field pills
+				     (--bn 1…11), then Range, Refresh, and the right cap fall in behind it. -->
 				<button
 					type="button"
 					class="icon-btn nav-edge"
+					style="--bn:0"
 					onclick={onback}
 					aria-label="Back to route map"
 					title="Route map"
@@ -1138,17 +1146,22 @@
 			</div>
 			<div class="deck">
 				<div class="deck-controls">
-					<div class="ctl" role="radiogroup" aria-label="Airport">
+					<!-- --bn 1: the "Field" caption rides in with the first pill (the pills self-index
+					     from 1); the pills override it with their own 1…11 to keep the ripple. -->
+					<div class="ctl" role="radiogroup" aria-label="Airport" style="--bn:1">
 						<span class="ctl-label">Field</span>{@render fieldButtons()}
 					</div>
-					<div class="ctl">
+					<!-- --bn set on the wrapper; the <select> inside inherits it (custom props
+					     cascade), so Range and Refresh land just past the last field pill. -->
+					<div class="ctl" style="--bn:12">
 						<span class="ctl-label">Range</span>{@render rangeButtons()}
 					</div>
-					<div class="ctl">
+					<div class="ctl" style="--bn:13">
 						<span class="ctl-label">Refresh</span>{@render refreshButtons()}
 					</div>
 				</div>
-				<dl class="deck-summary" aria-label="Board summary">
+				<!-- --bn 14: the readout lands just past Refresh, one rung before the right cap. -->
+				<dl class="deck-summary" aria-label="Board summary" style="--bn:14">
 					<div class="stat">
 						<dt>In range</dt>
 						<dd>{status === 'loading' || status === 'error' ? '—' : rows.length}</dd>
@@ -1159,13 +1172,16 @@
 					</div>
 				</dl>
 			</div>
-			<!-- Right end-cap: the live refresh control paired with the collapse toggle. -->
-			<div class="corner corner-bar">
+			<!-- Right end-cap: the live refresh control paired with the collapse toggle. --bn on
+			     the wrapper (manual inherits it); the collapse cap takes the last beat, so the
+			     ripple finishes where the eye ends up — at the far right of the bar. -->
+			<div class="corner corner-bar" style="--bn:15">
 				{@render manualButton()}
 				{#if onToggleExpand}
 					<button
 						type="button"
 						class="icon-btn nav-edge"
+						style="--bn:16"
 						onclick={onToggleExpand}
 						aria-label="Collapse panel"
 						title="Collapse"
@@ -1175,16 +1191,19 @@
 				{/if}
 			</div>
 		{:else}
-			{#if onback}<button type="button" class="icon-btn back" onclick={onback} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>{/if}
-			<p class="eyebrow">Now arriving &middot; <span class="eyebrow-code">{code}</span></p>
+			{#if onback}<button type="button" class="icon-btn back" style="--bn:0" onclick={onback} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>{/if}
+			<!-- --bn 1: the eyebrow follows the Back cap, a beat ahead of the title flip and the
+			     Airport row that ripple in below it. -->
+			<p class="eyebrow" style="--bn:1">Now arriving &middot; <span class="eyebrow-code">{code}</span></p>
 			<div class="title-row">
 				<h2 class="dest">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
 				<!-- Decorative accent dot beside the title (station-sign bullet). -->
 				<div class="head-refresh">{@render accentDot()}</div>
 			</div>
 			<!-- Top-right corner: the live refresh control paired with the expand toggle. Sits
-			     inside the (sticky) header so it stays put as the panel scrolls. -->
-			<div class="corner corner-compact">
+			     inside the (sticky) header so it stays put as the panel scrolls. --bn keeps it
+			     a beat behind the Back cap so the two ends of the header don't snap in together. -->
+			<div class="corner corner-compact" style="--bn:2">
 				{@render manualButton()}
 				{#if onToggleExpand}
 					<button
@@ -1240,16 +1259,19 @@
 		{/if}
 
 		{#if !showDeck}
-			<div class="fields ranges" role="radiogroup" aria-label="Airport">
+			<!-- --bn 1: the "Airport" label rides in with the first pill (pills self-index 1…11). -->
+			<div class="fields ranges" role="radiogroup" aria-label="Airport" style="--bn:1">
 				<span class="range-label">Airport</span>
 				<div class="field-wrap">{@render fieldButtons()}</div>
 			</div>
 
-			<div class="fields ranges">
+			<!-- --bn continues the ripple past the field pills (which self-index 1…11), so the
+			     compact rows populate top-to-bottom after the pills settle, select inheriting it. -->
+			<div class="fields ranges" style="--bn:12">
 				<span class="range-label">Range</span>{@render rangeButtons()}
 			</div>
 
-			<div class="fields ranges">
+			<div class="fields ranges" style="--bn:13">
 				<span class="range-label">Refresh</span>{@render refreshButtons()}
 			</div>
 
@@ -1433,7 +1455,11 @@
 			{/if}
 		</p>
 
-		{@render connections?.()}
+		<!-- The Connections nav is authored in +page (the onward snippet), so its .onward markup
+		     carries +page's scope, not this component's — hence the wrapper, which this board CAN
+		     style, to give the area the same rise-in the generic panel's body content gets (the
+		     board renders its own .tfc-body, so it misses the .surface-body entrance). -->
+		<div class="tfc-connections">{@render connections?.()}</div>
 	</div>
 </div>
 
@@ -1527,9 +1553,10 @@
 		letter-spacing: -0.02em;
 		line-height: 1;
 		color: var(--ink);
-		/* One line always: the flip animation floors narrow cells to a min-width so shuffle
-		   glyphs aren't clipped, which widens the wordmark mid-flip — enough, at this scale,
-		   to wrap a two-word title (e.g. "Terminal Way") until it settles. */
+		/* One line always. A two-word title ("Terminal Way") has a hard time at this scale, and
+		   the wordmark shares the super bar with the deck — so it must never reflow, wrapped or
+		   otherwise. The flap itself no longer widens mid-flip (see SplitFlap's .cell); this
+		   keeps the title off a second line when the bar simply runs out of room. */
 		white-space: nowrap;
 	}
 	/* The title's own row: "Air Traffic" on the left, the control deck filling the
@@ -1569,7 +1596,7 @@
 		/* Roll + fade in on mount, matching the homepage masthead dots (same easing, duration,
 		   and delay) — it slides in from the left with a little bounce as the title flips. */
 		.accent-dot {
-			animation: dot-in 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) 0.5s backwards;
+			animation: dot-in 0.45s var(--spring) 0.5s backwards;
 		}
 	}
 	@keyframes dot-in {
@@ -1580,6 +1607,49 @@
 		to {
 			opacity: 1;
 			transform: translateX(0);
+		}
+	}
+
+	/* Chrome entrance. The board's controls slide up-from-the-left in placement order, on the
+	   shared btn-in keyframe — Back, then the field pills, then Range, Refresh, and the
+	   collapse cap in the expanded bar; the same run stacked into the compact panel. Each
+	   element's --bn (set on the markup, or inherited from a wrapper) is its rung on the
+	   ripple; the beat is the tight --btn-enter-step, since a dozen-plus controls end to end
+	   want to populate briskly, not deal out like prose.
+
+	   The group LABELS ride along on the same beat as the controls they head — the eyebrow, the
+	   Field/Range/Refresh captions, the summary readout. A label inherits its --bn from the
+	   same wrapper its control does, so "Field" arrives with the first pill and "Range" with its
+	   select, rather than sitting there fully drawn while the buttons beside it slide in under it.
+
+	   It replays on every expand/collapse, because {#if showDeck} swaps the whole header — the
+	   controls remount and re-run, so the bar assembles itself each time it changes shape.
+
+	   `backwards` is mandatory for the buttons, not stylistic: every one is in the universal
+	   hover/press list, whose scale() lives on a transition. A held (`both`) animation transform
+	   would outrank that transition and freeze the pop; lifting the fill the instant the entrance
+	   ends hands the buttons back to their hover spring untouched. The labels don't hover, but
+	   they share the rule for one timing, so they take the same fill. */
+	@media (prefers-reduced-motion: no-preference) {
+		.tfc-head .icon-btn,
+		.tfc-head .field,
+		.tfc-head .field-select,
+		.tfc-head .manual,
+		.tfc-head .eyebrow,
+		.tfc-head .ctl-label,
+		.tfc-head .deck-summary .stat,
+		.fields .field,
+		.fields .field-select,
+		.fields .range-label {
+			animation: btn-in 0.42s var(--spring) backwards;
+			animation-delay: calc(var(--enter-lead) + var(--bn, 0) * var(--btn-enter-step));
+		}
+		/* The Connections nav closes the board's body — it rises in like any panel's content,
+		   one layer-beat after the header chrome, so the interior reads top (title) to bottom
+		   (onward links) rather than the links sitting there fully drawn on arrival. */
+		.tfc-connections {
+			animation: rise 0.5s ease backwards;
+			animation-delay: calc(var(--enter-lead) + var(--enter-layer));
 		}
 	}
 	.deck {

@@ -35,12 +35,38 @@
 	--focus-ring: 2px solid var(--ink); /* :focus-visible outline (paired with a 2px offset) */
 	--line: color-mix(in srgb, var(--ink) 10%, transparent); /* hairline divider / border */
 
+	/* The app's one overshoot curve (y > 1, so a move lands past its mark and settles back).
+	 * Everything that springs uses it: the buttons below, the masthead bullets rolling out,
+	 * every panel's accent dot, and the panel interior arriving. It was spelled out as a
+	 * literal in six places across three components before it had a name here — if you find
+	 * a seventh `cubic-bezier(0.34, ...)` in a component, it wants to be this. */
+	--spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+
+	/* Entrance choreography — a depth cascade. A surface arrives bottom-up: the sheet itself
+	 * slides in first, then the layer that sits ON it (the header chrome, the title, the group
+	 * labels), then the layer deeper still (the body content filling the sheet). Each layer
+	 * waits out a lead before it starts, so the eye reads the stack assembling — sheet, then
+	 * frame, then contents — rather than everything appearing at once.
+	 *
+	 * --enter-lead   the gap after the sheet begins moving before layer 1 (its chrome) starts,
+	 *                so the surface is visibly underway first.
+	 * --enter-layer  added again for each layer deeper — layer 2 (body) starts a beat after
+	 *                layer 1, and so on.
+	 *
+	 * Within a layer, its items stagger by their own axis: a horizontal control row ripples
+	 * left-to-right on the tighter --btn-enter-step (a dozen-plus controls end to end want to
+	 * populate briskly), a vertical content column deals out top-to-bottom on --enter-step. */
+	--enter-step: 0.05s;
+	--enter-lead: 0.12s;
+	--enter-layer: 0.12s;
+	--btn-enter-step: 0.035s;
+
 	/* One button feel, everywhere. Every control in the app — map legend, panel chrome,
 	 * Traffic board, Presentation Builder — pops on hover and squashes on press by these
 	 * exact amounts, on this exact spring. Change a button's motion here, not in its
-	 * component. `--btn-spring` overshoots (y > 1) so the pop lands with a little bounce;
+	 * component. `--btn-spring` overshoots so the pop lands with a little bounce;
 	 * `--btn-soft` is symmetric, for colour and border that must never bounce. */
-	--btn-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+	--btn-spring: var(--spring);
 	--btn-soft: cubic-bezier(0.4, 0, 0.2, 1);
 	--btn-hover-scale: 1.05;
 	--btn-press-scale: 0.95;
@@ -252,4 +278,77 @@ body {
 	display: block;
 	width: 15px;
 	height: 15px;
+}
+
+/* Panel chrome entrance — the horizontal counterpart to the content column's `rise`. A
+ * panel's controls (Back, the field pills, Range, Refresh, the refresh dial, Expand) are
+ * laid out end to end, so they arrive the way they read: sliding up from a short offset to
+ * the left, one after the next, on the app's one overshoot curve. Defined here (not scoped
+ * to a component) so both the generic panel and the Traffic board's own super bar share the
+ * single keyframe rather than each redeclaring it — motion lives with the tokens. Callers
+ * pace it with --btn-enter-step and gate it behind prefers-reduced-motion. */
+/* btn-in — a control slides up from a short offset to the left as it fades in. The end frame
+ * deliberately omits opacity: a keyframe that sets a property only at `from` animates it toward
+ * the element's OWN resting value, not a hardcoded 1. That matters because a disabled control
+ * rests at reduced opacity (e.g. .tb:disabled → 0.4); pinning the end at 1 made Save/Download/
+ * Preview fade fully in on entry, then snap back to 0.4 when the `backwards` fill lifted. Ending
+ * at the natural value lets a disabled button simply fade in to its disabled state. */
+@keyframes btn-in {
+	from {
+		opacity: 0;
+		transform: translateX(-10px);
+	}
+	to {
+		transform: translateX(0);
+	}
+}
+
+/* rise — the vertical counterpart to btn-in: a content item raises up from a short offset
+ * below, overshoots its resting spot, dips back with inertia, then settles. The homepage
+ * tagline and legend enter on it, the panel's body content deals out on it, and the Traffic
+ * board's Connections and the Builder's slide rail / ticker rows reuse it — so a column of
+ * anything settles with the same bounce, wherever it lives. Global (like btn-in) so every
+ * component draws the one definition instead of redeclaring it. */
+@keyframes rise {
+	0% {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	60% {
+		opacity: 1;
+		transform: translateY(-2px);
+	}
+	82% {
+		transform: translateY(0.8px);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* pop — a mark springs up past full size, dips back with inertia, then settles: the map's
+ * station dots and labels enter on it, and the Builder's slide-rail nodes reuse it, so a
+ * "node coming alive" reads the same on the route map and in the deck's route line. It ends
+ * at scale(1) — identical to no transform — so it composes cleanly with any resting transform
+ * transition on the same element (the value doesn't change when the fill lifts). */
+@keyframes pop {
+	0% {
+		opacity: 0;
+		transform: scale(0.3);
+	}
+	55% {
+		opacity: 1;
+		transform: scale(1.08);
+	}
+	74% {
+		transform: scale(0.97);
+	}
+	88% {
+		transform: scale(1.015);
+	}
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
 }
