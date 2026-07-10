@@ -70,10 +70,14 @@
 	//
 	// On disk the phrases are repeated: each `.ticker-group` holds the cycle a few times
 	// over, and the whole group is duplicated so the -50% scroll wraps seamlessly. We
-	// model only the cycle, and remember how many times a group repeated it.
+	// model only the cycle, plus how many times a group repeats it — both editable.
 	let tickerPhrases = $state<string[]>([]);
 	let hasTicker = $state(false);
-	let tickerRepeat = 1;
+	let tickerRepeat = $state(1);
+	// Bounds for the repeat control. A loaded file's own count is trusted as-is, however
+	// large — clamping on load would silently rewrite a deck on open. Only edits are bound.
+	const REPEAT_MIN = 1;
+	const REPEAT_MAX = 24;
 
 	let railTop = $state(0);
 	let railH = $state(0);
@@ -654,13 +658,24 @@
 		tickerPhrases.splice(to, 0, p);
 		markDirty(true);
 	}
+	// A number input hands back NaN while it's empty or mid-typing ("-", "1e"). Ignore those
+	// rather than collapsing the value to the minimum under the user's cursor.
+	function setTickerRepeat(n: number) {
+		if (!Number.isFinite(n)) return;
+		const next = Math.min(REPEAT_MAX, Math.max(REPEAT_MIN, Math.round(n)));
+		if (next === tickerRepeat) return;
+		tickerRepeat = next;
+		markDirty(true);
+	}
 
 	const escapeHTML = (s: string) =>
 		s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 	// Rewrite each `.ticker-group`'s contents in place, re-expanding the cycle to the
-	// repeat count the file arrived with. Only the innards are touched, so the wrapper's
-	// attributes (the second group's aria-hidden) and the file's indentation survive.
+	// current repeat count. Only the innards are touched, so the wrapper's attributes
+	// (the second group's aria-hidden) and the file's indentation survive. The regex is
+	// global, so both strips get the same expansion — which is what keeps the -50% scroll
+	// seamless.
 	//
 	// Emptying the list writes an empty strip rather than quietly restoring the file's
 	// original phrases: the export has to say what the editor says.
@@ -954,6 +969,27 @@
 							<p class="hint">No phrases — the strip will export empty.</p>
 						{/each}
 						<button class="mini" onclick={addTickerPhrase}>+ Add phrase</button>
+						<!-- Deliberately NOT a .ticker-row: that class means "a phrase", and both the
+						     styles and the reorder/delete affordances key off it. -->
+						<div class="repeat-row">
+							<label class="repeat-label" for="ticker-repeat">Repeats per strip</label>
+							<input
+								id="ticker-repeat"
+								class="tv-val repeat-val"
+								type="number"
+								min={REPEAT_MIN}
+								max={REPEAT_MAX}
+								step="1"
+								value={tickerRepeat}
+								oninput={(e) => setTickerRepeat(e.currentTarget.valueAsNumber)}
+							/>
+						</div>
+						<p class="hint sm">
+							How many times the cycle is written into each strip. The deck lays down two
+							identical strips and scrolls them by half, so each one needs enough phrases to
+							stay filled edge to edge — widen the deck, or shorten the phrases, and it wants
+							more.
+						</p>
 						<p class="hint sm">
 							The ticker sits outside the slide, so it won't show in the preview — open the
 							exported deck to see it run.
@@ -1607,6 +1643,23 @@
 	}
 	/* One ticker phrase: the text fills the row, its reorder/remove controls sit tight
 	   at the end — same rhythm as .theme-row. */
+	/* The repeat control sits with the ticker rows but is a labelled scalar, not a phrase —
+	   label left, a narrow number field right. */
+	.repeat-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		margin-top: 0.6rem;
+	}
+	.repeat-label {
+		font-size: 0.82rem;
+		color: var(--sub);
+	}
+	.repeat-val {
+		width: 5.5rem;
+		flex: none;
+	}
 	.ticker-row {
 		display: flex;
 		align-items: center;
