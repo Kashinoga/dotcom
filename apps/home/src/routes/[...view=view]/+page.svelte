@@ -2444,6 +2444,11 @@
 	}
 	.surface-head {
 		flex: none;
+		/* Cool plastic tint over the frosted backdrop, matching the Traffic board's
+		   .tfc-head and the Presentation Builder's toolbar — every panel gets the same
+		   darkened header band. Near-opaque, so the map doesn't read through it; the
+		   bottom border is the divider. */
+		background: var(--panel-head);
 		/* Extra bottom room so the now-large title's descenders ("g", "y") clear the
 		   header's bottom border. */
 		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(1.5rem, 2.5vw, 2.25rem);
