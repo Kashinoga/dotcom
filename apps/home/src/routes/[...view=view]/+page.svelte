@@ -326,6 +326,9 @@
 
 	// Narrow/portrait screens get the vertical train layout (and a portrait camera).
 	let vw = $state(1200);
+	// Height matters too: the viewBox has a fixed aspect and `preserveAspectRatio` defaults to
+	// `meet`, so the map's scale is min(vw/cam.w, vh/cam.h) — a short wide window fits by height.
+	let vh = $state(800);
 	const isMobile = $derived(vw <= 720);
 	const P: Record<string, Pt> = $derived(
 		mapMode === 'air' ? P_air : isMobile ? P_rail_v : P_rail
@@ -457,13 +460,16 @@
 	// Station dot radii, in world units. The hub reads as the hub through its larger dot AND
 	// its larger label (.code-hub), so the dot itself doesn't have to shout: at R_HUB = 15 it
 	// rendered ~44px wide on a 1400px desktop and ~54px at 1920px — bigger than the masthead's
-	// 30px station-sign bullets, which are fixed pixels and don't scale with the camera.
-	// 10 lands the home view's hub at ~30px there, level with those bullets.
+	// 30px station-sign bullets. 10 lands the home view's hub level with them on a 1400px
+	// desktop; DOT_CAP_PX (below) holds that true on wider ones.
 	const R_HUB = 10;
 	const R_STOP = 6.5;
+	// The hub's rendered diameter, ceiling. Matches .theme-dot's 30px.
+	const DOT_CAP_PX = 30;
 	// Clearance from a dot's EDGE to the near edge of its label, in world units. Kept as a
 	// separate term (rather than baked into a literal gap) so changing a radius doesn't
-	// silently move the labels in or out.
+	// silently move the labels in or out. Measured off the UNSCALED radius, so where dotScale
+	// shrinks a dot the label simply gains clearance — it never loses any.
 	const LABEL_CLEAR_HUB = 19;
 	const LABEL_CLEAR_STOP = 8.5;
 
@@ -849,6 +855,26 @@
 	const HOME_RAIL = crop(P_rail.KSH[0], P_rail.KSH[1], 900, 0.62, 0.54, ASPECT_WIDE);
 	const HOME_RAIL_V = crop(P_rail_v.KSH[0], P_rail_v.KSH[1], 340, 0.5, 0.55, ASPECT_TALL);
 	const HOME = $derived(mapMode === 'air' ? HOME_AIR : isMobile ? HOME_RAIL_V : HOME_RAIL);
+
+	// Dot sizing, decoupled from the camera's zoom.
+	//
+	// Dot radii are world units, so they'd scale with the map — but the masthead's bullets are
+	// a fixed 30px (its wordmark clamps at 5.5rem and stops growing, and the bullets never
+	// grew at all). Past ~1400px the map keeps zooming and the masthead doesn't, so the hub
+	// pulls ahead of the bullets it's supposed to sit level with: 1.20× at 1920px.
+	//
+	// So shrink the dots, in world units, by however much the home camera has overshot
+	// DOT_CAP_PX — the hub then holds at 30px and every other dot keeps its proportion to it
+	// (a stop stays 0.65× the hub, always). Lines and labels still scale; only the dots pin.
+	//
+	// Measured against HOME rather than the live camera on purpose. The masthead is hidden the
+	// moment a panel opens (`.masthead.hidden`), so the comparison only exists on the home
+	// view — and pinning to HOME means this is a per-viewport constant, not something that
+	// recomputes on every frame of a fly and fights Bubble's `r` transition.
+	const homeScale = $derived(Math.min(vw / HOME.w, vh / HOME.h) || 1);
+	const dotScale = $derived(Math.min(1, DOT_CAP_PX / (2 * R_HUB * homeScale)));
+	const rHub = $derived(R_HUB * dotScale);
+	const rStop = $derived(R_STOP * dotScale);
 
 	// Default mode is the train map, so the camera starts on its desktop home framing —
 	// the same framing the server renders, since `vw` starts at its desktop default.
@@ -1274,6 +1300,7 @@
 	let wasMobile = false;
 	function onResize() {
 		vw = window.innerWidth;
+		vh = window.innerHeight;
 		// On a desktop⇄mobile crossover the layout swaps; re-frame if idle at home.
 		if (isMobile !== wasMobile) {
 			wasMobile = isMobile;
@@ -1283,6 +1310,7 @@
 
 	onMount(() => {
 		vw = window.innerWidth;
+		vh = window.innerHeight;
 		wasMobile = isMobile;
 		// No saved preference keeps the declared default (the train map) — nothing to do.
 		const s = localStorage.getItem(MODE_KEY);
@@ -1486,7 +1514,19 @@
 			>
 				<circle class="hit" cx={n.x} cy={n.y} r="26" />
 				<!-- Just a white circle; the hub is the same, only larger. -->
-				<circle class="port" class:hub={n.hub} cx={n.x} cy={n.y} r={n.hub ? R_HUB : R_STOP} />
+				<!-- --r carries the resting radius so the focus ring and Bubble's swell can be
+				     expressed as multiples of it, instead of re-hardcoding each radius. It needs
+				     the `px` unit: Firefox drops `r: calc(<number>)` as invalid (the geometry
+				     property takes a length), and the dropped declaration silently falls back to
+				     r=0 / stroke-width=1. Inside an SVG, px == one user unit. -->
+				<circle
+					class="port"
+					class:hub={n.hub}
+					cx={n.x}
+					cy={n.y}
+					r={n.hub ? rHub : rStop}
+					style:--r="{n.hub ? rHub : rStop}px"
+				/>
 				<text
 					class="code"
 					class:code-hub={n.hub}
@@ -2089,18 +2129,14 @@
 		stroke-width: 0;
 		transition: stroke-width 0.15s ease;
 	}
-	/* Selected (open) node carries the accent ring persistently — same look as hover/focus. */
+	/* Selected (open) node carries the accent ring persistently — same look as hover/focus.
+	   Expressed as a fraction of the dot's own radius (--r), so the ring keeps one proportion
+	   across the hub, the stops, and any viewport where dotScale has shrunk them. The old
+	   pair of literals (3 on a stop, 4.6 on the hub) were the same ratio spelled twice. */
 	.node:hover .port,
 	.node:focus-visible .port,
 	.node.active .port {
-		stroke-width: 3;
-	}
-	/* The hub is ~1.5× the radius (R_HUB 10 vs R_STOP 6.5), so scale its ring up to keep the
-	   same ring-to-node proportion as the smaller stations (3 ÷ 6.5 ≈ 4.6 ÷ 10). */
-	.node:hover .port.hub,
-	.node:focus-visible .port.hub,
-	.node.active .port.hub {
-		stroke-width: 4.6;
+		stroke-width: calc(var(--r) * 0.46);
 	}
 	/* No UA focus box around the node group (it frames the dot + label). Keyboard focus
 	   is shown via the accent ring on :focus-visible above. */
@@ -2133,14 +2169,16 @@
 			transition: stroke-width 0.15s ease, filter 0.2s ease,
 				r 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 		}
-		/* Rest radii are R_STOP 6.5 / R_HUB 10 (set on the element); these are the swell. */
+		/* The swell, as a multiple of the resting radius (--r) — so it survives dotScale.
+		   A stop pops a little harder than the hub (1.23 vs 1.17), which is what the old
+		   6.5→8 / 10→11.7 literals encoded. */
 		:global(html[data-ui='bubble']) .node:hover .port:not(.hub),
 		:global(html[data-ui='bubble']) .node:focus-visible .port:not(.hub) {
-			r: 8;
+			r: calc(var(--r) * 1.23);
 		}
 		:global(html[data-ui='bubble']) .node:hover .port.hub,
 		:global(html[data-ui='bubble']) .node:focus-visible .port.hub {
-			r: 11.7;
+			r: calc(var(--r) * 1.17);
 		}
 	}
 	.code {
