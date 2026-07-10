@@ -40,3 +40,21 @@ npm run build
 You can preview the production build with `npm run preview`.
 
 > To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+
+## Tests
+
+`pnpm check` type-checks. `pnpm test:e2e` drives a real browser — most of what breaks here
+(a `max-width` silently ignored on a table cell, two map labels overlapping at every phone
+size, a focus ring that fell back to a hairline) type-checks perfectly well.
+
+Install the browser once per machine, then run the suites:
+
+```sh
+pnpm --filter home exec playwright install firefox
+pnpm test                      # from the repo root; runs every suite
+pnpm --filter home test:e2e oplong map    # …or just the ones whose names match
+```
+
+The runner spawns its own dev server on port **5199**, not Vite's 5173, so it never assumes
+a server you already have running is its own — and it tears down only the process group it
+created. Point it at a server you're already running with `E2E_BASE=http://localhost:5173`.

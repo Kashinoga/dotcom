@@ -18,6 +18,7 @@ build/
 dist/
 .claude/
 .vscode/
+.artifacts/
 
 # ─── Opt back in: shareable source & config ───
 !.gitignore
@@ -36,6 +37,7 @@ dist/
 !*.svelte
 !*.ts
 !*.js
+!*.mjs
 !*.css
 !*.svg
 !*.woff2
