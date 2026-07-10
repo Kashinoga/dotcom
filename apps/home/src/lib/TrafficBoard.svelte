@@ -664,18 +664,25 @@
 		photoToken++;
 	}
 
-	// `opLabel` is the resolved operator display string. Computing it here (once per row
-	// when the data changes) rather than in the template keeps its regex tidy/title-case
-	// off the hot path — the row's cells re-render on every transition tick during a
-	// cascade, and it was otherwise recomputed twice per row on each of those.
-	type Row = Plane & { tag: 'arr' | 'dep' | 'over' | null; route: Route; opLabel: string };
+	// `opLabel` is the resolved operator display string, `opShort` the same name cut to
+	// the column's flaps. Computing them here (once per row when the data changes) rather
+	// than in the template keeps the tidy/title-case/truncate regexes off the hot path —
+	// the row's cells re-render on every transition tick during a cascade, and opLabel was
+	// otherwise recomputed twice per row on each of those.
+	type Row = Plane & {
+		tag: 'arr' | 'dep' | 'over' | null;
+		route: Route;
+		opLabel: string;
+		opShort: string;
+	};
 	const rows = $derived.by<Row[]>(() => {
 		routeVer; // dependency: re-derive when the route cache fills
 		return planes.map((p) => {
 			const route = routeCache.get(p.call.toUpperCase()) ?? null;
 			let tag: Row['tag'] = null;
 			if (route) tag = route.d.icao === sel.icao ? 'arr' : route.o.icao === sel.icao ? 'dep' : 'over';
-			return { ...p, route, tag, opLabel: opName({ op: p.op, route }) };
+			const opLabel = opName({ op: p.op, route });
+			return { ...p, route, tag, opLabel, opShort: fitFlaps(opLabel) };
 		});
 	});
 
@@ -726,6 +733,29 @@
 	}
 	const opName = (p: { op: string; route: Route }) =>
 		p.route?.airline?.name || (p.op ? titleCase(tidyOp(p.op)) : '');
+	// A physical Solari board has a fixed number of flaps per column; a name that runs
+	// past them simply doesn't fit. Operators are the one free-text column here and they
+	// get long ("Gulf & Caribbean Cargo / Contract Air Cargo" — 42 chars), so cap what
+	// the flaps show. The full name stays on the row: as the cell's tooltip, as the
+	// flap's accessible name, and on the photo card.
+	//
+	// Truncating the STRING (rather than clipping the rendered cell with text-overflow)
+	// is what keeps the column honest: the split-flap lays out one inline-block per
+	// letter, so the table's auto layout sizes this column from the letters it's given.
+	// A CSS max-width here is simply ignored — which is how the untruncated name came to
+	// overflow `visible` and paint on top of the Alt column.
+	const OP_FLAPS = 24; // total visible chars, ellipsis included
+	function fitFlaps(s: string, max = OP_FLAPS) {
+		if (s.length <= max) return s;
+		const hard = s.slice(0, max - 1);
+		// Prefer to break on a word, but not when backing up guts the label: for a long
+		// final word, the partial ("Air Transport Internati…") carries more than the word
+		// before it ("Air Transport…").
+		const sp = hard.lastIndexOf(' ');
+		const cut = sp > 0 && sp >= (max - 1) * 0.6 ? hard.slice(0, sp) : hard;
+		// Never leave the ellipsis hanging off a separator ("Gulf & Caribbean Cargo /…").
+		return cut.replace(/[\s/,.&–—-]+$/, '') + '…';
+	}
 	const fmtClock = (t: number | null) => {
 		if (t == null) return '—';
 		const d = new Date(t);
@@ -1286,8 +1316,10 @@
 										>{#key p.type}<SplitFlap {...FLAP} start={flapStart(p, i)} text={p.type} />{/key}</button
 										>{:else}{#key p.type}<SplitFlap {...FLAP} start={flapStart(p, i)} text={p.type || '—'} />{/key}{/if}</div>
 							</td>
-							<td class="mono op x2">
-								<div class="ci">{#key p.opLabel}<SplitFlap {...FLAP} start={flapStart(p, i)} text={p.opLabel || '—'} />{/key}</div>
+							<!-- Tooltip only when the flaps ran out — a tooltip that repeats the text
+							     you can already read is just noise. -->
+							<td class="mono op x2" title={p.opShort !== p.opLabel ? p.opLabel : undefined}>
+								<div class="ci">{#key p.opShort}<SplitFlap {...FLAP} start={flapStart(p, i)} text={p.opShort || '—'} label={p.opLabel || '—'} />{/key}</div>
 							</td>
 							<td class="mono num">
 								<div class="ci">{#key fmtAlt(p.alt)}<SplitFlap {...FLAP} start={flapStart(p, i)} text={fmtAlt(p.alt)} />{/key}</div>
@@ -1648,9 +1680,9 @@
 			display: table-cell;
 		}
 	}
-	.op {
-		max-width: 18ch;
-	}
+	/* The operator column's width is capped by truncating the name (OP_FLAPS), not here:
+	   under auto table layout a max-width on a cell is ignored, so the rule that used to
+	   live here never held the column and long names overflowed onto Alt. */
 	/* Climb green / descent muted, echoing the arriving-tag colour language. */
 	.vs {
 		color: color-mix(in srgb, var(--ink) 80%, var(--sub));
@@ -2250,7 +2282,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.15rem;
-		padding-right: 1.2rem;
+		/* Clears the close button (0.6rem inset + 32px) so text never runs under it. */
+		padding-right: 2.6rem;
 	}
 	.pc-title {
 		margin: 0;
@@ -2284,23 +2317,32 @@
 		color: inherit;
 		text-decoration: underline;
 	}
+	/* Sits over the photo once the card stacks (see the phone breakpoint below), so it
+	   carries its own opaque chip rather than relying on whatever the image happens to be
+	   behind it. Inset past the card's 12px corner radius, and sized to a real touch
+	   target — at 24px it was both hard to hit and visually jammed into the corner. */
 	.pc-close {
 		position: absolute;
-		top: 0.35rem;
-		right: 0.45rem;
-		width: 24px;
-		height: 24px;
+		top: 0.6rem;
+		right: 0.6rem;
+		z-index: 1;
+		display: grid;
+		place-items: center;
+		width: 32px;
+		height: 32px;
 		padding: 0;
 		line-height: 1;
 		font-size: 1.15rem;
 		color: var(--sub);
-		background: none;
-		border: 0;
-		border-radius: 6px;
+		background: var(--panel-fill-solid);
+		/* A 1.5px ring, matching the card's own border — a line, not a shadow. */
+		border: 1.5px solid color-mix(in srgb, var(--ink) 12%, transparent);
+		border-radius: 8px;
 		cursor: pointer;
 	}
 	.pc-close:hover {
 		color: var(--ink);
+		border-color: color-mix(in srgb, var(--ink) 28%, transparent);
 	}
 	.pc-close:focus-visible {
 		outline: var(--focus-ring);
@@ -2313,6 +2355,19 @@
 		.pc-img {
 			width: 100%;
 			max-width: none;
+		}
+		/* Stacked, the photo runs the full width and the close button lands on it. Inset it
+		   far enough to sit clear of the image's own 8px corner instead of straddling it,
+		   and give it a phone-sized target. */
+		.pc-close {
+			top: 1rem;
+			right: 1rem;
+			width: 36px;
+			height: 36px;
+		}
+		/* The info column is below the photo now — nothing to reserve space for. */
+		.pc-info {
+			padding-right: 0;
 		}
 	}
 	.src {

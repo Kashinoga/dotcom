@@ -46,6 +46,7 @@
 	// wordmark never reflows or jitters while it spins.
 	let {
 		text,
+		label,
 		delay = 150,
 		tick = 50,
 		stagger = 75,
@@ -53,6 +54,9 @@
 		start = 0
 	}: {
 		text: string;
+		/** Accessible name, when `text` is a visually truncated form of a longer string
+		 *  (the Operator column). Defaults to `text`, so the flaps read as they render. */
+		label?: string;
 		delay?: number;
 		tick?: number;
 		stagger?: number;
@@ -157,7 +161,7 @@
 	});
 </script>
 
-<span class="flap" aria-label={text}>
+<span class="flap" aria-label={label ?? text}>
 	{#each groups as grp}
 		{#if 'space' in grp}<span class="sp">&nbsp;</span>{:else}
 			<span class="word">
