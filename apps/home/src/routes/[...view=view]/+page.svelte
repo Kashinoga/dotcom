@@ -229,6 +229,15 @@
 		}
 	}
 
+	// A panel title is sized off the viewport so it reads at the homepage wordmark's scale,
+	// but the panel itself caps at 640px. A long title ("Terminal Way") therefore fills the
+	// header edge to edge, leaving no room for the accent dot beside it — which then wraps
+	// onto its own line. Lower the ceiling in proportion once a title runs past the length
+	// that still fits; anything shorter keeps the full wordmark scale.
+	const DEST_FITS = 9; // characters that fit at the full 5.5rem with a dot beside them
+	const destSize = (title: string) =>
+		`clamp(2.25rem, 9vw, ${(5.5 * Math.min(1, DEST_FITS / title.length)).toFixed(2)}rem)`;
+
 	// ── Reset ────────────────────────────────────────────────────────────────
 	// The six preferences this panel owns. Deliberately NOT the dev `clearLocalStorage`
 	// set: that one also drops authored content drafts (CONTENT_KEY) and the panel's
@@ -1334,6 +1343,21 @@
 	<meta name="twitter:card" content="summary" />
 </svelte:head>
 
+<!-- Decorative station-sign bullet beside a panel title, in the colour of the line the
+     station sits on — the same treatment ATFC and the Presentation Builder already give
+     their titles, and the same bullets that sit beside the homepage wordmark.
+
+     The wrapper is deliberately not the dot itself: as a flex item, an empty element's
+     baseline is synthesized from the wrong edge in Firefox and floats off the title's
+     baseline. An inline-block wrapper (font-size:0 to collapse whitespace) takes its
+     baseline from the inline-block dot inside it, which is its bottom margin edge — so
+     `align-items: baseline` on .title-row rests the dot on the title's baseline. -->
+{#snippet accentDot(color: string)}
+	<div class="dot-wrap" aria-hidden="true">
+		<span class="accent-dot" style:background={color}></span>
+	</div>
+{/snippet}
+
 <!-- Onward-travel chip row, shared by every panel: a destination's connections, a
      line's station list, and the Traffic board's Connections slot. `label` names the
      section; `codes` are the station codes to link to. -->
@@ -1552,7 +1576,10 @@
 					<div class="surface-head">
 						<button class="icon-btn back" onclick={() => home()} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>
 						<p class="eyebrow">Now arriving &middot; <span style:color={accent[v.code]}>{v.code}</span></p>
-						<h2 class="dest"><SplitFlap text={port.title} base={160} stagger={45} /></h2>
+						<div class="title-row">
+							<h2 class="dest" style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
+							{@render accentDot(accent[v.code])}
+						</div>
 					</div>
 					<div class="surface-body">
 						{#if v.code === 'STG'}
@@ -1882,15 +1909,20 @@
 					<div class="surface-head">
 						<button class="icon-btn back" onclick={() => home()} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>
 						<p class="eyebrow">Route line</p>
-						{#if editLine}
-							<h2
-								class="dest editable"
-								contenteditable="true"
-								oninput={(e) => stageLineEdit(v.idx, e.currentTarget.textContent ?? '')}
-							>{lineFieldText(v.idx)}</h2>
-						{:else}
-							<h2 class="dest"><SplitFlap text={lineNames[v.idx]} base={160} stagger={45} /></h2>
-						{/if}
+						<div class="title-row">
+							{#if editLine}
+								<h2
+									class="dest editable"
+									style:font-size={destSize(lineFieldText(v.idx))}
+									contenteditable="true"
+									oninput={(e) => stageLineEdit(v.idx, e.currentTarget.textContent ?? '')}
+								>{lineFieldText(v.idx)}</h2>
+							{:else}
+								<h2 class="dest" style:font-size={destSize(lineNames[v.idx])}><SplitFlap text={lineNames[v.idx]} base={160} stagger={45} /></h2>
+							{/if}
+							<!-- A line's own colour, not a station's accent. -->
+							{@render accentDot(a.color)}
+						</div>
 					</div>
 					<div class="surface-body">
 						<p
@@ -2469,6 +2501,48 @@
 		text-transform: uppercase;
 		color: var(--sub);
 	}
+	/* Title + its accent bullet. Baseline-aligned so the dot rests on the title's text
+	   baseline, exactly like the masthead's bullets beside "Kashinoga" and ATFC's dot
+	   beside "Air Traffic". */
+	.title-row {
+		display: flex;
+		align-items: baseline;
+		gap: 0.5rem clamp(0.85rem, 2vw, 1.5rem);
+		flex-wrap: wrap;
+	}
+	.title-row .dest {
+		flex: none;
+	}
+	/* See the accentDot snippet: this wrapper exists to carry a correct baseline. */
+	.dot-wrap {
+		display: inline-block;
+		font-size: 0;
+	}
+	/* Nonfunctional colour bullet. Empty inline-block → bottom-edge baseline. */
+	.accent-dot {
+		display: inline-block;
+		width: 30px;
+		height: 30px;
+		border-radius: 999px;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		/* Rolls in from the left with a little bounce as the title flips — same easing,
+		   duration and delay as the masthead dots and ATFC's. */
+		.accent-dot {
+			animation: dot-in 0.45s cubic-bezier(0.34, 1.4, 0.64, 1) 0.5s backwards;
+		}
+	}
+	@keyframes dot-in {
+		from {
+			opacity: 0;
+			transform: translateX(-1.2rem);
+		}
+		to {
+			opacity: 1;
+			transform: translateX(0);
+		}
+	}
+
 	.dest {
 		margin: 0;
 		/* Homepage wordmark scale, so every panel's masthead title reads at the same size
