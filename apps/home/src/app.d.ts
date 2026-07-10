@@ -25,6 +25,14 @@ declare global {
 			 * `null` is the default field. Absent means "whatever `load` resolved".
 			 */
 			field?: string | null;
+			/**
+			 * The Air Traffic board's radius in NM (`?range=`), and its auto-refresh
+			 * cadence in milliseconds (`?refresh=`). `null` is the default; absent means
+			 * "whatever `load` resolved". Both are stored as values, not tokens — the
+			 * board takes numbers, and $lib/scope owns the token spelling.
+			 */
+			range?: number | null;
+			refresh?: number | null;
 		}
 		// interface Platform {}
 	}

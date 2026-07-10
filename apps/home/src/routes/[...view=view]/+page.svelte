@@ -11,6 +11,7 @@
 	import { airports, airlines, HUB, type Pt } from '$lib/network';
 	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
 	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
+	import { rangeToken, refreshToken } from '$lib/scope';
 	import type { PageData } from './$types';
 
 	// Airline route-map homepage. The network is deliberately LARGER than the
@@ -981,10 +982,33 @@
 	//
 	// `push` is false when the change *came from* history (a back/forward), which would
 	// otherwise re-push the entry we just popped.
-	function syncUrl(nv: View | null, fld: string | null = null, replace = false) {
-		// A panel's URL is its path plus, for the Traffic board, the field it's showing.
-		// The default field carries no param — it's what you get with none.
-		const path = viewPath(nv) + (fld ? `?field=${fld.toLowerCase()}` : '');
+	// The Traffic board's controls, as the URL sees them. `null` is the default, which is
+	// spelled by leaving the param off entirely.
+	type BoardParams = { field: string | null; range: number | null; refresh: number | null };
+	const NO_PARAMS: BoardParams = { field: null, range: null, refresh: null };
+
+	// Built with URLSearchParams rather than string concatenation so the ordering is stable
+	// and the escaping isn't ours to get wrong. Order matches $lib/scope + the load's
+	// canonicalisation, so a URL we push is byte-identical to one the server would redirect
+	// to — otherwise `syncUrl`'s address-bar comparison below would never match and every
+	// pick would push a duplicate entry.
+	function boardQuery({ field: f, range: r, refresh: p }: BoardParams) {
+		const q = new URLSearchParams();
+		if (f) q.set('field', f.toLowerCase());
+		const rt = r === null ? null : rangeToken(r);
+		if (rt) q.set('range', rt);
+		const pt = p === null ? null : refreshToken(p);
+		if (pt) q.set('refresh', pt);
+		const s = q.toString();
+		return s ? `?${s}` : '';
+	}
+
+	function syncUrl(nv: View | null, bp: BoardParams = NO_PARAMS, replace = false) {
+		// A panel's URL is its path plus, for the Traffic board, the controls it's set to.
+		// Each default carries no param — it's what you get with none. Passed as one object
+		// rather than three positional args: with `field`, `range` and `refresh` all
+		// nullable, a dropped or transposed argument would be invisible at the call site.
+		const path = viewPath(nv) + boardQuery(bp);
 		// Compare against the address bar, NOT `page.url`. Shallow routing leaves
 		// `page.url` pinned to the last real navigation — `pushState` only assigns
 		// `page.state`, and a shallow popstate restores the pre-push URL. So `page.url`
@@ -998,7 +1022,12 @@
 		// `$state.snapshot` is load-bearing: history entries are structured-cloned, and a
 		// `$state` proxy (which `view` is, once assigned) throws DataCloneError. Callers
 		// that hand us a fresh object literal are unaffected; `setField` passes `view`.
-		const state = { view: nv ? ($state.snapshot(nv) as View) : null, field: fld };
+		const state = {
+			view: nv ? ($state.snapshot(nv) as View) : null,
+			field: bp.field,
+			range: bp.range,
+			refresh: bp.refresh
+		};
 		// Picking a field *replaces* the entry: it's a control on the open panel, not a
 		// new place. Otherwise every chip click would need its own press of Back.
 		if (replace) replaceState(path, state);
@@ -1013,16 +1042,37 @@
 	// map — which is why this tests for `undefined` rather than truthiness.
 	const urlView = $derived(page.state.view !== undefined ? page.state.view : data.view);
 	const urlField = $derived(page.state.field !== undefined ? page.state.field : data.field);
+	const urlRange = $derived(page.state.range !== undefined ? page.state.range : data.range);
+	const urlRefresh = $derived(
+		page.state.refresh !== undefined ? page.state.refresh : data.refresh
+	);
 
-	// The Traffic board's field, mirrored into `?field=`. Seeded from the URL; see the
-	// note on `view` above for why reading `data` once is right.
+	// The Traffic board's three controls, mirrored into the query. Seeded from the URL; see
+	// the note on `view` above for why reading `data` once is right. `null` means "the
+	// default", which is exactly what carrying no param means.
 	// svelte-ignore state_referenced_locally
 	let field = $state<string | null>(data.field);
+	// svelte-ignore state_referenced_locally
+	let range = $state<number | null>(data.range);
+	// svelte-ignore state_referenced_locally
+	let refresh = $state<number | null>(data.refresh);
 
-	// The board picked a new field: record it and rewrite the URL in place.
+	const boardParams = $derived<BoardParams>({ field, range, refresh });
+
+	// The board changed a control: record it and rewrite the URL in place. A control is a
+	// setting on the open panel, not a new place, so these replace the history entry —
+	// otherwise every chip click would need its own press of Back.
 	function setField(a: { iata: string; icao: string }) {
 		field = a.icao === DEFAULT_FIELD.icao ? null : a.iata;
-		if (view) syncUrl(view, field, true);
+		if (view) syncUrl(view, boardParams, true);
+	}
+	function setRange(nm: number) {
+		range = rangeToken(nm) === null ? null : nm;
+		if (view) syncUrl(view, boardParams, true);
+	}
+	function setRefresh(ms: number) {
+		refresh = refreshToken(ms) === null ? null : ms;
+		if (view) syncUrl(view, boardParams, true);
 	}
 
 	// ── What a shared link says it is ───────────────────────────────────────────
@@ -1050,12 +1100,14 @@
 	// Show a destination/line: fly the camera there and render its panel content.
 	function applyView(nv: View, push = true) {
 		view = nv;
-		// A fresh open starts the board on its default field — the previous visit's
-		// `?field=` belongs to the history entry we left, not to this new one. On a
-		// history-driven open (`push` false) the reconciler has already set `field`.
+		// A fresh open starts the board on its defaults — the previous visit's `?field=` and
+		// friends belong to the history entry we left, not to this new one. On a
+		// history-driven open (`push` false) the reconciler has already set them.
 		if (push) {
 			field = null;
-			syncUrl(nv, null);
+			range = null;
+			refresh = null;
+			syncUrl(nv, NO_PARAMS);
 		}
 		// The Presentation Builder is a three-column editor — force the full-viewport layout on
 		// open (its compact form is a fallback, not the intended experience).
@@ -1110,8 +1162,10 @@
 		// clean slide (it's reset on the next fresh open, not mid-close).
 		view = null;
 		if (push) {
-			// The overview map has no field; leaving it set would linger in the head tags.
+			// The overview map has no board; leaving these set would linger in the head tags.
 			field = null;
+			range = null;
+			refresh = null;
 			syncUrl(null);
 		}
 		flyTo(HOME);
@@ -1353,15 +1407,25 @@
 	$effect(() => {
 		const nextView = urlView;
 		const nextField = urlField;
+		const nextRange = urlRange;
+		const nextRefresh = urlRefresh;
 		untrack(() => {
 			if (sameView(nextView, view)) {
-				// Same panel, different field — a `?field=` restored by back/forward.
+				// Same panel, different controls — restored by back/forward, or by a real
+				// navigation to the same route with a different query (which re-runs `load`
+				// but does not remount). The panel is keyed on the station code, not on these,
+				// so the board is not rebuilt: it follows the props instead (see the
+				// `initialField` / `initialRange` / `initialRefresh` effect in TrafficBoard).
 				if (nextField !== field) field = nextField;
+				if (nextRange !== range) range = nextRange;
+				if (nextRefresh !== refresh) refresh = nextRefresh;
 				return;
 			}
-			// Set the field before the panel swaps: the board reads it as a prop when the
+			// Set the controls before the panel swaps: the board reads them as props when the
 			// keyed block remounts it, and `navigate` defers that swap by PANEL_SLIDE.
 			field = nextField;
+			range = nextRange;
+			refresh = nextRefresh;
 			if (nextView) navigate(nextView, false);
 			else home(false);
 		});
@@ -1628,6 +1692,10 @@
 							onCopyEdit={stageSettings}
 							initialField={field}
 							onFieldChange={setField}
+							initialRange={range}
+							onRangeChange={setRange}
+							initialRefresh={refresh}
+							onRefreshChange={setRefresh}
 						>
 							{#snippet connections()}
 								{@render onward('Connections', conns)}

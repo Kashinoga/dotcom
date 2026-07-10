@@ -6,6 +6,7 @@
 	import SplitFlap from '$lib/SplitFlap.svelte';
 	import { MAXIMIZE_SVG, MINIMIZE_SVG, BACK_SVG } from '$lib/icons';
 	import { AIRPORTS, DEFAULT_FIELD, fieldByIata, type Airport } from '$lib/fields';
+	import { RANGES, DEFAULT_RANGE, INTERVALS, DEFAULT_POLL_MS } from '$lib/scope';
 
 	// A live "what's in the air around <airport>" board. Same keyless, CORS-open
 	// stack as the dotcom-2 atc app: airplanes.live for live ADS-B traffic near a
@@ -30,7 +31,11 @@
 		copyText,
 		onCopyEdit,
 		initialField = null,
-		onFieldChange
+		onFieldChange,
+		initialRange = null,
+		onRangeChange,
+		initialRefresh = null,
+		onRefreshChange
 	}: {
 		accent?: string;
 		code?: string;
@@ -45,6 +50,12 @@
 		// because `field` is taken by the API-record mapper further down.)
 		initialField?: string | null;
 		onFieldChange?: (picked: Airport) => void;
+		// Same contract for the board's other two controls, from `?range=` and `?refresh=`.
+		// Null means the default. Range is NM; refresh is milliseconds.
+		initialRange?: number | null;
+		onRangeChange?: (nm: number) => void;
+		initialRefresh?: number | null;
+		onRefreshChange?: (ms: number) => void;
 		// Edit Mode (dev authoring): `copyText(key)` reads the current/staged copy and
 		// `onCopyEdit(key, value)` stages an edit — both delegate to the page's Settings
 		// store so the board's prose saves/exports with the rest of the site copy.
@@ -232,16 +243,8 @@
 		distNm: number;
 	};
 
-	const RANGES = [40, 60, 100, 150, 250]; // NM; 250 is the airplanes.live max
-	// Auto-refresh cadence options. 1 minute is the default — ADS-B positions barely
-	// move between polls and it's easy on the upstream feeds. Also selectable in-UI,
-	// alongside a manual "refresh now".
-	const INTERVALS = [
-		{ ms: 30000, label: '30s' },
-		{ ms: 60000, label: '1m' },
-		{ ms: 120000, label: '2m' },
-		{ ms: 300000, label: '5m' }
-	];
+	// RANGES / INTERVALS now live in $lib/scope, so the URL layer resolves `?range=` and
+	// `?refresh=` against the very lists these controls render from.
 	const MAX_ROWS = 18;
 	const MAX_LOOKUPS_PER_POLL = 8;
 	// Snappy split-flap timing for the board cells (the Home header's Solari flip).
@@ -259,9 +262,14 @@
 	// server-side, with no flash of the default. Read once — from here the board owns it,
 	// and history changes arrive as a remount.
 	// svelte-ignore state_referenced_locally
+	// Seeded from the URL (via the page), falling back to each control's default. Reading the
+	// initial value is the point — the effect further down is what keeps these following the
+	// props afterwards.
 	let sel = $state<Airport>(fieldByIata(initialField) ?? DEFAULT_FIELD);
-	let radiusNm = $state(60);
-	let pollMs = $state(60000); // auto-refresh cadence; default 1 minute
+	// svelte-ignore state_referenced_locally
+	let radiusNm = $state(initialRange ?? DEFAULT_RANGE);
+	// svelte-ignore state_referenced_locally
+	let pollMs = $state(initialRefresh ?? DEFAULT_POLL_MS);
 	let planes = $state<Plane[]>([]);
 	let status = $state<'loading' | 'ok' | 'empty' | 'error'>('loading');
 	let updatedAt = $state<number | null>(null);
@@ -570,6 +578,7 @@
 	function setPollMs(ms: number) {
 		if (ms === pollMs) return;
 		pollMs = ms;
+		onRefreshChange?.(ms); // let the page mirror the pick into `?refresh=`
 		restartInterval();
 	}
 	function togglePause() {
@@ -600,6 +609,7 @@
 	function setRange(r: number) {
 		if (r === radiusNm) return;
 		radiusNm = r;
+		onRangeChange?.(r); // let the page mirror the pick into `?range=`
 		planes = [];
 		resetTracks();
 		enrichGen++; // cancel any in-flight enrichment for the old range
@@ -608,6 +618,26 @@
 		updatedAt = null;
 		kick();
 	}
+
+	// Follow the URL when it moves under us. The panel is keyed on the station code, so a
+	// back/forward (or a real navigation) that only changes `?field=` / `?range=` /
+	// `?refresh=` re-runs `load` and updates these props without remounting the board —
+	// without this, the address bar and the board would disagree.
+	//
+	// No feedback loop: each setter early-returns when the value already matches, and the
+	// onChange it fires writes the same value back into the prop, so the effect re-runs at
+	// most once and finds nothing to do. `untrack` keeps the board's own state off the
+	// dependency list — only the props may drive this.
+	$effect(() => {
+		const wantField = fieldByIata(initialField) ?? DEFAULT_FIELD;
+		const wantRange = initialRange ?? DEFAULT_RANGE;
+		const wantRefresh = initialRefresh ?? DEFAULT_POLL_MS;
+		untrack(() => {
+			select(wantField);
+			setRange(wantRange);
+			setPollMs(wantRefresh);
+		});
+	});
 
 	// A tapped row's photo card: a snapshot of the aircraft + its type photo.
 	type Selected = {
