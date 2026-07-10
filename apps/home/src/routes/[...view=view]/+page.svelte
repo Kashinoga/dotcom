@@ -8,7 +8,7 @@
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
 	import PresentationBuilder from '$lib/PresentationBuilder.svelte';
 	import { MAXIMIZE_SVG, MINIMIZE_SVG, BACK_SVG } from '$lib/icons';
-	import { airports, airlines, type Pt } from '$lib/network';
+	import { airports, airlines, HUB, type Pt } from '$lib/network';
 	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
 	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
 	import type { PageData } from './$types';
@@ -57,21 +57,34 @@
 	};
 
 	// Train mode (mobile, portrait): the same sparse network stacked vertically — the
-	// About cluster up top, Settings below the hub — so it reads top-to-bottom. Kept
-	// compact so the top branch clears the masthead and the bottom clears the legend.
+	// About cluster up top, the two lines fanning below the hub — so it reads top-to-bottom.
+	// Kept compact so the top branch clears the masthead and the bottom clears the legend.
+	//
+	// Every leaf's label points straight away from its parent (see labelFor), and labels
+	// scale with the map, so this layout has to be solved in WORLD units — a label that
+	// fits here fits at every phone size. Two constraints drive the shape:
+	//   · Gray's goes down-LEFT and Terminal Way down-RIGHT, so the two lines separate
+	//     under the hub. They used to both hang below it, which is how "Settings" and
+	//     "Presentation Builder" — the map's widest label — ended up printed on the
+	//     same row, touching.
+	//   · "Presentation Builder" is ~142u wide, so it takes the down-left slot off APP
+	//     where there's room to run leftward. Air Traffic hangs straight DOWN instead:
+	//     pointing away from its parent means pointing down, so its label centres on the
+	//     node and spends ~36u each way rather than ~71u to one side.
+	// PRES left of ATFC also matches how the desktop map reads.
 	const P_rail_v: Record<string, Pt> = {
 		KSH: [230, 455],
 		// Loess — ABT up, fanning to Work (left) and Projects (right).
 		ABT: [230, 350],
 		WRK: [145, 262],
 		PRJ: [315, 262],
-		// Gray's — Settings, below the hub.
-		STG: [230, 590],
-		// Apps — orange line branching down-right of the hub, then on to Air Traffic
-		// (right) and the Presentation Builder (left).
-		APP: [360, 515],
-		ATFC: [450, 615],
-		PRES: [270, 615]
+		// Gray's — Settings, down-left of the hub.
+		STG: [152, 545],
+		// Apps — orange line down-right of the hub, then Air Traffic straight below it
+		// (centred label) and the Presentation Builder branching down-left.
+		APP: [325, 545],
+		ATFC: [325, 665],
+		PRES: [240, 650]
 	};
 
 	// Route drawing style, toggled from the Settings (STG) stop; persisted so the
@@ -441,6 +454,19 @@
 					}))
 				)
 	);
+	// Station dot radii, in world units. The hub reads as the hub through its larger dot AND
+	// its larger label (.code-hub), so the dot itself doesn't have to shout: at R_HUB = 15 it
+	// rendered ~44px wide on a 1400px desktop and ~54px at 1920px — bigger than the masthead's
+	// 30px station-sign bullets, which are fixed pixels and don't scale with the camera.
+	// 10 lands the home view's hub at ~30px there, level with those bullets.
+	const R_HUB = 10;
+	const R_STOP = 6.5;
+	// Clearance from a dot's EDGE to the near edge of its label, in world units. Kept as a
+	// separate term (rather than baked into a literal gap) so changing a radius doesn't
+	// silently move the labels in or out.
+	const LABEL_CLEAR_HUB = 19;
+	const LABEL_CLEAR_STOP = 8.5;
+
 	// Place each label in the clear: point it into the widest angular gap between a
 	// station's own tracks, so it never lands on a line even at a branch junction.
 	function labelFor(code: string, x: number, y: number) {
@@ -463,7 +489,7 @@
 		const dx = Math.cos(dir);
 		const dy = Math.sin(dir);
 		// The hub's dot is larger, so its label needs a wider offset to clear it.
-		const gap = code === 'KSH' ? 34 : 15;
+		const gap = code === HUB ? R_HUB + LABEL_CLEAR_HUB : R_STOP + LABEL_CLEAR_STOP;
 		const anchor = dx > 0.3 ? 'start' : dx < -0.3 ? 'end' : 'middle';
 		return { lx: x + dx * gap, ly: y + dy * gap, anchor };
 	}
@@ -1460,7 +1486,7 @@
 			>
 				<circle class="hit" cx={n.x} cy={n.y} r="26" />
 				<!-- Just a white circle; the hub is the same, only larger. -->
-				<circle class="port" class:hub={n.hub} cx={n.x} cy={n.y} r={n.hub ? 15 : 6.5} />
+				<circle class="port" class:hub={n.hub} cx={n.x} cy={n.y} r={n.hub ? R_HUB : R_STOP} />
 				<text
 					class="code"
 					class:code-hub={n.hub}
@@ -2069,12 +2095,12 @@
 	.node.active .port {
 		stroke-width: 3;
 	}
-	/* The hub is ~2.3× the radius (15 vs 6.5), so scale its ring up to keep the same
-	   ring-to-node proportion as the smaller stations (3 ÷ 6.5 ≈ 7 ÷ 15). */
+	/* The hub is ~1.5× the radius (R_HUB 10 vs R_STOP 6.5), so scale its ring up to keep the
+	   same ring-to-node proportion as the smaller stations (3 ÷ 6.5 ≈ 4.6 ÷ 10). */
 	.node:hover .port.hub,
 	.node:focus-visible .port.hub,
 	.node.active .port.hub {
-		stroke-width: 7;
+		stroke-width: 4.6;
 	}
 	/* No UA focus box around the node group (it frames the dot + label). Keyboard focus
 	   is shown via the accent ring on :focus-visible above. */
@@ -2107,13 +2133,14 @@
 			transition: stroke-width 0.15s ease, filter 0.2s ease,
 				r 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 		}
+		/* Rest radii are R_STOP 6.5 / R_HUB 10 (set on the element); these are the swell. */
 		:global(html[data-ui='bubble']) .node:hover .port:not(.hub),
 		:global(html[data-ui='bubble']) .node:focus-visible .port:not(.hub) {
 			r: 8;
 		}
 		:global(html[data-ui='bubble']) .node:hover .port.hub,
 		:global(html[data-ui='bubble']) .node:focus-visible .port.hub {
-			r: 17.5;
+			r: 11.7;
 		}
 	}
 	.code {
