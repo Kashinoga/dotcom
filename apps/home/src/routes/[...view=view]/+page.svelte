@@ -2939,6 +2939,115 @@
 		color: var(--sub);
 	}
 
+	/* ══ Universal button interaction ═══════════════════════════════════════════════════
+	   Every button in the app springs the same way, in both UI styles: a small pop on hover,
+	   a squash + darken on press, on the shared --btn-spring. Amounts live in puhig's tokens
+	   so a button's feel is changed in one place, never per component.
+
+	   Why `html:root` and not plain `html`: Svelte scopes a component's own rule to
+	   `.seg.svelte-hash` (specificity 0,2,0), which would beat `html .seg` (0,1,1) and drop
+	   the transform transition on the floor. `:root` is a pseudo-class, so `html:root .seg`
+	   reaches (0,2,1) and wins — the same trick `html[data-ui='bubble'] .seg` gets for free
+	   from its attribute. Flat has no attribute to key on, hence `:root`.
+
+	   Exclusions, deliberate: `.manual` spins on press (its own rotate would fight a scale)
+	   and `.refresh` is a countdown ring. Both still darken. */
+	:global(html:root .seg),
+	:global(html:root .sky-opt),
+	:global(html:root .icon-btn),
+	:global(html:root .edit-enter),
+	:global(html:root .edit-btn),
+	:global(html:root .chip),
+	:global(html:root .legend-btn),
+	:global(html:root .field),
+	:global(html:root .field-select),
+	:global(html:root .type-btn),
+	:global(html:root .pc-close),
+	:global(html:root .manual),
+	:global(html:root .tb),
+	:global(html:root .mini),
+	:global(html:root .swatch-btn) {
+		transition:
+			transform 0.3s var(--btn-spring),
+			background 0.18s var(--btn-soft),
+			background-color 0.18s var(--btn-soft),
+			border-color 0.18s var(--btn-soft),
+			box-shadow 0.28s var(--btn-soft),
+			opacity 0.18s var(--btn-soft),
+			color 0.15s ease;
+	}
+	/* The 30px header icon circles sit flush at the top of a sticky header inside a clipping
+	   scroller. Anchoring their scale to the TOP edge means the pop grows only downward, into
+	   the header's padding, so it never crosses the clip boundary. */
+	:global(html:root .icon-btn),
+	:global(html:root .manual) {
+		transform-origin: center top;
+	}
+
+	/* Press: DARKEN whatever colour the button already is rather than repaint the fill (which
+	   turned coloured buttons grey). The black overlay has zero blur — it's a flood tint, a
+	   fill, not a bevel — so it darkens a neutral button and the orange primary alike, in both
+	   themes, without Flat ever growing a shadow. */
+	:global(html:root .seg:active:not(:disabled)),
+	:global(html:root .sky-opt:active:not(:disabled)),
+	:global(html:root .icon-btn:active:not(:disabled)),
+	:global(html:root .field:active:not(:disabled)),
+	:global(html:root .field-select:active:not(:disabled)),
+	:global(html:root .edit-enter:active:not(:disabled)),
+	:global(html:root .edit-btn:active:not(:disabled)),
+	:global(html:root .chip:active:not(:disabled)),
+	:global(html:root .legend-btn:active:not(:disabled)),
+	:global(html:root .type-btn:active:not(:disabled)),
+	:global(html:root .pc-close:active:not(:disabled)),
+	:global(html:root .refresh:active:not(:disabled)),
+	:global(html:root .manual:active:not(:disabled)),
+	:global(html:root .tb:active:not(:disabled)),
+	:global(html:root .mini:active:not(:disabled)),
+	:global(html:root .swatch-btn:active:not(:disabled)) {
+		box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.07);
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		:global(html:root .seg:hover:not(:disabled)),
+		:global(html:root .sky-opt:hover:not(:disabled)),
+		:global(html:root .icon-btn:hover:not(:disabled)),
+		:global(html:root .edit-enter:hover:not(:disabled)),
+		:global(html:root .edit-btn:hover:not(:disabled)),
+		:global(html:root .chip:hover:not(:disabled)),
+		:global(html:root .legend-btn:hover:not(:disabled)),
+		:global(html:root .field:hover:not(:disabled)),
+		:global(html:root .field-select:hover:not(:disabled)),
+		:global(html:root .type-btn:hover:not(:disabled)),
+		:global(html:root .pc-close:hover:not(:disabled)),
+		:global(html:root .manual:hover:not(:disabled)),
+		:global(html:root .tb:hover:not(:disabled)),
+		:global(html:root .mini:hover:not(:disabled)),
+		:global(html:root .swatch-btn:hover:not(:disabled)) {
+			transform: scale(var(--btn-hover-scale));
+		}
+		:global(html:root .seg:active:not(:disabled)),
+		:global(html:root .sky-opt:active:not(:disabled)),
+		:global(html:root .icon-btn:active:not(:disabled)),
+		:global(html:root .field:active:not(:disabled)),
+		:global(html:root .field-select:active:not(:disabled)),
+		:global(html:root .edit-enter:active:not(:disabled)),
+		:global(html:root .edit-btn:active:not(:disabled)),
+		:global(html:root .chip:active:not(:disabled)),
+		:global(html:root .legend-btn:active:not(:disabled)),
+		:global(html:root .type-btn:active:not(:disabled)),
+		:global(html:root .pc-close:active:not(:disabled)),
+		:global(html:root .tb:active:not(:disabled)),
+		:global(html:root .mini:active:not(:disabled)),
+		:global(html:root .swatch-btn:active:not(:disabled)) {
+			transform: scale(var(--btn-press-scale));
+			transition-duration: 0.1s;
+		}
+	}
+	/* NOTE: the universal interaction sits ABOVE the Bubble section on purpose. Its press
+	   rule and Bubble's press rule have identical specificity (0,4,1), so whichever comes
+	   LAST wins the tie. Bubble must win — its press is a sunken gloss, not a flat tint.
+	   Move this block below and Bubble silently stops sinking on click. */
+
 	/* ── "Bubble" button style (Settings → Button style; data-ui="bubble" on the html
 	   element) ── Opt-in glossy, gel-like buttons across every panel, echoing the deck's
 	   bubbly controls. A convex SHEEN rides on top as a background-IMAGE so each button's own
@@ -2984,25 +3093,13 @@
 			inset 0 1px 0 rgba(255, 255, 255, 0.55),
 			0 1px 1px rgba(8, 10, 14, 0.05),
 			0 3px 8px rgba(8, 10, 14, 0.08);
-		transform-origin: center;
-		transition:
-			transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1),
-			box-shadow 0.28s ease,
-			background-color 0.18s ease,
-			border-color 0.18s ease,
-			color 0.15s ease;
+		/* Motion (transition, transform-origin, hover pop, press squash) is NOT set here —
+		   it's the universal button interaction at the bottom of this file, shared by both UI
+		   styles. Bubble only adds its material: the pill radius and the gloss. */
 	}
 	/* Two-line settings segments stay softly rounded rather than full pill. */
 	:global(html[data-ui='bubble'] .seg) {
 		border-radius: 16px;
-	}
-	/* The 30px header icon circles (back / expand / refresh) sit flush at the top of a
-	   sticky header inside a scroll container that clips vertically. Anchoring their scale to
-	   the TOP edge means the hover pop grows only downward (into the header's padding), so the
-	   full scale animation is preserved without the top ever crossing the clip boundary. */
-	:global(html[data-ui='bubble'] .icon-btn),
-	:global(html[data-ui='bubble'] .manual) {
-		transform-origin: center top;
 	}
 
 	/* Selected controls get the FULL convex bubble: a brighter top sheen with real bottom
@@ -3059,75 +3156,8 @@
 			inset 0 2px 4px rgba(0, 0, 0, 0.2),
 			inset 0 0 0 999px rgba(0, 0, 0, 0.08);
 	}
-	@media (prefers-reduced-motion: no-preference) {
-		/* Everything pops forward on hover. The header icon circles (.icon-btn) scale from
-		   their top edge (set above) so the pop grows downward and never clips at the top. */
-		:global(html[data-ui='bubble'] .seg:hover:not(:disabled)),
-		:global(html[data-ui='bubble'] .sky-opt:hover:not(:disabled)),
-		:global(html[data-ui='bubble'] .icon-btn:hover:not(:disabled)),
-		:global(html[data-ui='bubble'] .edit-enter:hover:not(:disabled)),
-		:global(html[data-ui='bubble'] .chip:hover:not(:disabled)),
-		:global(html[data-ui='bubble'] .tb:hover:not(:disabled)),
-		:global(html[data-ui='bubble'] .mini:hover:not(:disabled)),
-		:global(html[data-ui='bubble'] .swatch-btn:hover:not(:disabled)),
-		:global(html[data-ui='bubble'] .field:hover:not(:disabled)),
-		:global(html[data-ui='bubble'] .field-select:hover:not(:disabled)),
-		:global(html[data-ui='bubble'] .manual:hover:not(:disabled)) {
-			transform: scale(1.05);
-		}
-		:global(html[data-ui='bubble'] .seg:active:not(:disabled)),
-		:global(html[data-ui='bubble'] .sky-opt:active:not(:disabled)),
-		:global(html[data-ui='bubble'] .icon-btn:active:not(:disabled)),
-		:global(html[data-ui='bubble'] .edit-enter:active:not(:disabled)),
-		:global(html[data-ui='bubble'] .chip:active:not(:disabled)),
-		:global(html[data-ui='bubble'] .tb:active:not(:disabled)),
-		:global(html[data-ui='bubble'] .mini:active:not(:disabled)),
-		:global(html[data-ui='bubble'] .swatch-btn:active:not(:disabled)),
-		:global(html[data-ui='bubble'] .field:active:not(:disabled)),
-		:global(html[data-ui='bubble'] .field-select:active:not(:disabled)),
-		:global(html[data-ui='bubble'] .manual:active:not(:disabled)) {
-			transform: scale(0.94);
-			transition-duration: 0.1s;
-		}
-	}
+	/* Hover pop and press squash used to be duplicated here at 1.05 / 0.94. They now come from
+	   the universal interaction block, so Bubble and Flat move identically and only differ in
+	   material. */
 
-	/* ── Universal pressed state ── Every button visibly pushes IN on click, regardless of the
-	   Bubble setting. Rather than repaint the fill (which turned coloured buttons grey), we
-	   just DARKEN whatever colour the button already is: the theme-proof black inset overlay
-	   darkens the fill in BOTH light and dark, so a neutral button gets a darker neutral and
-	   the orange field/primary gets a darker orange. The top inset gives the pushed-in feel;
-	   the html-prefixed specificity wins over each control's own :hover. Squash is gated on
-	   reduced-motion. */
-	:global(html .seg:active:not(:disabled)),
-	:global(html .sky-opt:active:not(:disabled)),
-	:global(html .icon-btn:active:not(:disabled)),
-	:global(html .field:active:not(:disabled)),
-	:global(html .field-select:active:not(:disabled)),
-	:global(html .edit-enter:active:not(:disabled)),
-	:global(html .chip:active:not(:disabled)),
-	:global(html .legend-btn:active:not(:disabled)),
-	:global(html .edit-btn:active:not(:disabled)),
-	:global(html .pc-close:active:not(:disabled)),
-	:global(html .refresh:active:not(:disabled)),
-	:global(html .manual:active:not(:disabled)) {
-		box-shadow:
-			inset 0 2px 4px rgba(0, 0, 0, 0.18),
-			inset 0 0 0 999px rgba(0, 0, 0, 0.07);
-	}
-	@media (prefers-reduced-motion: no-preference) {
-		/* .manual keeps its own rotate and .refresh is a countdown ring, so they darken but
-		   don't squash. */
-		:global(html .seg:active:not(:disabled)),
-		:global(html .sky-opt:active:not(:disabled)),
-		:global(html .icon-btn:active:not(:disabled)),
-		:global(html .field:active:not(:disabled)),
-		:global(html .field-select:active:not(:disabled)),
-		:global(html .edit-enter:active:not(:disabled)),
-		:global(html .chip:active:not(:disabled)),
-		:global(html .legend-btn:active:not(:disabled)),
-		:global(html .edit-btn:active:not(:disabled)),
-		:global(html .pc-close:active:not(:disabled)) {
-			transform: scale(0.95);
-		}
-	}
 </style>

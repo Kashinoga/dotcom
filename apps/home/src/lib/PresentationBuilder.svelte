@@ -1116,16 +1116,10 @@
 	   frosted glass, scale a touch toward the viewer on hover, and squash on press.
 	   --btn-ease is a gentle spring for the scale; --soft is a symmetric ease-in-out so the
 	   blur and shadow ramp in AND out gracefully (never popping) on both enter and leave. */
-	.tb,
-	.chip,
-	.mini,
-	.swatch-btn {
-		--btn-ease: cubic-bezier(0.34, 1.4, 0.64, 1);
-		--soft: cubic-bezier(0.4, 0, 0.2, 1);
-		transition: transform 0.3s var(--btn-ease), background 0.3s var(--soft),
-			border-color 0.3s var(--soft), box-shadow 0.42s var(--soft),
-			opacity 0.3s var(--soft), backdrop-filter 0.5s var(--soft), color 0.2s ease;
-	}
+	/* Transition, hover pop and press squash all come from the universal button interaction
+	   in +page.svelte — these buttons used to define their own (and were the only ones in the
+	   app that sprang, which is why Back felt dead beside New/Open). Only the frost below is
+	   theirs. */
 	/* The glassy button material is Bubble's, not Flat's — a flat button is a fill inside a
 	   line, with nothing showing through it. */
 	:global(html[data-ui='bubble']) .tb,
@@ -1135,42 +1129,11 @@
 		-webkit-backdrop-filter: blur(6px) saturate(1.3);
 		backdrop-filter: blur(6px) saturate(1.3);
 	}
-	/* Press = depressed: squash + dim + an inset shadow so the button reads as pushed IN.
-	   This pressed look belongs to the click, never the hover (see .tb:hover). The inset works
-	   over any fill, so the orange primary presses in without losing its colour. */
-	/* .pb-scoped so :active out-specifies the :hover rules below it (equal specificity would
-	   otherwise let the later :hover win on press, and the button would never depress). The
-	   uniform black inset darkens the fill in both themes; the top inset reads as pushed-in. */
-	.pb .tb:active:not(:disabled),
-	.pb .chip:active:not(:disabled),
-	.pb .mini:active,
-	.pb .swatch-btn:active {
-		transform: scale(0.94);
-		/* Press reads as a flat fill darkening plus the scale — the flood tint below is an
-		   inset with no blur, so it's a fill, not a shadow. The blurred `inset 0 2px 4px`
-		   that used to sit above it was the only bevel here; Flat mode carries depth with
-		   line, colour and motion, never with a shadow. Bubble adds its own (see the
-		   data-ui='bubble' block in +page.svelte). */
-		box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.08);
-		transition-duration: 0.09s;
-	}
-	/* Respect reduced-motion: keep the colour/opacity feedback, drop the scale + lift. */
-	@media (prefers-reduced-motion: reduce) {
-		.tb,
-		.chip,
-		.mini,
-		.swatch-btn,
-		.tb:hover:not(:disabled),
-		.chip:hover:not(:disabled),
-		.mini:hover,
-		.swatch-btn:hover,
-		.tb:active:not(:disabled),
-		.chip:active:not(:disabled),
-		.mini:active,
-		.swatch-btn:active {
-			transform: none;
-		}
-	}
+	/* The pressed state (squash + flood-tint darkening) is the universal one in +page.svelte.
+	   It used to be re-declared here, `.pb`-scoped so it would out-specify the :hover rules
+	   below — which also made it out-specify the universal rule, and kept these four buttons
+	   moving on a different spring from every other button in the app. Reduced-motion is
+	   handled there too. */
 
 	.tb {
 		display: inline-flex;
@@ -1200,7 +1163,6 @@
 	.tb:hover:not(:disabled) {
 		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
 		background: color-mix(in srgb, var(--ink) 5%, transparent);
-		transform: scale(1.05);
 	}
 	:global(html[data-ui='bubble']) .tb:hover:not(:disabled) {
 		-webkit-backdrop-filter: blur(10px) saturate(1.5);
@@ -1245,7 +1207,6 @@
 	.chip:hover:not(:disabled) {
 		color: var(--ink);
 		border-color: color-mix(in srgb, var(--ink) 26%, transparent);
-		transform: scale(1.09);
 	}
 	.chip.danger:hover:not(:disabled) {
 		color: #c93328;
@@ -1660,7 +1621,6 @@
 	}
 	.mini:hover:not(:disabled) {
 		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
-		transform: scale(1.07);
 	}
 	.swatch-row {
 		display: flex;
@@ -1683,7 +1643,6 @@
 	}
 	.swatch-btn:hover {
 		border-color: color-mix(in srgb, var(--pb-accent) 45%, transparent);
-		transform: scale(1.06);
 	}
 	.swatch-btn.on {
 		border-color: var(--pb-accent);
