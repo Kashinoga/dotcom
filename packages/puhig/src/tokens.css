@@ -124,12 +124,9 @@
 		transparent 20%
 	);
 	--panel-edge: light-dark(rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.1));
-	/* Fresnel rim: bright top + left inner bevel — light catching the moulded edge. */
-	--panel-rim: inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0.12)),
-		inset 1px 0 0 light-dark(rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.05));
-	/* Flat look: the panel's depth reads from its rim + tint, so the cast is just a whisper
-	   to lift the edge off the map (not a big drop). */
-	--panel-drop: -6px 0 18px light-dark(rgba(24, 28, 44, 0.05), rgba(0, 0, 0, 0.2));
+	/* (--panel-rim, a Fresnel bevel, and --panel-drop, a cast shadow, lived here. Both went
+	   unused once Flat stopped borrowing depth from shadows — a panel is a sheet separated by
+	   its edge, not a moulding lit from above. Bubble does its own gloss inline.) */
 
 	--font-body: 'Jost', system-ui, -apple-system, sans-serif;
 }
