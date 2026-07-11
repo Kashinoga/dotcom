@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -10,8 +10,16 @@ import { fileURLToPath } from 'node:url';
 //
 //   pnpm --filter home test:e2e              spawn a server, run every suite
 //   pnpm --filter home test:e2e oplong map   …only the suites whose names match
+//   pnpm --filter home test:e2e --changed    …only the suites the working-tree diff can affect
+//   pnpm --filter home test:e2e --changed=main   …vs a ref (staged+unstaged+untracked, or that ref)
+//   E2E_LIST=1 pnpm --filter home test:e2e --changed   print the chosen suites and exit (dry run)
 //   E2E_BASE=http://localhost:5173 pnpm --filter home test:e2e     use a server you're running
 //   E2E_PORT=5299 pnpm --filter home test:e2e                      spawn on a different port
+//
+// `--changed` keeps scoped runs honest across machines: the file→suite map lives here, in the
+// repo, so CI and every clone scope identically — no per-machine memory required. It only ever
+// SHRINKS the run for changes we've explicitly reasoned about; anything broad or unrecognised
+// falls back to the full suite (see BROAD / the unclassified path below).
 //
 // The port defaults to 5199, NOT Vite's 5173: you may well have a dev server up, and these
 // suites must never assume it's theirs. When this script spawns one it kills only the
@@ -44,14 +52,119 @@ const SUITES = [
 ];
 
 const PORT = Number(process.env.E2E_PORT ?? 5199);
-const filters = process.argv.slice(2);
-const chosen = filters.length
-	? SUITES.filter((s) => filters.some((f) => s.includes(f)))
-	: SUITES;
 
-if (!chosen.length) {
-	console.error(`No suite matches ${filters.join(', ')}.\nAvailable: ${SUITES.join(', ')}`);
-	process.exit(1);
+// ── Change-scoped selection (`--changed`) ───────────────────────────────────────────────────
+// Map each changed file to the suites that could plausibly regress from it. The bias is toward
+// OVER-running: any broad/cross-cutting file, any file we haven't classified, forces the full
+// suite. Scoping may only shrink the run for changes we've reasoned about — never hide a bug.
+
+// A change here can surface in ANY view → run everything. The route is a catch-all
+// (`[...view=view]/+page.svelte`) that renders every view and imports every component; the
+// layout wraps them all; icons/barrel/global-CSS/config are cross-cutting.
+const BROAD = [
+	/^src\/routes\/\[\.\.\.view=view\]\/\+page\.svelte$/,
+	/^src\/routes\/\+layout\.svelte$/,
+	/^src\/lib\/icons\.ts$/,
+	/^src\/lib\/index\.ts$/,
+	/^src\/app\.html$/,
+	/\.css$/,
+	/^(svelte|vite)\.config\./,
+	/^package\.json$/
+];
+
+// Narrower source files → just the suites that exercise them. (Views all render through the
+// catch-all page, but these modules own a bounded slice of it.)
+const NARROW = [
+	{ re: /^src\/lib\/network\.ts$/, suites: ['maplayout', 'hubsize', 'dots'] },
+	{ re: /^src\/lib\/views\.ts$/, suites: ['deeplink', 'dots'] },
+	{ re: /^src\/lib\/scope\.ts$/, suites: ['scope', 'field'] },
+	{ re: /^src\/lib\/fields\.ts$/, suites: ['field', 'scope', 'oplong'] },
+	{ re: /^src\/params\/view\.ts$/, suites: ['deeplink'] },
+	{ re: /^src\/routes\/\[\.\.\.view=view\]\/\+page\.ts$/, suites: ['deeplink'] },
+	{ re: /^src\/lib\/PresentationBuilder\.svelte$/, suites: ['ticker', 'ticker-edge', 'repeat'] },
+	{ re: /^src\/lib\/TrafficBoard\.svelte$/, suites: ['scope', 'field', 'oplong', 'pcclose', 'dots'] },
+	{ re: /^src\/lib\/SplitFlap\.svelte$/, suites: ['scope', 'field', 'oplong', 'pcclose'] },
+	{ re: /^src\/routes\/api\/traffic\/\+server\.ts$/, suites: ['scope', 'field', 'oplong', 'pcclose'] }
+];
+
+// Type-only / no runtime surface: contributes no suites and never forces a full run.
+const IGNORE = [/^src\/app\.d\.ts$/];
+
+/** Files changed vs a ref, or in the working tree (staged + unstaged + untracked), app-relative. */
+function changedFiles(ref) {
+	const git = (args) => {
+		const r = spawnSync('git', args, { cwd: APP, encoding: 'utf8' });
+		return r.status === 0 ? r.stdout.split('\n').map((s) => s.trim()).filter(Boolean) : [];
+	};
+	// A caller that already knows the file list (a pre-commit hook, CI) can pass it directly and
+	// skip git entirely: E2E_FILES="src/lib/network.ts,e2e/dots.mjs".
+	const raw = process.env.E2E_FILES
+		? process.env.E2E_FILES.split(/[\s,]+/).filter(Boolean)
+		: ref
+			? git(['diff', '--name-only', '--relative', ref])
+			: [
+					...git(['diff', '--name-only', '--relative']),
+					...git(['diff', '--name-only', '--relative', '--cached']),
+					...git(['ls-files', '--others', '--exclude-standard', '.'])
+				];
+	// `--relative` / the `.` pathspec keep these app-relative; strip a repo-root prefix just in case,
+	// then drop anything outside the home app — a change elsewhere in the monorepo is not ours to gate.
+	const homeScoped = (f) =>
+		f.startsWith('src/') || f.startsWith('e2e/') || /^(package\.json|svelte\.config\.|vite\.config\.)/.test(f);
+	return [...new Set(raw.map((f) => f.replace(/^apps\/home\//, '')).filter(homeScoped))];
+}
+
+/** Which suites to run for a set of changed files, in canonical SUITES order. */
+function suitesForChanges(files) {
+	const relevant = files.filter((f) => !IGNORE.some((re) => re.test(f)));
+	if (!relevant.length) return { suites: [], reason: 'no runtime-affecting home files changed' };
+
+	const chosen = new Set();
+	const unknown = [];
+	for (const f of relevant) {
+		if (BROAD.some((re) => re.test(f))) return { suites: SUITES, reason: `broad change: ${f}` };
+		const e2e = /^e2e\/(.+)\.mjs$/.exec(f);
+		if (e2e) {
+			if (SUITES.includes(e2e[1])) chosen.add(e2e[1]); // editing a suite reruns that suite
+			else return { suites: SUITES, reason: `shared e2e helper: ${f}` }; // run.mjs, artifacts.mjs, …
+			continue;
+		}
+		const rule = NARROW.find((r) => r.re.test(f));
+		if (rule) rule.suites.forEach((s) => chosen.add(s));
+		else unknown.push(f);
+	}
+	// A source file we haven't classified could touch anything — fail safe to the full suite.
+	if (unknown.length) return { suites: SUITES, reason: `unclassified, running all: ${unknown.join(', ')}` };
+	return { suites: SUITES.filter((s) => chosen.has(s)), reason: 'scoped to changed files' };
+}
+
+const argv = process.argv.slice(2);
+const flags = argv.filter((a) => a.startsWith('--'));
+const filters = argv.filter((a) => !a.startsWith('--'));
+const changed = flags.find((f) => f === '--changed' || f.startsWith('--changed='));
+
+let chosen;
+if (changed) {
+	const ref = changed.includes('=') ? changed.slice('--changed='.length) : null;
+	const picked = suitesForChanges(changedFiles(ref));
+	if (!picked.suites.length) {
+		console.log(`e2e --changed: ${picked.reason} — nothing to run.`);
+		process.exit(0);
+	}
+	chosen = picked.suites;
+	console.log(`e2e --changed (${picked.reason}): ${chosen.join(', ')}`);
+} else {
+	chosen = filters.length ? SUITES.filter((s) => filters.some((f) => s.includes(f))) : SUITES;
+	if (!chosen.length) {
+		console.error(`No suite matches ${filters.join(', ')}.\nAvailable: ${SUITES.join(', ')}`);
+		process.exit(1);
+	}
+}
+
+// Dry run: report the selection without spawning a server or a browser.
+if (process.env.E2E_LIST) {
+	console.log(`e2e would run ${chosen.length}/${SUITES.length}: ${chosen.join(', ')}`);
+	process.exit(0);
 }
 
 /** Resolve once the port answers, or reject after ~30s. */
