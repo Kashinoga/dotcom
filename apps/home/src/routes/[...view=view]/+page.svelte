@@ -1312,13 +1312,15 @@
 		}
 		return d;
 	}
-	// While a panel is open, hovering (or focusing) a node that's tucked behind the
-	// panel or off an edge nudges the camera just enough to bring the dot and its
-	// whole label into the clear — a small pan, not a re-frame. Measures the actual
-	// rendered dot/label rects so a label reaching toward the panel is fully shown.
+	// Hovering (or focusing) a node that's tucked behind the panel or off an edge
+	// nudges the camera just enough to bring the dot and its whole label into the
+	// clear — a small pan, not a re-frame. Measures the actual rendered dot/label
+	// rects so a label reaching toward the panel is fully shown. Works on the
+	// overview too: with no panel open there's nothing to carve out, so it simply
+	// pulls an edge-clipped node (a tier-2 leaf trailing off the frame) into view.
 	function revealNode(e: Event) {
 		const g = e.currentTarget as SVGGElement | null;
-		if (!view || panning || !svgEl || !g) return;
+		if (panning || !svgEl || !g) return;
 		const ctm = svgEl.getScreenCTM();
 		const dotEl = g.querySelector('.port');
 		const labelEl = g.querySelector('.code');
