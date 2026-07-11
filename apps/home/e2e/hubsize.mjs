@@ -97,7 +97,11 @@ for (const [uiStyle, w] of [['flat', 1400], ['bubble', 1400], ['flat', 1920], ['
 	await ctx.close();
 }
 
-// ── Flying to a station still zooms; the hub is free to grow once the masthead is gone ──
+// ── Off the home view the hub is uncapped. The 30px pin only exists to match the masthead
+//    bullets, and the masthead hides the moment a panel opens — so off home the hub simply
+//    tracks the camera. The home crop is now zoomed tighter than a node-focus fly, so opening
+//    a panel eases the map OUT and the hub shrinks below 30 rather than growing; either way
+//    it's no longer pinned. What must hold is the home cap itself (checked just below). ──
 {
 	const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 } });
 	const page = await ctx.newPage();
@@ -110,7 +114,7 @@ for (const [uiStyle, w] of [['flat', 1400], ['bubble', 1400], ['flat', 1920], ['
 	const after = await page.locator('circle.port.hub').evaluate((el) => el.getBoundingClientRect().width);
 	ok('1920: hub capped at 30px on the home view', Math.abs(before - 30) < 1, before.toFixed(1));
 	ok('1920: masthead is hidden once a panel opens', mastHidden);
-	ok('1920: flying still zooms the map in (hub grows)', after > before, `${after.toFixed(1)} vs ${before.toFixed(1)}`);
+	ok('1920: off home the hub is uncapped (tracks the camera, not the 30px bullet pin)', Math.abs(after - 30) > 1, `${after.toFixed(1)} vs ${before.toFixed(1)}`);
 	await ctx.close();
 }
 

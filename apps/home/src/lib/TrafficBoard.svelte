@@ -1052,11 +1052,11 @@
 	{/each}
 {/snippet}
 {#snippet fieldSelect()}
-	<!-- Mobile counterpart to the field pills (hidden on wide panels). A dropdown of the fields
-	     by name, so it costs one line instead of the pills' several — its option value is the icao
-	     (what select() and sel.icao key on). -->
+	<!-- The compact panel's field control: a dropdown of the fields by name, so it costs one line
+	     instead of the pills' several and lets the three controls share a row. Its option value is
+	     the icao (what select() and sel.icao key on). The expanded super bar keeps the pills. -->
 	<select
-		class="field-select field-select-airport"
+		class="field-select"
 		aria-label="Airport"
 		value={sel.icao}
 		onchange={(e) => {
@@ -1285,11 +1285,12 @@
 			     row of pills. On mobile (bottom sheet) the pills would wrap to several lines, so the
 			     field collapses to a dropdown and all three sit on one row — see the media query. -->
 			<div class="controls-compact">
-				<!-- --bn 1: the "Airport" label rides in with the first pill (pills self-index 1…11). -->
-				<div class="fields ranges" role="radiogroup" aria-label="Airport" style="--bn:1">
+				<!-- The compact panel (any width) uses the field DROPDOWN, not the pills — the pill
+				     row wrapped to several lines even on desktop, and one dropdown lets Airport,
+				     Range and Refresh sit on a single row. The pills live on in the expanded super
+				     bar, where there's width to lay them out. -->
+				<div class="fields ranges" style="--bn:1">
 					<span class="range-label">Airport</span>
-					<!-- Wide panel: the pills. Mobile: the dropdown (one or the other shows). -->
-					<div class="field-wrap">{@render fieldButtons()}</div>
 					{@render fieldSelect()}
 				</div>
 
@@ -1668,7 +1669,6 @@
 		.tfc-head .ctl-label,
 		.tfc-head .deck-summary dt,
 		.tfc-head .deck-summary dd,
-		.fields .field,
 		.fields .field-select,
 		.fields .range-label {
 			animation: btn-in 0.42s var(--spring) backwards;
@@ -1961,17 +1961,28 @@
 		outline: var(--focus-ring);
 		background: color-mix(in srgb, var(--ink) 5%, transparent);
 	}
-	/* The three compact control rows, grouped. On a wide panel this is a plain column (each row
-	   stacks, matching the body's own gap), so nothing about the desktop look changes. The group
-	   exists so the mobile media query can turn it into a single row. */
+	/* The compact panel's controls, at every width: Airport, Range and Refresh on ONE row, each a
+	   labelled column with its dropdown below. (The field is a <select> here — the pills only
+	   appear in the expanded super bar.) */
 	.controls-compact {
 		display: flex;
-		flex-direction: column;
-		gap: 0.7rem;
+		flex-direction: row;
+		align-items: flex-start;
+		gap: 0.5rem;
 	}
-	/* The field dropdown is mobile-only; wide panels use the pills. (Shown by the media query.) */
-	.field-select-airport {
-		display: none;
+	.controls-compact .fields.ranges {
+		flex: 1;
+		min-width: 0;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.25rem;
+	}
+	.controls-compact .range-label {
+		min-width: 0; /* no fixed column width — the label just caps its control */
+	}
+	.controls-compact .field-select {
+		width: 100%;
+		box-sizing: border-box;
 	}
 	.fields {
 		display: flex;
@@ -1980,16 +1991,6 @@
 	}
 	.ranges {
 		align-items: flex-start;
-	}
-	/* The airport row has enough buttons to wrap; grouping them in their own flex box
-	   (offset past the label) keeps every wrapped line indented to the first row rather
-	   than falling back under the label. */
-	.field-wrap {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.4rem;
 	}
 	.range-label {
 		/* Fixed width so the three rows' controls line up in a column, with room for the
@@ -2054,39 +2055,6 @@
 	.field-select:focus-visible {
 		outline: var(--focus-ring);
 		outline-offset: 2px;
-	}
-	/* Mobile: field pills → dropdown, and all three controls onto one row. Placed AFTER the base
-	   .controls-compact / .field-wrap / .field-select rules on purpose — same specificity, so it
-	   has to come later in source to win inside the media match. The pills wrap to several lines
-	   on a phone; a dropdown costs one line, and the space saved lets Airport, Range and Refresh
-	   sit side by side, each a labelled column. */
-	@media (max-width: 720px) {
-		.controls-compact {
-			flex-direction: row;
-			align-items: flex-start;
-			gap: 0.5rem;
-		}
-		.controls-compact .fields.ranges {
-			flex: 1;
-			min-width: 0;
-			flex-direction: column;
-			align-items: stretch;
-			gap: 0.25rem;
-		}
-		.controls-compact .range-label {
-			min-width: 0; /* drop the desktop column-alignment width; the label just caps its control */
-		}
-		.field-wrap {
-			display: none; /* the pills give way to the dropdown */
-		}
-		.field-select-airport {
-			display: block;
-		}
-		/* Each control fills its column, so the three read as one even row of dropdowns. */
-		.controls-compact .field-select {
-			width: 100%;
-			box-sizing: border-box;
-		}
 	}
 	.board-head {
 		display: flex;

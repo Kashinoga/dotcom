@@ -57,35 +57,30 @@
 		PRES: [340, 610]
 	};
 
-	// Train mode (mobile, portrait): the same sparse network stacked vertically — the
-	// About cluster up top, the two lines fanning below the hub — so it reads top-to-bottom.
-	// Kept compact so the top branch clears the masthead and the bottom clears the legend.
+	// Train mode (mobile, portrait): the network stacked vertically and solved for the ZOOMED home
+	// camera — HOME_RAIL_V frames only the hub cluster (Home + About + Settings + Apps, tier 0/1),
+	// so the tier-2 leaves are placed FAR out (Work/Projects high above, the Presentation Builder /
+	// Air Traffic low below) to run off the top and bottom of that frame, their routes trailing in.
 	//
-	// Every leaf's label points straight away from its parent (see labelFor), and labels
-	// scale with the map, so this layout has to be solved in WORLD units — a label that
-	// fits here fits at every phone size. Two constraints drive the shape:
-	//   · Gray's goes down-LEFT and Terminal Way down-RIGHT, so the two lines separate
-	//     under the hub. They used to both hang below it, which is how "Settings" and
-	//     "Presentation Builder" — the map's widest label — ended up printed on the
-	//     same row, touching.
-	//   · "Presentation Builder" is ~142u wide, so it takes the down-left slot off APP
-	//     where there's room to run leftward. Air Traffic hangs straight DOWN instead:
-	//     pointing away from its parent means pointing down, so its label centres on the
-	//     node and spends ~36u each way rather than ~71u to one side.
-	// PRES left of ATFC also matches how the desktop map reads.
+	// Every leaf's label points away from its parent (see labelFor) and labels scale with the map,
+	// so this is solved in WORLD units — a label that clears here clears at every phone size. The
+	// tight axis is horizontal (portrait): Settings sits down-LEFT of the hub and Apps down-RIGHT,
+	// pulled toward centre so their labels keep clear of the frame edges. maplayout.mjs is the
+	// guard — it fails if any tier-1 label clips or crowds an edge at any phone size.
 	const P_rail_v: Record<string, Pt> = {
-		KSH: [230, 455],
-		// Loess — ABT up, fanning to Work (left) and Projects (right).
-		ABT: [230, 350],
-		WRK: [145, 262],
-		PRJ: [315, 262],
-		// Gray's — Settings, down-left of the hub.
-		STG: [152, 545],
-		// Apps — orange line down-right of the hub, then Air Traffic straight below it
-		// (centred label) and the Presentation Builder branching down-left.
-		APP: [325, 545],
-		ATFC: [325, 665],
-		PRES: [240, 650]
+		KSH: [230, 450],
+		// Loess — ABT up, fanning to Work (left) and Projects (right). Work/Projects sit FAR up so
+		// they run off the top when the home camera frames the hub cluster.
+		ABT: [230, 345],
+		WRK: [148, 175],
+		PRJ: [312, 175],
+		// Gray's — Settings, down-left of the hub (pulled toward centre so its label clears).
+		STG: [165, 560],
+		// Apps — orange line down-right of the hub; Air Traffic and the Presentation Builder hang
+		// FAR below Apps so they run off the bottom on the home view.
+		APP: [298, 560],
+		ATFC: [330, 745],
+		PRES: [210, 735]
 	};
 
 	// Route drawing style, toggled from the Settings (STG) stop; persisted so the
@@ -853,9 +848,24 @@
 	// zoom into the hub at a comfortable scale so the outermost stations run off the
 	// edges (reached by flying to them), rather than shrinking to fit everything in.
 	const HOME_AIR = crop(P_air.KSH[0], P_air.KSH[1], 860, 0.66, 0.56, ASPECT_WIDE);
-	const HOME_RAIL = crop(P_rail.KSH[0], P_rail.KSH[1], 900, 0.62, 0.54, ASPECT_WIDE);
-	const HOME_RAIL_V = crop(P_rail_v.KSH[0], P_rail_v.KSH[1], 340, 0.5, 0.55, ASPECT_TALL);
+	// Desktop zooms onto the hub cluster — Home centred with About, Settings and Apps (tier 0
+	// and 1) framed, while Work/Projects and the Presentation Builder / Air Traffic run off the
+	// edges with their routes trailing into the crop. Centred on the cluster, not the hub.
+	const HOME_RAIL = crop(400, 385, 540, 0.5, 0.47, ASPECT_WIDE);
+	// Mobile zooms onto the hub cluster — Home with About above and Settings/Apps below (tier 0
+	// and 1) filling the frame, while Work/Projects run off the top and the Presentation Builder /
+	// Air Traffic off the bottom (the layout above puts them far enough out to clip). Centred on
+	// the cluster (y 450), not the hub.
+	const HOME_RAIL_V = crop(223, 450, 270, 0.5, 0.5, ASPECT_TALL);
 	const HOME = $derived(mapMode === 'air' ? HOME_AIR : isMobile ? HOME_RAIL_V : HOME_RAIL);
+
+	// The whole map, unzoomed: the origin of the load-in fly, and where the masthead's "show full
+	// map" button eases out to. Wide enough to frame every node — including the tier-2 leaves the
+	// home crop pushes off — with margin. (Air isn't zoomed on home, so its full == its home.)
+	const FULL_AIR = HOME_AIR;
+	const FULL_RAIL = crop(P_rail.KSH[0], P_rail.KSH[1], 900, 0.62, 0.54, ASPECT_WIDE);
+	const FULL_RAIL_V = crop(230, 460, 430, 0.5, 0.5, ASPECT_TALL);
+	const FULL = $derived(mapMode === 'air' ? FULL_AIR : isMobile ? FULL_RAIL_V : FULL_RAIL);
 
 	// Dot sizing, decoupled from the camera's zoom.
 	//
@@ -877,10 +887,14 @@
 	const rHub = $derived(R_HUB * dotScale);
 	const rStop = $derived(R_STOP * dotScale);
 
-	// Default mode is the train map, so the camera starts on its desktop home framing —
-	// the same framing the server renders, since `vw` starts at its desktop default.
-	// onMount re-seeds this once the real viewport and any saved mode are known.
-	let cam = $state({ ...HOME_RAIL });
+	// The camera starts on the WHOLE map (the desktop rail full framing the server renders, since
+	// `vw` starts at its desktop default); onMount flies it in to the zoomed home. Seeding it at
+	// full here — not the home crop — means the server paints the same first frame the load-in
+	// animation starts from, so there's no jump between hydration and the fly.
+	let cam = $state({ ...FULL_RAIL });
+	// The masthead's "show full map" toggle: eases the camera out to the whole map and back. Only
+	// reachable on the home view (the masthead hides under a panel), and reset whenever one opens.
+	let showFull = $state(false);
 	// A destination page, a highlighted airline line, or neither. `View` and the slug
 	// mapping live in $lib/views.ts; the incoming URL seeds this so a deep link renders
 	// its panel on the server.
@@ -917,6 +931,9 @@
 	// they live in $lib/icons.
 	const PANEL_SLIDE = 300;
 	let navTimer = 0;
+	// The load-in holds on the whole map while the nodes pop in, then flies to the zoomed home.
+	let homeFlyTimer = 0;
+	const HOME_HOLD = 1000; // ms on the full map before the zoom (≈ when the tier-2 dots have popped)
 	let target = { ...HOME_RAIL };
 	let raf = 0;
 
@@ -971,6 +988,17 @@
 			return;
 		}
 		if (!raf) raf = requestAnimationFrame(step);
+	}
+	// Where the camera rests with no panel open: the whole map while the "show full map" toggle is
+	// on, otherwise the zoomed home framing.
+	const restFrame = $derived(showFull ? FULL : HOME);
+	// Masthead "show full map" button. Only reachable on the home view, so it just eases the
+	// camera between the whole map and the zoomed home.
+	function toggleFullMap() {
+		// Cancel any still-pending load-in fly, so it can't yank the camera home after this.
+		clearTimeout(homeFlyTimer);
+		showFull = !showFull;
+		flyTo(restFrame);
 	}
 
 	// Keep the address bar on the panel that's actually showing.
@@ -1100,6 +1128,9 @@
 	// Show a destination/line: fly the camera there and render its panel content.
 	function applyView(nv: View, push = true) {
 		view = nv;
+		// A panel takes over the camera, so drop the "show full map" toggle — closing returns to
+		// the zoomed home, not the full map.
+		showFull = false;
 		// A fresh open starts the board on its defaults — the previous visit's `?field=` and
 		// friends belong to the history entry we left, not to this new one. On a
 		// history-driven open (`push` false) the reconciler has already set them.
@@ -1358,7 +1389,7 @@
 		// On a desktop⇄mobile crossover the layout swaps; re-frame if idle at home.
 		if (isMobile !== wasMobile) {
 			wasMobile = isMobile;
-			if (!view) flyTo(HOME);
+			if (!view) flyTo(restFrame);
 		}
 	}
 
@@ -1384,16 +1415,22 @@
 		// While on Auto, keep the phase current if the tab is left open across a boundary.
 		skyTimer = window.setInterval(() => skyMode === 'auto' && applySky(), 5 * 60 * 1000);
 		if (dev) applySavedContent();
-		// Snap to the resolved mode/orientation home framing.
-		cam = { ...HOME };
-		target = { ...HOME };
+		// Seed the camera at the resolved mode/orientation FULL framing (the whole map), the origin
+		// for the load-in fly.
+		cam = { ...FULL };
+		target = { ...FULL };
 		// Arrived on a deep link (/atfc, /terminal-way, …): its panel already rendered on
-		// the server, but the camera is still parked at home. Fly it in — same motion a
-		// click would produce. `push: false` — this URL is already the current entry.
+		// the server, but the camera is still parked at the full map. Fly it in — same motion a
+		// click would produce. `push: false` — this URL is already the current entry. On the plain
+		// home view, fly the whole map in to the zoomed home framing.
 		//
 		// This runs after the localStorage reads above because the framing depends on the
 		// restored map mode, and after `cam`/`target` are seeded so the fly has an origin.
 		if (view) applyView(view, false);
+		else if (reduce) flyTo(HOME); // no fly to watch — snap straight to the resting framing
+		// Home load: hold on the whole map so the ring-by-ring node pop plays at full framing, then
+		// fly in to the hub. The guard covers a click that opens a panel during the hold.
+		else homeFlyTimer = window.setTimeout(() => !view && flyTo(HOME), HOME_HOLD);
 	});
 
 	// Reconcile the panel when history moves without us — the back/forward buttons
@@ -1434,6 +1471,7 @@
 	onDestroy(() => {
 		if (raf) cancelAnimationFrame(raf);
 		clearTimeout(navTimer);
+		clearTimeout(homeFlyTimer);
 		clearTimeout(hideTimer);
 		clearTimeout(toastTimer);
 		clearInterval(skyTimer);
@@ -1609,10 +1647,22 @@
 			<!-- Little display-mode bullets, like the route icons on a station sign. -->
 			<!-- Decorative station-sign bullets (nonfunctional); theme switching lives in the
 			     Settings panel's Display-mode control. -->
-			<div class="theme" aria-hidden="true">
-				<span class="theme-dot" style="--n:0; --dot:#e6b93c"></span>
-				<span class="theme-dot" style="--n:1; --dot:#29b0a1"></span>
-				<span class="theme-dot" style="--n:2; --dot:#e05a4e"></span>
+			<!-- Station-sign bullets. The first three are decorative; the fourth is a control — it
+			     eases the camera out to the whole map (and back). Grouped so all four read as one row
+			     of circles and unfurl together on load. -->
+			<div class="theme">
+				<span class="theme-dot" aria-hidden="true" style="--n:0; --dot:#e6b93c"></span>
+				<span class="theme-dot" aria-hidden="true" style="--n:1; --dot:#29b0a1"></span>
+				<span class="theme-dot" aria-hidden="true" style="--n:2; --dot:#e05a4e"></span>
+				<button
+					type="button"
+					class="theme-dot theme-btn map-full"
+					style="--n:3; --dot:#4f8ac9"
+					aria-pressed={showFull}
+					aria-label={showFull ? 'Zoom back in to the hub' : 'Show the full map'}
+					title={showFull ? 'Back to hub' : 'Full map'}
+					onclick={toggleFullMap}
+				>{@html showFull ? MINIMIZE_SVG : MAXIMIZE_SVG}</button>
 			</div>
 		</div>
 		<p class="tagline">{#each taglineWords as word, i}<span class="tw" style="--n:{i}"
@@ -2385,6 +2435,37 @@
 	}
 	.theme-dot + .theme-dot {
 		margin-left: 0.35rem;
+	}
+	/* The fourth bullet is the "show full map" control. It's a .theme-dot, so it inherits the
+	   circle, the tight spacing and the roll-in; this adds the button bits. The glyph is absolutely
+	   positioned so the button stays an EMPTY inline-block for baseline purposes — it keeps resting
+	   on the wordmark line with the decorative three, rather than floating off it on the icon. */
+	.theme-btn {
+		position: relative;
+		border: 0;
+		padding: 0;
+		cursor: pointer;
+		color: rgba(255, 255, 255, 0.95);
+	}
+	/* :global — the glyph is injected with {@html}, so the component's scope class never lands on
+	   it and a scoped `svg` selector wouldn't match. */
+	.theme-btn :global(svg) {
+		position: absolute;
+		inset: 0;
+		margin: auto;
+		width: 14px;
+		height: 14px;
+		display: block;
+	}
+	.theme-btn:hover {
+		background: color-mix(in srgb, var(--dot) 84%, #fff);
+	}
+	.theme-btn:active {
+		background: color-mix(in srgb, var(--dot) 84%, #000);
+	}
+	.theme-btn:focus-visible {
+		outline: var(--focus-ring);
+		outline-offset: 2px;
 	}
 	.tagline {
 		/* Sit just below the wordmark (top) and indent to the "K"'s optical left edge — the

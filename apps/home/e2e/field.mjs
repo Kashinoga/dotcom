@@ -16,40 +16,48 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 let loads = 0;
 page.on('load', () => loads++);
 
-const chip = (title) => page.locator(`button[role="radio"][title="${title}"]`);
-const checked = (title) => chip(title).getAttribute('aria-checked');
+// The compact board picks its field from a dropdown (the pills only live in the expanded bar).
+// Options are the field's full name; its value is the icao that the URL and board key on.
+const airport = () => page.locator('select[aria-label="Airport"]');
+const pickField = (name) => airport().selectOption({ label: name });
+const field = () => airport().evaluate((el) => el.options[el.selectedIndex]?.text ?? '');
 const histLen = () => page.evaluate(() => history.length);
 
 // ── deep link opens on the named field ──────────────────────────────────────
 await page.goto(`${B}${A}?field=sfo`, { waitUntil: 'networkidle' });
 await page.waitForTimeout(800);
-ok('deep link ?field=sfo selects SFO', (await checked('San Francisco')) === 'true');
-ok('deep link ?field=sfo not on default', (await checked('Gracemeria')) === 'false');
+ok('deep link ?field=sfo selects SFO', (await field()) === 'San Francisco');
+ok('deep link ?field=sfo not on default', (await field()) !== 'Gracemeria');
 ok('deep link ?field=sfo titles the field', (await page.title()).includes('San Francisco'));
 
 // ── picking a field rewrites the URL in place (no new history entry) ─────────
 const before = await histLen();
 const loadsBefore = loads;
-await chip('New York JFK').click();
+await pickField('New York JFK');
 await page.waitForTimeout(900);
 ok('pick JFK → URL gains ?field=jfk', page.url() === `${B}${A}?field=jfk`, page.url());
-ok('pick JFK → chip is selected', (await checked('New York JFK')) === 'true');
+ok('pick JFK → dropdown shows it', (await field()) === 'New York JFK');
 ok('pick JFK → title follows', (await page.title()).includes('New York JFK'));
 ok('pick JFK → no page reload', loads === loadsBefore);
 ok('pick JFK → replaces, does not push history', (await histLen()) === before, `${before} → ${await histLen()}`);
 
 // ── the default field drops the param entirely ──────────────────────────────
-await chip('Gracemeria').click();
+await pickField('Gracemeria');
 await page.waitForTimeout(900);
 ok('pick default → param removed', page.url() === `${B}${A}`, page.url());
 ok('pick default → generic title', (await page.title()) === 'Air Traffic — Kashinoga');
 
 // ── back from the board leaves the board, not the field ─────────────────────
 await page.goto(`${B}/`, { waitUntil: 'networkidle' });
+// Air Traffic is off-frame on the zoomed home; show the full map to reach its node.
+if ((await page.locator('.map-full').getAttribute('aria-pressed')) === 'false') {
+	await page.locator('.map-full').click();
+	await page.waitForTimeout(900);
+}
 await page.locator('a.node[href="/apps/air-traffic"] circle.hit').click();
 await page.waitForURL(`${B}${A}`, { timeout: 5000 });
 await page.waitForTimeout(700);
-await chip('Denver').click();
+await pickField('Denver');
 await page.waitForTimeout(800);
 ok('clicked in, picked DEN', page.url() === `${B}${A}?field=den`, page.url());
 await page.goBack();
@@ -61,7 +69,7 @@ ok('back → panel closed', !(await page.locator('aside.surface').isVisible()));
 await page.goForward();
 await page.waitForTimeout(1000);
 ok('forward → board with ?field=den', page.url() === `${B}${A}?field=den`, page.url());
-ok('forward → DEN still selected', (await checked('Denver')) === 'true');
+ok('forward → DEN still selected', (await field()) === 'Denver');
 
 // ── a fresh open of the board starts on the default ─────────────────────────
 await page.locator('aside.surface a.chip[href="/apps"]').first().click();
@@ -71,10 +79,10 @@ await page.locator('aside.surface a.chip[href="/apps/air-traffic"]').first().cli
 await page.waitForURL(`${B}${A}`, { timeout: 5000 });
 await page.waitForTimeout(800);
 ok('re-open board → no stale ?field=', page.url() === `${B}${A}`, page.url());
-ok('re-open board → default field', (await checked('Gracemeria')) === 'true');
+ok('re-open board → default field', (await field()) === 'Gracemeria');
 
 // ── the field never leaks onto another panel ────────────────────────────────
-await chip('Seattle').click();
+await pickField('Seattle');
 await page.waitForTimeout(800);
 await page.locator('aside.surface a.chip[href="/apps"]').first().click();
 await page.waitForURL(`${B}/apps`, { timeout: 5000 });

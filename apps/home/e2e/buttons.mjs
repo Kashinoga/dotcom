@@ -30,7 +30,9 @@ for (const ui of ['flat','bubble']) {
   // Presentation Builder: New/Open (.tb) vs Back (.icon-btn) — the exact pair from the report
   await p.goto(B+'/apps/presentation-builder',{waitUntil:'networkidle'});
   await p.getByRole('button',{name:'New from template'}).click(); await p.waitForTimeout(1400);
-  for (const [sel,label] of [['button.tb','PB New (.tb)'],['button.icon-btn','PB Back (.icon-btn)'],['button.mini','PB .mini']]) {
+  // Scope the Back button to the PB header — the masthead's "show full map" control is also an
+  // .icon-btn and (hidden) earlier in the DOM, so a bare button.icon-btn would grab that instead.
+  for (const [sel,label] of [['button.tb','PB New (.tb)'],['.pb-head button.icon-btn','PB Back (.icon-btn)'],['button.mini','PB .mini']]) {
     const loc = p.locator(sel+':not([disabled])').first();
     if (!(await loc.count())) { console.log('  skip '+label); continue; }
     ok(`${ui}: ${label} transitions transform on the spring`, (await easingOf(loc)).includes('0.34'), await easingOf(loc));
@@ -58,8 +60,10 @@ for (const ui of ['flat','bubble']) {
   await leg.hover({force:true}); await p.waitForTimeout(450);
   ok(`${ui}: map legend hover = ${HOVER}`, (await scaleOf(leg))===HOVER, String(await scaleOf(leg)));
 
-  // ATFC board
+  // ATFC board — the field pills live in the expanded super bar now (the compact panel uses a
+  // dropdown), so expand it first to reach a .field pill.
   await p.goto(B+'/apps/air-traffic',{waitUntil:'networkidle'}); await p.waitForTimeout(2200);
+  await p.getByRole('button',{name:/Expand panel/i}).click(); await p.waitForTimeout(650);
   const fld = p.locator('button.field').first();
   await fld.hover({force:true}); await p.waitForTimeout(450);
   ok(`${ui}: ATFC .field hover = ${HOVER}`, (await scaleOf(fld))===HOVER, String(await scaleOf(fld)));

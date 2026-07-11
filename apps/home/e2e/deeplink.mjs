@@ -18,6 +18,17 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 let loads = 0;
 page.on('load', () => loads++);
 
+// The home camera is zoomed onto the hub, so tier-2 stations (Air Traffic, …) sit off-frame.
+// Tap the masthead's "show full map" toggle to bring the whole network on screen before
+// clicking one. No-op if it's already showing the full map.
+async function showFullMap() {
+	const btn = page.locator('.map-full');
+	if ((await btn.getAttribute('aria-pressed')) === 'false') {
+		await btn.click();
+		await page.waitForTimeout(900);
+	}
+}
+
 // ── 1. Deep link renders the board directly ─────────────────────────────────
 await page.goto(`${B}/apps/air-traffic`, { waitUntil: 'networkidle' });
 ok('deep link /apps/air-traffic keeps its URL', page.url() === `${B}/apps/air-traffic`, page.url());
@@ -34,6 +45,7 @@ ok('overview is at /', page.url() === `${B}/`);
 ok('overview shows no panel', !(await page.locator('aside.surface').isVisible()));
 
 const loadsBefore = loads;
+await showFullMap();
 await page.locator('a.node[href="/apps/air-traffic"] circle.hit').click();
 await page.waitForURL(`${B}/apps/air-traffic`, { timeout: 5000 });
 ok('click station → URL becomes /apps/air-traffic', page.url() === `${B}/apps/air-traffic`);
@@ -88,6 +100,7 @@ ok('legend → line title', (await page.title()) === 'Terminal Way line — Kash
 
 // ── 8. Ctrl-click opens a new tab instead of flying the camera ──────────────
 await page.goto(`${B}/`, { waitUntil: 'networkidle' });
+await showFullMap();
 const ctx = page.context();
 const popupPromise = ctx.waitForEvent('page', { timeout: 5000 }).catch(() => null);
 await page.locator('a.node[href="/apps/air-traffic"] circle.hit').click({ modifiers: ['ControlOrMeta'] });
