@@ -349,64 +349,33 @@
 		ringCy = r.top + r.height / 2;
 	}
 
-	// A hovered ring behaves like a motor: it winds up out of rest, then settles into the slow
-	// cruise it holds for as long as you stay on it. Un-hovering cuts the power and it freezes
-	// where it stands; hovering it again winds it up afresh from that angle.
+	// ── The Home ticker ───────────────────────────────────────────────────────────────────────
+	// The THIRD ring, painted as a yellow band with HOME · HOME · streaming around it. It's the
+	// hub's link: click the band and the Home panel opens, exactly as the masthead's Home item does.
 	//
-	// Driven by WAAPI rather than CSS animations, because a CSS animation can only be REPLAYED by
-	// tearing its name off the element and putting it back — and that snaps the ring home to its
-	// base angle, so a second visit couldn't rev. Here each hover mints a pair of animations that
-	// composite ('add') on top of the angle the ring is already parked at, so they always begin at
-	// zero contribution and nothing jumps. Only the hovered ring animates; the other 19 sit inert.
-	const REV_MS = 500;
-	const cruiseMs = (i: number) => (150 + i * 9) * 1000; // staggered cruise speeds, as before
-	const turns = (i: number) => (i % 2 ? -1 : 1); // alternate rings counter-turn
-	// The wind-up's shape: smootherstep (6t⁵ − 15t⁴ + 10t³), sampled for linear(). It has zero
-	// velocity AND zero acceleration at both ends, so the ring neither kicks as it leaves rest nor
-	// jolts as it hands over to the cruise — a cubic-bezier ramp only flattens velocity, and the
-	// acceleration still steps in, which is what made the old wind-up feel jerky off the mark.
-	const REV_EASE = `linear(${Array.from({ length: 25 }, (_, k) => {
-		const t = k / 24;
-		return (t * t * t * (t * (6 * t - 15) + 10)).toFixed(4);
-	}).join(',')})`;
-	// Parked angle + live animations, per ring element.
-	const spin = new WeakMap<Element, { rev?: Animation; cruise?: Animation }>();
-
-	function ringSpinUp(e: PointerEvent, i: number) {
-		if (reduce) return;
-		const g = e.currentTarget as SVGGElement;
-		const st = spin.get(g) ?? {};
-		spin.set(g, st);
-		// Fold any frozen mid-rev rotation into the element's own transform BEFORE discarding the
-		// animations that were producing it — otherwise cancelling them drops that angle and the
-		// ring snaps backwards.
-		parkRing(g);
-		st.rev?.cancel();
-		st.cruise?.cancel();
-		const frames = [{ transform: 'rotate(0turn)' }, { transform: `rotate(${turns(i)}turn)` }];
-		st.rev = g.animate(frames, { duration: REV_MS, easing: REV_EASE, composite: 'add' });
-		st.cruise = g.animate(frames, {
-			duration: cruiseMs(i),
-			iterations: Infinity,
-			easing: 'linear',
-			composite: 'add'
-		});
-	}
-
-	function ringCoast(e: PointerEvent) {
-		const g = e.currentTarget as SVGGElement;
-		const st = spin.get(g);
-		st?.rev?.pause();
-		st?.cruise?.pause();
-	}
-
-	// Bake whatever angle the ring is currently showing into its inline transform, so it survives
-	// the animations being torn down and rebuilt.
-	function parkRing(g: SVGGElement) {
-		const m = new DOMMatrixReadOnly(getComputedStyle(g).transform);
-		const deg = (Math.atan2(m.b, m.a) * 180) / Math.PI;
-		g.style.transform = `rotate(${deg}deg)`;
-	}
+	// The band is the ring's WHOLE circle, so it never terminates in open space — it runs off the
+	// viewport's edges and the stage's overflow trims it. Streaming the words is then just a slow
+	// rotation of the text about the ring's centre. Sized with textLength so a whole number of HOMEs
+	// fills the circumference exactly, which puts the loop's seam on a word boundary: a full turn
+	// lands back on itself and the repeat never shows.
+	const TICKER_I = 2; // third ring
+	const TICKER_R = ringRadii[TICKER_I];
+	const BAND_W = 30; // band thickness, px
+	const TICKER_SECS = 60; // one lap of the ring
+	const TICKER_WORDS = 42; // ≈ circumference / natural word width; textLength trues it up
+	const TICKER_TEXT = 'HOME · '.repeat(TICKER_WORDS);
+	const TICKER_LEN = 2 * Math.PI * TICKER_R;
+	// Angles run clockwise on screen from 3 o'clock (SVG's y grows downward), so 90° is the ring's
+	// lowest point — where the track starts, and so where the words begin. It runs from there back
+	// toward 3 o'clock: travelling that way, the text sits the right way up along the bottom of the
+	// circle rather than upside down.
+	const ptOn = (a: number): Pt => [
+		ringCx + TICKER_R * Math.cos((a * Math.PI) / 180),
+		ringCy + TICKER_R * Math.sin((a * Math.PI) / 180)
+	];
+	const arcTo = (a: number) => `A ${TICKER_R} ${TICKER_R} 0 0 0 ${ptOn(a)[0]} ${ptOn(a)[1]}`;
+	// The full circle, as two half-arcs, starting at the low point.
+	const tickerTrack = $derived(`M ${ptOn(90)[0]} ${ptOn(90)[1]} ${arcTo(-90)} ${arcTo(90)}`);
 
 	// Live values the Settings notes interpolate into their `{}` placeholder.
 	const labelValue = $derived(showStopNames ? 'full stop names' : 'station codes');
@@ -1581,15 +1550,40 @@
 	     instead; the light-dark() stroke hides these there). Centre tracks the measured "o". -->
 	<svg class="rings" aria-hidden="true">
 		{#each ringRadii as r, i}
-			<g
-				class="ring"
-				onpointerenter={(e) => ringSpinUp(e, i)}
-				onpointerleave={ringCoast}
-			>
+			<g class="ring" style="--spin-dur:{150 + i * 9}s; --spin-dir:{i % 2 ? 'reverse' : 'normal'}">
 				<circle class="ring-hit" cx={ringCx} cy={ringCy} {r} />
 				<circle class="ring-line" cx={ringCx} cy={ringCy} {r} />
 			</g>
 		{/each}
+	</svg>
+	<!-- Home ticker: the third ring, painted as a yellow band with HOME streaming around it. The
+	     band is the WHOLE circle, so it runs off the viewport at both ends rather than stopping in
+	     open space; the stage's overflow is what trims it. A real link to the hub — the same
+	     destination as the masthead's Home item. -->
+	<svg class="ticker">
+		<defs>
+			<path id="ticker-track" d={tickerTrack} fill="none" />
+		</defs>
+		<a
+			href={viewPath({ kind: 'port', code: HUB })}
+			aria-label="Home"
+			onclick={(e) => {
+				e.stopPropagation(); // not a click on the bare stage, so it must not close the panel
+				onNodeClick(e, () => board(HUB));
+			}}
+		>
+			<path class="ticker-band" d={tickerTrack} stroke-width={BAND_W} />
+			<text
+				class="ticker-text"
+				style:transform-origin="{ringCx}px {ringCy}px"
+				style:animation-duration="{TICKER_SECS}s"
+				dominant-baseline="central"
+			>
+				<textPath href="#ticker-track" textLength={TICKER_LEN} lengthAdjust="spacing"
+					>{TICKER_TEXT}</textPath
+				>
+			</text>
+		</a>
 	</svg>
 	{#if starsVisible}
 		<div class="stars" aria-hidden="true" transition:fade={{ duration: 700 }}>
@@ -2118,8 +2112,77 @@
 		stroke-width: 18;
 		pointer-events: stroke;
 	}
-	/* The spin itself is driven from the script (see ringSpinUp) — only the hovered ring animates,
-	   so the other 19 never repaint, which was the perf drain back when all 20 ran at once. */
+	/* Spin ONLY the hovered ring; every other ring's animation stays PAUSED, so idle rings never
+	   repaint (that was the perf drain when all 20 ran). Un-hovering freezes it in place. Alternate
+	   rings turn opposite ways (--spin-dir) at staggered speeds (--spin-dur). Reduced-motion off.
+	   The hovered ring picks up its cruise directly — a wind-up ramp lived here and read as jerky
+	   no matter how it was shaped, so it's gone. */
+	@media (prefers-reduced-motion: no-preference) {
+		.ring {
+			animation: ring-spin var(--spin-dur, 180s) linear infinite paused;
+			animation-direction: var(--spin-dir, normal);
+		}
+		.ring:hover {
+			animation-play-state: running;
+		}
+	}
+	@keyframes ring-spin {
+		to {
+			transform: rotate(1turn);
+		}
+	}
+
+	/* ── Home ticker ─────────────────────────────────────────────────────────────────────────── */
+	/* Sits over the rings, so only the band itself takes the pointer — everywhere else the click
+	   falls through to the stage (and to the rings' own hover). */
+	.ticker {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+		pointer-events: none;
+	}
+	.ticker a {
+		pointer-events: auto;
+		cursor: pointer;
+	}
+	.ticker-band {
+		fill: none;
+		stroke: #e6b93c; /* the wordmark's yellow bullet */
+		stroke-linecap: butt;
+		transition: stroke 0.2s ease;
+	}
+	.ticker-text {
+		/* Always the dark ink, in both themes: it rides ON the yellow, which doesn't flip. */
+		fill: #0a0a0a;
+		font-size: 0.8rem;
+		font-weight: 700;
+		letter-spacing: 0.14em;
+	}
+	.ticker a:hover .ticker-band,
+	.ticker a:focus-visible .ticker-band {
+		stroke: #f0c95a; /* brightens on approach, the way the nav items do */
+	}
+	.ticker a:focus-visible {
+		outline: none;
+	}
+	.ticker a:focus-visible .ticker-text {
+		text-decoration: underline;
+	}
+	/* Streaming the words is a slow rotation of the TEXT about the ring's centre; the band (its
+	   window) stays put, so the words appear to run through it. A whole number of HOMEs fills the
+	   circumference, so a full turn lands exactly back on itself. */
+	@media (prefers-reduced-motion: no-preference) {
+		.ticker-text {
+			animation: ticker-run 60s linear infinite;
+		}
+	}
+	@keyframes ticker-run {
+		to {
+			transform: rotate(1turn);
+		}
+	}
 
 	/* Stars — shown in DARK mode only. The light-dark() paints them transparent under a light
 	   colour-scheme and bright under a dark one, so they appear on the solid black default, a
