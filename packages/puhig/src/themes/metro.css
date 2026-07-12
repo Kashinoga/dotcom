@@ -14,8 +14,12 @@
 :root[data-look='metro'] {
 	/* ── Palette (Penguin editorial) ─────────────────────────────────────────── */
 	--ink: light-dark(#0a0a0a, #f2f2ee); /* Penguin black */
-	--paper: light-dark(#f5f5f0, #1a1b1f); /* Penguin white */
-	--page: light-dark(#edeef0, #101114); /* page field */
+	/* Every app SURFACE is pure stock — white in light, black in dark. No tinted page field, no
+	   off-white paper: the panels, the stage behind them, and the Presentation Builder's preview
+	   pane all sit at the same #fff/#000, and separation comes from lines, not from tint steps.
+	   (--surface below is the card component's physical stock, a different object — it stays.) */
+	--paper: light-dark(#ffffff, #000000);
+	--page: light-dark(#ffffff, #000000);
 	--surface: #f4f4f5; /* card fill — cool neutral cardstock */
 	--card-edge: rgba(0, 0, 0, 0.32); /* black-core edge line (MTG blue/black-core stock) */
 	/* Paper tooth — grayscale fractal noise, multiplied faintly onto the stock. */
@@ -80,18 +84,15 @@
 	 * OS-only --surface). --fill is the single frosted tint used in BOTH the compact
 	 * and expanded states (their background is identical); --head is the near-opaque
 	 * sticky-header tint. */
-	--panel-fill: light-dark(rgba(236, 238, 243, 0.75), rgba(28, 30, 37, 0.75));
-	/* Flat mode's panel body: opaque. A panel is a sheet laid over the map, separated by its
-	   edge, not a pane of glass separated by what shows through it. (Bubble keeps the frosted
-	   --panel-fill.)
-	   Deliberately a few steps LIGHTER than --panel-head rather than the same tint: the
-	   frosted body used to borrow contrast from the map beneath, which is what made the
-	   header read as a darker band. An opaque body borrows nothing, so the step has to be
-	   built into the token or the header band disappears. */
-	--panel-fill-solid: light-dark(rgb(243, 245, 249), rgb(33, 35, 42));
-	/* Near-opaque: the ATFC header is sticky over scrolling rows and no longer blurs, so it
-	   must hide what passes beneath. */
-	--panel-head: light-dark(rgba(233, 236, 242, 0.97), rgba(26, 28, 34, 0.97));
+	--panel-fill: light-dark(rgba(255, 255, 255, 0.75), rgba(0, 0, 0, 0.75));
+	/* Flat mode's panel body: opaque, and pure — white in light, black in dark. A panel is a
+	   sheet laid over the map, separated by its edge, not a pane of glass separated by what
+	   shows through it. (Bubble keeps the frosted --panel-fill.) */
+	--panel-fill-solid: light-dark(#ffffff, #000000);
+	/* Same pure stock as the body: the header band is drawn by its bottom border, not a tint
+	   step. Near-opaque, because the ATFC header is sticky over scrolling rows and no longer
+	   blurs, so it must hide what passes beneath. */
+	--panel-head: light-dark(rgba(255, 255, 255, 0.97), rgba(0, 0, 0, 0.97));
 	/* Backdrop filter shared by both panel states (compact + expanded): blur enough that the
 	   map beneath reads as diffuse colour — never a legible shape — and saturate so that
 	   transmitted colour stays lively rather than washing out grey. */

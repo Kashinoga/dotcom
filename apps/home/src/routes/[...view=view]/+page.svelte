@@ -2002,11 +2002,11 @@
 		position: fixed;
 		inset: 0;
 		overflow: hidden;
-		/* The default background: solid pure white in light, near-black in dark — or the
-		   time-of-day sky gradient when sky mode is opted into. Kept here (not --page) so the
-		   backdrop is a clean white/black the stars and rings sit on, independent of the theme's
-		   softer page-field token. */
-		background: var(--sky, light-dark(#ffffff, #101114));
+		/* The default background: pure white in light, pure black in dark — or the time-of-day
+		   sky gradient when sky mode is opted into. Kept here (not --page) so the backdrop is a
+		   clean white/black the stars and rings sit on, independent of the theme's softer
+		   page-field token, and so it matches the panel's own pure stock exactly. */
+		background: var(--sky, light-dark(#ffffff, #000000));
 	}
 	/* Concentric rings radiating from the wordmark's "o" — LIGHT mode only (the light-dark() stroke
 	   goes transparent in dark, where the star field takes over). SVG so they can be finely dashed

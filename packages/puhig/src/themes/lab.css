@@ -17,8 +17,10 @@
 :root[data-look='lab'] {
 	/* ── Palette ─────────────────────────────────────────────────────────────── */
 	--ink: light-dark(#0a0a0a, #f2f2ee); /* TODO(lab): Lab's foreground ink */
-	--paper: light-dark(#f5f5f0, #1a1b1f); /* TODO(lab): Lab's surface paper */
-	--page: light-dark(#edeef0, #101114); /* TODO(lab): Lab's page field */
+	/* Pure stock for every app surface — white in light, black in dark; separation comes from
+	   lines, not tint steps. (--surface below is the card's own material, and stays.) */
+	--paper: light-dark(#ffffff, #000000);
+	--page: light-dark(#ffffff, #000000);
 	--surface: #f4f4f5; /* TODO(lab): Lab's card fill */
 	--card-edge: rgba(0, 0, 0, 0.32);
 	/* Paper tooth — grayscale fractal noise, multiplied faintly onto the stock. */
@@ -65,9 +67,11 @@
 	/* ── Panel material ──────────────────────────────────────────────────────── */
 	/* TODO(lab): Metro's "premium plastic" frosted acrylic — swap for Lab's own
 	 * surface material (the tints, sheen, and blur that define the panel's feel). */
-	--panel-fill: light-dark(rgba(236, 238, 243, 0.75), rgba(28, 30, 37, 0.75));
-	--panel-fill-solid: light-dark(rgb(243, 245, 249), rgb(33, 35, 42));
-	--panel-head: light-dark(rgba(233, 236, 242, 0.97), rgba(26, 28, 34, 0.97));
+	/* Body and header are the same pure stock — white in light, black in dark. The header
+	   reads as a header from its bottom border, not from a tint step. */
+	--panel-fill: light-dark(rgba(255, 255, 255, 0.75), rgba(0, 0, 0, 0.75));
+	--panel-fill-solid: light-dark(#ffffff, #000000);
+	--panel-head: light-dark(rgba(255, 255, 255, 0.97), rgba(0, 0, 0, 0.97));
 	--panel-blur: blur(18px) saturate(1.3);
 	--panel-sheen: linear-gradient(
 		180deg,
