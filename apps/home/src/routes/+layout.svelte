@@ -1,17 +1,12 @@
 <script lang="ts">
-	import { dev } from '$app/environment';
 	import '@kashinoga/puhig/tokens.css';
-	import favicon from '$lib/assets/favicon.svg';
-	import faviconDev from '$lib/assets/favicon-dev.svg';
 
 	let { children } = $props();
-	// Orange heart while developing so the dev tab is easy to spot; the black/white
-	// theme-aware heart ships in production.
-	const icon = dev ? faviconDev : favicon;
+	// The favicon is NOT declared here any more. It changes with the open panel — the Air Traffic
+	// board and the Presentation Builder each fly their own mark in the tab — and only the page
+	// knows which panel that is: a panel opens by pushState, so the layout can't read it off the
+	// URL. Emitting a second <link rel="icon"> here would just race the page's. See the
+	// <svelte:head> in [...view=view]/+page.svelte, which owns the site heart too.
 </script>
-
-<svelte:head>
-	<link rel="icon" href={icon} type="image/svg+xml" />
-</svelte:head>
 
 {@render children()}

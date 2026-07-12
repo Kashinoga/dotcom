@@ -780,12 +780,13 @@
 		<button class="icon-btn" onclick={handleBack} aria-label="Back to route map" title="Route map"
 			>{@html BACK_SVG}</button
 		>
+		<!-- No brand mark here: the presentation glyph is the tab's favicon while this panel is
+		     open, which is where an app's mark belongs. Beta rides at the far right, after the
+		     filename. -->
 		<div class="pb-brand">
-			<span class="brand-mark">{@html PRESENTATION_SVG}</span>
 			<span class="brand-title"><SplitFlap text={title} base={160} stagger={45} /></span>
 			<!-- Decorative accent dot beside the title (station-sign bullet), matching ATFC. -->
 			<span class="accent-dot" aria-hidden="true"></span>
-			<span class="beta">Beta</span>
 		</div>
 		<div class="pb-tools">
 			<button class="tb" onclick={newFromTemplate} title="Start a new presentation from the built-in template">{@html FILE_PLUS_SVG}New</button>
@@ -795,6 +796,7 @@
 			<button class="tb" onclick={previewLive} disabled={!slides.length} title="Open the live presentation in a new tab">{@html PRESENTATION_SVG}Preview</button>
 		</div>
 		<span class="pb-file" class:dirty>{dirty ? '● ' : ''}{fileName || 'No file loaded'}</span>
+		<span class="beta">Beta</span>
 	</header>
 
 	<div class="pb-main">
@@ -1089,15 +1091,6 @@
 		font-weight: 700;
 		font-size: 1.05rem;
 		letter-spacing: -0.01em;
-	}
-	.brand-mark {
-		display: inline-flex;
-		color: var(--pb-accent);
-	}
-	.brand-mark :global(svg) {
-		width: 18px;
-		height: 18px;
-		display: block;
 	}
 	/* Keep the wordmark on one line. (The SplitFlap cell no longer widens mid-flip — the
 	   spin-time 0.4em min-width floor that used to shove the accent dot and Beta sideways was

@@ -9,6 +9,10 @@
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
 	import PresentationBuilder from '$lib/PresentationBuilder.svelte';
 	import { BACK_SVG, AIRPLANE_SVG, PRESENTATION_SVG } from '$lib/icons';
+	import faviconSite from '$lib/assets/favicon.svg';
+	import faviconDev from '$lib/assets/favicon-dev.svg';
+	import faviconAtfc from '$lib/assets/favicon-atfc.svg';
+	import faviconPres from '$lib/assets/favicon-pres.svg';
 	import { airports, airlines, portDescriptions, HUB, type Pt } from '$lib/network';
 	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
 	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
@@ -1199,6 +1203,17 @@
 	// stale `field` can never bleed into another panel's title or canonical URL.
 	const onBoard = $derived(view?.kind === 'port' && view.code === 'ATFC');
 	const selectedField = $derived(onBoard ? fieldByIata(field) : null);
+	// The tab's mark follows the open panel: each app flies its own, and everything else wears the
+	// site heart (orange while developing, so a dev tab is obvious at a glance).
+	const favicon = $derived(
+		view?.kind === 'port' && view.code === 'ATFC'
+			? faviconAtfc
+			: view?.kind === 'port' && view.code === 'PRES'
+				? faviconPres
+				: dev
+					? faviconDev
+					: faviconSite
+	);
 	const headTitle = $derived(
 		selectedField ? `Air Traffic · ${selectedField.name} — ${SITE}` : viewTitle(view)
 	);
@@ -1512,6 +1527,10 @@
      homepage. These track `view`/`field` (not `data.*`), so they update as you fly around
      the map and switch fields, without a navigation. -->
 <svelte:head>
+	<!-- The tab wears the open app's mark: the plane for the Traffic board, the presentation glyph
+	     for the Builder (which is why neither shows one in its own header any more). Everywhere else
+	     it's the site heart — orange in dev, so the dev tab is easy to spot. -->
+	<link rel="icon" href={favicon} type="image/svg+xml" />
 	<title>{headTitle}</title>
 	<meta name="description" content={headDescription} />
 	<link rel="canonical" href={canonicalHref} />
