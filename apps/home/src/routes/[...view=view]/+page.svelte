@@ -1522,12 +1522,10 @@
 	     instead; the light-dark() stroke hides these there). Centre tracks the measured "o". -->
 	<svg class="rings" aria-hidden="true">
 		{#each ringRadii as r, i}
-			<circle
-				cx={ringCx}
-				cy={ringCy}
-				{r}
-				style="--spin-dur:{150 + i * 9}s; --spin-dir:{i % 2 ? 'reverse' : 'normal'}"
-			/>
+			<g class="ring" style="--spin-dur:{150 + i * 9}s; --spin-dir:{i % 2 ? 'reverse' : 'normal'}">
+				<circle class="ring-hit" cx={ringCx} cy={ringCy} {r} />
+				<circle class="ring-line" cx={ringCx} cy={ringCy} {r} />
+			</g>
 		{/each}
 	</svg>
 	{#if starsVisible}
@@ -2020,26 +2018,43 @@
 		width: 100%;
 		height: 100%;
 		overflow: visible;
+		/* The svg passes pointer events through (it paints nothing of its own); only each ring's
+		   wide invisible hit-stroke re-enables hover, so empty space still reaches the stage. */
 		pointer-events: none;
 	}
-	.rings circle {
+	.ring {
+		/* Rotate the ring about its own centre — fill-box makes transform-origin:center resolve to
+		   the group's bbox centre (cx,cy), so it holds as the measured centre moves. */
+		transform-box: fill-box;
+		transform-origin: center;
+	}
+	.ring-line {
 		fill: none;
-		/* Tuned against the pure-white light background — clearly legible dashed rings, still light.
+		/* Tuned against the pure-white light background — legible dashed rings, still light.
 		   Transparent in dark, where the stars take over. */
 		stroke: light-dark(rgba(10, 14, 32, 0.26), transparent);
 		stroke-width: 1;
 		stroke-dasharray: 2.5 7;
-		/* Spin each ring about its OWN centre — fill-box makes transform-origin:center resolve to
-		   the circle's bbox centre (cx,cy), so it holds as the measured centre moves. */
-		transform-box: fill-box;
-		transform-origin: center;
+		pointer-events: none;
 	}
-	/* Slow rotation, with alternate rings turning opposite ways (--spin-dir) at staggered speeds
-	   (--spin-dur) — the dashed stroke is what makes the turn read. Motion, so reduced-motion off. */
+	/* A wide, invisible, gap-free companion stroke — the real hover target, so you don't have to
+	   land on the 1px dashed line. */
+	.ring-hit {
+		fill: none;
+		stroke: transparent;
+		stroke-width: 18;
+		pointer-events: stroke;
+	}
+	/* Spin ONLY the hovered ring; every other ring's animation stays PAUSED, so idle rings never
+	   repaint (that was the perf drain when all 20 ran). Un-hovering freezes it in place. Alternate
+	   rings turn opposite ways (--spin-dir) at staggered speeds (--spin-dur). Reduced-motion off. */
 	@media (prefers-reduced-motion: no-preference) {
-		.rings circle {
-			animation: ring-spin var(--spin-dur, 180s) linear infinite;
+		.ring {
+			animation: ring-spin var(--spin-dur, 180s) linear infinite paused;
 			animation-direction: var(--spin-dir, normal);
+		}
+		.ring:hover {
+			animation-play-state: running;
 		}
 	}
 	@keyframes ring-spin {
