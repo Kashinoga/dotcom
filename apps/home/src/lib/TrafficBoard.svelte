@@ -1101,7 +1101,7 @@
 	<!-- Keep {@html} flush with the tags: surrounding whitespace becomes an in-flow text
 	     node, which would give this inline-block a line box and pull its baseline up off
 	     its bottom edge (see .manual). -->
-	<button type="button" class="manual disc-btn" aria-label="Refresh now" title="Refresh now" onclick={manualRefresh}>{@html REFRESH_CIRCLE_SVG}</button>
+	<button type="button" class="manual icon-btn" aria-label="Refresh now" title="Refresh now" onclick={manualRefresh}>{@html REFRESH_CIRCLE_SVG}</button>
 {/snippet}
 {#snippet accentDot()}
 	<!-- Decorative, nonfunctional: the app's accent colour as a station-sign bullet beside
@@ -1150,7 +1150,7 @@
 				     (--bn 1…11), then Range, Refresh, and the right cap fall in behind it. -->
 				<button
 					type="button"
-					class="disc-btn nav-edge"
+					class="icon-btn nav-edge"
 					style="--bn:0"
 					onclick={onback}
 					aria-label="Back to route map"
@@ -1200,7 +1200,7 @@
 				{#if onToggleExpand}
 					<button
 						type="button"
-						class="disc-btn nav-edge"
+						class="icon-btn nav-edge"
 						style="--bn:19"
 						onclick={onToggleExpand}
 						aria-label="Collapse panel"
@@ -1211,7 +1211,7 @@
 				{/if}
 			</div>
 		{:else}
-			{#if onback}<button type="button" class="disc-btn back" style="--bn:0" onclick={onback} aria-label="Back to route map" title="Route map">{@html BACK_CIRCLE_SVG}</button>{/if}
+			{#if onback}<button type="button" class="icon-btn back" style="--bn:0" onclick={onback} aria-label="Back to route map" title="Route map">{@html BACK_CIRCLE_SVG}</button>{/if}
 			<!-- --bn 1: the eyebrow follows the Back cap, a beat ahead of the title flip and the
 			     Airport row that ripple in below it. -->
 			<p class="eyebrow" style="--bn:1">Now arriving &middot; <span class="eyebrow-code">{code}</span></p>
@@ -1228,7 +1228,7 @@
 				{#if onToggleExpand}
 					<button
 						type="button"
-						class="disc-btn expand-compact"
+						class="icon-btn expand-compact"
 						onclick={onToggleExpand}
 						aria-label={expanded ? 'Collapse panel' : 'Expand panel to fill'}
 						title={expanded ? 'Collapse' : 'Expand to fill'}
@@ -1662,7 +1662,7 @@
 	   ends hands the buttons back to their hover spring untouched. The labels don't hover, but
 	   they share the rule for one timing, so they take the same fill. */
 	@media (prefers-reduced-motion: no-preference) {
-		.tfc-head .disc-btn,
+		.tfc-head .icon-btn,
 		.tfc-head .field,
 		.tfc-head .field-select,
 		.tfc-head .manual,
@@ -2106,50 +2106,11 @@
 	   border edge, which is what `align-items: baseline` rests on the title's text
 	   baseline. (If the glyph were in flow, the button would inherit the glyph's own
 	   baseline — mid-circle — and float up off the line.) */
-	/* The board's header controls carry their OWN circle — reicon's *-circle glyphs are a solid disc
-	   with the shape knocked out of it (see $lib/icons). So the button draws nothing: no ring, no
-	   fill, no padding. The icon is the button, and hover just brings it up to full ink instead of
-	   lighting a border it no longer has. This is the one place that does it; everything else still
-	   uses .icon-btn, which puts a drawn circle around a bare glyph. */
-	.disc-btn {
-		position: relative;
-		display: inline-grid;
-		place-items: center;
-		box-sizing: border-box;
-		width: 30px;
-		height: 30px;
-		flex: none;
-		padding: 0;
-		color: color-mix(in srgb, var(--ink) 62%, transparent);
-		background: none;
-		border: 0;
-		border-radius: 999px;
-		cursor: pointer;
-		transition: color 0.15s ease, transform 0.15s ease;
-	}
-	.disc-btn:hover {
-		color: var(--ink);
-	}
-	/* Flat mode takes no shadows, so the press is the disc itself going full-ink and shrinking a
-	   touch — the same "darken what's there" idea the filled buttons use. */
-	.disc-btn:active {
-		color: var(--ink);
-		transform: scale(0.92);
-	}
-	.disc-btn:focus-visible {
-		outline: var(--focus-ring);
-		outline-offset: 2px;
-	}
-	.disc-btn :global(svg) {
-		display: block;
-		width: 30px;
-		height: 30px;
-	}
 	.manual {
 		position: relative;
 	}
 	/* Spin on press — the flourish it always had. There's no fill to darken any more: the disc is
-	   the icon, so the press reads on the glyph itself (see .disc-btn:active). */
+	   the icon, so the press reads on the glyph itself (see .icon-btn:active in puhig). */
 	.manual:active {
 		transform: rotate(-90deg);
 	}

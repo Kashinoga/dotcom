@@ -151,36 +151,42 @@ body {
 }
 
 /* Icon-circle control — the shared panel button (back / expand / collapse / refresh):
- * a 30px pill with a centred 15px glyph. Used across every panel so all panel controls
- * read the same; per-button placement (margins, absolute positioning) is set locally. */
+ * a 30px disc. The icons are reicon's *-circle glyphs: a solid disc with the shape knocked out of
+ * it (one evenodd path), so the button draws NO ring and NO fill of its own — the icon is the
+ * button. It used to be the other way round (a drawn circle around a bare 15px glyph); the icons
+ * carry the circle now, so the CSS stopped drawing one. Used across every panel so all panel
+ * controls read the same; per-button placement (margins, absolute positioning) is set locally. */
 .icon-btn {
 	display: inline-grid;
 	place-items: center;
+	box-sizing: border-box;
 	width: 30px;
 	height: 30px;
 	padding: 0;
-	color: var(--sub);
-	background: color-mix(in srgb, var(--ink) 5%, transparent);
-	border: 1.5px solid color-mix(in srgb, var(--ink) 14%, transparent);
+	color: color-mix(in srgb, var(--ink) 62%, transparent);
+	background: none;
+	border: 0;
 	border-radius: 999px;
 	cursor: pointer;
-	transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+	transition: color 0.15s ease, transform 0.15s ease;
 }
 .icon-btn:hover {
 	color: var(--ink);
-	border-color: color-mix(in srgb, var(--ink) 30%, transparent);
+}
+/* The app's universal press (a flat inset flood + a squash, see +page.svelte) still applies; this
+ * just brings the disc itself up to full ink while it's held, since there's no fill to darken. */
+.icon-btn:active:not(:disabled) {
+	color: var(--ink);
 }
 .icon-btn:focus-visible {
 	outline: var(--focus-ring);
 	outline-offset: 2px;
 }
-/* 18px, not 15px: the icons are reicon's FILLED weight now, and a solid caret carries far less of
- * its 24×24 box than the hairline chevron it replaced — at 15px it read as a speck in the circle.
- * The larger box restores the optical weight the button was drawn for. */
+/* The glyph fills the button, because the glyph IS the button — see above. */
 .icon-btn svg {
 	display: block;
-	width: 18px;
-	height: 18px;
+	width: 30px;
+	height: 30px;
 }
 
 /* Panel chrome entrance — the horizontal counterpart to the content column's `rise`. A

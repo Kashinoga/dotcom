@@ -8,7 +8,7 @@
 	import Masthead from '$lib/Masthead.svelte';
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
 	import PresentationBuilder from '$lib/PresentationBuilder.svelte';
-	import { BACK_SVG, AIRPLANE_SVG, PRESENTATION_SVG, CAMERA_SVG } from '$lib/icons';
+	import { BACK_CIRCLE_SVG, AIRPLANE_SVG, PRESENTATION_SVG, CAMERA_SVG } from '$lib/icons';
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
 	import faviconAtfc from '$lib/assets/favicon-atfc.svg';
@@ -1852,7 +1852,7 @@
 						<PresentationBuilder accent={accent[v.code]} title={port.title} onback={() => home()} />
 					{:else}
 					<div class="surface-head">
-						<button class="icon-btn back" onclick={() => home()} aria-label="Back to home" title="Home">{@html BACK_SVG}</button>
+						<button class="icon-btn back" onclick={() => home()} aria-label="Back to home" title="Home">{@html BACK_CIRCLE_SVG}</button>
 						<div class="title-row">
 							<h2 class="dest" style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
 							{@render accentDot(accent[v.code])}
@@ -2169,7 +2169,7 @@
 					{@const stops = [...lineOf[v.idx]]}
 					{@const editLine = dev && editMode}
 					<div class="surface-head">
-						<button class="icon-btn back" onclick={() => home()} aria-label="Back to home" title="Home">{@html BACK_SVG}</button>
+						<button class="icon-btn back" onclick={() => home()} aria-label="Back to home" title="Home">{@html BACK_CIRCLE_SVG}</button>
 						<div class="title-row">
 							{#if editLine}
 								<h2
