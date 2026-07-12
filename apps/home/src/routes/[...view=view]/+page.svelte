@@ -189,9 +189,14 @@
 		document.documentElement.dataset.sky = skyPhase;
 	}
 
-	// Bing's photo of the day. The metadata comes through our own route (the upstream sends no CORS
+	// Bing's wallpaper archive. The metadata comes through our own route (the upstream sends no CORS
 	// header); the picture itself is loaded straight from Bing's CDN, which does. Fetched once per
 	// visit, and only when Photo is actually chosen — an unused sky costs nothing.
+	//
+	// ONE PHOTO PER LOAD, drawn at random from the eight days the route returns: the sky is a
+	// different picture each time you come back, and a stable one while you're reading. Deliberately
+	// not a timer — cross-fading a full-viewport image every few minutes is exactly the kind of idle
+	// repaint the rest of this page goes out of its way not to do.
 	type Photo = { url: string; uhd: string; title: string; copyright: string; copyrightlink: string };
 	let photo = $state<Photo | null>(null);
 	let photoPending = false;
@@ -201,14 +206,15 @@
 		try {
 			const r = await fetch('/api/wallpaper');
 			if (!r.ok) return;
-			const p = (await r.json()) as Photo;
-			if (!p?.url) return;
-			// Decode before painting, so the sky doesn't flash in half-drawn, then hand the browser the
-			// UHD file to swap in once it's warm. Failing either just leaves the solid background.
+			const { photos } = (await r.json()) as { photos?: Photo[] };
+			const pick = photos?.[Math.floor(Math.random() * photos.length)];
+			if (!pick?.url) return;
+			// Decode before painting, so the sky doesn't flash in half-drawn. Failing that just leaves
+			// the solid background.
 			const img = new Image();
-			img.src = p.url;
+			img.src = pick.url;
 			await img.decode().catch(() => {});
-			photo = p;
+			photo = pick;
 		} catch {
 			/* offline / upstream down — the solid background stands in */
 		} finally {
