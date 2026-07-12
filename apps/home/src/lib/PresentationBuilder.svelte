@@ -319,6 +319,19 @@
 		el.onclick = (ev) => selectElement(ev.target as HTMLElement);
 	}
 
+	// Give the preview pane an entrance whenever a new template/deck is displayed. The iframe is
+	// persistent (its content just reloads), so restart the CSS animation by toggling the class
+	// off, forcing a reflow, then on — keyed to loadRev so it replays on every load but not on
+	// ordinary slide edits. loadRev 0 is the pre-load empty state, so there's nothing to animate.
+	$effect(() => {
+		const rev = loadRev;
+		const el = frame;
+		if (!el || rev === 0) return;
+		el.classList.remove('is-entering');
+		void el.offsetWidth; // reflow so re-adding the class restarts the animation
+		el.classList.add('is-entering');
+	});
+
 	// Capture the slide's innerHTML into the model without the selection marker.
 	function captureInner() {
 		const el = editSlideEl();
@@ -1590,6 +1603,25 @@
 		width: 100%;
 		border: 0;
 		background: var(--page);
+	}
+	/* A freshly displayed template gives the preview PANE its own entrance — the slide's own
+	   animations stay disabled in the editor (so text is editable at rest), so this fades and
+	   settles the whole pane instead. Restarted from loadRev (see the $effect); the class just
+	   lingers between loads. */
+	@media (prefers-reduced-motion: no-preference) {
+		.preview-frame.is-entering {
+			animation: preview-in 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+		}
+	}
+	@keyframes preview-in {
+		from {
+			opacity: 0;
+			transform: translateY(10px) scale(0.985);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0) scale(1);
+		}
 	}
 	.empty {
 		position: absolute;
