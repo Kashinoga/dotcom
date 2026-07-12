@@ -140,15 +140,22 @@
 		}
 	}
 
-	// Time-of-day sky (opt-in): paints a gradient behind the map and flips the
-	// palette per phase. data-sky on <html> drives the tokens (see tokens.css).
+	// The sky behind the panels. Three kinds, and they're alternatives to each other:
+	//   • a TIME-OF-DAY gradient — Auto (follows the clock) or a phase pinned by hand. data-sky on
+	//     <html> drives the tokens (see puhig's base.css), and dusk/night pin a dark colour-scheme.
+	//   • PHOTO — Bing's wallpaper of the day, fetched through /api/wallpaper. It's a picture, not a
+	//     palette: it can't say what time of day it is, so it leaves the colour scheme to the display
+	//     mode and sets no data-sky.
+	//   • OFF — the solid pure-white / pure-black background.
 	const SKY_KEY = 'ksh-sky';
 	type SkyPhase = 'dawn' | 'morning' | 'noon' | 'dusk' | 'night';
-	type SkyMode = 'off' | 'auto' | SkyPhase; // off, follow real time, or a fixed phase
+	type SkyMode = 'off' | 'auto' | 'photo' | SkyPhase;
 	const SKY_PHASES: SkyPhase[] = ['dawn', 'morning', 'noon', 'dusk', 'night'];
+	const SKY_MODES: SkyMode[] = ['off', 'auto', 'photo', ...SKY_PHASES];
 	const skyOptions: { id: SkyMode; label: string }[] = [
 		{ id: 'off', label: 'Off' },
 		{ id: 'auto', label: 'Auto' },
+		{ id: 'photo', label: 'Photo' },
 		{ id: 'dawn', label: 'Dawn' },
 		{ id: 'morning', label: 'Morning' },
 		{ id: 'noon', label: 'Noon' },
@@ -171,12 +178,42 @@
 		return 'dusk';
 	}
 	function applySky() {
-		if (skyMode === 'off') {
+		// Off and Photo both carry no phase: Off has nothing to paint, and a photograph can't tell the
+		// tokens what time it is. Only the gradients set data-sky.
+		if (skyMode === 'off' || skyMode === 'photo') {
 			document.documentElement.removeAttribute('data-sky');
+			if (skyMode === 'photo') loadPhoto();
 			return;
 		}
 		skyPhase = skyMode === 'auto' ? currentPhase() : skyMode;
 		document.documentElement.dataset.sky = skyPhase;
+	}
+
+	// Bing's photo of the day. The metadata comes through our own route (the upstream sends no CORS
+	// header); the picture itself is loaded straight from Bing's CDN, which does. Fetched once per
+	// visit, and only when Photo is actually chosen — an unused sky costs nothing.
+	type Photo = { url: string; uhd: string; title: string; copyright: string; copyrightlink: string };
+	let photo = $state<Photo | null>(null);
+	let photoPending = false;
+	async function loadPhoto() {
+		if (photo || photoPending) return;
+		photoPending = true;
+		try {
+			const r = await fetch('/api/wallpaper');
+			if (!r.ok) return;
+			const p = (await r.json()) as Photo;
+			if (!p?.url) return;
+			// Decode before painting, so the sky doesn't flash in half-drawn, then hand the browser the
+			// UHD file to swap in once it's warm. Failing either just leaves the solid background.
+			const img = new Image();
+			img.src = p.url;
+			await img.decode().catch(() => {});
+			photo = p;
+		} catch {
+			/* offline / upstream down — the solid background stands in */
+		} finally {
+			photoPending = false;
+		}
 	}
 	function setSkyMode(m: SkyMode) {
 		skyMode = m;
@@ -332,10 +369,14 @@
 	// night are the dark phases); otherwise it's the display mode, with 'system' asking the OS.
 	let osDark = $state(false);
 	const darkScheme = $derived(
-		skyMode !== 'off'
+		skyMode !== 'off' && skyMode !== 'photo'
 			? skyPhase === 'dusk' || skyPhase === 'night'
 			: theme === 'dark' || (theme === 'system' && osDark)
 	);
+	// A photograph IS the decoration — the rings and the star field would just litter it, so under
+	// the Photo sky neither is built (same bargain as everywhere else: if it can't be seen, or
+	// shouldn't be, it isn't rendered).
+	const photoSky = $derived(skyMode === 'photo' && !!photo);
 
 	// Stars ride along with dark mode, not the sky: they show on a solid black background, a
 	// manual/OS dark theme, and the dusk/night skies alike.
@@ -366,7 +407,9 @@
 			? 'Off — a solid background: black in dark mode, white in light.'
 			: skyMode === 'auto'
 				? `Auto (the default) — following the clock, currently ${skyPhase}.`
-				: `Fixed to ${skyMode}.`
+				: skyMode === 'photo'
+					? 'Photo — Bing’s wallpaper of the day. The display mode above still sets the palette.'
+					: `Fixed to ${skyMode}.`
 	);
 	const uiStatus = $derived(
 		uiStyle === 'bubble'
@@ -1008,8 +1051,8 @@
 	// a full-screen sheet). Before this, an expanded Presentation Builder sat over 46 twinkling stars
 	// nobody could see. Rendering nothing is the only way to animate nothing.
 	const backdropHidden = $derived(!!view && (panelExpanded || isMobile));
-	const starsVisible = $derived(starsOn && darkScheme && !backdropHidden);
-	const ringsVisible = $derived(!darkScheme && !backdropHidden);
+	const starsVisible = $derived(starsOn && darkScheme && !backdropHidden && !photoSky);
+	const ringsVisible = $derived(!darkScheme && !backdropHidden && !photoSky);
 	function toggleExpand() {
 		panelExpanded = !panelExpanded;
 		// Expanding covers the map, so let it fade once it's rested; un-expanding puts
@@ -1428,8 +1471,7 @@
 		if (th === 'light' || th === 'dark') theme = th;
 		if (localStorage.getItem(EXPAND_KEY) === '1') panelExpanded = true;
 		const sky = localStorage.getItem(SKY_KEY);
-		if (sky === 'off' || sky === 'auto' || (sky && SKY_PHASES.includes(sky as SkyPhase)))
-			skyMode = sky as SkyMode; // else default 'auto'
+		if (sky && SKY_MODES.includes(sky as SkyMode)) skyMode = sky as SkyMode; // else default 'auto'
 		applySky();
 		// Follow the OS scheme, and keep following it: with the display mode on 'system', this is
 		// what decides whether the stars or the rings are the ones that get built at all.
@@ -1583,7 +1625,32 @@
 {/snippet}
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="stage" class:panning onclick={onStageClick}>
+<div class="stage" class:panning class:photo={photoSky} onclick={onStageClick}>
+	{#if photoSky && photo}
+		<!-- Bing's photo of the day. Two layers, not one: the picture, and a veil over it. The panels
+		     are opaque so they're fine, but the masthead and nav sit straight on the sky — over a
+		     photograph their ink would be unreadable, and a scrim is the cheapest way to give them
+		     back their contrast without touching a single token. The credit is not optional: these
+		     photos are licensed to Microsoft, not to us. -->
+		<div
+			class="photo-bg"
+			aria-hidden="true"
+			style:background-image="url('{photo.url}')"
+			transition:fade={{ duration: 500 }}
+		></div>
+		<div class="photo-veil" aria-hidden="true" transition:fade={{ duration: 500 }}></div>
+		{#if !backdropHidden}
+			<a
+				class="photo-credit"
+				href={photo.copyrightlink}
+				target="_blank"
+				rel="noreferrer noopener"
+				transition:fade={{ duration: 500 }}
+			>
+				{photo.copyright}
+			</a>
+		{/if}
+	{/if}
 	<!-- Light-mode concentric rings radiating from the wordmark's "o" (dark mode gets the stars
 	     instead). Centre tracks the measured "o". Purely decorative and inert: they don't spin, and
 	     nothing here takes the pointer. Two things are deliberately NOT drawn: the rings that never
@@ -2063,6 +2130,69 @@
 		   page-field token, and so it matches the panel's own pure stock exactly. */
 		background: var(--sky, light-dark(#ffffff, #000000));
 	}
+	/* ── Photo sky ────────────────────────────────────────────────────────────────────────────── */
+	/* Bing's wallpaper of the day, as an alternative to the time-of-day gradients. The picture is a
+	   plain background-image on its own layer (the browser can then decode and cache it like any
+	   other image), with a veil above it. */
+	.photo-bg {
+		position: absolute;
+		inset: 0;
+		background-position: center;
+		background-size: cover;
+		background-repeat: no-repeat;
+		pointer-events: none;
+	}
+	/* The veil is what keeps the masthead readable. The wordmark, tagline and nav are painted in
+	   --ink straight onto the sky; over a photograph they'd be illegible against half the frames.
+	   Washing the photo toward the page's own stock — white in light, black in dark — restores the
+	   contrast the tokens assume, and costs one flat fill rather than a per-element treatment. */
+	/* Aimed, not flat: a flat 62% wash made every photo look like fog. Strong where the text actually
+	   is (a band down the top, a thinner one along the bottom for the credit), and barely there
+	   across the middle, where the photo is just a photo. */
+	.photo-veil {
+		position: absolute;
+		inset: 0;
+		background:
+			linear-gradient(
+				180deg,
+				light-dark(rgba(255, 255, 255, 0.92), rgba(0, 0, 0, 0.92)) 0,
+				light-dark(rgba(255, 255, 255, 0.62), rgba(0, 0, 0, 0.68)) 190px,
+				transparent 420px
+			),
+			linear-gradient(
+				0deg,
+				light-dark(rgba(255, 255, 255, 0.94), rgba(0, 0, 0, 0.9)) 0,
+				light-dark(rgba(255, 255, 255, 0.55), rgba(0, 0, 0, 0.55)) 90px,
+				transparent 190px
+			),
+			light-dark(rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.24));
+		pointer-events: none;
+	}
+	/* The credit. Bing licenses these photos from Getty/Shutterstock for its own homepage — they are
+	   not ours — so the line ships with the picture and links back to Bing's page for it. Bottom
+	   left, out of the way of the panel; hidden whenever a panel covers the sky anyway. */
+	.photo-credit {
+		position: absolute;
+		left: clamp(1rem, 4vw, 2rem);
+		bottom: clamp(0.75rem, 3vh, 1.25rem);
+		z-index: 2;
+		max-width: min(46ch, 50vw);
+		font-size: 0.72rem;
+		line-height: 1.35;
+		color: color-mix(in srgb, var(--ink) 88%, transparent);
+		text-decoration: none;
+	}
+	.photo-credit:hover {
+		color: var(--ink);
+		text-decoration: underline;
+	}
+	@media (max-width: 720px) {
+		/* On a phone the sky is a sliver above the sheet — don't spend it on a credit line. */
+		.photo-credit {
+			display: none;
+		}
+	}
+
 	/* Concentric rings radiating from the wordmark's "o" — LIGHT mode only (the light-dark() stroke
 	   goes transparent in dark, where the star field takes over). SVG so they can be finely dashed
 	   like the inspiration; centred on the measured "o", radii fixed. Behind the chrome, clicks
