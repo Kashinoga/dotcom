@@ -348,7 +348,6 @@
 		ringCx = r.left + r.width / 2;
 		ringCy = r.top + r.height / 2;
 	}
-
 	// ── Ticker bands ──────────────────────────────────────────────────────────────────────────
 	// The site's four destinations, each painted onto one of the rings as a coloured band with its
 	// own name repeating around it. Click a band and its panel opens — the same destinations, in
@@ -448,6 +447,25 @@
 	// `meet`, so the map's scale is min(vw/cam.w, vh/cam.h) — a short wide window fits by height.
 	let vh = $state(800);
 	const isMobile = $derived(vw <= 720);
+
+	// The rings run far past the viewport by design, but the ones that clear it ENTIRELY are pure
+	// cost: nothing of them can ever show, and yet Firefox still generates the dash pattern around
+	// each of those enormous circumferences on every repaint. At 1400×900 that was 12 of the 20,
+	// and it was the whole reason a streaming band juddered — the band's rotation dirties the disc
+	// beneath it, so all twenty rings were re-dashed every frame (~34ms/frame; culling → ~17ms).
+	// The centre always sits inside the viewport, so a circle shows iff it reaches no farther than
+	// the farthest corner.
+	const cornerReach = $derived(
+		Math.max(
+			Math.hypot(ringCx, ringCy),
+			Math.hypot(vw - ringCx, ringCy),
+			Math.hypot(ringCx, vh - ringCy),
+			Math.hypot(vw - ringCx, vh - ringCy)
+		)
+	);
+	const visibleRings = $derived(
+		ringRadii.map((r, i) => ({ r, i })).filter(({ r }) => r <= cornerReach)
+	);
 	const P: Record<string, Pt> = $derived(
 		mapMode === 'air' ? P_air : isMobile ? P_rail_v : P_rail
 	);
@@ -1593,7 +1611,7 @@
 	<!-- Light-mode concentric rings radiating from the wordmark's "o" (dark mode gets the stars
 	     instead; the light-dark() stroke hides these there). Centre tracks the measured "o". -->
 	<svg class="rings" aria-hidden="true">
-		{#each ringRadii as r, i}
+		{#each visibleRings as { r, i } (i)}
 			<g class="ring" style="--spin-dur:{150 + i * 9}s; --spin-dir:{i % 2 ? 'reverse' : 'normal'}">
 				<circle class="ring-hit" cx={ringCx} cy={ringCy} {r} />
 				<circle class="ring-line" cx={ringCx} cy={ringCy} {r} />
@@ -2223,7 +2241,12 @@
 	/* Streaming the words is a slow rotation of the TEXT about its ring's centre; the band beneath
 	   stays put, so the words appear to run along it. Only the HOVERED band streams — the others
 	   sit still, so an idle homepage animates nothing (the same bargain the rings make). A whole
-	   number of words fills each circumference, so a full turn lands exactly back on itself. */
+	   number of words fills each circumference, so a full turn lands exactly back on itself.
+
+	   The turn dirties the whole disc under the band, so everything inside it repaints each frame.
+	   That is affordable ONLY because the rings that can't be seen are no longer drawn — see
+	   visibleRings. Layer promotion is not an option here: neither will-change nor a 3D transform
+	   gets Firefox to composite this, so keeping what's underneath cheap IS the fix. */
 	@media (prefers-reduced-motion: no-preference) {
 		.ticker-text {
 			/* The duration is set per band inline — wider rings take proportionally longer, so every
