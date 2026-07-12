@@ -355,16 +355,37 @@
 	//
 	// The band is the ring's WHOLE circle, so it never terminates in open space — it runs off the
 	// viewport's edges and the stage's overflow trims it. Streaming the words is then just a slow
-	// rotation of the text about the ring's centre. Sized with textLength so a whole number of HOMEs
-	// fills the circumference exactly, which puts the loop's seam on a word boundary: a full turn
-	// lands back on itself and the repeat never shows.
+	// rotation of the text about the ring's centre.
+	//
+	// The words must fill the circumference EXACTLY or the shortfall shows as a bare stretch of
+	// band — the gap the ticker first had. `textLength` is the obvious tool and is the wrong one:
+	// Firefox ignores it on a <textPath> (it left 2685px of glyphs on a 2828px track), so the fit
+	// is measured and corrected here instead — see fitTicker.
 	const TICKER_I = 2; // third ring
 	const TICKER_R = ringRadii[TICKER_I];
 	const BAND_W = 30; // band thickness, px
 	const TICKER_SECS = 60; // one lap of the ring
-	const TICKER_WORDS = 42; // ≈ circumference / natural word width; textLength trues it up
+	const TICKER_WORDS = 42; // ≈ circumference / natural word width; fitTicker trues up the rest
 	const TICKER_TEXT = 'HOME · '.repeat(TICKER_WORDS);
-	const TICKER_LEN = 2 * Math.PI * TICKER_R;
+	let tickerTextEl = $state<SVGTextElement | undefined>(undefined);
+
+	// Splay the letters out (or pull them in) until the repeated words measure exactly one lap of
+	// the track, so the last "·" meets the first "H" and the loop has no seam and no gap. Iterated,
+	// because letter-spacing lands between glyphs and a single correction overshoots slightly.
+	function fitTicker() {
+		const t = tickerTextEl;
+		const track = document.getElementById('ticker-track') as SVGPathElement | null;
+		if (!t || !track) return;
+		const len = track.getTotalLength();
+		t.style.letterSpacing = ''; // back to the stylesheet's value before measuring
+		for (let pass = 0; pass < 3; pass++) {
+			const natural = t.getComputedTextLength();
+			const chars = t.getNumberOfChars();
+			if (!chars || !natural) return;
+			const spacing = parseFloat(getComputedStyle(t).letterSpacing) || 0;
+			t.style.letterSpacing = `${spacing + (len - natural) / chars}px`;
+		}
+	}
 	// Angles run clockwise on screen from 3 o'clock (SVG's y grows downward), so 90° is the ring's
 	// lowest point — where the track starts, and so where the words begin. It runs from there back
 	// toward 3 o'clock: travelling that way, the text sits the right way up along the bottom of the
@@ -1411,8 +1432,13 @@
 		STARS = makeStars(); // fresh random field per load (client-side)
 		SHOOT = makeShooting(); // and a few shooting stars to cross it
 		measureRings(); // centre the light-mode rings on the wordmark's "o" …
-		// … and again once the wordmark font has loaded (glyph widths shift the "o").
-		document.fonts?.ready.then(measureRings);
+		fitTicker(); // … and fit the ticker's words to exactly one lap of its ring
+		// … and both again once the wordmark font has loaded: glyph widths shift the "o", and the
+		// ticker's own measurement is only right once its real face is in.
+		document.fonts?.ready.then(() => {
+			measureRings();
+			fitTicker();
+		});
 		starsOn = localStorage.getItem(STARS_KEY) !== '0'; // default on
 		if (localStorage.getItem(UI_KEY) === 'bubble') setUiStyle('bubble'); // else default flat
 		if (localStorage.getItem(LOOK_KEY) === 'metro') setLook('metro'); // else default lab
@@ -1575,13 +1601,12 @@
 			<path class="ticker-band" d={tickerTrack} stroke-width={BAND_W} />
 			<text
 				class="ticker-text"
+				bind:this={tickerTextEl}
 				style:transform-origin="{ringCx}px {ringCy}px"
 				style:animation-duration="{TICKER_SECS}s"
 				dominant-baseline="central"
 			>
-				<textPath href="#ticker-track" textLength={TICKER_LEN} lengthAdjust="spacing"
-					>{TICKER_TEXT}</textPath
-				>
+				<textPath href="#ticker-track">{TICKER_TEXT}</textPath>
 			</text>
 		</a>
 	</svg>
