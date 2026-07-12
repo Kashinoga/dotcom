@@ -1208,9 +1208,13 @@
 		}
 	}
 	function board(code: string) {
+		// Already showing this station: clicking it again (its nav item is the active one, or an
+		// onward chip points back to it) shouldn't tear the panel down and rebuild it. No-op.
+		if (view?.kind === 'port' && view.code === code) return;
 		navigate({ kind: 'port', code });
 	}
 	function openLine(idx: number) {
+		if (view?.kind === 'line' && view.idx === idx) return;
 		navigate({ kind: 'line', idx });
 	}
 	function home(push = true) {
