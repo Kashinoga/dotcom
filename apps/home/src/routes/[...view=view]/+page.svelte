@@ -349,23 +349,26 @@
 		ringCy = r.top + r.height / 2;
 	}
 	// ── Ticker bands ──────────────────────────────────────────────────────────────────────────
-	// The site's four destinations, each painted onto one of the rings as a coloured band with its
-	// own name repeating around it. Click a band and its panel opens — the same destinations, in
-	// the same order, as the masthead's nav. Hovering streams the words; at rest they sit still.
+	// The site's four destinations, painted as concentric coloured bands, each with its own name
+	// repeating around it. Click a band and its panel opens — the same destinations, in the same
+	// order, as the masthead's nav. Hovering streams the words; at rest they sit still.
 	//
-	// Each band is its ring's WHOLE circle, so it never terminates in open space: it runs off the
-	// viewport's edges and the stage's overflow trims it. Streaming is then just a slow rotation of
-	// the text about the ring's centre — the band beneath it doesn't move.
-	const BAND_W = 30; // band thickness, px
-	const LAP_SECS = 60; // one lap of the Home ring; the wider rings take proportionally longer,
+	// They're stacked EDGE TO EDGE, not one per ring: the yellow Home band holds the third ring's
+	// radius and the rest are laid straight on top of it, one band-width apart, so the four read as
+	// a single striped ribbon rather than four separate rings. Each is a whole circle, so it never
+	// terminates in open space: it runs off the viewport's edges and the stage's overflow trims it.
+	// Streaming is then just a slow rotation of the text about the centre — the band doesn't move.
+	const BAND_W = 30; // band thickness, px — also the step between bands, so their edges meet
+	const BAND_R0 = ringRadii[2]; // Home keeps the third ring; the others stack outward from it
+	const LAP_SECS = 60; // one lap of the Home band; the wider ones take proportionally longer,
 	// so every band's words travel at the same speed rather than the outer ones racing.
 	const bands = [
-		{ code: 'KSH', word: 'HOME', ring: 2, fill: '#e6b93c', ink: '#0a0a0a' },
-		{ code: 'ABT', word: 'ABOUT', ring: 3, fill: '#12a150', ink: '#ffffff' },
-		{ code: 'APP', word: 'APPS', ring: 4, fill: '#f06030', ink: '#0a0a0a' },
-		{ code: 'STG', word: 'SETTINGS', ring: 5, fill: '#8b46e0', ink: '#ffffff' }
-	].map((b) => {
-		const r = ringRadii[b.ring];
+		{ code: 'KSH', word: 'HOME', fill: '#e6b93c', ink: '#0a0a0a' },
+		{ code: 'ABT', word: 'ABOUT', fill: '#12a150', ink: '#ffffff' },
+		{ code: 'APP', word: 'APPS', fill: '#f06030', ink: '#0a0a0a' },
+		{ code: 'STG', word: 'SETTINGS', fill: '#8b46e0', ink: '#ffffff' }
+	].map((b, i) => {
+		const r = BAND_R0 + i * BAND_W;
 		const circumference = 2 * Math.PI * r;
 		// Enough repeats to go all the way round: an estimate off the word's length (fitBands trues
 		// the rest up), never fewer than one.
@@ -376,7 +379,7 @@
 			// NBSPs, not plain spaces: SVG trims the trailing whitespace off a run of text, which
 			// eats the last separator's gap and leaves the seam butted up ("· APPS · APPS ·APPS").
 			text: `${b.word}\u00a0·\u00a0`.repeat(reps),
-			secs: (LAP_SECS * r) / ringRadii[2]
+			secs: (LAP_SECS * r) / BAND_R0
 		};
 	});
 	let bandTextEls = $state<(SVGTextElement | undefined)[]>([]);
