@@ -5,6 +5,7 @@
 	import { page } from '$app/state';
 	import { pushState, replaceState } from '$app/navigation';
 	import SplitFlap from '$lib/SplitFlap.svelte';
+	import Masthead from '$lib/Masthead.svelte';
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
 	import PresentationBuilder from '$lib/PresentationBuilder.svelte';
 	import { MAXIMIZE_SVG, MINIMIZE_SVG, BACK_SVG } from '$lib/icons';
@@ -98,8 +99,6 @@
 		}
 	}
 	const mapPhrase = $derived(mapMode === 'air' ? 'an airline route map' : 'a train route map');
-	// Tagline split into words so each raises in on a stagger (like the legend).
-	const taglineWords = 'a route map of my internet'.split(' ');
 
 	// Label style, toggled from Settings: station codes (WRK) or full stop names.
 	// Full names by default, in either map mode. Null means "no explicit choice yet";
@@ -238,6 +237,31 @@
 		}
 	}
 
+	// Named theme (the whole visual identity): 'lab' is the default and carries no
+	// attribute; 'metro' opts back into the original transit-map look. data-look on
+	// <html> selects the token set (see @kashinoga/puhig themes/*.css); a pre-paint
+	// script in app.html applies the saved choice so there's no flash on load.
+	const LOOK_KEY = 'ksh-look';
+	type Look = 'lab' | 'metro';
+	const lookOptions: { id: Look; label: string; sub: string }[] = [
+		{ id: 'lab', label: 'Lab', sub: 'the new default' },
+		{ id: 'metro', label: 'Metro', sub: 'the transit map' }
+	];
+	let look = $state<Look>('lab');
+	function setLook(l: Look) {
+		look = l;
+		if (typeof document !== 'undefined') {
+			if (l === 'metro') document.documentElement.dataset.look = l;
+			else document.documentElement.removeAttribute('data-look');
+		}
+		try {
+			if (l === 'metro') localStorage.setItem(LOOK_KEY, l);
+			else localStorage.removeItem(LOOK_KEY);
+		} catch {
+			/* storage unavailable — keep the in-memory choice */
+		}
+	}
+
 	// A panel title is sized off the viewport so it reads at the homepage wordmark's scale,
 	// but the panel itself caps at 640px. A long title ("Terminal Way") therefore fills the
 	// header edge to edge, leaving no room for the accent dot beside it — which then wraps
@@ -251,7 +275,7 @@
 	// The six preferences this panel owns. Deliberately NOT the dev `clearLocalStorage`
 	// set: that one also drops authored content drafts (CONTENT_KEY) and the panel's
 	// expanded flag, and reloads the page.
-	const PREF_KEYS = [MODE_KEY, NAMES_KEY, THEME_KEY, SKY_KEY, STARS_KEY, UI_KEY];
+	const PREF_KEYS = [MODE_KEY, NAMES_KEY, THEME_KEY, SKY_KEY, STARS_KEY, UI_KEY, LOOK_KEY];
 
 	// Compared against what's on screen, not against what's stored: an explicit pick of
 	// the default value reads as "already default", which is what the button implies.
@@ -260,6 +284,7 @@
 			showStopNames &&
 			theme === 'system' &&
 			uiStyle === 'flat' &&
+			look === 'lab' &&
 			skyMode === 'auto' &&
 			starsOn
 	);
@@ -271,6 +296,7 @@
 		starsOn = true;
 		setTheme('system'); // also strips data-theme and its key
 		setUiStyle('flat'); // also strips data-ui and its key
+		setLook('lab'); // also strips data-look and its key
 		applySky();
 		// Forget the stored picks rather than saving the defaults over them, so a reset
 		// leaves exactly the state a first-ever visitor has.
@@ -315,6 +341,11 @@
 		uiStyle === 'bubble'
 			? 'Glossy, bubbly buttons that pop forward across the site.'
 			: 'Flat, minimal buttons.'
+	);
+	const lookStatus = $derived(
+		look === 'metro'
+			? 'Metro — the original transit-map identity.'
+			: 'Lab — the new default look.'
 	);
 	const starsStatus = $derived(
 		starsOn ? 'Tiny stars twinkle when the sky is Night.' : 'Stars off.'
@@ -630,7 +661,7 @@
 	function clearLocalStorage() {
 		if (!dev) return;
 		try {
-			for (const k of [MODE_KEY, NAMES_KEY, THEME_KEY, CONTENT_KEY, EXPAND_KEY, SKY_KEY, STARS_KEY, UI_KEY])
+			for (const k of [MODE_KEY, NAMES_KEY, THEME_KEY, CONTENT_KEY, EXPAND_KEY, SKY_KEY, STARS_KEY, UI_KEY, LOOK_KEY])
 				localStorage.removeItem(k);
 		} catch {
 			/* storage unavailable — nothing to clear */
@@ -783,6 +814,8 @@
 		resetLead: 'Start over with the settings this page ships with.',
 		uiLead: 'Choose how buttons across the site look and feel.',
 		uiNote: '{} Remembered next time.',
+		lookLead: 'Choose the overall look of the site.',
+		lookNote: '{} Remembered next time.',
 		// Air Traffic board intro copy. `atfcLead` uses a `{}` token for the live range
 		// (NM); the demo variant has none. Edited via Edit Mode inside the board itself.
 		atfcLead: 'Live traffic within {} NM of a field — arriving, departing, or passing over.',
@@ -842,9 +875,10 @@
 		const h = w / aspect;
 		return { x: cx - w * biasX, y: cy - h * biasY, w, h };
 	}
-	// Home framing: the whole left column is UI (masthead top-left, legend
-	// bottom-left), so bias the network to the centre-right — hub past centre,
-	// spokes fanning right — keeping the left clear of routes and nodes. Both modes
+	// Home framing: the whole left column is UI (the masthead top-left, with the nav
+	// menus — destinations then route lines — stacked directly beneath it), so bias the
+	// network to the centre-right — hub past centre, spokes fanning right — keeping the
+	// left clear of routes and nodes. Both modes
 	// zoom into the hub at a comfortable scale so the outermost stations run off the
 	// edges (reached by flying to them), rather than shrinking to fit everything in.
 	const HOME_AIR = crop(P_air.KSH[0], P_air.KSH[1], 860, 0.66, 0.56, ASPECT_WIDE);
@@ -878,10 +912,10 @@
 	// DOT_CAP_PX — the hub then holds at 30px and every other dot keeps its proportion to it
 	// (a stop stays 0.65× the hub, always). Lines and labels still scale; only the dots pin.
 	//
-	// Measured against HOME rather than the live camera on purpose. The masthead is hidden the
-	// moment a panel opens (`.masthead.hidden`), so the comparison only exists on the home
-	// view — and pinning to HOME means this is a per-viewport constant, not something that
-	// recomputes on every frame of a fly and fights Bubble's `r` transition.
+	// Measured against HOME rather than the live camera on purpose: pinning to HOME makes this
+	// a per-viewport constant, not something that recomputes on every frame of a fly and fights
+	// Bubble's `r` transition. (Dormant since the map's dots were removed — kept for an easy
+	// restore, along with the rest of the camera/node machinery.)
 	const homeScale = $derived(Math.min(vw / HOME.w, vh / HOME.h) || 1);
 	const dotScale = $derived(Math.min(1, DOT_CAP_PX / (2 * R_HUB * homeScale)));
 	const rHub = $derived(R_HUB * dotScale);
@@ -954,15 +988,11 @@
 		}, HIDE_LINGER);
 	}
 
-	// Drag-to-pan.
-	let svgEl: SVGSVGElement;
 	let panelEl = $state<HTMLElement | undefined>(undefined);
+	// Dormant since the map was removed: no drag-to-pan surface remains, so this never
+	// flips true. Kept (with `class:panning` on the stage) so the cursor plumbing is a
+	// one-line restore if the map ever returns.
 	let panning = $state(false);
-	let dragMoved = false;
-	// `scale` (screen px per world unit) is cached at drag start: a pan shifts the camera
-	// but never changes cam.w/h or the svg's rect, so it's constant for the whole drag —
-	// caching it keeps onPointerMove from forcing a layout (getBoundingClientRect) per move.
-	const drag = { camX: 0, camY: 0, x: 0, y: 0, id: -1, scale: 1 };
 
 	const reduce =
 		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1215,58 +1245,6 @@
 		else board('STG');
 	}
 
-	// ─── Drag-to-pan ────────────────────────────────────────────────────────────
-	function onPointerDown(e: PointerEvent) {
-		if (e.pointerType === 'mouse' && e.button !== 0) return;
-		dragMoved = false;
-		drag.camX = cam.x;
-		drag.camY = cam.y;
-		drag.x = e.clientX;
-		drag.y = e.clientY;
-		drag.id = e.pointerId;
-		// Uniform meet scale, frozen for the drag (cam.w/h and the rect don't change while panning).
-		const r = svgEl.getBoundingClientRect();
-		drag.scale = Math.min(r.width / cam.w, r.height / cam.h);
-		if (raf) cancelAnimationFrame(raf);
-		raf = 0;
-		target = { ...cam };
-	}
-	function onPointerMove(e: PointerEvent) {
-		if (drag.id !== e.pointerId) return;
-		const dx = e.clientX - drag.x;
-		const dy = e.clientY - drag.y;
-		if (!dragMoved) {
-			if (Math.hypot(dx, dy) < 4) return;
-			// Only now is it a real drag — capture so we keep move/up, and so a plain
-			// click on a node is never hijacked away from the node.
-			dragMoved = true;
-			panning = true;
-			svgEl.setPointerCapture(e.pointerId);
-		}
-		const s = drag.scale; // cached at pointer-down — no layout read per move
-		const m = 220; // let the world edge come ~this far past centre, no further
-		const cx = Math.min(worldMaxX + m, Math.max(worldMinX - m, drag.camX - dx / s + cam.w / 2));
-		const cy = Math.min(worldMaxY + m, Math.max(worldMinY - m, drag.camY - dy / s + cam.h / 2));
-		cam = { ...cam, x: cx - cam.w / 2, y: cy - cam.h / 2 };
-		target = { ...cam };
-	}
-	function onPointerUp(e: PointerEvent) {
-		if (drag.id !== e.pointerId) return;
-		if (svgEl.hasPointerCapture(e.pointerId)) svgEl.releasePointerCapture(e.pointerId);
-		drag.id = -1;
-		panning = false;
-	}
-	// If the pointer moved (a pan), swallow the click so it doesn't board a node.
-	function onClickCapture(e: MouseEvent) {
-		if (dragMoved) {
-			// preventDefault as well as stopPropagation: the map's stations are real <a>
-			// elements now, and stopping propagation alone would still let the browser
-			// follow the href on the click that ends a pan.
-			e.preventDefault();
-			e.stopPropagation();
-			dragMoved = false;
-		}
-	}
 
 	// Shared by every in-map link (stations, line legend, onward chips).
 	//
@@ -1289,6 +1267,14 @@
 		e.preventDefault();
 		board(code);
 	};
+	// Click the exposed background beside an unexpanded panel to dismiss it — the "click off
+	// the panel" affordance the map's catch-rect used to give. Gated to a click that lands on
+	// the stage itself (`target === currentTarget`), so the masthead, its nav, and the panel
+	// are untouched; and to an open, unexpanded panel (expanded fills the viewport, leaving no
+	// background to click). The Back button remains the keyboard-accessible way to close.
+	function onStageClick(e: MouseEvent) {
+		if (view && !panelExpanded && e.target === e.currentTarget) home();
+	}
 	// Smallest screen-space shift that fits the dot inside [safeLo, safeHi], then
 	// reveals as much of the label as possible without pushing the dot back out.
 	function axisDelta(
@@ -1312,52 +1298,6 @@
 		}
 		return d;
 	}
-	// Hovering (or focusing) a node that's tucked behind the panel or off an edge
-	// nudges the camera just enough to bring the dot and its whole label into the
-	// clear — a small pan, not a re-frame. Measures the actual rendered dot/label
-	// rects so a label reaching toward the panel is fully shown. Works on the
-	// overview too: with no panel open there's nothing to carve out, so it simply
-	// pulls an edge-clipped node (a tier-2 leaf trailing off the frame) into view.
-	function revealNode(e: Event) {
-		const g = e.currentTarget as SVGGElement | null;
-		if (panning || !svgEl || !g) return;
-		const ctm = svgEl.getScreenCTM();
-		const dotEl = g.querySelector('.port');
-		const labelEl = g.querySelector('.code');
-		if (!ctm || !dotEl || !labelEl) return;
-		const dot = dotEl.getBoundingClientRect();
-		const label = labelEl.getBoundingClientRect();
-		const rect = svgEl.getBoundingClientRect();
-		const margin = 40;
-		let safeL = rect.left + margin;
-		let safeR = rect.right - margin;
-		let safeT = rect.top + margin;
-		let safeB = rect.bottom - margin;
-		// Carve the panel out of the safe area: a right-side column on desktop, a
-		// bottom sheet on mobile.
-		const pr = panelEl?.getBoundingClientRect();
-		if (pr && pr.width > 1 && pr.height > 1) {
-			const coversBottom = pr.bottom >= rect.bottom - 2;
-			const coversRightFull =
-				pr.right >= rect.right - 2 && pr.top <= rect.top + 2 && coversBottom;
-			if (coversRightFull) safeR = Math.min(safeR, pr.left - margin);
-			else if (coversBottom) safeB = Math.min(safeB, pr.top - margin);
-		}
-		// If the panel leaves too little room on an axis, don't nudge along it.
-		if (safeR - safeL < 80) ((safeL = rect.left), (safeR = rect.right));
-		if (safeB - safeT < 80) ((safeT = rect.top), (safeB = rect.bottom));
-		const needX = axisDelta(dot.left, dot.right, label.left, label.right, safeL, safeR);
-		const needY = axisDelta(dot.top, dot.bottom, label.top, label.bottom, safeT, safeB);
-		if (Math.hypot(needX, needY) < 3) return;
-		// Screen delta → world delta (content shifts opposite the camera origin).
-		const nx = target.x - needX / ctm.a;
-		const ny = target.y - needY / ctm.d;
-		// Clamp so we never pan off into empty world (same slack as drag).
-		const m = 220;
-		const cx = Math.min(worldMaxX + m, Math.max(worldMinX - m, nx + target.w / 2));
-		const cy = Math.min(worldMaxY + m, Math.max(worldMinY - m, ny + target.h / 2));
-		flyTo({ ...target, x: cx - target.w / 2, y: cy - target.h / 2 });
-	}
 	// Frame a whole airline: fit all its airports, biased left of the panel.
 	function fitLine(idx: number) {
 		const codes = [...lineOf[idx]];
@@ -1370,9 +1310,9 @@
 		const w = Math.max(spanW, spanH * ASPECT) * 1.3 + 260;
 		return crop(cx, cy, w, 0.36);
 	}
-	function isActive(code: string) {
-		return view?.kind === 'port' && view.code === code;
-	}
+	// The open station's code (or null) — drives the masthead nav's active highlight. A plain
+	// string so <Masthead> stays free of the View union.
+	const activeCode = $derived(view?.kind === 'port' ? view.code : null);
 	// Dimming only applies to the expanded panel (where the map fades out behind it anyway).
 	// With an unexpanded panel the map sits beside it in full colour — no dimming.
 	function nodeDim(code: string) {
@@ -1414,6 +1354,7 @@
 		STARS = makeStars(); // fresh random field per load (client-side)
 		starsOn = localStorage.getItem(STARS_KEY) !== '0'; // default on
 		if (localStorage.getItem(UI_KEY) === 'bubble') setUiStyle('bubble'); // else default flat
+		if (localStorage.getItem(LOOK_KEY) === 'metro') setLook('metro'); // else default lab
 		// While on Auto, keep the phase current if the tab is left open across a boundary.
 		skyTimer = window.setInterval(() => skyMode === 'auto' && applySky(), 5 * 60 * 1000);
 		if (dev) applySavedContent();
@@ -1543,7 +1484,8 @@
 	{/if}
 {/snippet}
 
-<div class="stage" class:panning>
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+<div class="stage" class:panning onclick={onStageClick}>
 	{#if starsVisible}
 		<div class="stars" aria-hidden="true" transition:fade={{ duration: 700 }}>
 			{#each STARS as s}
@@ -1554,138 +1496,11 @@
 			{/each}
 		</div>
 	{/if}
-	<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-	<svg
-		bind:this={svgEl}
-		class:map-hidden={mapHidden}
-		{viewBox}
-		preserveAspectRatio="xMidYMid meet"
-		onpointerdown={onPointerDown}
-		onpointermove={onPointerMove}
-		onpointerup={onPointerUp}
-		onpointercancel={onPointerUp}
-		onclickcapture={onClickCapture}
-		onmousedown={(e) => e.detail > 1 && e.preventDefault()}
-		role="img"
-		aria-label="Kashinoga — {mapPhrase}"
-	>
-		<defs>
-			<!-- Glossy bead fill for the map nodes in Bubble mode (data-ui="bubble"): a bright
-			     top-left highlight fading to a soft cool edge so each white node reads as a raised
-			     pearl. objectBoundingBox units, so the one gradient maps to every node + the hub. -->
-			<radialGradient id="node-bubble" cx="0.34" cy="0.26" r="0.82">
-				<stop offset="0%" stop-color="#ffffff" />
-				<stop offset="42%" stop-color="#eef0f5" />
-				<stop offset="100%" stop-color="#b9c0cf" />
-			</radialGradient>
-		</defs>
 
-		<!-- empty-space click flies home -->
-		<rect class="bg" x={bg.x} y={bg.y} width={bg.w} height={bg.h} ondblclick={() => home()} role="presentation" />
-
-		<!-- Routes grouped so one soft grounding shadow lifts the whole layer off the map. -->
-		<g class="arcs">
-			{#each arcs as a}
-				<path
-					class="arc"
-					class:dim={arcDim(a.i)}
-					d={a.d}
-					stroke={a.color}
-					pathLength="1"
-					style="--draw:{a.delay}s"
-				/>
-			{/each}
-		</g>
-
-		{#each nodes as n}
-			<!-- A real SVG hyperlink, not a role="button" group: the station's URL shows in the
-			     status bar, right-click offers Copy Link Address, and ⌘/ctrl/middle-click opens
-			     it in a new tab. A plain left-click is intercepted below and handled as a camera
-			     fly instead, so the map never does a full page navigation. -->
-			<a
-				class="node"
-				class:active={isActive(n.code)}
-				class:dim={nodeDim(n.code)}
-				style="--pop:{n.pop}s"
-				href={viewPath({ kind: 'port', code: n.code })}
-				aria-label="Fly to {n.title}"
-				data-sveltekit-preload-data="off"
-				tabindex="0"
-				onclick={(e) => onNodeClick(e, () => board(n.code))}
-				onkeydown={onNodeKey(n.code)}
-				onpointerenter={revealNode}
-				onfocus={revealNode}
-			>
-				<circle class="hit" cx={n.x} cy={n.y} r="26" />
-				<!-- Just a white circle; the hub is the same, only larger. -->
-				<!-- --r carries the resting radius so the focus ring and Bubble's swell can be
-				     expressed as multiples of it, instead of re-hardcoding each radius. It needs
-				     the `px` unit: Firefox drops `r: calc(<number>)` as invalid (the geometry
-				     property takes a length), and the dropped declaration silently falls back to
-				     r=0 / stroke-width=1. Inside an SVG, px == one user unit. -->
-				<circle
-					class="port"
-					class:hub={n.hub}
-					cx={n.x}
-					cy={n.y}
-					r={n.hub ? rHub : rStop}
-					style:--r="{n.hub ? rHub : rStop}px"
-				/>
-				<text
-					class="code"
-					class:code-hub={n.hub}
-					x={n.lx}
-					y={n.ly}
-					style:transform-origin="{n.lx}px {n.ly}px"
-					text-anchor={n.anchor}
-					dominant-baseline="central">{showStopNames ? n.title : n.code}</text>
-			</a>
-		{/each}
-	</svg>
-
-	<header class="masthead" class:hidden={view !== null}>
-		<div class="brandline">
-			<h1><SplitFlap text="Kashinoga" /></h1>
-			<!-- Little display-mode bullets, like the route icons on a station sign. -->
-			<!-- Decorative station-sign bullets (nonfunctional); theme switching lives in the
-			     Settings panel's Display-mode control. -->
-			<!-- Station-sign bullets. The first three are decorative; the fourth is a control — it
-			     eases the camera out to the whole map (and back). Grouped so all four read as one row
-			     of circles and unfurl together on load. -->
-			<div class="theme">
-				<span class="theme-dot" aria-hidden="true" style="--n:0; --dot:#e6b93c"></span>
-				<span class="theme-dot" aria-hidden="true" style="--n:1; --dot:#29b0a1"></span>
-				<span class="theme-dot" aria-hidden="true" style="--n:2; --dot:#e05a4e"></span>
-				<button
-					type="button"
-					class="theme-dot theme-btn map-full"
-					style="--n:3; --dot:#4f8ac9"
-					aria-pressed={showFull}
-					aria-label={showFull ? 'Zoom back in to the hub' : 'Show the full map'}
-					title={showFull ? 'Back to hub' : 'Full map'}
-					onclick={toggleFullMap}
-				>{@html showFull ? MINIMIZE_SVG : MAXIMIZE_SVG}</button>
-			</div>
-		</div>
-		<p class="tagline">{#each taglineWords as word, i}<span class="tw" style="--n:{i}"
-				>{word}</span
-			>{' '}{/each}</p>
-	</header>
-
-	<ul class="legend" class:hidden={view !== null}>
-		{#each airlines as a, i}
-			<li style="--n:{i}">
-				<a
-					class="legend-btn"
-					href={viewPath({ kind: 'line', idx: i })}
-					data-sveltekit-preload-data="off"
-					onclick={(e) => onNodeClick(e, () => openLine(i))}
-				>
-					<span class="swatch" style="background:{a.color}"></span>{lineNames[i]}
-				</a>
-			</li>
-		{/each}
-	</ul>
+	<!-- Persistent masthead (wordmark + tagline + station nav) — its own component so a
+	     homepage-chrome tweak stays out of this catch-all page. It reports which destination
+	     was clicked; the page keeps the modifier-aware click + camera handling. -->
+	<Masthead {activeCode} onNavigate={(code, e) => onNodeClick(e, () => board(code))} />
 
 	{#if view}
 		{@const v = view}
@@ -1885,6 +1700,39 @@
 									? (e) => stageSettings('displayNote', e.currentTarget.textContent ?? '')
 									: undefined}
 							>{noteText('displayNote', displayValue, editStg)}</p>
+							</div>
+							<div class="stg-group">
+							<p
+								class="seg-lead"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('lookLead', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{settingsText('lookLead')}</p>
+							<div class="segmented" role="radiogroup" aria-label="Site look">
+								{#each lookOptions as o}
+									<button
+										type="button"
+										class="seg"
+										class:on={look === o.id}
+										role="radio"
+										aria-checked={look === o.id}
+										onclick={() => setLook(o.id)}
+									>
+										<span class="seg-title">{o.label}</span>
+										<span class="seg-sub">{o.sub}</span>
+									</button>
+								{/each}
+							</div>
+							<p
+								class="seg-note"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('lookNote', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{noteText('lookNote', lookStatus, editStg)}</p>
 							</div>
 							<div class="stg-group">
 							<p
@@ -2191,388 +2039,6 @@
 		50% {
 			opacity: 0.85;
 		}
-	}
-
-	/* The stage never scrolls; the camera (viewBox) crops a world larger than the
-	 * screen, so routes run off the edges. */
-	.stage svg {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		display: block;
-		touch-action: none;
-		transition: opacity 0.6s ease;
-	}
-	/* Panel expanded and its fly settled: fade the covered map away (and let clicks
-	   fall through to the panel, since the map's no longer there to interact with). */
-	.stage svg.map-hidden {
-		opacity: 0;
-		pointer-events: none;
-	}
-	.bg {
-		fill: transparent;
-	}
-
-	.arc {
-		fill: none;
-		stroke-width: 4.5;
-		/* butt (not round) caps: an undrawn arc's dash would otherwise leave a round
-		   dot at its endpoint before the line draws. Corners stay round via linejoin,
-		   and the flat ends sit under the station circles. */
-		stroke-linecap: butt;
-		stroke-linejoin: round;
-		stroke-dasharray: 1;
-		stroke-dashoffset: 1;
-		/* Each ring's lines draw just after its stations pop (--draw set per path). */
-		animation: draw 0.9s cubic-bezier(0.6, 0, 0.3, 1) both;
-		animation-delay: var(--draw, 0s);
-		transition: opacity 0.5s ease;
-	}
-	.arc.dim {
-		opacity: 0.12;
-	}
-	@keyframes draw {
-		to {
-			stroke-dashoffset: 0;
-		}
-	}
-
-	.node {
-		cursor: pointer;
-		transition: opacity 0.5s ease;
-		/* Stations are <a> elements — keep the browser from underlining the station code. */
-		text-decoration: none;
-	}
-	.node.dim {
-		opacity: 0.25;
-	}
-	/* Hovering a dimmed node (panel open) brings it back to full so it reads as
-	   the next place you could fly to. */
-	.node.dim:hover,
-	.node.dim:focus-visible {
-		opacity: 1;
-	}
-	.hit {
-		fill: transparent;
-	}
-	.port {
-		/* Just a flat white circle — no rim or shadow at rest (white in both themes, not the
-		   theme --paper which goes near-black in dark mode). The ring (masthead yellow) only
-		   appears on hover/keyboard focus. */
-		fill: #fff;
-		stroke: #e6b93c; /* matches the masthead's first station-sign dot */
-		stroke-width: 0;
-		transition: stroke-width 0.15s ease;
-	}
-	/* Selected (open) node carries the accent ring persistently — same look as hover/focus.
-	   Expressed as a fraction of the dot's own radius (--r), so the ring keeps one proportion
-	   across the hub, the stops, and any viewport where dotScale has shrunk them. The old
-	   pair of literals (3 on a stop, 4.6 on the hub) were the same ratio spelled twice. */
-	.node:hover .port,
-	.node:focus-visible .port,
-	.node.active .port {
-		stroke-width: calc(var(--r) * 0.46);
-	}
-	/* No UA focus box around the node group (it frames the dot + label). Keyboard focus
-	   is shown via the accent ring on :focus-visible above. */
-	.node:focus {
-		outline: none;
-	}
-
-	/* ── Bubble mode (data-ui="bubble"): the same bubbly pass as the buttons, applied to the
-	   map nodes ── Each flat white dot becomes a glossy raised bead: a pearly radial sheen fill
-	   plus a soft drop shadow that lifts it off the map, and it swells a touch on hover/focus
-	   (via the SVG `r` geometry property, so it doesn't fight the mount `pop` transform). */
-	:global(html[data-ui='bubble']) .port {
-		fill: url(#node-bubble);
-		/* Two shadows: a dark ground shadow (reads in light mode) + a faint light halo so the
-		   bead still lifts off a dark map, where a dark shadow alone would vanish. */
-		filter: drop-shadow(0 1.4px 1.6px rgba(8, 10, 14, 0.55))
-			drop-shadow(0 0 1px rgba(255, 255, 255, 0.5));
-		transition: stroke-width 0.15s ease, filter 0.2s ease;
-	}
-	:global(html[data-ui='bubble']) .node:hover .port,
-	:global(html[data-ui='bubble']) .node:focus-visible .port,
-	:global(html[data-ui='bubble']) .node.active .port {
-		filter: drop-shadow(0 3px 4px rgba(8, 10, 14, 0.6))
-			drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.55));
-	}
-	/* The swell on hover/focus is motion, so it (and its transition) is gated here — under
-	   reduced-motion the nodes keep their resting `r` (from the attribute) and just re-shadow. */
-	@media (prefers-reduced-motion: no-preference) {
-		:global(html[data-ui='bubble']) .port {
-			transition: stroke-width 0.15s ease, filter 0.2s ease,
-				r 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-		}
-		/* The swell, as a multiple of the resting radius (--r) — so it survives dotScale.
-		   A stop pops a little harder than the hub (1.23 vs 1.17), which is what the old
-		   6.5→8 / 10→11.7 literals encoded. */
-		:global(html[data-ui='bubble']) .node:hover .port:not(.hub),
-		:global(html[data-ui='bubble']) .node:focus-visible .port:not(.hub) {
-			r: calc(var(--r) * 1.23);
-		}
-		:global(html[data-ui='bubble']) .node:hover .port.hub,
-		:global(html[data-ui='bubble']) .node:focus-visible .port.hub {
-			r: calc(var(--r) * 1.17);
-		}
-	}
-	.code {
-		fill: var(--ink);
-		font-family: var(--font-body);
-		font-size: 14px;
-		font-weight: 600;
-		letter-spacing: 0.04em;
-	}
-	.code-hub {
-		font-size: 19px;
-		font-weight: 700;
-	}
-	/* Stations pop in by ring (--pop set per node from BFS depth): the dot springs up
-	   past full size, dips back with inertia, then settles — a happy little bounce.
-	   The label pops in the same way just behind it. */
-	.port {
-		opacity: 0;
-		transform-box: fill-box;
-		transform-origin: center;
-		animation: pop 0.58s ease-out both;
-		animation-delay: var(--pop, 0s);
-	}
-	.code {
-		opacity: 0;
-		/* transform-origin set inline to the label's own coords so it scales up from
-		   its resting spot (fill-box is unreliable on SVG <text>). */
-		animation: pop 0.52s ease-out both;
-		animation-delay: calc(var(--pop, 0s) + 0.12s);
-	}
-	/* `pop` (the station-dot spring) now lives in puhig's tokens — global, shared with the
-	   Builder's slide-rail nodes so a node coming alive reads the same here and there. */
-
-	/* Overlays — upright, outside the camera, so they never skew or scroll. */
-	.masthead {
-		position: absolute;
-		top: clamp(1.5rem, 5vw, 3.5rem);
-		left: clamp(1.5rem, 5vw, 3.5rem);
-		max-width: min(90vw, 640px);
-		/* Shared so the tagline's offsets below scale with the wordmark. */
-		--wordmark: clamp(2.25rem, 9vw, 5.5rem);
-	}
-	/* Title and tagline animate on their own so open/close staggers like the entrance:
-	   the tagline trails the title coming in, and leads going out. */
-	.masthead h1,
-	.masthead .tagline {
-		transition: opacity 0.4s ease, transform 0.4s ease;
-	}
-	/* The circles unfurl left→right: the leftmost fades in place (its --roll is 0),
-	   the rest roll out from behind it, each a beat later. Same effect on open/close
-	   (this transition) and on page load (the keyframe below). Longhand so only
-	   opacity/transform get the stagger delay — hover stays instant. */
-	.masthead .theme-dot {
-		transition-property: color, background, border-color, opacity, transform;
-		transition-duration: 0.15s, 0.15s, 0.15s, 0.4s, 0.4s;
-		transition-timing-function: ease, ease, ease, ease, var(--spring);
-		transition-delay: 0s, 0s, 0s, calc(var(--n, 0) * 0.07s), calc(var(--n, 0) * 0.07s);
-	}
-	.masthead.hidden .theme-dot {
-		opacity: 0;
-		transform: translateX(var(--roll));
-	}
-	@media (prefers-reduced-motion: no-preference) {
-		.theme-dot {
-			animation: dot-roll 0.45s var(--spring) backwards;
-			animation-delay: calc(0.5s + var(--n, 0) * 0.07s);
-		}
-	}
-	@keyframes dot-roll {
-		from {
-			opacity: 0;
-			transform: translateX(var(--roll));
-		}
-		to {
-			opacity: 1;
-			transform: translateX(0);
-		}
-	}
-	.masthead .tagline {
-		transition-delay: 0.12s;
-	}
-	.masthead h1 {
-		margin: 0;
-		font-weight: 700;
-		font-size: var(--wordmark);
-		line-height: 0.95;
-		letter-spacing: -0.02em;
-		color: var(--ink);
-	}
-	/* Wordmark + the display-mode bullets on one line, bullets riding to its right
-	   like the route icons beside a station name on a transit sign. */
-	.brandline {
-		display: flex;
-		/* Rest the bullets' bottoms on the wordmark's text baseline — a button with
-		   only an icon synthesizes its baseline at its bottom edge, so they sit on
-		   the line like the letters' bottom strokes. */
-		align-items: baseline;
-		gap: clamp(0.75rem, 2vw, 1.4rem);
-		flex-wrap: wrap;
-	}
-	.theme {
-		/* Non-flex, so the dots are ordinary inline-blocks that keep their true bottom-edge
-		   baseline and rest on the wordmark's baseline. As flex items their baseline gets
-		   synthesized from the glyph (Firefox) and floats them off the line. font-size:0
-		   collapses the inter-dot whitespace; the gap is restored with margins below. */
-		display: inline-block;
-		font-size: 0;
-	}
-	.theme-dot {
-		/* Start offset for the roll-out: each circle begins stacked on the leftmost
-		   one (one circle-width + gap per index), then unfurls to the right. */
-		--roll: calc(var(--n, 0) * -2.23rem);
-		/* Decorative, nonfunctional colour bullet. Empty inline-block → bottom-edge
-		   baseline, so it rests on the wordmark's baseline (see .theme). */
-		display: inline-block;
-		width: 30px;
-		height: 30px;
-		background: var(--dot);
-		border-radius: 999px;
-	}
-	.theme-dot + .theme-dot {
-		margin-left: 0.35rem;
-	}
-	/* The fourth bullet is the "show full map" control. It's a .theme-dot, so it inherits the
-	   circle, the tight spacing and the roll-in; this adds the button bits. The glyph is absolutely
-	   positioned so the button stays an EMPTY inline-block for baseline purposes — it keeps resting
-	   on the wordmark line with the decorative three, rather than floating off it on the icon. */
-	.theme-btn {
-		position: relative;
-		border: 0;
-		padding: 0;
-		cursor: pointer;
-		color: rgba(255, 255, 255, 0.95);
-	}
-	/* :global — the glyph is injected with {@html}, so the component's scope class never lands on
-	   it and a scoped `svg` selector wouldn't match. */
-	.theme-btn :global(svg) {
-		position: absolute;
-		inset: 0;
-		margin: auto;
-		width: 14px;
-		height: 14px;
-		display: block;
-	}
-	.theme-btn:hover {
-		background: color-mix(in srgb, var(--dot) 84%, #fff);
-	}
-	.theme-btn:active {
-		background: color-mix(in srgb, var(--dot) 84%, #000);
-	}
-	.theme-btn:focus-visible {
-		outline: var(--focus-ring);
-		outline-offset: 2px;
-	}
-	.tagline {
-		/* Sit just below the wordmark (top) and indent to the "K"'s optical left edge — the
-		   SplitFlap centres each glyph in its cell, so the "K" is inset from the wordmark's
-		   box edge by ~0.05em. Both scale with the wordmark. The small positive top keeps
-		   the tagline's ascenders ("f" in "of") clear of the wordmark's descenders.
-		   (Coefficients are optical — nudge to taste.) */
-		margin: calc(var(--wordmark) * 0.05) 0 0 calc(var(--wordmark) * 0.05);
-		font-size: clamp(0.95rem, 2.2vw, 1.15rem);
-		color: var(--sub);
-	}
-	@media (prefers-reduced-motion: no-preference) {
-		/* Each word raises in on a stagger (like the legend), trailing the title's
-		   flip. `backwards` (not `both`) so words aren't pinned afterward and the
-		   whole-tagline open/close transition above still works. */
-		.tw {
-			display: inline-block;
-			animation: rise 0.55s ease backwards;
-			animation-delay: calc(0.3s + var(--n, 0) * 0.06s);
-		}
-	}
-	/* `rise` (the raise-in-with-a-bounce) now lives in puhig's tokens — global, shared with the
-	   Traffic board's Connections and the Builder's rail / ticker rows. */
-
-	.legend {
-		position: absolute;
-		left: clamp(1.5rem, 5vw, 3.5rem);
-		bottom: clamp(1.25rem, 4vw, 2.5rem);
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.4rem 1.4rem;
-		font-size: 1rem;
-		font-weight: 500;
-	}
-	/* Each item raises/fades on a stagger — on page load (the keyframe below) and
-	   on panel open/close (this transition), so the bar populates in sequence both
-	   times. Bouncy easing echoes the rise keyframe. */
-	.legend li {
-		display: flex;
-		transition: opacity 0.4s ease, transform 0.45s cubic-bezier(0.34, 1.5, 0.64, 1);
-		transition-delay: calc(var(--n, 0) * 0.05s);
-	}
-	.legend.hidden li {
-		opacity: 0;
-		transform: translateY(8px);
-	}
-	.legend-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.55rem;
-		padding: 0.2rem 0;
-		font: inherit;
-		font-weight: 500;
-		color: var(--ink);
-		background: transparent;
-		border: 0;
-		border-radius: 6px;
-		cursor: pointer;
-		text-decoration: none;
-		transition: opacity 0.15s ease;
-	}
-	.legend-btn:hover {
-		opacity: 0.6;
-	}
-	.legend-btn:focus-visible {
-		outline: var(--focus-ring);
-		outline-offset: 3px;
-	}
-	/* Page-load entrance: same rise as the tagline, staggered. `backwards` (not
-	 * `both`) so the item isn't pinned afterward, leaving the open/close transition
-	 * above free to run. */
-	@media (prefers-reduced-motion: no-preference) {
-		.legend li {
-			animation: rise 0.5s ease backwards;
-			animation-delay: calc(1.1s + var(--n, 0) * 0.07s);
-		}
-	}
-	.swatch {
-		width: 1.05rem;
-		height: 1.05rem;
-		border-radius: 3px;
-		flex: none;
-	}
-
-	.masthead.hidden {
-		pointer-events: none;
-	}
-	.masthead.hidden h1,
-	.masthead.hidden .tagline {
-		opacity: 0;
-		transform: translateY(-8px);
-	}
-	/* Going out (panel opening): tagline leaves first, title a beat behind — the
-	   reverse of the incoming order, so the header folds up cleanly. */
-	.masthead.hidden h1 {
-		transition-delay: 0.1s;
-	}
-	.masthead.hidden .tagline {
-		transition-delay: 0s;
-	}
-	.legend.hidden {
-		pointer-events: none;
 	}
 
 	/* Content surface — the destination page. Header stays put; body scrolls, so

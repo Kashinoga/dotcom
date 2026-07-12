@@ -5,8 +5,11 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
 		<script>
-			// Apply a saved display-mode override + time-of-day sky + button style before paint.
+			// Apply a saved theme + display-mode override + time-of-day sky + button style before paint.
 			try {
+				// Named theme (Lab is the default and carries no attribute; Metro opts in).
+				if (localStorage.getItem('ksh-look') === 'metro')
+					document.documentElement.dataset.look = 'metro';
 				var t = localStorage.getItem('ksh-theme');
 				if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
 				if (localStorage.getItem('ksh-ui') === 'bubble') document.documentElement.dataset.ui = 'bubble';

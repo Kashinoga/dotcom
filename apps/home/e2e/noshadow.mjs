@@ -36,7 +36,10 @@ for (const [ui, expectZero] of [['flat', true], ['bubble', false]]) {
   await p.goto(B+'/',{waitUntil:'domcontentloaded'});
   await p.evaluate(u=>{localStorage.setItem('ksh-ui',u);localStorage.setItem('ksh-sky','off');localStorage.setItem('ksh-theme','light');},ui);
 
-  const pages = ['/', '/about', '/settings', '/apps/air-traffic'];
+  // TODO(map): '/' dropped — the homepage's only shadowable elements were the map's Bubble
+  // node beads, and the map was removed. The home nav is flat text with no shadow either way,
+  // so it can't satisfy the bubble-has-shadows branch. Panels below still exercise both modes.
+  const pages = ['/about', '/settings', '/apps/air-traffic'];
   for (const path of pages) {
     await p.goto(B+path,{waitUntil:'networkidle'}); await p.waitForTimeout(1800);
     const found = await p.evaluate(scanAll);

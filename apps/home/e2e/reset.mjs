@@ -99,7 +99,8 @@ const DEFAULTS = {
 	const skyNow = await page.locator('html').getAttribute('data-sky');
 	ok(`reset → sky left the seeded ${seedPhase}`, skyNow !== seedPhase, skyNow);
 	ok(`reset → sky follows Auto (${autoPhase} at this hour)`, skyNow === autoPhase, skyNow);
-	ok('reset → map is the train map', /train route map/.test(await page.locator('svg[role="img"]').getAttribute('aria-label')));
+	// TODO(map): dropped "reset → map is the train map" — it read the removed route-map SVG's
+	// aria-label. The Route-map-style control (Train) is still asserted above via its radiogroup.
 	ok('reset → settings panel still open', await page.locator('aside.surface').isVisible());
 	ok('reset → URL unchanged', page.url() === `${B}/settings`, page.url());
 	ok('reset → toast shown', await page.getByText('Settings reset to defaults').isVisible());

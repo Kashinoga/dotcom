@@ -1,0 +1,101 @@
+/* Theme: Lab — the new DEFAULT. ⚠️ SCAFFOLD, not yet designed.
+ *
+ * Every token below is copied verbatim from Metro (./metro.css) so the site keeps
+ * working — and looks identical to Metro — until Lab is actually designed. Retune
+ * the values marked `TODO(lab)` to give Lab its own identity; the ones without a
+ * marker are geometry/mechanics that most themes can share as-is.
+ *
+ * Default via the BARE :root selector: with no data-look attribute on <html>, this
+ * block is the baseline (so no-JS / pre-hydration still gets a full theme). It is
+ * also matched on an explicit data-look='lab'. Metro's block is scoped to
+ * :root[data-look='metro'] — higher specificity than this bare :root — so selecting
+ * Metro cleanly overrides every token here regardless of import order.
+ *
+ * Keep this file's token *set* identical to Metro's: every token Metro defines must
+ * exist here too, or switching Metro→Lab would leave a Metro value stuck on. */
+:root,
+:root[data-look='lab'] {
+	/* ── Palette ─────────────────────────────────────────────────────────────── */
+	--ink: light-dark(#0a0a0a, #f2f2ee); /* TODO(lab): Lab's foreground ink */
+	--paper: light-dark(#f5f5f0, #1a1b1f); /* TODO(lab): Lab's surface paper */
+	--page: light-dark(#edeef0, #101114); /* TODO(lab): Lab's page field */
+	--surface: #f4f4f5; /* TODO(lab): Lab's card fill */
+	--card-edge: rgba(0, 0, 0, 0.32);
+	/* Paper tooth — grayscale fractal noise, multiplied faintly onto the stock. */
+	--card-grain: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='140' height='140' filter='url(%23g)'/></svg>");
+	/* Foil sparkle — sparse white specks (noise thresholded to alpha). */
+	--foil-sparkle: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='1' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 30 -26'/></filter><rect width='120' height='120' filter='url(%23s)'/></svg>");
+	--orange: #f06030; /* TODO(lab): Lab's accent — the one signature colour */
+	--sub: light-dark(#717171, #9a9a9a); /* TODO(lab): Lab's subtext */
+
+	/* Grid line colour over the page field (tile size --grid-size lives in base). */
+	--grid-line: rgba(10, 10, 10, 0.05); /* TODO(lab): Lab's grid line */
+
+	/* ── Card geometry — MTG standard 2.5in × 3.5in (5:7) ────────────────────── */
+	/* Mechanics — safe to keep unless Lab reshapes the card object itself. */
+	--card-w: clamp(230px, 184px + 9vw, 290px);
+	--card-ratio: 5 / 7;
+	--card-radius: calc(var(--card-w) * 0.058);
+	--card-border: #71716d; /* TODO(lab): Lab's card border */
+	--card-border-w: calc(var(--card-w) * 0.032);
+	--card-face-radius: max(2px, calc(var(--card-radius) - var(--card-border-w)));
+	--card-face-seam: rgba(0, 0, 0, 0.05);
+	--card-face-groove: rgba(0, 0, 0, 0.13);
+	--card-edge-seam: rgba(255, 255, 255, 0.32);
+	--card-edge-groove: rgba(0, 0, 0, 0.14);
+	--card-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 10px 30px rgba(0, 0, 0, 0.05);
+
+	/* ── Name-plate metal ────────────────────────────────────────────────────── */
+	/* TODO(lab): Metro's gold legendary treatment — reskin for Lab (e.g. brushed
+	 * steel / anodized) or flatten if Lab drops the plated look. */
+	--plate-hi: #f7e6a2;
+	--plate-mid: #cba24e;
+	--plate-lo: #7f5d1f;
+	--plate-edge: #453413;
+	--plate-ink: #2a1e0a;
+	--plate-grain: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='90' height='90'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncR type='linear' slope='0.35' intercept='0.32'/><feFuncG type='linear' slope='0.35' intercept='0.32'/><feFuncB type='linear' slope='0.35' intercept='0.32'/><feFuncA type='linear' slope='0' intercept='1'/></feComponentTransfer></filter><rect width='90' height='90' filter='url(%23m)'/></svg>");
+
+	/* ── Sleeve — clear see-through plastic ──────────────────────────────────── */
+	--sleeve-lip: calc(var(--card-w) * 0.025);
+	--sleeve-radius: calc(var(--card-w) * 0.02);
+	--sleeve-bg: rgba(255, 255, 255, 0.05);
+	--sleeve-rim-hi: rgba(255, 255, 255, 0.5);
+	--sleeve-drop: 0 1px 2px rgba(0, 0, 0, 0.04), 0 14px 36px rgba(0, 0, 0, 0.07);
+
+	/* ── Panel material ──────────────────────────────────────────────────────── */
+	/* TODO(lab): Metro's "premium plastic" frosted acrylic — swap for Lab's own
+	 * surface material (the tints, sheen, and blur that define the panel's feel). */
+	--panel-fill: light-dark(rgba(236, 238, 243, 0.75), rgba(28, 30, 37, 0.75));
+	--panel-fill-solid: light-dark(rgb(243, 245, 249), rgb(33, 35, 42));
+	--panel-head: light-dark(rgba(233, 236, 242, 0.97), rgba(26, 28, 34, 0.97));
+	--panel-blur: blur(18px) saturate(1.3);
+	--panel-sheen: linear-gradient(
+		180deg,
+		light-dark(rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.1)) 0%,
+		transparent 20%
+	);
+	--panel-edge: light-dark(rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.1));
+
+	/* ── Type ────────────────────────────────────────────────────────────────── */
+	--font-body: 'Jost', system-ui, -apple-system, sans-serif; /* TODO(lab): Lab's typeface */
+}
+
+/* Dark stock for the plain-value tokens. OS-dark only, matching Metro. */
+@media (prefers-color-scheme: dark) {
+	:root,
+	:root[data-look='lab'] {
+		--surface: #201e1b; /* TODO(lab) */
+		--card-edge: rgba(0, 0, 0, 0.6);
+		--card-border: #4a4844; /* TODO(lab) */
+		--card-face-seam: rgba(0, 0, 0, 0.28);
+		--card-face-groove: rgba(0, 0, 0, 0.38);
+		--card-edge-seam: rgba(255, 255, 255, 0.08);
+		--card-edge-groove: rgba(0, 0, 0, 0.45);
+		--orange: #f4713f; /* TODO(lab) */
+		--grid-line: rgba(255, 255, 255, 0.05); /* TODO(lab) */
+		--card-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), 0 10px 34px rgba(0, 0, 0, 0.4);
+		--sleeve-bg: rgba(255, 255, 255, 0.04);
+		--sleeve-rim-hi: rgba(255, 255, 255, 0.28);
+		--sleeve-drop: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 40px rgba(0, 0, 0, 0.55);
+	}
+}
