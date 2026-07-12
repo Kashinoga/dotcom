@@ -174,10 +174,13 @@ body {
 	outline: var(--focus-ring);
 	outline-offset: 2px;
 }
+/* 18px, not 15px: the icons are reicon's FILLED weight now, and a solid caret carries far less of
+ * its 24×24 box than the hairline chevron it replaced — at 15px it read as a speck in the circle.
+ * The larger box restores the optical weight the button was drawn for. */
 .icon-btn svg {
 	display: block;
-	width: 15px;
-	height: 15px;
+	width: 18px;
+	height: 18px;
 }
 
 /* Panel chrome entrance — the horizontal counterpart to the content column's `rise`. A

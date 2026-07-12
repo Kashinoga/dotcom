@@ -8,7 +8,7 @@
 	import Masthead from '$lib/Masthead.svelte';
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
 	import PresentationBuilder from '$lib/PresentationBuilder.svelte';
-	import { BACK_SVG, AIRPLANE_SVG, PRESENTATION_SVG, ARROW_UP_SVG } from '$lib/icons';
+	import { BACK_SVG, AIRPLANE_SVG, PRESENTATION_SVG, CAMERA_SVG } from '$lib/icons';
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
 	import faviconAtfc from '$lib/assets/favicon-atfc.svg';
@@ -1746,7 +1746,7 @@
 						aria-label={photoOpen ? 'Close the photo picker' : 'Choose a photo'}
 						onclick={() => (photoOpen = !photoOpen)}
 					>
-						{@html ARROW_UP_SVG}
+						{@html CAMERA_SVG}
 					</button>
 					<a class="photo-link" href={photo.copyrightlink} target="_blank" rel="noreferrer noopener">
 						{photo.copyright}
@@ -2297,30 +2297,31 @@
 		color: var(--ink);
 		text-decoration: underline;
 	}
-	/* The disclosure. The chevron points up because that's where the flyout opens. */
+	/* The disclosure: a camera, because what it opens is a choice of photographs. Sized as a proper
+	   control rather than a footnote — it sits on a photo, where a small chip is easy to miss, and it
+	   has to be a comfortable target. */
 	.photo-toggle {
 		flex: none;
 		display: grid;
 		place-items: center;
-		width: 1.35rem;
-		height: 1.35rem;
+		width: 2.25rem;
+		height: 2.25rem;
 		padding: 0;
 		border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
 		border-radius: 999px;
-		background: color-mix(in srgb, var(--paper) 70%, transparent);
+		background: color-mix(in srgb, var(--paper) 78%, transparent);
 		color: var(--ink);
 		cursor: pointer;
-		transition: background 0.15s ease, transform 0.2s ease;
+		transition: background 0.15s ease, border-color 0.15s ease;
 	}
-	.photo-toggle:hover {
-		background: var(--paper);
-	}
+	.photo-toggle:hover,
 	.photo-toggle[aria-expanded='true'] {
-		transform: rotate(180deg); /* the chevron flips to point back down at the credit */
+		background: var(--paper);
+		border-color: color-mix(in srgb, var(--ink) 42%, transparent);
 	}
 	.photo-toggle :global(svg) {
-		width: 0.9rem;
-		height: 0.9rem;
+		width: 1.25rem;
+		height: 1.25rem;
 		display: block;
 	}
 	/* The flyout. Opaque, like the panels — it sits on a photograph, so it can't be a tint. */
