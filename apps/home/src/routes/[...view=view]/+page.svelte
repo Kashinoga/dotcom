@@ -91,20 +91,11 @@
 	// flag every dormant `=== 'air'` guard as an impossible comparison).
 	const mapMode = 'rail' as 'air' | 'rail';
 
-	// Label style, toggled from Settings: station codes (WRK) or full stop names.
-	// Full names by default, in either map mode. Null means "no explicit choice yet";
-	// an explicit pick is persisted and wins.
+	// Stops are named in full ("Work"), never coded ("WRK"). This used to be a Settings toggle; the
+	// codes option is gone and full names are simply what the site does. The key is still listed in
+	// the reset/clear sets so a stale saved choice gets wiped rather than lingering in storage.
 	const NAMES_KEY = 'ksh-stop-names';
-	let stopNamesPref = $state<boolean | null>(null);
-	const showStopNames = $derived(stopNamesPref ?? true);
-	function setShowStopNames(v: boolean) {
-		stopNamesPref = v;
-		try {
-			localStorage.setItem(NAMES_KEY, v ? '1' : '0');
-		} catch {
-			/* storage unavailable — keep the in-memory choice */
-		}
-	}
+	const showStopNames = true;
 
 	// Display mode, a quick toggle in the header (light / dark / system). 'system'
 	// clears the override so the OS preference wins; the actual re-theming is done
@@ -234,9 +225,10 @@
 	// script in app.html applies the saved choice so there's no flash on load.
 	const LOOK_KEY = 'ksh-look';
 	type Look = 'lab' | 'metro';
+	// Metro was retired as a choice — Lab is the site's look. The 'metro' branch of setLook and the
+	// metro token set stay put, so re-listing it here is all it would take to bring it back.
 	const lookOptions: { id: Look; label: string; sub: string }[] = [
-		{ id: 'lab', label: 'Lab', sub: 'the new default' },
-		{ id: 'metro', label: 'Metro', sub: 'the transit map' }
+		{ id: 'lab', label: 'Lab', sub: 'the new default' }
 	];
 	let look = $state<Look>('lab');
 	function setLook(l: Look) {
@@ -271,8 +263,7 @@
 	// Compared against what's on screen, not against what's stored: an explicit pick of
 	// the default value reads as "already default", which is what the button implies.
 	const settingsAreDefault = $derived(
-		showStopNames &&
-			theme === 'system' &&
+		theme === 'system' &&
 			uiStyle === 'flat' &&
 			look === 'lab' &&
 			skyMode === 'off' &&
@@ -280,7 +271,6 @@
 	);
 
 	function resetSettings() {
-		stopNamesPref = null; // null = never chose, which falls back to full names
 		skyMode = 'off';
 		starsOn = true;
 		setTheme('system'); // also strips data-theme and its key
@@ -329,15 +319,26 @@
 			delay: i * 3.4 + Math.random() * 2.6
 		}));
 	let SHOOT = $state<ReturnType<typeof makeShooting>>([]);
-	// Stars ride along with dark mode, not the sky: rendered whenever the toggle is on, then a
-	// CSS light-dark() paints them only in dark (transparent in light), so they show on a solid
-	// black background, a manual/OS dark theme, and the dusk/night skies alike.
-	const starsVisible = $derived(starsOn);
+	// Which colour scheme is actually in use — the same decision base.css makes with `color-scheme`,
+	// mirrored here so the DOM can follow it. An opted-into sky wins over the display mode (dusk and
+	// night are the dark phases); otherwise it's the display mode, with 'system' asking the OS.
+	let osDark = $state(false);
+	const darkScheme = $derived(
+		skyMode !== 'off'
+			? skyPhase === 'dusk' || skyPhase === 'night'
+			: theme === 'dark' || (theme === 'system' && osDark)
+	);
+
+	// Stars ride along with dark mode, not the sky: they show on a solid black background, a
+	// manual/OS dark theme, and the dusk/night skies alike.
+	//
+	// See starsVisible / ringsVisible, below — they need the panel state to be declared first.
 
 	// LIGHT-mode counterpart to the stars: concentric rings radiating from the "o" of the wordmark.
 	// Radii are fixed; only the centre moves — measured from the "o" cell (index 6 of "Kashinoga")
-	// and refreshed on resize / font load, since the wordmark clamps with the viewport. A CSS
-	// light-dark() stroke shows them in light and hides them in dark.
+	// and refreshed on resize / font load, since the wordmark clamps with the viewport. Rendered only
+	// under a light scheme (see ringsVisible), for the same reason the stars are only rendered under
+	// a dark one: a transparent stroke still costs a dashed circle's worth of paint.
 	const ringRadii = Array.from({ length: 20 }, (_, i) => (i + 1) * 150);
 	let ringCx = $state(170);
 	let ringCy = $state(120);
@@ -349,7 +350,6 @@
 		ringCy = r.top + r.height / 2;
 	}
 	// Live values the Settings notes interpolate into their `{}` placeholder.
-	const labelValue = $derived(showStopNames ? 'full stop names' : 'station codes');
 	const displayValue = $derived(
 		theme === 'system' ? 'Following your device setting' : `Always ${theme}`
 	);
@@ -635,8 +635,8 @@
 		],
 		// Apps — the hub for the little live apps.
 		APP: [
-			{ p: 'Little live apps I’ve built — tap one to open it.' },
-			{ quote: 'More to come.' }
+			{ p: 'A collection of apps that I’ve built for personal use, shared with you.' },
+			{ quote: 'There’s an app for that?' }
 		],
 		// About / intro — dotcom-2 About card K 201.
 		ABT: [
@@ -842,20 +842,17 @@
 	// Section descriptions and the flavor notes. Notes use a `{}` placeholder that
 	// renders the live value (e.g. the current map style); editing keeps the token.
 	const defaultSettings: Record<string, string> = {
-		labelLead: 'Choose how stations are labelled on the map.',
-		labelNote: 'Now showing {}. Remembered next time.',
-		displayLead: 'Choose the display mode (also up by the wordmark).',
-		displayNote: '{}. Remembered next time.',
-		skyLead: 'Paint the map with a time-of-day sky.',
-		skyNote:
-			'{} The sky sets the palette while on, so the display mode above applies again when it’s off. Remembered next time.',
-		starsLead: 'Show tiny stars when the sky is Night.',
-		starsNote: '{} Remembered next time.',
-		resetLead: 'Start over with the settings this page ships with.',
-		uiLead: 'Choose how buttons across the site look and feel.',
-		uiNote: '{} Remembered next time.',
-		lookLead: 'Choose the overall look of the site.',
-		lookNote: '{} Remembered next time.',
+		displayLead: 'Display Mode',
+		displayNote: 'Inside of you, there are two wolves.',
+		skyLead: 'Skybox Theme',
+		skyNote: '',
+		starsLead: 'Starry Night',
+		starsNote: '',
+		resetLead: 'Start Over',
+		uiLead: 'Button Style',
+		uiNote: '',
+		lookLead: 'Base Theme',
+		lookNote: '',
 		// Air Traffic board intro copy. `atfcLead` uses a `{}` token for the live range
 		// (NM); the demo variant has none. Edited via Edit Mode inside the board itself.
 		atfcLead: 'Live traffic within {} NM of a field — arriving, departing, or passing over.',
@@ -986,6 +983,16 @@
 	// Remembered across panels and reloads.
 	const EXPAND_KEY = 'ksh-panel-expanded';
 	let panelExpanded = $state(false);
+
+	// Nothing decorative is BUILT unless it can actually be seen. Two things can hide the backdrop
+	// wholesale: the colour scheme (stars are dark-only, rings light-only — a transparent star still
+	// runs its twinkle, and a transparent ring still costs a dashed circle's worth of paint), and a
+	// panel that covers the entire viewport (expanded on desktop, or any panel on mobile, where it's
+	// a full-screen sheet). Before this, an expanded Presentation Builder sat over 46 twinkling stars
+	// nobody could see. Rendering nothing is the only way to animate nothing.
+	const backdropHidden = $derived(!!view && (panelExpanded || isMobile));
+	const starsVisible = $derived(starsOn && darkScheme && !backdropHidden);
+	const ringsVisible = $derived(!darkScheme && !backdropHidden);
 	function toggleExpand() {
 		panelExpanded = !panelExpanded;
 		// Expanding covers the map, so let it fade once it's rested; un-expanding puts
@@ -1389,8 +1396,6 @@
 		vw = window.innerWidth;
 		vh = window.innerHeight;
 		wasMobile = isMobile;
-		const n = localStorage.getItem(NAMES_KEY);
-		if (n === '1' || n === '0') stopNamesPref = n === '1';
 		const th = localStorage.getItem(THEME_KEY);
 		if (th === 'light' || th === 'dark') theme = th;
 		if (localStorage.getItem(EXPAND_KEY) === '1') panelExpanded = true;
@@ -1398,6 +1403,13 @@
 		if (sky === 'off' || sky === 'auto' || (sky && SKY_PHASES.includes(sky as SkyPhase)))
 			skyMode = sky as SkyMode; // else default 'auto'
 		applySky();
+		// Follow the OS scheme, and keep following it: with the display mode on 'system', this is
+		// what decides whether the stars or the rings are the ones that get built at all.
+		const osq = matchMedia('(prefers-color-scheme: dark)');
+		osDark = osq.matches;
+		const onOsScheme = (e: MediaQueryListEvent) => (osDark = e.matches);
+		osq.addEventListener('change', onOsScheme);
+		cleanups.push(() => osq.removeEventListener('change', onOsScheme));
 		STARS = makeStars(); // fresh random field per load (client-side)
 		SHOOT = makeShooting(); // and a few shooting stars to cross it
 		measureRings(); // centre the light-mode rings on the wordmark's "o" …
@@ -1462,6 +1474,9 @@
 		});
 	});
 
+	// Listeners registered in onMount that have to be torn down with the page.
+	const cleanups: (() => void)[] = [];
+
 	onDestroy(() => {
 		if (raf) cancelAnimationFrame(raf);
 		clearTimeout(navTimer);
@@ -1469,6 +1484,7 @@
 		clearTimeout(hideTimer);
 		clearTimeout(toastTimer);
 		clearInterval(skyTimer);
+		for (const off of cleanups) off();
 	});
 
 	const viewBox = $derived(
@@ -1537,14 +1553,17 @@
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="stage" class:panning onclick={onStageClick}>
 	<!-- Light-mode concentric rings radiating from the wordmark's "o" (dark mode gets the stars
-	     instead; the light-dark() stroke hides these there). Centre tracks the measured "o". Purely
-	     decorative and inert: they don't spin, and nothing here takes the pointer. Only the rings
-	     that actually reach the viewport are drawn — see visibleRings. -->
-	<svg class="rings" aria-hidden="true">
-		{#each visibleRings as { r, i } (i)}
-			<circle class="ring-line" cx={ringCx} cy={ringCy} {r} />
-		{/each}
-	</svg>
+	     instead). Centre tracks the measured "o". Purely decorative and inert: they don't spin, and
+	     nothing here takes the pointer. Two things are deliberately NOT drawn: the rings that never
+	     reach the viewport (visibleRings), and any of them at all under a dark scheme
+	     (ringsVisible) — invisible geometry still costs paint. -->
+	{#if ringsVisible}
+		<svg class="rings" aria-hidden="true" transition:fade={{ duration: 700 }}>
+			{#each visibleRings as { r, i } (i)}
+				<circle class="ring-line" cx={ringCx} cy={ringCy} {r} />
+			{/each}
+		</svg>
+	{/if}
 	{#if starsVisible}
 		<div class="stars" aria-hidden="true" transition:fade={{ duration: 700 }}>
 			{#each STARS as s}
@@ -1639,48 +1658,6 @@
 					<div class="surface-body" class:settings={v.code === 'STG'}>
 						{#if v.code === 'STG'}
 							{@const editStg = dev && editMode}
-							<div class="stg-group">
-							<p
-								class="seg-lead"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('labelLead', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{settingsText('labelLead')}</p>
-							<div class="segmented" role="radiogroup" aria-label="Station label style">
-								<button
-									type="button"
-									class="seg"
-									class:on={!showStopNames}
-									role="radio"
-									aria-checked={!showStopNames}
-									onclick={() => setShowStopNames(false)}
-								>
-									<span class="seg-title">Codes</span>
-									<span class="seg-sub">e.g. WRK</span>
-								</button>
-								<button
-									type="button"
-									class="seg"
-									class:on={showStopNames}
-									role="radio"
-									aria-checked={showStopNames}
-									onclick={() => setShowStopNames(true)}
-								>
-									<span class="seg-title">Full names</span>
-									<span class="seg-sub">e.g. Work</span>
-								</button>
-							</div>
-							<p
-								class="seg-note"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('labelNote', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{noteText('labelNote', labelValue, editStg)}</p>
-							</div>
 							<div class="stg-group">
 							<p
 								class="seg-lead"
@@ -1868,19 +1845,19 @@
 									onclick={resetSettings}
 									disabled={settingsAreDefault}
 								>
-									Reset to defaults
+									Reset to Defaults
 								</button>
 							</div>
 							<!-- Not editable copy: it states what the button does, and it swaps on state. -->
 							<p class="seg-note">
 								{settingsAreDefault
-									? 'Everything on this page is already at its default.'
-									: 'Puts the settings above back to Train, Full names, System, Flat, Auto and On. Saved edits elsewhere are left alone.'}
+									? 'No changes have been made.'
+									: 'Revert all changes.'}
 							</p>
 							</div>
 							{#if dev}
 								<div class="stg-group">
-								<p class="seg-lead">Edit the panel copy right in the app.</p>
+								<p class="seg-lead">Other</p>
 								<div class="dev-actions">
 									<button
 										type="button"
@@ -1888,18 +1865,12 @@
 										onclick={enterEditMode}
 										disabled={editMode}
 									>
-										{editMode ? 'Editing…' : 'Enter edit mode'}
+										{editMode ? 'Editing…' : 'Enter Edit Mode'}
 									</button>
 									<button type="button" class="edit-enter ghost" onclick={clearLocalStorage}>
-										Clear local storage
+										Clear Saved Settings
 									</button>
 								</div>
-								<p class="seg-note">
-									Turn on edit mode, then open any station, line, or Settings and type over
-									its text. Save copies the result so it can be made permanent; discard drops
-									your changes. Clear local storage wipes saved edits and preferences, then
-									reloads to the source defaults. (Dev only.)
-								</p>
 								</div>
 							{/if}
 						{:else}
@@ -2673,10 +2644,29 @@
 		font-size: 0.9rem;
 		color: var(--sub) !important;
 	}
+	/* The note is a caption for the control above it, not another line of the stack — give it more
+	   air than the group's uniform 1.05rem so it doesn't crowd the buttons it describes. Needs the
+	   child combinator to out-specify `.stg-group > * + *`. */
+	.stg-group > .seg-note {
+		margin-top: 1.6rem;
+	}
+	/* Several notes are deliberately blank now. An empty <p> still takes its margin and would push
+	   the next group down for nothing, so collapse it — but not while editing: Edit Mode has to keep
+	   an empty note clickable, or its copy could never be written back. */
+	.seg-note:empty:not(.editable) {
+		display: none;
+	}
 	.seg-lead {
 		margin-top: 1.4rem;
 		padding-top: 1.25rem;
 		border-top: 1px solid var(--line);
+	}
+	/* …but not on the first group: the header's own bottom border already draws that line, and a
+	   second one right beneath it reads as a double rule. */
+	.stg-group:first-child .seg-lead {
+		margin-top: 0;
+		padding-top: 0;
+		border-top: none;
 	}
 	/* Each settings group — its lead, control and note — is wrapped in a .stg-group so it can be
 	   laid out and kept together as a unit. In the normal (compact) panel the wrapper is inert:

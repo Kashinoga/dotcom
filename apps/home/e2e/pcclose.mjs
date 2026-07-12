@@ -76,7 +76,8 @@ const geom = (page) =>
 	ok('phone: inset inside the image, not straddling its corner', g.fromImgTop >= 4 && g.fromImgRight >= 4, `imgTop ${g.fromImgTop} imgRight ${g.fromImgRight}`);
 	ok('phone: has an opaque backing (not transparent)', !/rgba\(0, 0, 0, 0\)|transparent/.test(g.bg), g.bg);
 	ok('phone: backing is fully opaque', !/rgba\([^)]+,\s*0?\.\d+\)/.test(g.bg), g.bg);
-	ok('phone: light theme uses the light panel fill', g.bg === 'rgb(243, 245, 249)', g.bg);
+	// --panel-fill-solid is pure white in light now (every app surface is #fff / #000).
+	ok('phone: light theme uses the light panel fill', g.bg === 'rgb(255, 255, 255)', g.bg);
 	ok('phone: has a 1.5px ring', parseFloat(g.border) >= 1 && parseFloat(g.border) <= 2, g.border);
 	ok('phone: info column reserves no right padding when stacked', g.infoPadRight === '0px', g.infoPadRight);
 
@@ -113,7 +114,8 @@ const geom = (page) =>
 	const { ctx, page } = await openCard({ w: 390, h: 844, dark: true });
 	const g = await geom(page);
 	ok('dark: chip is opaque', !/rgba\(0, 0, 0, 0\)/.test(g.bg), g.bg);
-	ok('dark: chip uses the dark panel fill', g.bg === 'rgb(33, 35, 42)', g.bg);
+	// --panel-fill-solid is pure black in dark now (every app surface is #fff / #000).
+	ok('dark: chip uses the dark panel fill', g.bg === 'rgb(0, 0, 0)', g.bg);
 	await page.screenshot({ path: artifact('pcclose-dark.png'), clip: { x: 0, y: 100, width: 390, height: 420 } });
 	await ctx.close();
 }

@@ -206,12 +206,14 @@ if (changed) {
 // TODO(map): the homepage route map was removed, so these suites no longer have anything
 // real to drive. `maplayout` and `hubsize` measure station dots/labels that no longer render
 // (maplayout now "passes" vacuously — zero nodes means zero collisions — which is false
-// confidence, hence the skip); `deeplink`, `field` and `settings` reach a board by CLICKING a
-// station node; `buttons` hovers the removed route-line legend. They need repointing to URL
+// confidence, hence the skip); `deeplink` and `field` reach a board by CLICKING a station node;
+// `buttons` hovers the removed route-line legend. They need repointing to URL
 // navigation (page.goto) — and the two pure map-geometry suites retiring — before they mean
 // anything again. Parked here (not deleted) so the rewrite is a small, visible diff. Filtered
 // out of every path (full run, name filter, and --changed) so the suite stays green meanwhile.
-const SKIP = new Set(['maplayout', 'hubsize', 'deeplink', 'field', 'settings', 'buttons']);
+// (`settings` came off this list: it was rewritten to drive the panel by URL and to assert what
+// the panel actually has now, so it tests something real again.)
+const SKIP = new Set(['maplayout', 'hubsize', 'deeplink', 'field', 'buttons']);
 const parked = chosen.filter((s) => SKIP.has(s));
 if (parked.length) console.log(`e2e: skipping ${parked.length} map-dependent suite(s) — see TODO(map) in run.mjs: ${parked.join(', ')}`);
 chosen = chosen.filter((s) => !SKIP.has(s));

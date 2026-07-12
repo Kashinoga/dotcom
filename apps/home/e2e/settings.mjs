@@ -1,5 +1,15 @@
 import { firefox } from 'playwright';
 
+// The Settings panel: what a first-ever visitor sees, and that a saved pick still wins.
+//
+// This suite used to assert the route map too (its "Route map style" group, its <svg role="img">,
+// its station labels). The map is gone — see the homepage's masthead-and-nav — and those checks had
+// been failing against a page that no longer has any of it. The map assertions are removed rather
+// than repaired: there is nothing left for them to test.
+//
+// The codes/full-names toggle went the same way. Stops are always named in full now, so there is no
+// 'Station label style' group to check; reset.mjs still proves a stale ksh-stop-names gets wiped.
+
 const B = process.env.BASE || 'http://localhost:5199';
 const results = [];
 const ok = (name, pass, detail = '') => {
@@ -29,88 +39,101 @@ const checkedIn = (page, group) =>
 	page
 		.locator(`[role="radiogroup"][aria-label="${group}"] [aria-checked="true"]`)
 		.first()
-		.innerText();
+		.innerText()
+		.then((t) => t.trim().split('\n')[0])
+		.catch(() => '<none checked>');
 
-// ── 1. A first-ever visitor sees the six requested defaults ─────────────────
+// ── 1. A first-ever visitor sees the defaults ──────────────────────────────
 {
 	const { ctx, page } = await firstVisit();
 	const want = {
-		'Route map style': 'Train',
-		'Station label style': 'Full names',
 		'Display mode': 'System',
+		'Site look': 'Lab',
 		'Button style': 'Flat',
-		'Sky background': 'Auto',
+		'Sky background': 'Off',
 		Stars: 'On'
 	};
 	for (const [group, expected] of Object.entries(want)) {
-		let got = '';
-		try {
-			got = (await checkedIn(page, group)).trim().split('\n')[0];
-		} catch (e) {
-			got = '<none checked>';
-		}
+		const got = await checkedIn(page, group);
 		ok(`default ${group} = ${expected}`, got === expected, got);
 	}
-
-	// The map itself must actually be the train map, not just the radio.
-	const label = await page.locator('svg[role="img"]').getAttribute('aria-label');
-	ok('map renders as the train map', /train route map/.test(label), label);
-
-	// And station labels must be full names, not codes.
-	const codes = await page
-		.locator('a.node text')
-		.evaluateAll((els) => els.map((e) => e.textContent.trim()));
-	ok('stations show full names', codes.includes('Air Traffic'), codes.join(','));
-	ok('stations do not show codes', !codes.includes('ATFC'), codes.join(','));
 	await ctx.close();
 }
 
-// ── 2. Server-rendered HTML already says "train" (no SSR→client flip) ───────
+// ── 2. The retired controls are really gone from the panel ─────────────────
 {
-	const res = await fetch(`${B}/`);
-	const html = await res.text();
-	ok('SSR html is the train map', /a train route map/.test(html));
-	ok('SSR html is not the airline map', !/an airline route map/.test(html));
-	ok('SSR html shows full station names', html.includes('>Air Traffic</text>'));
+	const { ctx, page } = await firstVisit();
+	const groups = await page
+		.locator('[role="radiogroup"]')
+		.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+	ok('no station-label group', !groups.includes('Station label style'), groups.join(','));
+	ok('no route-map group', !groups.includes('Route map style'), groups.join(','));
+
+	const looks = await page
+		.locator('[role="radiogroup"][aria-label="Site look"] .seg-title')
+		.allInnerTexts();
+	ok('Site look offers Lab only', looks.join(',') === 'Lab', looks.join(','));
+
+	// The header's own bottom border draws the first divider; the first group must not add a second.
+	const firstBorder = await page
+		.locator('.stg-group')
+		.first()
+		.locator('.seg-lead')
+		.evaluate((e) => getComputedStyle(e).borderTopWidth);
+	const secondBorder = await page
+		.locator('.stg-group')
+		.nth(1)
+		.locator('.seg-lead')
+		.evaluate((e) => getComputedStyle(e).borderTopWidth);
+	ok('first group has no top rule', firstBorder === '0px', firstBorder);
+	ok('later groups keep theirs', secondBorder === '1px', secondBorder);
+	await ctx.close();
 }
 
-// ── 3. A saved preference still wins over the new defaults ──────────────────
+// ── 3. A saved preference still wins over the defaults ─────────────────────
 {
 	const { ctx, page } = await firstVisit({
-		'ksh-map-mode': 'air',
-		'ksh-stop-names': '0',
 		'ksh-theme': 'dark',
 		'ksh-ui': 'bubble',
 		'ksh-sky': 'off',
 		'ksh-stars': '0'
 	});
 	const want = {
-		'Route map style': 'Airline',
-		'Station label style': 'Codes',
 		'Display mode': 'Dark',
 		'Button style': 'Bubble',
 		'Sky background': 'Off',
 		Stars: 'Off'
 	};
 	for (const [group, expected] of Object.entries(want)) {
-		let got = '';
-		try {
-			got = (await checkedIn(page, group)).trim().split('\n')[0];
-		} catch {
-			got = '<none checked>';
-		}
+		const got = await checkedIn(page, group);
 		ok(`saved ${group} = ${expected} still wins`, got === expected, got);
 	}
 	await ctx.close();
 }
 
-// ── 4. Full names is now the default in airline mode too ───────────────────
+// ── 4. Decoration is BUILT only when it can be seen ────────────────────────
+// The stars are dark-only and the rings light-only. Painting the hidden one transparent left its
+// animations running for nothing, so each is now gated on the scheme in use.
 {
-	const { ctx, page } = await firstVisit({ 'ksh-map-mode': 'air' });
-	const labels = await page
-		.locator('a.node text')
-		.evaluateAll((els) => els.map((e) => e.textContent.trim()));
-	ok('airline mode also defaults to full names', labels.includes('Air Traffic'), labels.join(','));
+	const { ctx, page } = await firstVisit({ 'ksh-theme': 'light' });
+	const seen = await page.evaluate(() => ({
+		rings: document.querySelectorAll('.ring-line').length,
+		stars: document.querySelectorAll('.stars span').length,
+		running: document.getAnimations().filter((a) => a.playState === 'running').length
+	}));
+	ok('light: rings drawn', seen.rings > 0, String(seen.rings));
+	ok('light: no stars in the DOM', seen.stars === 0, String(seen.stars));
+	ok('light: nothing animating at idle', seen.running === 0, String(seen.running));
+	await ctx.close();
+}
+{
+	const { ctx, page } = await firstVisit({ 'ksh-theme': 'dark' });
+	const seen = await page.evaluate(() => ({
+		rings: document.querySelectorAll('.ring-line').length,
+		stars: document.querySelectorAll('.stars span').length
+	}));
+	ok('dark: stars drawn', seen.stars > 0, String(seen.stars));
+	ok('dark: no rings in the DOM', seen.rings === 0, String(seen.rings));
 	await ctx.close();
 }
 

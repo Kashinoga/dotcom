@@ -37,7 +37,8 @@ const resetBtn = (page) => page.getByRole('button', { name: 'Reset to defaults' 
 const seedPhase = 'night';
 
 const DEFAULTS = {
-	'Station label style': 'Full names',
+	// ('Station label style' was here; the codes/full-names toggle is gone — stops are always named
+	// in full. The key is still seeded below, because a reset must still wipe a stale saved one.)
 	'Display mode': 'System',
 	'Button style': 'Flat',
 	'Sky background': 'Off',
@@ -50,7 +51,7 @@ const DEFAULTS = {
 	await resetBtn(page).scrollIntoViewIfNeeded();
 	ok('reset button exists', await resetBtn(page).isVisible());
 	ok('disabled at defaults', await resetBtn(page).isDisabled());
-	ok('note says already default', await page.getByText('already at its default').isVisible());
+	ok('note says already default', await page.getByText('No changes have been made.').isVisible());
 	await ctx.close();
 }
 
