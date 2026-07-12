@@ -349,54 +349,72 @@
 		ringCy = r.top + r.height / 2;
 	}
 
-	// ── The Home ticker ───────────────────────────────────────────────────────────────────────
-	// The THIRD ring, painted as a yellow band with HOME · HOME · streaming around it. It's the
-	// hub's link: click the band and the Home panel opens, exactly as the masthead's Home item does.
+	// ── Ticker bands ──────────────────────────────────────────────────────────────────────────
+	// The site's four destinations, each painted onto one of the rings as a coloured band with its
+	// own name repeating around it. Click a band and its panel opens — the same destinations, in
+	// the same order, as the masthead's nav. Hovering streams the words; at rest they sit still.
 	//
-	// The band is the ring's WHOLE circle, so it never terminates in open space — it runs off the
-	// viewport's edges and the stage's overflow trims it. Streaming the words is then just a slow
-	// rotation of the text about the ring's centre.
-	//
-	// The words must fill the circumference EXACTLY or the shortfall shows as a bare stretch of
-	// band — the gap the ticker first had. `textLength` is the obvious tool and is the wrong one:
-	// Firefox ignores it on a <textPath> (it left 2685px of glyphs on a 2828px track), so the fit
-	// is measured and corrected here instead — see fitTicker.
-	const TICKER_I = 2; // third ring
-	const TICKER_R = ringRadii[TICKER_I];
+	// Each band is its ring's WHOLE circle, so it never terminates in open space: it runs off the
+	// viewport's edges and the stage's overflow trims it. Streaming is then just a slow rotation of
+	// the text about the ring's centre — the band beneath it doesn't move.
 	const BAND_W = 30; // band thickness, px
-	const TICKER_SECS = 60; // one lap of the ring
-	const TICKER_WORDS = 42; // ≈ circumference / natural word width; fitTicker trues up the rest
-	const TICKER_TEXT = 'HOME · '.repeat(TICKER_WORDS);
-	let tickerTextEl = $state<SVGTextElement | undefined>(undefined);
+	const LAP_SECS = 60; // one lap of the Home ring; the wider rings take proportionally longer,
+	// so every band's words travel at the same speed rather than the outer ones racing.
+	const bands = [
+		{ code: 'KSH', word: 'HOME', ring: 2, fill: '#e6b93c', ink: '#0a0a0a' },
+		{ code: 'ABT', word: 'ABOUT', ring: 3, fill: '#12a150', ink: '#ffffff' },
+		{ code: 'APP', word: 'APPS', ring: 4, fill: '#f06030', ink: '#0a0a0a' },
+		{ code: 'STG', word: 'SETTINGS', ring: 5, fill: '#8b46e0', ink: '#ffffff' }
+	].map((b) => {
+		const r = ringRadii[b.ring];
+		const circumference = 2 * Math.PI * r;
+		// Enough repeats to go all the way round: an estimate off the word's length (fitBands trues
+		// the rest up), never fewer than one.
+		const reps = Math.max(1, Math.round(circumference / ((b.word.length + 3) * 9.5)));
+		return {
+			...b,
+			r,
+			// NBSPs, not plain spaces: SVG trims the trailing whitespace off a run of text, which
+			// eats the last separator's gap and leaves the seam butted up ("· APPS · APPS ·APPS").
+			text: `${b.word}\u00a0·\u00a0`.repeat(reps),
+			secs: (LAP_SECS * r) / ringRadii[2]
+		};
+	});
+	let bandTextEls = $state<(SVGTextElement | undefined)[]>([]);
 
-	// Splay the letters out (or pull them in) until the repeated words measure exactly one lap of
-	// the track, so the last "·" meets the first "H" and the loop has no seam and no gap. Iterated,
-	// because letter-spacing lands between glyphs and a single correction overshoots slightly.
-	function fitTicker() {
-		const t = tickerTextEl;
-		const track = document.getElementById('ticker-track') as SVGPathElement | null;
-		if (!t || !track) return;
-		const len = track.getTotalLength();
-		t.style.letterSpacing = ''; // back to the stylesheet's value before measuring
-		for (let pass = 0; pass < 3; pass++) {
-			const natural = t.getComputedTextLength();
-			const chars = t.getNumberOfChars();
-			if (!chars || !natural) return;
-			const spacing = parseFloat(getComputedStyle(t).letterSpacing) || 0;
-			t.style.letterSpacing = `${spacing + (len - natural) / chars}px`;
-		}
+	// Splay each band's letters out (or pull them in) until its repeated words measure exactly one
+	// lap of its ring, so the last "·" meets the first letter and the loop has no seam and no gap.
+	// `textLength` is the obvious tool for this and is the wrong one: Firefox ignores it on a
+	// <textPath> (it left 2685px of glyphs on a 2828px track — the gap the first ticker had), so the
+	// fit is measured here instead. Iterated, because letter-spacing lands BETWEEN glyphs and a
+	// single correction overshoots slightly.
+	function fitBands() {
+		bandTextEls.forEach((t, i) => {
+			const track = document.getElementById(`band-track-${i}`) as SVGPathElement | null;
+			if (!t || !track) return;
+			const len = track.getTotalLength();
+			t.style.letterSpacing = ''; // back to the stylesheet's value before measuring
+			for (let pass = 0; pass < 3; pass++) {
+				const natural = t.getComputedTextLength();
+				const chars = t.getNumberOfChars();
+				if (!chars || !natural) return;
+				const spacing = parseFloat(getComputedStyle(t).letterSpacing) || 0;
+				t.style.letterSpacing = `${spacing + (len - natural) / chars}px`;
+			}
+		});
 	}
-	// Angles run clockwise on screen from 3 o'clock (SVG's y grows downward), so 90° is the ring's
-	// lowest point — where the track starts, and so where the words begin. It runs from there back
+	// Angles run clockwise on screen from 3 o'clock (SVG's y grows downward), so 90° is a ring's
+	// lowest point — where each track starts, and so where its words begin. It runs from there back
 	// toward 3 o'clock: travelling that way, the text sits the right way up along the bottom of the
 	// circle rather than upside down.
-	const ptOn = (a: number): Pt => [
-		ringCx + TICKER_R * Math.cos((a * Math.PI) / 180),
-		ringCy + TICKER_R * Math.sin((a * Math.PI) / 180)
+	const ptOn = (r: number, a: number): Pt => [
+		ringCx + r * Math.cos((a * Math.PI) / 180),
+		ringCy + r * Math.sin((a * Math.PI) / 180)
 	];
-	const arcTo = (a: number) => `A ${TICKER_R} ${TICKER_R} 0 0 0 ${ptOn(a)[0]} ${ptOn(a)[1]}`;
-	// The full circle, as two half-arcs, starting at the low point.
-	const tickerTrack = $derived(`M ${ptOn(90)[0]} ${ptOn(90)[1]} ${arcTo(-90)} ${arcTo(90)}`);
+	const arcTo = (r: number, a: number) => `A ${r} ${r} 0 0 0 ${ptOn(r, a)[0]} ${ptOn(r, a)[1]}`;
+	// A ring's full circle, as two half-arcs, starting at its low point.
+	const bandTrack = (r: number) =>
+		`M ${ptOn(r, 90)[0]} ${ptOn(r, 90)[1]} ${arcTo(r, -90)} ${arcTo(r, 90)}`;
 
 	// Live values the Settings notes interpolate into their `{}` placeholder.
 	const labelValue = $derived(showStopNames ? 'full stop names' : 'station codes');
@@ -1432,12 +1450,12 @@
 		STARS = makeStars(); // fresh random field per load (client-side)
 		SHOOT = makeShooting(); // and a few shooting stars to cross it
 		measureRings(); // centre the light-mode rings on the wordmark's "o" …
-		fitTicker(); // … and fit the ticker's words to exactly one lap of its ring
+		fitBands(); // … and fit each band's words to exactly one lap of its ring
 		// … and both again once the wordmark font has loaded: glyph widths shift the "o", and the
-		// ticker's own measurement is only right once its real face is in.
+		// bands' own measurements are only right once their real face is in.
 		document.fonts?.ready.then(() => {
 			measureRings();
-			fitTicker();
+			fitBands();
 		});
 		starsOn = localStorage.getItem(STARS_KEY) !== '0'; // default on
 		if (localStorage.getItem(UI_KEY) === 'bubble') setUiStyle('bubble'); // else default flat
@@ -1582,33 +1600,39 @@
 			</g>
 		{/each}
 	</svg>
-	<!-- Home ticker: the third ring, painted as a yellow band with HOME streaming around it. The
-	     band is the WHOLE circle, so it runs off the viewport at both ends rather than stopping in
-	     open space; the stage's overflow is what trims it. A real link to the hub — the same
-	     destination as the masthead's Home item. -->
+	<!-- Ticker bands: one destination per ring, each a coloured band with its name repeating around
+	     it, streaming while hovered. Each is a real link to its panel — the same four stops, in the
+	     same order, as the masthead's nav. Each band is its ring's WHOLE circle, so it runs off the
+	     viewport rather than stopping in open space; the stage's overflow is what trims it. -->
 	<svg class="ticker">
 		<defs>
-			<path id="ticker-track" d={tickerTrack} fill="none" />
+			{#each bands as b, i}
+				<path id="band-track-{i}" d={bandTrack(b.r)} fill="none" />
+			{/each}
 		</defs>
-		<a
-			href={viewPath({ kind: 'port', code: HUB })}
-			aria-label="Home"
-			onclick={(e) => {
-				e.stopPropagation(); // not a click on the bare stage, so it must not close the panel
-				onNodeClick(e, () => board(HUB));
-			}}
-		>
-			<path class="ticker-band" d={tickerTrack} stroke-width={BAND_W} />
-			<text
-				class="ticker-text"
-				bind:this={tickerTextEl}
-				style:transform-origin="{ringCx}px {ringCy}px"
-				style:animation-duration="{TICKER_SECS}s"
-				dominant-baseline="central"
+		{#each bands as b, i}
+			<a
+				href={viewPath({ kind: 'port', code: b.code })}
+				aria-label={airports[b.code].title}
+				style:--band-fill={b.fill}
+				style:--band-ink={b.ink}
+				onclick={(e) => {
+					e.stopPropagation(); // not a click on the bare stage, so it must not close the panel
+					onNodeClick(e, () => board(b.code));
+				}}
 			>
-				<textPath href="#ticker-track">{TICKER_TEXT}</textPath>
-			</text>
-		</a>
+				<path class="ticker-band" d={bandTrack(b.r)} stroke-width={BAND_W} />
+				<text
+					class="ticker-text"
+					bind:this={bandTextEls[i]}
+					style:transform-origin="{ringCx}px {ringCy}px"
+					style:animation-duration="{b.secs}s"
+					dominant-baseline="central"
+				>
+					<textPath href="#band-track-{i}">{b.text}</textPath>
+				</text>
+			</a>
+		{/each}
 	</svg>
 	{#if starsVisible}
 		<div class="stars" aria-hidden="true" transition:fade={{ duration: 700 }}>
@@ -2157,9 +2181,10 @@
 		}
 	}
 
-	/* ── Home ticker ─────────────────────────────────────────────────────────────────────────── */
-	/* Sits over the rings, so only the band itself takes the pointer — everywhere else the click
-	   falls through to the stage (and to the rings' own hover). */
+	/* ── Ticker bands ────────────────────────────────────────────────────────────────────────── */
+	/* Sit over the rings, so only the bands themselves take the pointer — everywhere else the click
+	   falls through to the stage (and to the rings' own hover). Each band's colours arrive as
+	   --band-fill / --band-ink from its station. */
 	.ticker {
 		position: absolute;
 		inset: 0;
@@ -2174,20 +2199,20 @@
 	}
 	.ticker-band {
 		fill: none;
-		stroke: #e6b93c; /* the wordmark's yellow bullet */
+		stroke: var(--band-fill);
 		stroke-linecap: butt;
-		transition: stroke 0.2s ease;
+		transition: filter 0.2s ease;
 	}
 	.ticker-text {
-		/* Always the dark ink, in both themes: it rides ON the yellow, which doesn't flip. */
-		fill: #0a0a0a;
+		/* Fixed per band, in both themes: the ink rides ON the colour, which doesn't flip. */
+		fill: var(--band-ink);
 		font-size: 0.8rem;
 		font-weight: 700;
 		letter-spacing: 0.14em;
 	}
 	.ticker a:hover .ticker-band,
 	.ticker a:focus-visible .ticker-band {
-		stroke: #f0c95a; /* brightens on approach, the way the nav items do */
+		filter: brightness(1.12); /* lifts on approach, whatever the band's colour */
 	}
 	.ticker a:focus-visible {
 		outline: none;
@@ -2195,12 +2220,19 @@
 	.ticker a:focus-visible .ticker-text {
 		text-decoration: underline;
 	}
-	/* Streaming the words is a slow rotation of the TEXT about the ring's centre; the band (its
-	   window) stays put, so the words appear to run through it. A whole number of HOMEs fills the
-	   circumference, so a full turn lands exactly back on itself. */
+	/* Streaming the words is a slow rotation of the TEXT about its ring's centre; the band beneath
+	   stays put, so the words appear to run along it. Only the HOVERED band streams — the others
+	   sit still, so an idle homepage animates nothing (the same bargain the rings make). A whole
+	   number of words fills each circumference, so a full turn lands exactly back on itself. */
 	@media (prefers-reduced-motion: no-preference) {
 		.ticker-text {
-			animation: ticker-run 60s linear infinite;
+			/* The duration is set per band inline — wider rings take proportionally longer, so every
+			   band's words travel at the same speed. */
+			animation: ticker-run 60s linear infinite paused;
+		}
+		.ticker a:hover .ticker-text,
+		.ticker a:focus-visible .ticker-text {
+			animation-play-state: running;
 		}
 	}
 	@keyframes ticker-run {
