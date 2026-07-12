@@ -51,6 +51,10 @@
 	// ── Reactive model (mirrors the original `state`) ──────────────────────
 	let slides = $state<Slide[]>([]);
 	let current = $state(-1);
+	// Bumped every time a fresh deck/template is loaded. The slide rail is keyed on it, so
+	// loading a new presentation remounts the rows and replays their staggered entrance
+	// (rise + dot pop) rather than swapping the list in place with no motion.
+	let loadRev = $state(0);
 	let themeVars = $state<ThemeVar[]>([]);
 	let themeChanges = $state<Record<string, string>>({});
 	let dirty = $state(false);
@@ -510,6 +514,7 @@
 		fileName = name || 'presentation.html';
 		slides = parsed.slides;
 		current = 0;
+		loadRev++; // replay the rail's entrance for the freshly displayed deck
 		markDirty(false);
 		initFrame(() => renderCurrentSlide());
 		toast(`Loaded ${slides.length} slides`, 'ok');
@@ -787,7 +792,8 @@
 				{#if slides.length}
 					<div class="rail-bg" style:top="{railTop}px" style:height="{railH}px" style:left="{railLeft}px"></div>
 					<div class="rail-fg" style:top="{railTop}px" style:height="{railFgH}px" style:left="{railLeft}px"></div>
-					{#each slides as s, i (i)}
+					{#key loadRev}
+						{#each slides as s, i (i)}
 						<div
 							class="stn-v"
 							class:active={i === current}
@@ -819,6 +825,7 @@
 							<div class="stn-title">{slideTitle(s)}</div>
 						</div>
 					{/each}
+					{/key}
 				{:else}
 					<p class="hint">No slides yet.</p>
 				{/if}
