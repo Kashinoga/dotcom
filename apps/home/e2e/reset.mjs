@@ -32,17 +32,15 @@ const checkedIn = (page, group) =>
 const storage = (page) => page.evaluate(() => ({ ...localStorage }));
 const resetBtn = (page) => page.getByRole('button', { name: 'Reset to defaults' });
 
-// What the app's Auto sky resolves to right now (same machine, same timezone).
-const h = new Date().getHours();
-const autoPhase = h < 5 || h >= 21 ? 'night' : h < 8 ? 'dawn' : h < 11 ? 'morning' : h < 17 ? 'noon' : 'dusk';
-// Seed a phase Auto would NOT pick, so "reset restored Auto" is distinguishable from "nothing changed".
-const seedPhase = autoPhase === 'night' ? 'noon' : 'night';
+// Seed an explicit sky phase so "reset restored the default (Off)" is distinguishable from
+// "nothing changed" — reset should strip the sky override entirely.
+const seedPhase = 'night';
 
 const DEFAULTS = {
 	'Station label style': 'Full names',
 	'Display mode': 'System',
 	'Button style': 'Flat',
-	'Sky background': 'Auto',
+	'Sky background': 'Off',
 	Stars: 'On'
 };
 
@@ -92,11 +90,9 @@ const DEFAULTS = {
 	ok('reset → no page reload', loads === 0, `${loads}`);
 	ok('reset → data-theme removed', (await page.locator('html').getAttribute('data-theme')) === null);
 	ok('reset → data-ui removed', (await page.locator('html').getAttribute('data-ui')) === null);
-	// Auto resolves to a phase from the wall clock, so don't assert "not night" — at 21:00
-	// local, Auto *is* night. Assert it matches what the app's own hour rule computes.
+	// Sky resets to Off (the new default) — the override attribute is removed entirely.
 	const skyNow = await page.locator('html').getAttribute('data-sky');
-	ok(`reset → sky left the seeded ${seedPhase}`, skyNow !== seedPhase, skyNow);
-	ok(`reset → sky follows Auto (${autoPhase} at this hour)`, skyNow === autoPhase, skyNow);
+	ok('reset → sky removed (Off is the default)', skyNow === null, String(skyNow));
 	// (The "reset → map is the train map" and "Route map style = Train" checks were removed with
 	// the transit-map motif — the map and its rail/air Settings toggle no longer exist.)
 	ok('reset → settings panel still open', await page.locator('aside.surface').isVisible());

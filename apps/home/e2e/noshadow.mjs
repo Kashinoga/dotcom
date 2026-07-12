@@ -11,6 +11,9 @@ const REAL_SHADOW = `(el) => {
   const parse = (v) => v.split(/,(?![^(]*\\))/).map(x=>x.trim()).filter(Boolean);
   if (s.boxShadow && s.boxShadow !== 'none')
     for (const layer of parse(s.boxShadow)) {
+      // A fully transparent shadow paints nothing (e.g. the dark-only stars' glow, which is
+      // light-dark(transparent, …) and so transparent in this light-theme scan) — not a real shadow.
+      if (/rgba\\([^)]*,\\s*0\\s*\\)/.test(layer) || layer.includes('transparent')) continue;
       const nums = (layer.match(/-?[\\d.]+px/g)||[]).map(parseFloat);
       const inset = layer.includes('inset');
       const blur = inset ? nums[2] : nums[2];

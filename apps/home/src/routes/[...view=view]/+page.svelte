@@ -160,7 +160,7 @@
 		{ id: 'dusk', label: 'Dusk' },
 		{ id: 'night', label: 'Night' }
 	];
-	let skyMode = $state<SkyMode>('auto'); // on (auto) by default
+	let skyMode = $state<SkyMode>('off'); // default: a solid background (no time-of-day sky)
 	let skyPhase = $state<SkyPhase>('morning'); // the phase actually painted (for the note)
 	let skyTimer = 0;
 	function currentPhase(): SkyPhase {
@@ -275,13 +275,13 @@
 			theme === 'system' &&
 			uiStyle === 'flat' &&
 			look === 'lab' &&
-			skyMode === 'auto' &&
+			skyMode === 'off' &&
 			starsOn
 	);
 
 	function resetSettings() {
 		stopNamesPref = null; // null = never chose, which falls back to full names
-		skyMode = 'auto';
+		skyMode = 'off';
 		starsOn = true;
 		setTheme('system'); // also strips data-theme and its key
 		setUiStyle('flat'); // also strips data-ui and its key
@@ -312,7 +312,42 @@
 			dur: 2.4 + Math.random() * 3.2
 		}));
 	let STARS = $state<ReturnType<typeof makeStars>>([]);
-	const starsVisible = $derived(starsOn && skyMode !== 'off' && skyPhase === 'night');
+	// A few shooting stars — each streaks across once per long cycle, staggered so at most one or
+	// two are visible at a time. Same client-only generation as the field above.
+	const makeShooting = () =>
+		Array.from({ length: 9 }, (_, i) => ({
+			x: Math.random() * 88, // start left %
+			y: Math.random() * 58, // start top %
+			ang: 6 + Math.random() * 40, // travel angle 6–46° (shallow to steep)
+			len: 45 + Math.random() * 120, // streak length 45–165px
+			dist: 42 + Math.random() * 34, // travel distance 42–76vw
+			peak: 0.55 + Math.random() * 0.45, // brightness at its peak, 0.55–1
+			// Long cycle, so each is on-screen for only a short slice and idle the rest; the
+			// index-based delay fans their starts out across ~35s so rarely more than one fires
+			// at once (drift keeps them de-synced afterward).
+			dur: 17 + Math.random() * 13, // 17–30s cycle
+			delay: i * 3.4 + Math.random() * 2.6
+		}));
+	let SHOOT = $state<ReturnType<typeof makeShooting>>([]);
+	// Stars ride along with dark mode, not the sky: rendered whenever the toggle is on, then a
+	// CSS light-dark() paints them only in dark (transparent in light), so they show on a solid
+	// black background, a manual/OS dark theme, and the dusk/night skies alike.
+	const starsVisible = $derived(starsOn);
+
+	// LIGHT-mode counterpart to the stars: concentric rings radiating from the "o" of the wordmark.
+	// Radii are fixed; only the centre moves — measured from the "o" cell (index 6 of "Kashinoga")
+	// and refreshed on resize / font load, since the wordmark clamps with the viewport. A CSS
+	// light-dark() stroke shows them in light and hides them in dark.
+	const ringRadii = Array.from({ length: 20 }, (_, i) => (i + 1) * 150);
+	let ringCx = $state(170);
+	let ringCy = $state(120);
+	function measureRings() {
+		const o = document.querySelectorAll('.masthead .flap .cell')[6]; // K a s h i n [o] g a
+		if (!o) return;
+		const r = o.getBoundingClientRect();
+		ringCx = r.left + r.width / 2;
+		ringCy = r.top + r.height / 2;
+	}
 
 	// Live values the Settings notes interpolate into their `{}` placeholder.
 	const labelValue = $derived(showStopNames ? 'full stop names' : 'station codes');
@@ -321,7 +356,7 @@
 	);
 	const skyStatus = $derived(
 		skyMode === 'off'
-			? 'Off — the map uses the flat background.'
+			? 'Off — a solid background (the default): black in dark mode, white in light.'
 			: skyMode === 'auto'
 				? `Auto — following the clock (currently ${skyPhase}).`
 				: `Fixed to ${skyMode}.`
@@ -337,7 +372,7 @@
 			: 'Lab — the new default look.'
 	);
 	const starsStatus = $derived(
-		starsOn ? 'Tiny stars twinkle when the sky is Night.' : 'Stars off.'
+		starsOn ? 'A field of twinkling stars and a few shooting stars, in dark mode.' : 'Stars off.'
 	);
 
 	// Narrow/portrait screens get the vertical train layout (and a portrait camera).
@@ -1324,6 +1359,7 @@
 	function onResize() {
 		vw = window.innerWidth;
 		vh = window.innerHeight;
+		measureRings(); // the wordmark (and so the "o") shifts as it clamps with the viewport
 		// On a desktop⇄mobile crossover the layout swaps; re-frame if idle at home.
 		if (isMobile !== wasMobile) {
 			wasMobile = isMobile;
@@ -1345,6 +1381,10 @@
 			skyMode = sky as SkyMode; // else default 'auto'
 		applySky();
 		STARS = makeStars(); // fresh random field per load (client-side)
+		SHOOT = makeShooting(); // and a few shooting stars to cross it
+		measureRings(); // centre the light-mode rings on the wordmark's "o" …
+		// … and again once the wordmark font has loaded (glyph widths shift the "o").
+		document.fonts?.ready.then(measureRings);
 		starsOn = localStorage.getItem(STARS_KEY) !== '0'; // default on
 		if (localStorage.getItem(UI_KEY) === 'bubble') setUiStyle('bubble'); // else default flat
 		if (localStorage.getItem(LOOK_KEY) === 'metro') setLook('metro'); // else default lab
@@ -1478,12 +1518,30 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="stage" class:panning onclick={onStageClick}>
+	<!-- Light-mode concentric rings radiating from the wordmark's "o" (dark mode gets the stars
+	     instead; the light-dark() stroke hides these there). Centre tracks the measured "o". -->
+	<svg class="rings" aria-hidden="true">
+		{#each ringRadii as r, i}
+			<circle
+				cx={ringCx}
+				cy={ringCy}
+				{r}
+				style="--spin-dur:{150 + i * 9}s; --spin-dir:{i % 2 ? 'reverse' : 'normal'}"
+			/>
+		{/each}
+	</svg>
 	{#if starsVisible}
 		<div class="stars" aria-hidden="true" transition:fade={{ duration: 700 }}>
 			{#each STARS as s}
 				<span
 					class:tw={s.tw}
 					style="left:{s.x}%; top:{s.y}%; width:{s.size}px; height:{s.size}px; animation-duration:{s.dur}s; animation-delay:{s.delay}s"
+				></span>
+			{/each}
+			{#each SHOOT as sh}
+				<span
+					class="shoot"
+					style="left:{sh.x}%; top:{sh.y}%; width:{sh.len}px; --ang:{sh.ang}deg; --dist:{sh.dist}vw; --peak:{sh.peak}; --dur:{sh.dur}s; --delay:{sh.delay}s"
 				></span>
 			{/each}
 		</div>
@@ -1946,22 +2004,65 @@
 		position: fixed;
 		inset: 0;
 		overflow: hidden;
-		/* Flat page colour, or the time-of-day sky gradient when sky mode is on. */
-		background: var(--sky, var(--page));
+		/* The default background: solid pure white in light, near-black in dark — or the
+		   time-of-day sky gradient when sky mode is opted into. Kept here (not --page) so the
+		   backdrop is a clean white/black the stars and rings sit on, independent of the theme's
+		   softer page-field token. */
+		background: var(--sky, light-dark(#ffffff, #101114));
 	}
-	/* Tiny stars on the Night sky — behind the routes (before the svg in DOM). */
+	/* Concentric rings radiating from the wordmark's "o" — LIGHT mode only (the light-dark() stroke
+	   goes transparent in dark, where the star field takes over). SVG so they can be finely dashed
+	   like the inspiration; centred on the measured "o", radii fixed. Behind the chrome, clicks
+	   fall through. `overflow: visible` lets the outer rings extend past the stage box. */
+	.rings {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+		pointer-events: none;
+	}
+	.rings circle {
+		fill: none;
+		/* Tuned against the pure-white light background — clearly legible dashed rings, still light.
+		   Transparent in dark, where the stars take over. */
+		stroke: light-dark(rgba(10, 14, 32, 0.26), transparent);
+		stroke-width: 1;
+		stroke-dasharray: 2.5 7;
+		/* Spin each ring about its OWN centre — fill-box makes transform-origin:center resolve to
+		   the circle's bbox centre (cx,cy), so it holds as the measured centre moves. */
+		transform-box: fill-box;
+		transform-origin: center;
+	}
+	/* Slow rotation, with alternate rings turning opposite ways (--spin-dir) at staggered speeds
+	   (--spin-dur) — the dashed stroke is what makes the turn read. Motion, so reduced-motion off. */
+	@media (prefers-reduced-motion: no-preference) {
+		.rings circle {
+			animation: ring-spin var(--spin-dur, 180s) linear infinite;
+			animation-direction: var(--spin-dir, normal);
+		}
+	}
+	@keyframes ring-spin {
+		to {
+			transform: rotate(1turn);
+		}
+	}
+
+	/* Stars — shown in DARK mode only. The light-dark() paints them transparent under a light
+	   colour-scheme and bright under a dark one, so they appear on the solid black default, a
+	   manual/OS dark theme and the dusk/night skies, and vanish in light — no JS dark check. */
 	.stars {
 		position: absolute;
 		inset: 0;
 		overflow: hidden;
 		pointer-events: none;
 	}
-	.stars span {
+	.stars span:not(.shoot) {
 		position: absolute;
 		border-radius: 50%;
-		background: #eaf3ff;
+		background: light-dark(transparent, #eaf3ff);
 		opacity: 0.72;
-		box-shadow: 0 0 3px rgba(224, 240, 255, 0.5);
+		box-shadow: 0 0 3px light-dark(transparent, rgba(224, 240, 255, 0.5));
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		.stars span.tw {
@@ -1977,6 +2078,45 @@
 		}
 		50% {
 			opacity: 0.85;
+		}
+	}
+	/* Shooting star — a bright head trailing a fading tail (the gradient), streaking across once
+	   per long cycle and idle the rest, so only one or two show at a time. `--ang` orients the
+	   flight; translateX moves it along that axis (scaleX stretches the streak as it goes). Pure
+	   motion, so it stays put (opacity 0) under reduced-motion. Dark-only like the field above. */
+	.shoot {
+		position: absolute;
+		height: 1.5px;
+		border-radius: 999px;
+		background: linear-gradient(to right, transparent, light-dark(transparent, rgba(234, 243, 255, 0.95)));
+		opacity: 0;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.shoot {
+			animation: shoot var(--dur, 11s) ease-out var(--delay, 0s) infinite;
+		}
+	}
+	@keyframes shoot {
+		0% {
+			opacity: 0;
+			transform: rotate(var(--ang, 20deg)) translateX(0) scaleX(0.4);
+		}
+		/* Opacity-only stops — they set NO transform, so the streak keeps interpolating its single
+		   0 → --dist glide with no mid-flight stutter, while it fades in to its peak, holds, then
+		   fades out (the fade finishes as it reaches the far edge, so it's never seen stopping). */
+		1% {
+			opacity: var(--peak, 1);
+		}
+		5% {
+			opacity: var(--peak, 1);
+		}
+		8% {
+			opacity: 0;
+			transform: rotate(var(--ang, 20deg)) translateX(var(--dist, 64vw)) scaleX(1);
+		}
+		100% {
+			opacity: 0;
+			transform: rotate(var(--ang, 20deg)) translateX(var(--dist, 64vw)) scaleX(1);
 		}
 	}
 
