@@ -40,13 +40,15 @@ export const GET: RequestHandler = async () => {
 		if (!r.ok) throw new Error(String(r.status));
 		const data = (await r.json()) as { images?: BingImage[] };
 		// urlbase is a path like `/th?id=OHR.Foo_EN-US123`; the size is a suffix on it. 1080p is
-		// ~330KB and is what actually gets painted; UHD is ~3.7MB and is offered as an upgrade the
-		// client may or may not take.
+		// ~330KB and is what actually gets painted; UHD (~3.7MB) is there if a caller wants it, and
+		// the 400×240 thumb is what the picker's list shows.
 		const photos = (data.images ?? [])
 			.filter((i): i is BingImage & { urlbase: string } => !!i.urlbase)
 			.map((i) => ({
 				url: `https://www.bing.com${i.urlbase}_1920x1080.jpg`,
 				uhd: `https://www.bing.com${i.urlbase}_UHD.jpg`,
+				// ~15KB — small enough that the picker can show all eight without thinking about it.
+				thumb: `https://www.bing.com${i.urlbase}_400x240.jpg`,
 				title: i.title ?? '',
 				// Bing's own line, e.g. "Katahdin Woods…, Maine (© Cavan Images/Offset/Shutterstock)".
 				// These photos are licensed to Microsoft, not to us — so the credit always ships with

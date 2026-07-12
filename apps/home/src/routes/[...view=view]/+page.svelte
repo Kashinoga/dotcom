@@ -8,7 +8,7 @@
 	import Masthead from '$lib/Masthead.svelte';
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
 	import PresentationBuilder from '$lib/PresentationBuilder.svelte';
-	import { BACK_SVG, AIRPLANE_SVG, PRESENTATION_SVG } from '$lib/icons';
+	import { BACK_SVG, AIRPLANE_SVG, PRESENTATION_SVG, ARROW_UP_SVG } from '$lib/icons';
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
 	import faviconAtfc from '$lib/assets/favicon-atfc.svg';
@@ -197,36 +197,6 @@
 	// different picture each time you come back, and a stable one while you're reading. Deliberately
 	// not a timer — cross-fading a full-viewport image every few minutes is exactly the kind of idle
 	// repaint the rest of this page goes out of its way not to do.
-	type Photo = { url: string; uhd: string; title: string; copyright: string; copyrightlink: string };
-	let photo = $state<Photo | null>(null);
-	let photoPending = false;
-	async function loadPhoto() {
-		if (photo || photoPending) return;
-		photoPending = true;
-		try {
-			// `?v=2` is a cache-buster, and it earns its keep: v1 of this route answered with a single
-			// `{ url, … }` and a one-hour max-age. When the body became `{ photos: [...] }`, every
-			// browser still holding that cached v1 response read `photos` as undefined and painted NO
-			// sky at all — silently, until the cache aged out. A new URL key sidesteps the stale copy;
-			// the shape check below means a stale one couldn't blank the sky even if it were served.
-			const r = await fetch('/api/wallpaper?v=2');
-			if (!r.ok) return;
-			const data = (await r.json()) as { photos?: Photo[] } & Partial<Photo>;
-			const list = Array.isArray(data.photos) ? data.photos : data.url ? [data as Photo] : [];
-			const pick = list[Math.floor(Math.random() * list.length)];
-			if (!pick?.url) return;
-			// Decode before painting, so the sky doesn't flash in half-drawn. Failing that just leaves
-			// the solid background.
-			const img = new Image();
-			img.src = pick.url;
-			await img.decode().catch(() => {});
-			photo = pick;
-		} catch {
-			/* offline / upstream down — the solid background stands in */
-		} finally {
-			photoPending = false;
-		}
-	}
 	function setSkyMode(m: SkyMode) {
 		skyMode = m;
 		try {
@@ -236,6 +206,77 @@
 		}
 		applySky();
 	}
+
+	type Photo = {
+		url: string;
+		uhd: string;
+		thumb: string;
+		title: string;
+		copyright: string;
+		copyrightlink: string;
+		date: string;
+	};
+	// The whole window is kept, not just the one being shown: the credit line doubles as a picker
+	// (see the .photo-pick flyout), so the other seven have to be there to choose from.
+	let photos = $state<Photo[]>([]);
+	let photo = $state<Photo | null>(null);
+	let photoPending = false;
+	let photoOpen = $state(false); // is the picker flyout showing?
+	// A hand-picked photo sticks; clearing the key goes back to a fresh one each visit. Stored by
+	// date, which is the one field that survives Bing rotating its archive under us.
+	const PHOTO_KEY = 'ksh-photo';
+
+	async function loadPhoto() {
+		if (photos.length || photoPending) return;
+		photoPending = true;
+		try {
+			// `?v=3` is a cache-buster, and it earns its keep: v1 of this route answered with a single
+			// `{ url, … }` and a one-hour max-age. When the body became `{ photos: [...] }`, every
+			// browser still holding that cached v1 response read `photos` as undefined and painted NO
+			// sky at all — silently, until the cache aged out. A new URL key sidesteps the stale copy;
+			// the shape check below means a stale one couldn't blank the sky even if it were served.
+			// (v3 adds `thumb`, so the picker isn't left with a cached v2 body that has none.)
+			const r = await fetch('/api/wallpaper?v=3');
+			if (!r.ok) return;
+			const data = (await r.json()) as { photos?: Photo[] } & Partial<Photo>;
+			const list = Array.isArray(data.photos) ? data.photos : data.url ? [data as Photo] : [];
+			if (!list.length) return;
+			photos = list;
+			const saved = localStorage.getItem(PHOTO_KEY);
+			const pick = list.find((p) => p.date === saved) ?? list[Math.floor(Math.random() * list.length)];
+			await showPhoto(pick);
+		} catch {
+			/* offline / upstream down — the solid background stands in */
+		} finally {
+			photoPending = false;
+		}
+	}
+
+	// Decode before painting, so a picture never flashes in half-drawn. A failure here just leaves
+	// whatever sky is already up (or the solid background, on the first load).
+	async function showPhoto(p: Photo) {
+		const img = new Image();
+		img.src = p.url;
+		await img.decode().catch(() => {});
+		photo = p;
+	}
+
+	// Picked from the flyout: paint it, and remember it. Picking the one already showing is how you
+	// clear the choice — it hands the sky back to "a different one each visit".
+	async function choosePhoto(p: Photo) {
+		photoOpen = false;
+		const sticky = photo?.date !== p.date;
+		try {
+			if (sticky) localStorage.setItem(PHOTO_KEY, p.date);
+			else localStorage.removeItem(PHOTO_KEY);
+		} catch {
+			/* storage unavailable — the choice still applies to this visit */
+		}
+		if (sticky) await showPhoto(p);
+	}
+	const photoPinned = $derived(
+		typeof localStorage !== 'undefined' && !!photo && localStorage.getItem(PHOTO_KEY) === photo.date
+	);
 
 	// Tiny stars on the Night sky (opt-in), some twinkling. Positions come from a
 	// seeded PRNG so SSR and client agree (no hydration mismatch).
@@ -1380,6 +1421,11 @@
 	function onKey(e: KeyboardEvent) {
 		if (e.key !== 'Escape') return;
 		e.preventDefault();
+		// The picker is the innermost thing open, so Escape closes it first and nothing else.
+		if (photoOpen) {
+			photoOpen = false;
+			return;
+		}
 		if (view) home();
 		else board('STG');
 	}
@@ -1412,6 +1458,9 @@
 	// are untouched; and to an open, unexpanded panel (expanded fills the viewport, leaving no
 	// background to click). The Back button remains the keyboard-accessible way to close.
 	function onStageClick(e: MouseEvent) {
+		// Anywhere off the picker closes it. The credit and the flyout stop their own clicks getting
+		// here (the picker's own buttons handle those), so this only fires on the bare sky.
+		photoOpen = false;
 		if (view && !panelExpanded && e.target === e.currentTarget) home();
 	}
 	// Smallest screen-space shift that fits the dot inside [safeLo, safeHi], then
@@ -1652,15 +1701,58 @@
 		></div>
 		<div class="photo-veil" aria-hidden="true" transition:fade={{ duration: 500 }}></div>
 		{#if !backdropHidden}
-			<a
+			<!-- The credit doubles as the picker: the line names the photo that's up (and links out to
+			     Bing's page for it, because the credit is not decoration — these are licensed to
+			     Microsoft, not to us), and the button beside it opens the other seven. -->
+			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+			<div
 				class="photo-credit"
-				href={photo.copyrightlink}
-				target="_blank"
-				rel="noreferrer noopener"
 				transition:fade={{ duration: 500 }}
+				onclick={(e) => e.stopPropagation()}
 			>
-				{photo.copyright}
-			</a>
+				{#if photoOpen}
+					<!-- The flyout, above the credit so it never covers it. Choosing the photo that's
+					     already up un-pins it — that's how you get back to a fresh one each visit. -->
+					<div class="photo-pick" transition:fly={{ y: 8, duration: 180 }}>
+						<p class="photo-pick-head">
+							{photoPinned ? 'Pinned — pick it again to unpin' : 'A different one each visit'}
+						</p>
+						<ul>
+							{#each photos as p (p.date)}
+								<li>
+									<button
+										type="button"
+										class="photo-opt"
+										class:on={photo?.date === p.date}
+										aria-pressed={photo?.date === p.date}
+										onclick={() => choosePhoto(p)}
+									>
+										<img src={p.thumb} alt="" loading="lazy" width="64" height="38" />
+										<span class="photo-opt-copy">
+											<span class="photo-opt-title">{p.title}</span>
+											<span class="photo-opt-sub">{p.copyright}</span>
+										</span>
+									</button>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
+				<div class="photo-credit-row">
+					<button
+						type="button"
+						class="photo-toggle"
+						aria-expanded={photoOpen}
+						aria-label={photoOpen ? 'Close the photo picker' : 'Choose a photo'}
+						onclick={() => (photoOpen = !photoOpen)}
+					>
+						{@html ARROW_UP_SVG}
+					</button>
+					<a class="photo-link" href={photo.copyrightlink} target="_blank" rel="noreferrer noopener">
+						{photo.copyright}
+					</a>
+				</div>
+			</div>
 		{/if}
 	{/if}
 	<!-- Light-mode concentric rings radiating from the wordmark's "o" (dark mode gets the stars
@@ -2187,16 +2279,124 @@
 		position: absolute;
 		left: clamp(1rem, 4vw, 2rem);
 		bottom: clamp(0.75rem, 3vh, 1.25rem);
-		z-index: 2;
-		max-width: min(46ch, 50vw);
+		z-index: 3;
+		max-width: min(46ch, 60vw);
 		font-size: 0.72rem;
 		line-height: 1.35;
+	}
+	.photo-credit-row {
+		display: flex;
+		align-items: center;
+		gap: 0.45rem;
+	}
+	.photo-link {
 		color: color-mix(in srgb, var(--ink) 88%, transparent);
 		text-decoration: none;
 	}
-	.photo-credit:hover {
+	.photo-link:hover {
 		color: var(--ink);
 		text-decoration: underline;
+	}
+	/* The disclosure. The chevron points up because that's where the flyout opens. */
+	.photo-toggle {
+		flex: none;
+		display: grid;
+		place-items: center;
+		width: 1.35rem;
+		height: 1.35rem;
+		padding: 0;
+		border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--paper) 70%, transparent);
+		color: var(--ink);
+		cursor: pointer;
+		transition: background 0.15s ease, transform 0.2s ease;
+	}
+	.photo-toggle:hover {
+		background: var(--paper);
+	}
+	.photo-toggle[aria-expanded='true'] {
+		transform: rotate(180deg); /* the chevron flips to point back down at the credit */
+	}
+	.photo-toggle :global(svg) {
+		width: 0.9rem;
+		height: 0.9rem;
+		display: block;
+	}
+	/* The flyout. Opaque, like the panels — it sits on a photograph, so it can't be a tint. */
+	.photo-pick {
+		margin-bottom: 0.5rem;
+		width: min(22rem, 80vw);
+		max-height: min(24rem, 55vh);
+		overflow-y: auto;
+		padding: 0.5rem;
+		background: var(--panel-fill-solid);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+	}
+	.photo-pick-head {
+		margin: 0.15rem 0 0.4rem;
+		padding: 0 0.35rem;
+		font-size: 0.68rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--sub);
+	}
+	.photo-pick ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 0.15rem;
+	}
+	.photo-opt {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		width: 100%;
+		padding: 0.35rem;
+		border: 1px solid transparent;
+		border-radius: 8px;
+		background: transparent;
+		font: inherit;
+		text-align: left;
+		color: var(--ink);
+		cursor: pointer;
+	}
+	.photo-opt:hover {
+		background: color-mix(in srgb, var(--ink) 6%, transparent);
+	}
+	/* The one that's up. Its border is the affordance — pressing it again unpins. */
+	.photo-opt.on {
+		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
+		background: color-mix(in srgb, var(--ink) 8%, transparent);
+	}
+	.photo-opt img {
+		flex: none;
+		width: 64px;
+		height: 38px;
+		object-fit: cover;
+		border-radius: 4px;
+	}
+	.photo-opt-copy {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
+		min-width: 0;
+	}
+	.photo-opt-title {
+		font-weight: 700;
+		font-size: 0.78rem;
+	}
+	/* Two lines at most: some of Bing's credit lines are very long. */
+	.photo-opt-sub {
+		font-size: 0.68rem;
+		color: var(--sub);
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
 	}
 	@media (max-width: 720px) {
 		/* On a phone the sky is a sliver above the sheet — don't spend it on a credit line. */
