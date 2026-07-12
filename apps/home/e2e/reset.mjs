@@ -7,7 +7,7 @@ const ok = (name, pass, detail = '') => {
 	console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
 };
 
-const PREF_KEYS = ['ksh-map-mode', 'ksh-stop-names', 'ksh-theme', 'ksh-sky', 'ksh-stars', 'ksh-ui'];
+const PREF_KEYS = ['ksh-stop-names', 'ksh-theme', 'ksh-sky', 'ksh-stars', 'ksh-ui'];
 const browser = await firefox.launch();
 
 async function open(seed) {
@@ -39,7 +39,6 @@ const autoPhase = h < 5 || h >= 21 ? 'night' : h < 8 ? 'dawn' : h < 11 ? 'mornin
 const seedPhase = autoPhase === 'night' ? 'noon' : 'night';
 
 const DEFAULTS = {
-	'Route map style': 'Train',
 	'Station label style': 'Full names',
 	'Display mode': 'System',
 	'Button style': 'Flat',
@@ -60,7 +59,6 @@ const DEFAULTS = {
 // ── 2. Change everything → reset restores all six, live, no reload ──────────
 {
 	const { ctx, page } = await open({
-		'ksh-map-mode': 'air',
 		'ksh-stop-names': '0',
 		'ksh-theme': 'dark',
 		'ksh-ui': 'bubble',
@@ -99,8 +97,8 @@ const DEFAULTS = {
 	const skyNow = await page.locator('html').getAttribute('data-sky');
 	ok(`reset → sky left the seeded ${seedPhase}`, skyNow !== seedPhase, skyNow);
 	ok(`reset → sky follows Auto (${autoPhase} at this hour)`, skyNow === autoPhase, skyNow);
-	// TODO(map): dropped "reset → map is the train map" — it read the removed route-map SVG's
-	// aria-label. The Route-map-style control (Train) is still asserted above via its radiogroup.
+	// (The "reset → map is the train map" and "Route map style = Train" checks were removed with
+	// the transit-map motif — the map and its rail/air Settings toggle no longer exist.)
 	ok('reset → settings panel still open', await page.locator('aside.surface').isVisible());
 	ok('reset → URL unchanged', page.url() === `${B}/settings`, page.url());
 	ok('reset → toast shown', await page.getByText('Settings reset to defaults').isVisible());
@@ -121,7 +119,6 @@ const DEFAULTS = {
 	const page = await ctx.newPage();
 	await page.goto(`${B}/`, { waitUntil: 'domcontentloaded' });
 	await page.evaluate(() => {
-		localStorage.setItem('ksh-map-mode', 'air');
 		localStorage.setItem('ksh-theme', 'dark');
 	});
 	await page.goto(`${B}/settings`, { waitUntil: 'networkidle' });
@@ -130,7 +127,6 @@ const DEFAULTS = {
 	await page.waitForTimeout(600);
 	await page.reload({ waitUntil: 'networkidle' });
 	await page.waitForTimeout(1200);
-	ok('after reload → still Train', (await checkedIn(page, 'Route map style')) === 'Train');
 	ok('after reload → still System', (await checkedIn(page, 'Display mode')) === 'System');
 	ok('after reload → button disabled again', await resetBtn(page).isDisabled());
 	await ctx.close();
@@ -138,7 +134,7 @@ const DEFAULTS = {
 
 // ── 4. An explicit pick of a default value counts as "already default" ──────
 {
-	const { ctx, page } = await open({ 'ksh-map-mode': 'rail', 'ksh-stop-names': '1' });
+	const { ctx, page } = await open({ 'ksh-stop-names': '1' });
 	ok('explicit-but-default settings disable the button', await resetBtn(page).isDisabled());
 	await ctx.close();
 }

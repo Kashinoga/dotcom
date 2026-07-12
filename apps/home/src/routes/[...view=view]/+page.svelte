@@ -84,21 +84,12 @@
 		PRES: [210, 735]
 	};
 
-	// Route drawing style, toggled from the Settings (STG) stop; persisted so the
-	// choice survives reloads (a saved pick is applied in onMount, where localStorage
-	// exists). The default is the train map — declared here rather than patched in
-	// onMount, so the server renders the same map the client hydrates into.
-	const MODE_KEY = 'ksh-map-mode';
-	let mapMode = $state<'air' | 'rail'>('rail');
-	function setMapMode(m: 'air' | 'rail') {
-		mapMode = m;
-		try {
-			localStorage.setItem(MODE_KEY, m);
-		} catch {
-			/* storage unavailable — keep the in-memory choice */
-		}
-	}
-	const mapPhrase = $derived(mapMode === 'air' ? 'an airline route map' : 'a train route map');
+	// Layout mode for the (now-removed) map's coordinates. The rail/air Settings toggle and its
+	// persistence were dropped with the transit-map motif; this stays fixed to 'rail' so the
+	// dormant camera/framing code below keeps resolving to one coordinate set. The `as` keeps the
+	// value's type the full union (control-flow would otherwise narrow the const to 'rail' and
+	// flag every dormant `=== 'air'` guard as an impossible comparison).
+	const mapMode = 'rail' as 'air' | 'rail';
 
 	// Label style, toggled from Settings: station codes (WRK) or full stop names.
 	// Full names by default, in either map mode. Null means "no explicit choice yet";
@@ -275,13 +266,12 @@
 	// The six preferences this panel owns. Deliberately NOT the dev `clearLocalStorage`
 	// set: that one also drops authored content drafts (CONTENT_KEY) and the panel's
 	// expanded flag, and reloads the page.
-	const PREF_KEYS = [MODE_KEY, NAMES_KEY, THEME_KEY, SKY_KEY, STARS_KEY, UI_KEY, LOOK_KEY];
+	const PREF_KEYS = [NAMES_KEY, THEME_KEY, SKY_KEY, STARS_KEY, UI_KEY, LOOK_KEY];
 
 	// Compared against what's on screen, not against what's stored: an explicit pick of
 	// the default value reads as "already default", which is what the button implies.
 	const settingsAreDefault = $derived(
-		mapMode === 'rail' &&
-			showStopNames &&
+		showStopNames &&
 			theme === 'system' &&
 			uiStyle === 'flat' &&
 			look === 'lab' &&
@@ -290,7 +280,6 @@
 	);
 
 	function resetSettings() {
-		mapMode = 'rail';
 		stopNamesPref = null; // null = never chose, which falls back to full names
 		skyMode = 'auto';
 		starsOn = true;
@@ -661,7 +650,7 @@
 	function clearLocalStorage() {
 		if (!dev) return;
 		try {
-			for (const k of [MODE_KEY, NAMES_KEY, THEME_KEY, CONTENT_KEY, EXPAND_KEY, SKY_KEY, STARS_KEY, UI_KEY, LOOK_KEY])
+			for (const k of [NAMES_KEY, THEME_KEY, CONTENT_KEY, EXPAND_KEY, SKY_KEY, STARS_KEY, UI_KEY, LOOK_KEY])
 				localStorage.removeItem(k);
 		} catch {
 			/* storage unavailable — nothing to clear */
@@ -800,8 +789,6 @@
 	// Section descriptions and the flavor notes. Notes use a `{}` placeholder that
 	// renders the live value (e.g. the current map style); editing keeps the token.
 	const defaultSettings: Record<string, string> = {
-		routeLead: 'Choose how the network draws its routes between stations.',
-		routeNote: 'Now showing {}. The change applies across the whole map and is remembered next time.',
 		labelLead: 'Choose how stations are labelled on the map.',
 		labelNote: 'Now showing {}. Remembered next time.',
 		displayLead: 'Choose the display mode (also up by the wordmark).',
@@ -1139,12 +1126,6 @@
 	// stale `field` can never bleed into another panel's title or canonical URL.
 	const onBoard = $derived(view?.kind === 'port' && view.code === 'ATFC');
 	const selectedField = $derived(onBoard ? fieldByIata(field) : null);
-	// Only the Air Traffic board and the Presentation Builder are designed to fill the viewport.
-	// Every other panel is compact-only, so the shared `panelExpanded` intent (persisted, and
-	// left set when you leave an expandable panel) is gated here — `expanded` is the state the
-	// panel actually renders at, so a leftover expand never blows up a Home/About/Settings panel.
-	const canExpand = $derived(view?.kind === 'port' && (view.code === 'ATFC' || view.code === 'PRES'));
-	const expanded = $derived(panelExpanded && canExpand);
 	const headTitle = $derived(
 		selectedField ? `Air Traffic · ${selectedField.name} — ${SITE}` : viewTitle(view)
 	);
@@ -1176,9 +1157,14 @@
 			refresh = null;
 			syncUrl(nv, NO_PARAMS);
 		}
-		// The Presentation Builder is a three-column editor — force the full-viewport layout on
-		// open (its compact form is a fallback, not the intended experience).
+		// Only the Air Traffic board and the Presentation Builder are designed to fill the
+		// viewport. PRES forces the full layout on open (its compact form is a fallback); every
+		// other panel is compact-only, so clear any lingering expand intent (e.g. from a previous
+		// ATFC visit) — that keeps panelExpanded true to what's shown, so the panel renders AND
+		// slides out at the right width (a stale expand no longer jerks the close). ATFC keeps
+		// whatever the user last toggled.
 		if (nv.kind === 'port' && nv.code === 'PRES') panelExpanded = true;
+		else if (!(nv.kind === 'port' && nv.code === 'ATFC')) panelExpanded = false;
 		// Reveal the map for this open so the fly is seen; scheduleHide (on settle)
 		// fades it again if the panel is expanded.
 		clearTimeout(hideTimer);
@@ -1283,7 +1269,7 @@
 	// are untouched; and to an open, unexpanded panel (expanded fills the viewport, leaving no
 	// background to click). The Back button remains the keyboard-accessible way to close.
 	function onStageClick(e: MouseEvent) {
-		if (view && !expanded && e.target === e.currentTarget) home();
+		if (view && !panelExpanded && e.target === e.currentTarget) home();
 	}
 	// Smallest screen-space shift that fits the dot inside [safeLo, safeHi], then
 	// reveals as much of the label as possible without pushing the dot back out.
@@ -1349,9 +1335,6 @@
 		vw = window.innerWidth;
 		vh = window.innerHeight;
 		wasMobile = isMobile;
-		// No saved preference keeps the declared default (the train map) — nothing to do.
-		const s = localStorage.getItem(MODE_KEY);
-		if (s === 'air' || s === 'rail') mapMode = s;
 		const n = localStorage.getItem(NAMES_KEY);
 		if (n === '1' || n === '0') stopNamesPref = n === '1';
 		const th = localStorage.getItem(THEME_KEY);
@@ -1517,10 +1500,10 @@
 			bind:this={panelEl}
 			class="surface"
 			class:leaving={panelLeaving}
-			class:expanded={expanded}
+			class:expanded={panelExpanded}
 			transition:fly|global={isMobile
 				? { y: 900, opacity: 1, duration: 380 }
-				: { x: expanded ? vw : 680, opacity: 1, duration: 380 }}
+				: { x: panelExpanded ? vw : 680, opacity: 1, duration: 380 }}
 		>
 			<!-- Frosted glass pane. Held OFF the scroller (a static, non-scrolling layer) so
 			     WebKit rasterises the backdrop blur once instead of re-blurring every scroll
@@ -1550,7 +1533,7 @@
 							accent={accent[v.code]}
 							code={v.code}
 							title={port.title}
-							{expanded}
+							expanded={panelExpanded}
 							onback={() => home()}
 							onToggleExpand={toggleExpand}
 							edit={dev && editMode}
@@ -1574,8 +1557,7 @@
 						<PresentationBuilder accent={accent[v.code]} title={port.title} onback={() => home()} />
 					{:else}
 					<div class="surface-head">
-						<button class="icon-btn back" onclick={() => home()} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>
-						<p class="eyebrow">Now arriving &middot; <span style:color={accent[v.code]}>{v.code}</span></p>
+						<button class="icon-btn back" onclick={() => home()} aria-label="Back to home" title="Home">{@html BACK_SVG}</button>
 						<div class="title-row">
 							<h2 class="dest" style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
 							{@render accentDot(accent[v.code])}
@@ -1584,47 +1566,6 @@
 					<div class="surface-body" class:settings={v.code === 'STG'}>
 						{#if v.code === 'STG'}
 							{@const editStg = dev && editMode}
-							<div class="stg-group">
-							<p
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('routeLead', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{settingsText('routeLead')}</p>
-							<div class="segmented" role="radiogroup" aria-label="Route map style">
-								<button
-									type="button"
-									class="seg"
-									class:on={mapMode === 'air'}
-									role="radio"
-									aria-checked={mapMode === 'air'}
-									onclick={() => setMapMode('air')}
-								>
-									<span class="seg-title">Airline</span>
-									<span class="seg-sub">curved routes</span>
-								</button>
-								<button
-									type="button"
-									class="seg"
-									class:on={mapMode === 'rail'}
-									role="radio"
-									aria-checked={mapMode === 'rail'}
-									onclick={() => setMapMode('rail')}
-								>
-									<span class="seg-title">Train</span>
-									<span class="seg-sub">transit lines</span>
-								</button>
-							</div>
-							<p
-								class="seg-note"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('routeNote', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{noteText('routeNote', mapPhrase, editStg)}</p>
-							</div>
 							<div class="stg-group">
 							<p
 								class="seg-lead"
@@ -1956,8 +1897,7 @@
 					{@const stops = [...lineOf[v.idx]]}
 					{@const editLine = dev && editMode}
 					<div class="surface-head">
-						<button class="icon-btn back" onclick={() => home()} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>
-						<p class="eyebrow">Route line</p>
+						<button class="icon-btn back" onclick={() => home()} aria-label="Back to home" title="Home">{@html BACK_SVG}</button>
 						<div class="title-row">
 							{#if editLine}
 								<h2
@@ -1981,7 +1921,7 @@
 								? (e) => stageLineBody(v.idx, e.currentTarget.textContent ?? '')
 								: undefined}
 						>{lineBodyText(v.idx)}</p>
-						{@render onward('Stations on this line', stops)}
+						{@render onward('Along the way', stops)}
 					</div>
 				{/if}
 			{/key}
