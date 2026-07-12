@@ -204,10 +204,16 @@
 		if (photo || photoPending) return;
 		photoPending = true;
 		try {
-			const r = await fetch('/api/wallpaper');
+			// `?v=2` is a cache-buster, and it earns its keep: v1 of this route answered with a single
+			// `{ url, … }` and a one-hour max-age. When the body became `{ photos: [...] }`, every
+			// browser still holding that cached v1 response read `photos` as undefined and painted NO
+			// sky at all — silently, until the cache aged out. A new URL key sidesteps the stale copy;
+			// the shape check below means a stale one couldn't blank the sky even if it were served.
+			const r = await fetch('/api/wallpaper?v=2');
 			if (!r.ok) return;
-			const { photos } = (await r.json()) as { photos?: Photo[] };
-			const pick = photos?.[Math.floor(Math.random() * photos.length)];
+			const data = (await r.json()) as { photos?: Photo[] } & Partial<Photo>;
+			const list = Array.isArray(data.photos) ? data.photos : data.url ? [data as Photo] : [];
+			const pick = list[Math.floor(Math.random() * list.length)];
 			if (!pick?.url) return;
 			// Decode before painting, so the sky doesn't flash in half-drawn. Failing that just leaves
 			// the solid background.
