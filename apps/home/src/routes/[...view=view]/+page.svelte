@@ -349,6 +349,65 @@
 		ringCy = r.top + r.height / 2;
 	}
 
+	// A hovered ring behaves like a motor: it winds up out of rest, then settles into the slow
+	// cruise it holds for as long as you stay on it. Un-hovering cuts the power and it freezes
+	// where it stands; hovering it again winds it up afresh from that angle.
+	//
+	// Driven by WAAPI rather than CSS animations, because a CSS animation can only be REPLAYED by
+	// tearing its name off the element and putting it back — and that snaps the ring home to its
+	// base angle, so a second visit couldn't rev. Here each hover mints a pair of animations that
+	// composite ('add') on top of the angle the ring is already parked at, so they always begin at
+	// zero contribution and nothing jumps. Only the hovered ring animates; the other 19 sit inert.
+	const REV_MS = 2200;
+	const cruiseMs = (i: number) => (150 + i * 9) * 1000; // staggered cruise speeds, as before
+	const turns = (i: number) => (i % 2 ? -1 : 1); // alternate rings counter-turn
+	// The wind-up's shape: smootherstep (6t⁵ − 15t⁴ + 10t³), sampled for linear(). It has zero
+	// velocity AND zero acceleration at both ends, so the ring neither kicks as it leaves rest nor
+	// jolts as it hands over to the cruise — a cubic-bezier ramp only flattens velocity, and the
+	// acceleration still steps in, which is what made the old wind-up feel jerky off the mark.
+	const REV_EASE = `linear(${Array.from({ length: 25 }, (_, k) => {
+		const t = k / 24;
+		return (t * t * t * (t * (6 * t - 15) + 10)).toFixed(4);
+	}).join(',')})`;
+	// Parked angle + live animations, per ring element.
+	const spin = new WeakMap<Element, { rev?: Animation; cruise?: Animation }>();
+
+	function ringSpinUp(e: PointerEvent, i: number) {
+		if (reduce) return;
+		const g = e.currentTarget as SVGGElement;
+		const st = spin.get(g) ?? {};
+		spin.set(g, st);
+		// Fold any frozen mid-rev rotation into the element's own transform BEFORE discarding the
+		// animations that were producing it — otherwise cancelling them drops that angle and the
+		// ring snaps backwards.
+		parkRing(g);
+		st.rev?.cancel();
+		st.cruise?.cancel();
+		const frames = [{ transform: 'rotate(0turn)' }, { transform: `rotate(${turns(i)}turn)` }];
+		st.rev = g.animate(frames, { duration: REV_MS, easing: REV_EASE, composite: 'add' });
+		st.cruise = g.animate(frames, {
+			duration: cruiseMs(i),
+			iterations: Infinity,
+			easing: 'linear',
+			composite: 'add'
+		});
+	}
+
+	function ringCoast(e: PointerEvent) {
+		const g = e.currentTarget as SVGGElement;
+		const st = spin.get(g);
+		st?.rev?.pause();
+		st?.cruise?.pause();
+	}
+
+	// Bake whatever angle the ring is currently showing into its inline transform, so it survives
+	// the animations being torn down and rebuilt.
+	function parkRing(g: SVGGElement) {
+		const m = new DOMMatrixReadOnly(getComputedStyle(g).transform);
+		const deg = (Math.atan2(m.b, m.a) * 180) / Math.PI;
+		g.style.transform = `rotate(${deg}deg)`;
+	}
+
 	// Live values the Settings notes interpolate into their `{}` placeholder.
 	const labelValue = $derived(showStopNames ? 'full stop names' : 'station codes');
 	const displayValue = $derived(
@@ -1522,7 +1581,11 @@
 	     instead; the light-dark() stroke hides these there). Centre tracks the measured "o". -->
 	<svg class="rings" aria-hidden="true">
 		{#each ringRadii as r, i}
-			<g class="ring" style="--spin-dur:{150 + i * 9}s; --spin-dir:{i % 2 ? 'reverse' : 'normal'}">
+			<g
+				class="ring"
+				onpointerenter={(e) => ringSpinUp(e, i)}
+				onpointerleave={ringCoast}
+			>
 				<circle class="ring-hit" cx={ringCx} cy={ringCy} {r} />
 				<circle class="ring-line" cx={ringCx} cy={ringCy} {r} />
 			</g>
@@ -2055,43 +2118,8 @@
 		stroke-width: 18;
 		pointer-events: stroke;
 	}
-	/* Spin ONLY the hovered ring; every other ring's animation stays PAUSED, so idle rings never
-	   repaint (that was the perf drain when all 20 ran). Un-hovering freezes it in place. Alternate
-	   rings turn opposite ways (--spin-dir) at staggered speeds (--spin-dur). Reduced-motion off.
-
-	   Hover is a COLD START, so the ring revs rather than snapping to speed: `ring-rev` runs once,
-	   easing out of rest, winding up through the middle, and decelerating into the cruise rate,
-	   and only then does the endless `ring-spin` take over (its delay == the rev's duration).
-	   The rev covers exactly ONE turn, so it lands on rotate(1turn) ≡ rotate(0) — the same angle
-	   ring-spin starts from — and the handoff is invisible. Both share --spin-dir, so a reversed
-	   ring revs the way it will cruise. The steady rate is a 150s+ crawl; without the rev's wind-up
-	   there is nothing to see at the moment the spin begins. */
-	@media (prefers-reduced-motion: no-preference) {
-		.ring {
-			--rev-dur: 1.6s;
-			/* No fill on the rev, deliberately: a forwards/both fill keeps applying rotate(1turn)
-			   after it finishes and pins the ring at that angle — it beat the cruising ring-spin
-			   and the ring never moved again. With no fill it stops applying the moment it ends,
-			   which is exactly when ring-spin's delay expires and it takes over. */
-			animation:
-				ring-rev var(--rev-dur) cubic-bezier(0.5, 0, 0.2, 1) paused,
-				ring-spin var(--spin-dur, 180s) linear var(--rev-dur) infinite paused;
-			animation-direction: var(--spin-dir, normal);
-		}
-		.ring:hover {
-			animation-play-state: running;
-		}
-	}
-	@keyframes ring-rev {
-		to {
-			transform: rotate(1turn);
-		}
-	}
-	@keyframes ring-spin {
-		to {
-			transform: rotate(1turn);
-		}
-	}
+	/* The spin itself is driven from the script (see ringSpinUp) — only the hovered ring animates,
+	   so the other 19 never repaint, which was the perf drain back when all 20 ran at once. */
 
 	/* Stars — shown in DARK mode only. The light-dark() paints them transparent under a light
 	   colour-scheme and bright under a dark one, so they appear on the solid black default, a
