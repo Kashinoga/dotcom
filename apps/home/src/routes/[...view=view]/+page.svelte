@@ -347,105 +347,7 @@
 		const r = o.getBoundingClientRect();
 		ringCx = r.left + r.width / 2;
 		ringCy = r.top + r.height / 2;
-		measureBandR0();
 	}
-	// The bands ring the masthead as tightly as they can without touching it — a sun with the
-	// wordmark at its centre. The circles are centred on the "o", which sits INSIDE the masthead, so
-	// clearing it means out-reaching its farthest corner: any smaller and the ribbon would cut
-	// through the wordmark or the nav. Measured, not guessed, because the masthead clamps with the
-	// viewport — this re-runs on resize and once the font has loaded.
-	function measureBandR0() {
-		const m = document.querySelector('.masthead')?.getBoundingClientRect();
-		if (!m) return;
-		const reach = Math.max(
-			Math.hypot(m.left - ringCx, m.top - ringCy),
-			Math.hypot(m.right - ringCx, m.top - ringCy),
-			Math.hypot(m.left - ringCx, m.bottom - ringCy),
-			Math.hypot(m.right - ringCx, m.bottom - ringCy)
-		);
-		bandR0 = reach + BAND_GAP + BAND_W / 2; // r is the stroke's CENTRE; half of it lies inward
-	}
-	// ── Ticker bands ──────────────────────────────────────────────────────────────────────────
-	// The site's four destinations, painted as concentric coloured bands, each with its own name
-	// repeating around it. Click a band and its panel opens — the same destinations, in the same
-	// order, as the masthead's nav. Hovering streams the words; at rest they sit still.
-	//
-	// They're stacked EDGE TO EDGE: the innermost (yellow Home) band sits as close to the masthead
-	// as it can without touching it — see measureBandR0 — and the rest lie straight on top of it, one
-	// band-width apart, so the four read as a single striped ribbon haloing the wordmark rather than
-	// as four separate rings. Each is a whole circle, so it never terminates in open space: it runs
-	// off the viewport's edges and the stage's overflow trims it. Streaming is then just a slow
-	// rotation of the text about the centre — the band beneath it doesn't move.
-	const BAND_W = 30; // band thickness, px — also the step between bands, so their edges meet
-	const BAND_GAP = 24; // breathing room between the masthead's corner and the ribbon's inner edge
-	const LAP_SECS = 60; // one lap of the Home band; the wider ones take proportionally longer,
-	// so every band's words travel at the same speed rather than the outer ones racing.
-	let bandR0 = $state(360); // innermost band's radius — measured off the masthead, see above
-	const bands = $derived(
-		[
-			{ code: 'KSH', word: 'HOME', fill: '#e6b93c', ink: '#0a0a0a' },
-			{ code: 'ABT', word: 'ABOUT', fill: '#12a150', ink: '#ffffff' },
-			{ code: 'APP', word: 'APPS', fill: '#f06030', ink: '#0a0a0a' },
-			{ code: 'STG', word: 'SETTINGS', fill: '#8b46e0', ink: '#ffffff' }
-		].map((b, i) => {
-			const r = bandR0 + i * BAND_W;
-			const circumference = 2 * Math.PI * r;
-			// Enough repeats to go all the way round: an estimate off the word's length (fitBands trues
-			// the rest up), never fewer than one.
-			const reps = Math.max(1, Math.round(circumference / ((b.word.length + 3) * 9.5)));
-			return {
-				...b,
-				r,
-				// NBSPs, not plain spaces: SVG trims the trailing whitespace off a run of text, which
-				// eats the last separator's gap and butts the seam up ("· APPS · APPS ·APPS").
-				text: `${b.word}\u00a0·\u00a0`.repeat(reps),
-				secs: (LAP_SECS * r) / bandR0
-			};
-		})
-	);
-	let bandTextEls = $state<(SVGTextElement | undefined)[]>([]);
-
-	// Splay each band's letters out (or pull them in) until its repeated words measure exactly one
-	// lap of its ring, so the last "·" meets the first letter and the loop has no seam and no gap.
-	// `textLength` is the obvious tool for this and is the wrong one: Firefox ignores it on a
-	// <textPath> (it left 2685px of glyphs on a 2828px track — the gap the first ticker had), so the
-	// fit is measured here instead. Iterated, because letter-spacing lands BETWEEN glyphs and a
-	// single correction overshoots slightly.
-	function fitBands() {
-		bandTextEls.forEach((t, i) => {
-			const track = document.getElementById(`band-track-${i}`) as SVGPathElement | null;
-			if (!t || !track) return;
-			const len = track.getTotalLength();
-			t.style.letterSpacing = ''; // back to the stylesheet's value before measuring
-			for (let pass = 0; pass < 3; pass++) {
-				const natural = t.getComputedTextLength();
-				const chars = t.getNumberOfChars();
-				if (!chars || !natural) return;
-				const spacing = parseFloat(getComputedStyle(t).letterSpacing) || 0;
-				t.style.letterSpacing = `${spacing + (len - natural) / chars}px`;
-			}
-		});
-	}
-	// The radii move with the masthead (mount, resize, font load), and every move changes the
-	// circumferences the words have to fill. This runs after the DOM has taken the new radii, so the
-	// tracks it measures are the ones actually on screen.
-	$effect(() => {
-		bands;
-		fitBands();
-	});
-	// Angles run clockwise on screen from 3 o'clock (SVG's y grows downward), so 90° is a ring's
-	// lowest point — where each track starts, and so where its words begin. It runs from there back
-	// toward 3 o'clock: travelling that way, the text sits the right way up along the bottom of the
-	// circle rather than upside down.
-	const ptOn = (r: number, a: number): Pt => [
-		ringCx + r * Math.cos((a * Math.PI) / 180),
-		ringCy + r * Math.sin((a * Math.PI) / 180)
-	];
-	const arcTo = (r: number, a: number) => `A ${r} ${r} 0 0 0 ${ptOn(r, a)[0]} ${ptOn(r, a)[1]}`;
-	// A ring's full circle, as two half-arcs, starting at its low point.
-	const bandTrack = (r: number) =>
-		`M ${ptOn(r, 90)[0]} ${ptOn(r, 90)[1]} ${arcTo(r, -90)} ${arcTo(r, 90)}`;
-
 	// Live values the Settings notes interpolate into their `{}` placeholder.
 	const labelValue = $derived(showStopNames ? 'full stop names' : 'station codes');
 	const displayValue = $derived(
@@ -1498,14 +1400,9 @@
 		applySky();
 		STARS = makeStars(); // fresh random field per load (client-side)
 		SHOOT = makeShooting(); // and a few shooting stars to cross it
-		// Centre the rings on the wordmark's "o" and size the band ribbon to clear the masthead. The
-		// words re-fit themselves off the resulting radii (see the $effect). Again once the wordmark
-		// font has loaded: glyph widths move both the "o" and the masthead's own box.
-		measureRings();
-		document.fonts?.ready.then(() => {
-			measureRings();
-			fitBands(); // the face changed, so re-fit even if the radii didn't move
-		});
+		measureRings(); // centre the light-mode rings on the wordmark's "o" …
+		// … and again once the wordmark font has loaded (glyph widths shift the "o").
+		document.fonts?.ready.then(measureRings);
 		starsOn = localStorage.getItem(STARS_KEY) !== '0'; // default on
 		if (localStorage.getItem(UI_KEY) === 'bubble') setUiStyle('bubble'); // else default flat
 		if (localStorage.getItem(LOOK_KEY) === 'metro') setLook('metro'); // else default lab
@@ -1640,47 +1537,12 @@
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="stage" class:panning onclick={onStageClick}>
 	<!-- Light-mode concentric rings radiating from the wordmark's "o" (dark mode gets the stars
-	     instead; the light-dark() stroke hides these there). Centre tracks the measured "o". -->
+	     instead; the light-dark() stroke hides these there). Centre tracks the measured "o". Purely
+	     decorative and inert: they don't spin, and nothing here takes the pointer. Only the rings
+	     that actually reach the viewport are drawn — see visibleRings. -->
 	<svg class="rings" aria-hidden="true">
 		{#each visibleRings as { r, i } (i)}
-			<g class="ring" style="--spin-dur:{150 + i * 9}s; --spin-dir:{i % 2 ? 'reverse' : 'normal'}">
-				<circle class="ring-hit" cx={ringCx} cy={ringCy} {r} />
-				<circle class="ring-line" cx={ringCx} cy={ringCy} {r} />
-			</g>
-		{/each}
-	</svg>
-	<!-- Ticker bands: one destination per ring, each a coloured band with its name repeating around
-	     it, streaming while hovered. Each is a real link to its panel — the same four stops, in the
-	     same order, as the masthead's nav. Each band is its ring's WHOLE circle, so it runs off the
-	     viewport rather than stopping in open space; the stage's overflow is what trims it. -->
-	<svg class="ticker">
-		<defs>
-			{#each bands as b, i}
-				<path id="band-track-{i}" d={bandTrack(b.r)} fill="none" />
-			{/each}
-		</defs>
-		{#each bands as b, i}
-			<a
-				href={viewPath({ kind: 'port', code: b.code })}
-				aria-label={airports[b.code].title}
-				style:--band-fill={b.fill}
-				style:--band-ink={b.ink}
-				onclick={(e) => {
-					e.stopPropagation(); // not a click on the bare stage, so it must not close the panel
-					onNodeClick(e, () => board(b.code));
-				}}
-			>
-				<path class="ticker-band" d={bandTrack(b.r)} stroke-width={BAND_W} />
-				<text
-					class="ticker-text"
-					bind:this={bandTextEls[i]}
-					style:transform-origin="{ringCx}px {ringCy}px"
-					style:animation-duration="{b.secs}s"
-					dominant-baseline="central"
-				>
-					<textPath href="#band-track-{i}">{b.text}</textPath>
-				</text>
-			</a>
+			<circle class="ring-line" cx={ringCx} cy={ringCy} {r} />
 		{/each}
 	</svg>
 	{#if starsVisible}
@@ -2183,15 +2045,8 @@
 		width: 100%;
 		height: 100%;
 		overflow: visible;
-		/* The svg passes pointer events through (it paints nothing of its own); only each ring's
-		   wide invisible hit-stroke re-enables hover, so empty space still reaches the stage. */
+		/* Wholly decorative and inert: every click falls straight through to the stage beneath. */
 		pointer-events: none;
-	}
-	.ring {
-		/* Rotate the ring about its own centre — fill-box makes transform-origin:center resolve to
-		   the group's bbox centre (cx,cy), so it holds as the measured centre moves. */
-		transform-box: fill-box;
-		transform-origin: center;
 	}
 	.ring-line {
 		fill: none;
@@ -2202,99 +2057,6 @@
 		stroke-dasharray: 2.5 7;
 		pointer-events: none;
 	}
-	/* A wide, invisible, gap-free companion stroke — the real hover target, so you don't have to
-	   land on the 1px dashed line. */
-	.ring-hit {
-		fill: none;
-		stroke: transparent;
-		stroke-width: 18;
-		pointer-events: stroke;
-	}
-	/* Spin ONLY the hovered ring; every other ring's animation stays PAUSED, so idle rings never
-	   repaint (that was the perf drain when all 20 ran). Un-hovering freezes it in place. Alternate
-	   rings turn opposite ways (--spin-dir) at staggered speeds (--spin-dur). Reduced-motion off.
-	   The hovered ring picks up its cruise directly — a wind-up ramp lived here and read as jerky
-	   no matter how it was shaped, so it's gone. */
-	@media (prefers-reduced-motion: no-preference) {
-		.ring {
-			animation: ring-spin var(--spin-dur, 180s) linear infinite paused;
-			animation-direction: var(--spin-dir, normal);
-		}
-		.ring:hover {
-			animation-play-state: running;
-		}
-	}
-	@keyframes ring-spin {
-		to {
-			transform: rotate(1turn);
-		}
-	}
-
-	/* ── Ticker bands ────────────────────────────────────────────────────────────────────────── */
-	/* Sit over the rings, so only the bands themselves take the pointer — everywhere else the click
-	   falls through to the stage (and to the rings' own hover). Each band's colours arrive as
-	   --band-fill / --band-ink from its station. */
-	.ticker {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		overflow: visible;
-		pointer-events: none;
-	}
-	.ticker a {
-		pointer-events: auto;
-		cursor: pointer;
-	}
-	.ticker-band {
-		fill: none;
-		stroke: var(--band-fill);
-		stroke-linecap: butt;
-		transition: filter 0.2s ease;
-	}
-	.ticker-text {
-		/* Fixed per band, in both themes: the ink rides ON the colour, which doesn't flip. */
-		fill: var(--band-ink);
-		font-size: 0.8rem;
-		font-weight: 700;
-		letter-spacing: 0.14em;
-	}
-	.ticker a:hover .ticker-band,
-	.ticker a:focus-visible .ticker-band {
-		filter: brightness(1.12); /* lifts on approach, whatever the band's colour */
-	}
-	.ticker a:focus-visible {
-		outline: none;
-	}
-	.ticker a:focus-visible .ticker-text {
-		text-decoration: underline;
-	}
-	/* Streaming the words is a slow rotation of the TEXT about its ring's centre; the band beneath
-	   stays put, so the words appear to run along it. Only the HOVERED band streams — the others
-	   sit still, so an idle homepage animates nothing (the same bargain the rings make). A whole
-	   number of words fills each circumference, so a full turn lands exactly back on itself.
-
-	   The turn dirties the whole disc under the band, so everything inside it repaints each frame.
-	   That is affordable ONLY because the rings that can't be seen are no longer drawn — see
-	   visibleRings. Layer promotion is not an option here: neither will-change nor a 3D transform
-	   gets Firefox to composite this, so keeping what's underneath cheap IS the fix. */
-	@media (prefers-reduced-motion: no-preference) {
-		.ticker-text {
-			/* The duration is set per band inline — wider rings take proportionally longer, so every
-			   band's words travel at the same speed. */
-			animation: ticker-run 60s linear infinite paused;
-		}
-		.ticker a:hover .ticker-text,
-		.ticker a:focus-visible .ticker-text {
-			animation-play-state: running;
-		}
-	}
-	@keyframes ticker-run {
-		to {
-			transform: rotate(1turn);
-		}
-	}
-
 	/* Stars — shown in DARK mode only. The light-dark() paints them transparent under a light
 	   colour-scheme and bright under a dark one, so they appear on the solid black default, a
 	   manual/OS dark theme and the dusk/night skies, and vanish in light — no JS dark check. */
