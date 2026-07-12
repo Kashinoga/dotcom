@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { fly } from 'svelte/transition';
 	import {
 		BACK_SVG,
 		PRESENTATION_SVG,
@@ -61,6 +62,8 @@
 	let fileName = $state('');
 	let toastMsg = $state('');
 	let toastKind = $state<'' | 'ok' | 'err'>('');
+	const reduce =
+		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 	let dragOverIdx = $state(-1);
 	// Element inspector — declarative snapshot of the selected element.
 	let elInfo = $state<ElInfo>(null);
@@ -1041,7 +1044,16 @@
 	</div>
 
 	<input type="file" accept=".html,text/html" bind:this={fileInput} onchange={onFileInput} hidden />
-	{#if toastMsg}<div class="toast {toastKind}" role="status">{toastMsg}</div>{/if}
+	{#if toastMsg}
+		<div
+			class="toast {toastKind}"
+			role="status"
+			in:fly={{ y: reduce ? 0 : -18, duration: reduce ? 140 : 280 }}
+			out:fly={{ y: reduce ? 0 : -12, duration: reduce ? 120 : 200 }}
+		>
+			{toastMsg}
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -1897,10 +1909,19 @@
 
 	/* ── Toast ── */
 	.toast {
+		/* Top centre, dropping in just below the sticky toolbar — the same place, and the same
+		   fly in/out, as the site's own .edit-toast. Centred with auto margins, not
+		   translateX(-50%), so the transition owns `transform` alone. */
 		position: absolute;
-		bottom: 1.1rem;
-		left: 50%;
-		transform: translateX(-50%);
+		/* Below BOTH bands it would otherwise straddle — the toolbar (0.9rem inset around a
+		   ~2.2rem button row) and the preview bar under it — so it floats cleanly on the slide. */
+		top: 6.75rem;
+		left: 0;
+		right: 0;
+		margin-inline: auto;
+		width: fit-content;
+		max-width: min(90%, 420px);
+		text-align: center;
 		background: var(--panel-head);
 		border: 1.5px solid var(--line);
 		color: var(--ink);

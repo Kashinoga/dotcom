@@ -1993,7 +1993,17 @@
 		</div>
 	{/if}
 	{#if toast}
-		<div class="edit-toast" role="status">{toast}</div>
+		<!-- Drops in from above the top edge and lifts back out the same way. Distances are
+		     small — it's a notice, not an entrance — and both collapse to a plain fade under
+		     reduced motion. -->
+		<div
+			class="edit-toast"
+			role="status"
+			in:fly={{ y: reduce ? 0 : -18, duration: reduce ? 140 : 280 }}
+			out:fly={{ y: reduce ? 0 : -12, duration: reduce ? 120 : 200 }}
+		>
+			{toast}
+		</div>
 	{/if}
 </div>
 
@@ -2535,12 +2545,17 @@
 	.edit-btn.discard:hover {
 		background: color-mix(in srgb, var(--ink) 6%, transparent);
 	}
+	/* Messages arrive at the TOP centre — the eye starts there, and the bottom of the screen is
+	   already the edit bar's. Centred by auto margins rather than translateX(-50%), so the fly
+	   transition owns `transform` outright and can't be fought by the centring. */
 	.edit-toast {
 		position: fixed;
-		left: 50%;
-		bottom: calc(clamp(1rem, 4vh, 2.25rem) + 3.6rem);
-		transform: translateX(-50%);
-		z-index: 50;
+		top: clamp(1rem, 3vh, 1.75rem);
+		left: 0;
+		right: 0;
+		margin-inline: auto;
+		width: fit-content;
+		z-index: 60;
 		max-width: min(90vw, 420px);
 		padding: 0.6rem 1rem;
 		font-size: 0.9rem;
