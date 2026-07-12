@@ -358,7 +358,7 @@
 	// base angle, so a second visit couldn't rev. Here each hover mints a pair of animations that
 	// composite ('add') on top of the angle the ring is already parked at, so they always begin at
 	// zero contribution and nothing jumps. Only the hovered ring animates; the other 19 sit inert.
-	const REV_MS = 1100;
+	const REV_MS = 500;
 	const cruiseMs = (i: number) => (150 + i * 9) * 1000; // staggered cruise speeds, as before
 	const turns = (i: number) => (i % 2 ? -1 : 1); // alternate rings counter-turn
 	// The wind-up's shape: smootherstep (6t⁵ − 15t⁴ + 10t³), sampled for linear(). It has zero

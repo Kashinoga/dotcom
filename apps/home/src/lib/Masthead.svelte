@@ -19,11 +19,12 @@
 		onNavigate: (code: string, e: MouseEvent) => void;
 	} = $props();
 
-	// Tagline, split into words so each raises in on a stagger. `em` italicises a word for
-	// emphasis ("Different" carries the accent of the phrase).
-	const taglineWords: { text: string; em?: boolean }[] = [
+	// Tagline, split into words so each raises in on a stagger. Each word can carry its own
+	// emphasis: `em` italicises ("Different" takes the accent of the phrase), `strong` bolds
+	// ("Together" lands it).
+	const taglineWords: { text: string; em?: boolean; strong?: boolean }[] = [
 		{ text: 'Different,', em: true },
-		{ text: 'Together' }
+		{ text: 'Together', strong: true }
 	];
 
 	// The top-level stations, surfaced as the horizontal nav (hub + tier-1). The deeper stops
@@ -42,8 +43,11 @@
 			<span class="theme-dot" aria-hidden="true" style="--n:2; --dot:#e05a4e"></span>
 		</div>
 	</div>
-	<p class="tagline">{#each taglineWords as word, i}<span class="tw" class:em={word.em} style="--n:{i}"
-			>{word.text}</span
+	<p class="tagline">{#each taglineWords as word, i}<span
+			class="tw"
+			class:em={word.em}
+			class:strong={word.strong}
+			style="--n:{i}">{word.text}</span
 		>{' '}{/each}</p>
 	<!-- Primary nav: the top-level stations as a horizontal menu bar below the wordmark. Each
 	     link is the station's real URL; the active destination highlights while its panel is open. -->
@@ -162,6 +166,9 @@
 	/* Emphasis word ("Different") — italic, carrying the accent of the phrase. */
 	.tw.em {
 		font-style: italic;
+	}
+	.tw.strong {
+		font-weight: 700;
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		/* Each word raises in on a stagger, trailing the title's flip. `backwards` (not
