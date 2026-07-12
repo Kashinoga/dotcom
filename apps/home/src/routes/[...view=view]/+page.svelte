@@ -2057,14 +2057,34 @@
 	}
 	/* Spin ONLY the hovered ring; every other ring's animation stays PAUSED, so idle rings never
 	   repaint (that was the perf drain when all 20 ran). Un-hovering freezes it in place. Alternate
-	   rings turn opposite ways (--spin-dir) at staggered speeds (--spin-dur). Reduced-motion off. */
+	   rings turn opposite ways (--spin-dir) at staggered speeds (--spin-dur). Reduced-motion off.
+
+	   Hover is a COLD START, so the ring revs rather than snapping to speed: `ring-rev` runs once,
+	   easing out of rest, winding up through the middle, and decelerating into the cruise rate,
+	   and only then does the endless `ring-spin` take over (its delay == the rev's duration).
+	   The rev covers exactly ONE turn, so it lands on rotate(1turn) ≡ rotate(0) — the same angle
+	   ring-spin starts from — and the handoff is invisible. Both share --spin-dir, so a reversed
+	   ring revs the way it will cruise. The steady rate is a 150s+ crawl; without the rev's wind-up
+	   there is nothing to see at the moment the spin begins. */
 	@media (prefers-reduced-motion: no-preference) {
 		.ring {
-			animation: ring-spin var(--spin-dur, 180s) linear infinite paused;
+			--rev-dur: 1.6s;
+			/* No fill on the rev, deliberately: a forwards/both fill keeps applying rotate(1turn)
+			   after it finishes and pins the ring at that angle — it beat the cruising ring-spin
+			   and the ring never moved again. With no fill it stops applying the moment it ends,
+			   which is exactly when ring-spin's delay expires and it takes over. */
+			animation:
+				ring-rev var(--rev-dur) cubic-bezier(0.5, 0, 0.2, 1) paused,
+				ring-spin var(--spin-dur, 180s) linear var(--rev-dur) infinite paused;
 			animation-direction: var(--spin-dir, normal);
 		}
 		.ring:hover {
 			animation-play-state: running;
+		}
+	}
+	@keyframes ring-rev {
+		to {
+			transform: rotate(1turn);
 		}
 	}
 	@keyframes ring-spin {
