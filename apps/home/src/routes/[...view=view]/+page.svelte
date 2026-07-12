@@ -2297,9 +2297,13 @@
 		color: var(--ink);
 		text-decoration: underline;
 	}
-	/* The disclosure: a camera, because what it opens is a choice of photographs. Sized as a proper
-	   control rather than a footnote — it sits on a photo, where a small chip is easy to miss, and it
-	   has to be a comfortable target. */
+	/* The disclosure: a camera, because what it opens is a choice of photographs. Built to match the
+	   Traffic board's controls, which are reicon's *-circle glyphs — a solid disc with the shape
+	   knocked out of it. reicon has no camera in that family (gallery-circle is the inverse: a ring
+	   around a solid picture), so the disc is composed here instead — an ink fill with the filled
+	   camera punched through it in the page's own stock. Same result, same rules: no ring, no
+	   shadow, the disc IS the button. Larger than the board's 30px because it sits on a photograph,
+	   where a small control is easy to lose. */
 	.photo-toggle {
 		flex: none;
 		display: grid;
@@ -2307,21 +2311,30 @@
 		width: 2.25rem;
 		height: 2.25rem;
 		padding: 0;
-		border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+		border: 0;
 		border-radius: 999px;
-		background: color-mix(in srgb, var(--paper) 78%, transparent);
-		color: var(--ink);
+		background: color-mix(in srgb, var(--ink) 62%, transparent);
+		color: var(--paper);
 		cursor: pointer;
-		transition: background 0.15s ease, border-color 0.15s ease;
+		transition: background 0.15s ease, transform 0.15s ease;
 	}
 	.photo-toggle:hover,
 	.photo-toggle[aria-expanded='true'] {
-		background: var(--paper);
-		border-color: color-mix(in srgb, var(--ink) 42%, transparent);
+		background: var(--ink);
+	}
+	/* Flat mode takes no shadows, so the press is the disc going full-ink and shrinking a touch —
+	   the same treatment the board's discs get. */
+	.photo-toggle:active {
+		background: var(--ink);
+		transform: scale(0.92);
+	}
+	.photo-toggle:focus-visible {
+		outline: var(--focus-ring);
+		outline-offset: 2px;
 	}
 	.photo-toggle :global(svg) {
-		width: 1.25rem;
-		height: 1.25rem;
+		width: 1.3rem;
+		height: 1.3rem;
 		display: block;
 	}
 	/* The flyout. Opaque, like the panels — it sits on a photograph, so it can't be a tint. */

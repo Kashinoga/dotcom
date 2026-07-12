@@ -4,7 +4,12 @@
 	import { flip } from 'svelte/animate';
 	import { cubicOut } from 'svelte/easing';
 	import SplitFlap from '$lib/SplitFlap.svelte';
-	import { MAXIMIZE_SVG, MINIMIZE_SVG, BACK_SVG } from '$lib/icons';
+	import {
+		BACK_CIRCLE_SVG,
+		REFRESH_CIRCLE_SVG,
+		FULLSCREEN_CIRCLE_SVG,
+		EXIT_FULLSCREEN_CIRCLE_SVG
+	} from '$lib/icons';
 	import { AIRPORTS, DEFAULT_FIELD, fieldByIata, type Airport } from '$lib/fields';
 	import { RANGES, DEFAULT_RANGE, INTERVALS, DEFAULT_POLL_MS } from '$lib/scope';
 
@@ -292,10 +297,6 @@
 		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.23832 3.04445C5.65196 2.1818 3.75 3.31957 3.75 5.03299L3.75 18.9672C3.75 20.6806 5.65196 21.8184 7.23832 20.9557L20.0503 13.9886C21.6499 13.1188 21.6499 10.8814 20.0503 10.0116L7.23832 3.04445ZM2.25 5.03299C2.25 2.12798 5.41674 0.346438 7.95491 1.72669L20.7669 8.6938C23.411 10.1317 23.411 13.8685 20.7669 15.3064L7.95491 22.2735C5.41674 23.6537 2.25 21.8722 2.25 18.9672L2.25 5.03299Z" fill="currentColor"/></svg>';
 	const PAUSE_SVG =
 		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M5.948 1.25H6.052C6.95048 1.24997 7.6997 1.24995 8.29448 1.32991C8.92228 1.41432 9.48908 1.59999 9.94455 2.05546C10.4 2.51093 10.5857 3.07773 10.6701 3.70552C10.7501 4.30031 10.75 5.04953 10.75 5.94801V18.052C10.75 18.9505 10.7501 19.6997 10.6701 20.2945C10.5857 20.9223 10.4 21.4891 9.94455 21.9445C9.48908 22.4 8.92228 22.5857 8.29448 22.6701C7.6997 22.7501 6.95048 22.75 6.052 22.75H5.94801C5.04953 22.75 4.30031 22.7501 3.70552 22.6701C3.07773 22.5857 2.51093 22.4 2.05546 21.9445C1.59999 21.4891 1.41432 20.9223 1.32991 20.2945C1.24995 19.6997 1.24997 18.9505 1.25 18.052V5.948C1.24997 5.04952 1.24995 4.3003 1.32991 3.70552C1.41432 3.07773 1.59999 2.51093 2.05546 2.05546C2.51093 1.59999 3.07773 1.41432 3.70552 1.32991C4.3003 1.24995 5.04952 1.24997 5.948 1.25ZM3.90539 2.81654C3.44393 2.87858 3.24644 2.9858 3.11612 3.11612C2.9858 3.24644 2.87858 3.44393 2.81654 3.90539C2.7516 4.38843 2.75 5.03599 2.75 6V18C2.75 18.964 2.7516 19.6116 2.81654 20.0946C2.87858 20.5561 2.9858 20.7536 3.11612 20.8839C3.24644 21.0142 3.44393 21.1214 3.90539 21.1835C4.38843 21.2484 5.03599 21.25 6 21.25C6.96401 21.25 7.61157 21.2484 8.09461 21.1835C8.55607 21.1214 8.75357 21.0142 8.88389 20.8839C9.0142 20.7536 9.12143 20.5561 9.18347 20.0946C9.24841 19.6116 9.25 18.964 9.25 18V6C9.25 5.03599 9.24841 4.38843 9.18347 3.90539C9.12143 3.44393 9.0142 3.24644 8.88389 3.11612C8.75357 2.9858 8.55607 2.87858 8.09461 2.81654C7.61157 2.7516 6.96401 2.75 6 2.75C5.03599 2.75 4.38843 2.7516 3.90539 2.81654ZM17.948 1.25H18.052C18.9505 1.24997 19.6997 1.24995 20.2945 1.32991C20.9223 1.41432 21.4891 1.59999 21.9445 2.05546C22.4 2.51093 22.5857 3.07773 22.6701 3.70552C22.7501 4.30031 22.75 5.04953 22.75 5.94801V18.052C22.75 18.9505 22.7501 19.6997 22.6701 20.2945C22.5857 20.9223 22.4 21.4891 21.9445 21.9445C21.4891 22.4 20.9223 22.5857 20.2945 22.6701C19.6997 22.7501 18.9505 22.75 18.052 22.75H17.948C17.0495 22.75 16.3003 22.7501 15.7055 22.6701C15.0777 22.5857 14.5109 22.4 14.0555 21.9445C13.6 21.4891 13.4143 20.9223 13.3299 20.2945C13.2499 19.6997 13.25 18.9505 13.25 18.052V5.94801C13.25 5.04953 13.2499 4.3003 13.3299 3.70552C13.4143 3.07773 13.6 2.51093 14.0555 2.05546C14.5109 1.59999 15.0777 1.41432 15.7055 1.32991C16.3003 1.24995 17.0495 1.24997 17.948 1.25ZM15.9054 2.81654C15.4439 2.87858 15.2464 2.9858 15.1161 3.11612C14.9858 3.24644 14.8786 3.44393 14.8165 3.90539C14.7516 4.38843 14.75 5.03599 14.75 6V18C14.75 18.964 14.7516 19.6116 14.8165 20.0946C14.8786 20.5561 14.9858 20.7536 15.1161 20.8839C15.2464 21.0142 15.4439 21.1214 15.9054 21.1835C16.3884 21.2484 17.036 21.25 18 21.25C18.964 21.25 19.6116 21.2484 20.0946 21.1835C20.5561 21.1214 20.7536 21.0142 20.8839 20.8839C21.0142 20.7536 21.1214 20.5561 21.1835 20.0946C21.2484 19.6116 21.25 18.964 21.25 18V6C21.25 5.03599 21.2484 4.38843 21.1835 3.90539C21.1214 3.44393 21.0142 3.24644 20.8839 3.11612C20.7536 2.9858 20.5561 2.87858 20.0946 2.81654C19.6116 2.7516 18.964 2.75 18 2.75C17.036 2.75 16.3884 2.7516 15.9054 2.81654Z" fill="currentColor"/></svg>';
-	// reicon "refresh" (outline) — the manual refresh-now button.
-	const REFRESH_SVG =
-		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M2.93077 11.2003C3.00244 6.23968 7.07619 2.25 12.0789 2.25C15.3873 2.25 18.287 3.99427 19.8934 6.60721C20.1103 6.96007 20.0001 7.42199 19.6473 7.63892C19.2944 7.85585 18.8325 7.74565 18.6156 7.39279C17.2727 5.20845 14.8484 3.75 12.0789 3.75C7.8945 3.75 4.50372 7.0777 4.431 11.1982L4.83138 10.8009C5.12542 10.5092 5.60029 10.511 5.89203 10.8051C6.18377 11.0991 6.18191 11.574 5.88787 11.8657L4.20805 13.5324C3.91565 13.8225 3.44398 13.8225 3.15157 13.5324L1.47176 11.8657C1.17772 11.574 1.17585 11.0991 1.46759 10.8051C1.75933 10.5111 2.2342 10.5092 2.52824 10.8009L2.93077 11.2003ZM19.7864 10.4666C20.0786 10.1778 20.5487 10.1778 20.8409 10.4666L22.5271 12.1333C22.8217 12.4244 22.8245 12.8993 22.5333 13.1939C22.2421 13.4885 21.7673 13.4913 21.4727 13.2001L21.0628 12.7949C20.9934 17.7604 16.9017 21.75 11.8825 21.75C8.56379 21.75 5.65381 20.007 4.0412 17.3939C3.82366 17.0414 3.93307 16.5793 4.28557 16.3618C4.63806 16.1442 5.10016 16.2536 5.31769 16.6061C6.6656 18.7903 9.09999 20.25 11.8825 20.25C16.0887 20.25 19.4922 16.9171 19.5625 12.7969L19.1546 13.2001C18.86 13.4913 18.3852 13.4885 18.094 13.1939C17.8028 12.8993 17.8056 12.4244 18.1002 12.1333L19.7864 10.4666Z" fill="currentColor"/></svg>';
-	// back (BACK_SVG) is shared with the page's panels, so it lives in $lib/icons.
 	// maximize / minimize (the expand-panel toggle) are shared with the page masthead,
 	// so they live in $lib/icons. This board owns its copy of the control so the icon
 	// sits as the super bar's right end-cap, aligned with back.
@@ -1100,7 +1101,7 @@
 	<!-- Keep {@html} flush with the tags: surrounding whitespace becomes an in-flow text
 	     node, which would give this inline-block a line box and pull its baseline up off
 	     its bottom edge (see .manual). -->
-	<button type="button" class="manual" aria-label="Refresh now" title="Refresh now" onclick={manualRefresh}>{@html REFRESH_SVG}</button>
+	<button type="button" class="manual disc-btn" aria-label="Refresh now" title="Refresh now" onclick={manualRefresh}>{@html REFRESH_CIRCLE_SVG}</button>
 {/snippet}
 {#snippet accentDot()}
 	<!-- Decorative, nonfunctional: the app's accent colour as a station-sign bullet beside
@@ -1149,13 +1150,13 @@
 				     (--bn 1…11), then Range, Refresh, and the right cap fall in behind it. -->
 				<button
 					type="button"
-					class="icon-btn nav-edge"
+					class="disc-btn nav-edge"
 					style="--bn:0"
 					onclick={onback}
 					aria-label="Back to route map"
 					title="Route map"
 				>
-					{@html BACK_SVG}
+					{@html BACK_CIRCLE_SVG}
 				</button>
 			{/if}
 			<div class="ident">
@@ -1199,18 +1200,18 @@
 				{#if onToggleExpand}
 					<button
 						type="button"
-						class="icon-btn nav-edge"
+						class="disc-btn nav-edge"
 						style="--bn:19"
 						onclick={onToggleExpand}
 						aria-label="Collapse panel"
 						title="Collapse"
 					>
-						{@html MINIMIZE_SVG}
+						{@html EXIT_FULLSCREEN_CIRCLE_SVG}
 					</button>
 				{/if}
 			</div>
 		{:else}
-			{#if onback}<button type="button" class="icon-btn back" style="--bn:0" onclick={onback} aria-label="Back to route map" title="Route map">{@html BACK_SVG}</button>{/if}
+			{#if onback}<button type="button" class="disc-btn back" style="--bn:0" onclick={onback} aria-label="Back to route map" title="Route map">{@html BACK_CIRCLE_SVG}</button>{/if}
 			<!-- --bn 1: the eyebrow follows the Back cap, a beat ahead of the title flip and the
 			     Airport row that ripple in below it. -->
 			<p class="eyebrow" style="--bn:1">Now arriving &middot; <span class="eyebrow-code">{code}</span></p>
@@ -1227,12 +1228,12 @@
 				{#if onToggleExpand}
 					<button
 						type="button"
-						class="icon-btn expand-compact"
+						class="disc-btn expand-compact"
 						onclick={onToggleExpand}
 						aria-label={expanded ? 'Collapse panel' : 'Expand panel to fill'}
 						title={expanded ? 'Collapse' : 'Expand to fill'}
 					>
-						{@html expanded ? MINIMIZE_SVG : MAXIMIZE_SVG}
+						{@html expanded ? EXIT_FULLSCREEN_CIRCLE_SVG : FULLSCREEN_CIRCLE_SVG}
 					</button>
 				{/if}
 			</div>
@@ -1661,7 +1662,7 @@
 	   ends hands the buttons back to their hover spring untouched. The labels don't hover, but
 	   they share the rule for one timing, so they take the same fill. */
 	@media (prefers-reduced-motion: no-preference) {
-		.tfc-head .icon-btn,
+		.tfc-head .disc-btn,
 		.tfc-head .field,
 		.tfc-head .field-select,
 		.tfc-head .manual,
@@ -2105,43 +2106,52 @@
 	   border edge, which is what `align-items: baseline` rests on the title's text
 	   baseline. (If the glyph were in flow, the button would inherit the glyph's own
 	   baseline — mid-circle — and float up off the line.) */
-	.manual {
+	/* The board's header controls carry their OWN circle — reicon's *-circle glyphs are a solid disc
+	   with the shape knocked out of it (see $lib/icons). So the button draws nothing: no ring, no
+	   fill, no padding. The icon is the button, and hover just brings it up to full ink instead of
+	   lighting a border it no longer has. This is the one place that does it; everything else still
+	   uses .icon-btn, which puts a drawn circle around a bare glyph. */
+	.disc-btn {
 		position: relative;
-		display: inline-block;
+		display: inline-grid;
+		place-items: center;
 		box-sizing: border-box;
 		width: 30px;
 		height: 30px;
 		flex: none;
 		padding: 0;
-		color: var(--sub);
-		background: color-mix(in srgb, var(--ink) 5%, transparent);
-		border: 1.5px solid color-mix(in srgb, var(--ink) 14%, transparent);
+		color: color-mix(in srgb, var(--ink) 62%, transparent);
+		background: none;
+		border: 0;
 		border-radius: 999px;
 		cursor: pointer;
-		transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+		transition: color 0.15s ease, transform 0.15s ease;
 	}
-	.manual:hover {
+	.disc-btn:hover {
 		color: var(--ink);
-		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
 	}
-	.manual:active {
-		transform: rotate(-90deg);
-		/* Depress on click like every other button (the spin stays its own flourish). The
-		   press is a flat fill darkening, not an inset bevel — Flat mode uses no shadow of
-		   any kind. Bubble supplies its own sunk gloss globally (see +page.svelte). */
-		background: color-mix(in srgb, var(--ink) 13%, transparent);
+	/* Flat mode takes no shadows, so the press is the disc itself going full-ink and shrinking a
+	   touch — the same "darken what's there" idea the filled buttons use. */
+	.disc-btn:active {
+		color: var(--ink);
+		transform: scale(0.92);
 	}
-	.manual:focus-visible {
+	.disc-btn:focus-visible {
 		outline: var(--focus-ring);
 		outline-offset: 2px;
 	}
-	.manual :global(svg) {
-		position: absolute;
-		inset: 0;
-		margin: auto;
-		width: 15px;
-		height: 15px;
+	.disc-btn :global(svg) {
 		display: block;
+		width: 30px;
+		height: 30px;
+	}
+	.manual {
+		position: relative;
+	}
+	/* Spin on press — the flourish it always had. There's no fill to darken any more: the disc is
+	   the icon, so the press reads on the glyph itself (see .disc-btn:active). */
+	.manual:active {
+		transform: rotate(-90deg);
 	}
 	.ring {
 		width: 30px;
