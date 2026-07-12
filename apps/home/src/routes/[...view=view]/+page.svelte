@@ -8,7 +8,7 @@
 	import Masthead from '$lib/Masthead.svelte';
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
 	import PresentationBuilder from '$lib/PresentationBuilder.svelte';
-	import { MAXIMIZE_SVG, MINIMIZE_SVG, BACK_SVG } from '$lib/icons';
+	import { BACK_SVG } from '$lib/icons';
 	import { airports, airlines, HUB, type Pt } from '$lib/network';
 	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
 	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
@@ -1139,6 +1139,12 @@
 	// stale `field` can never bleed into another panel's title or canonical URL.
 	const onBoard = $derived(view?.kind === 'port' && view.code === 'ATFC');
 	const selectedField = $derived(onBoard ? fieldByIata(field) : null);
+	// Only the Air Traffic board and the Presentation Builder are designed to fill the viewport.
+	// Every other panel is compact-only, so the shared `panelExpanded` intent (persisted, and
+	// left set when you leave an expandable panel) is gated here — `expanded` is the state the
+	// panel actually renders at, so a leftover expand never blows up a Home/About/Settings panel.
+	const canExpand = $derived(view?.kind === 'port' && (view.code === 'ATFC' || view.code === 'PRES'));
+	const expanded = $derived(panelExpanded && canExpand);
 	const headTitle = $derived(
 		selectedField ? `Air Traffic · ${selectedField.name} — ${SITE}` : viewTitle(view)
 	);
@@ -1277,7 +1283,7 @@
 	// are untouched; and to an open, unexpanded panel (expanded fills the viewport, leaving no
 	// background to click). The Back button remains the keyboard-accessible way to close.
 	function onStageClick(e: MouseEvent) {
-		if (view && !panelExpanded && e.target === e.currentTarget) home();
+		if (view && !expanded && e.target === e.currentTarget) home();
 	}
 	// Smallest screen-space shift that fits the dot inside [safeLo, safeHi], then
 	// reveals as much of the label as possible without pushing the dot back out.
@@ -1478,7 +1484,6 @@
 							onclick={(e) => onNodeClick(e, () => board(c))}
 						>
 							<span class="chip-dot" style:background={accent[c]}></span>
-							<span class="chip-code">{c}</span>
 							<span class="chip-title">{airports[c].title}</span>
 						</a>
 					</li>
@@ -1512,29 +1517,19 @@
 			bind:this={panelEl}
 			class="surface"
 			class:leaving={panelLeaving}
-			class:expanded={panelExpanded}
+			class:expanded={expanded}
 			transition:fly|global={isMobile
 				? { y: 900, opacity: 1, duration: 380 }
-				: { x: panelExpanded ? vw : 680, opacity: 1, duration: 380 }}
+				: { x: expanded ? vw : 680, opacity: 1, duration: 380 }}
 		>
 			<!-- Frosted glass pane. Held OFF the scroller (a static, non-scrolling layer) so
 			     WebKit rasterises the backdrop blur once instead of re-blurring every scroll
 			     frame - the fix for Safari big-surface backdrop-filter cost. -->
 			<div class="surface-backdrop" aria-hidden="true"></div>
-			{#if !(v.kind === 'port' && (v.code === 'ATFC' || v.code === 'PRES'))}
-				<!-- ATFC's TrafficBoard renders its own expand toggle (bar cap when expanded,
-				     top-right when compact) so it aligns with the board's back control. -->
-				<button
-					type="button"
-					class="icon-btn expand"
-					aria-pressed={panelExpanded}
-					aria-label={panelExpanded ? 'Collapse panel' : 'Expand panel to fill'}
-					title={panelExpanded ? 'Collapse' : 'Expand to fill'}
-					onclick={toggleExpand}
-				>
-					{@html panelExpanded ? MINIMIZE_SVG : MAXIMIZE_SVG}
-				</button>
-			{/if}
+			<!-- No generic expand toggle: only the Air Traffic board and Presentation Builder are
+			     designed to fill the viewport, and each renders its own control (ATFC toggles;
+			     PRES is always full). Every other panel is compact-only. -->
+
 			<!-- The panel is reused across destinations: on navigation the whole panel
 			     slides out, swaps to the new node's content while off-screen, then
 			     slides back in. transition:fly handles the map⇄panel open/close. The
@@ -1555,7 +1550,7 @@
 							accent={accent[v.code]}
 							code={v.code}
 							title={port.title}
-							expanded={panelExpanded}
+							{expanded}
 							onback={() => home()}
 							onToggleExpand={toggleExpand}
 							edit={dev && editMode}
@@ -2124,15 +2119,6 @@
 				transform 300ms cubic-bezier(0.6, 0, 0.3, 1);
 		}
 	}
-	/* Expand/collapse toggle (shared .icon-btn), top-right of the panel on the same
-	   horizontal line as the back control; only its placement is set here. */
-	.expand {
-		position: absolute;
-		right: clamp(1.5rem, 4vw, 2.75rem);
-		/* Aligns with the back circle, which sits at the surface-head's top padding. */
-		top: clamp(1.5rem, 4vw, 2.5rem);
-		z-index: 3;
-	}
 	/* On phones the panel is a bottom sheet: full width, anchored to the bottom, and
 	   it slides down (rather than off to the right) both to close and between stops. */
 	@media (max-width: 720px) {
@@ -2148,10 +2134,6 @@
 		}
 		.surface.leaving {
 			transform: translateY(100%);
-		}
-		/* The bottom sheet is already full-width, so hide the expand toggle. */
-		.expand {
-			display: none;
 		}
 	}
 	.surface-head {
@@ -2331,21 +2313,16 @@
 		}
 	}
 
-	/* Panel chrome slides in horizontally while the content column rises — the two axes read
-	   as two groups arriving, not one wall. Back sits at the head's left, Expand at the panel's
-	   top-right, so Back leads and Expand lands last (its --bn puts it at the far end of the
-	   ripple). `backwards` again, and here it is load-bearing in a way the content rule only
-	   worried about second-hand: these ARE buttons in the universal hover/press list, so the
-	   fill must lift the moment the entrance ends or the animated translate would pin their
-	   scale() — the e2e buttons suite hovers long after, and asserts exactly 1.05. */
+	/* Panel chrome slides in horizontally while the content column rises — the two axes read as
+	   two groups arriving, not one wall. `backwards` again, and here it is load-bearing in a way
+	   the content rule only worried about second-hand: this IS a button in the universal
+	   hover/press list, so the fill must lift the moment the entrance ends or the animated
+	   translate would pin its scale() — the e2e buttons suite hovers long after, and asserts
+	   exactly 1.05. */
 	@media (prefers-reduced-motion: no-preference) {
-		.surface-head .back,
-		.expand {
+		.surface-head .back {
 			animation: btn-in 0.42s var(--spring) backwards;
 			animation-delay: calc(var(--enter-lead) + var(--bn, 0) * var(--btn-enter-step));
-		}
-		.expand {
-			--bn: 3;
 		}
 	}
 
@@ -2711,12 +2688,9 @@
 		border-radius: 50%;
 		flex: none;
 	}
-	.chip-code {
-		font-weight: 700;
-		letter-spacing: 0.04em;
-	}
 	.chip-title {
-		color: var(--sub);
+		font-weight: 600;
+		color: var(--ink);
 	}
 
 	/* ══ Universal button interaction ═══════════════════════════════════════════════════
