@@ -347,41 +347,62 @@
 		const r = o.getBoundingClientRect();
 		ringCx = r.left + r.width / 2;
 		ringCy = r.top + r.height / 2;
+		measureBandR0();
+	}
+	// The bands ring the masthead as tightly as they can without touching it — a sun with the
+	// wordmark at its centre. The circles are centred on the "o", which sits INSIDE the masthead, so
+	// clearing it means out-reaching its farthest corner: any smaller and the ribbon would cut
+	// through the wordmark or the nav. Measured, not guessed, because the masthead clamps with the
+	// viewport — this re-runs on resize and once the font has loaded.
+	function measureBandR0() {
+		const m = document.querySelector('.masthead')?.getBoundingClientRect();
+		if (!m) return;
+		const reach = Math.max(
+			Math.hypot(m.left - ringCx, m.top - ringCy),
+			Math.hypot(m.right - ringCx, m.top - ringCy),
+			Math.hypot(m.left - ringCx, m.bottom - ringCy),
+			Math.hypot(m.right - ringCx, m.bottom - ringCy)
+		);
+		bandR0 = reach + BAND_GAP + BAND_W / 2; // r is the stroke's CENTRE; half of it lies inward
 	}
 	// ── Ticker bands ──────────────────────────────────────────────────────────────────────────
 	// The site's four destinations, painted as concentric coloured bands, each with its own name
 	// repeating around it. Click a band and its panel opens — the same destinations, in the same
 	// order, as the masthead's nav. Hovering streams the words; at rest they sit still.
 	//
-	// They're stacked EDGE TO EDGE, not one per ring: the yellow Home band holds the third ring's
-	// radius and the rest are laid straight on top of it, one band-width apart, so the four read as
-	// a single striped ribbon rather than four separate rings. Each is a whole circle, so it never
-	// terminates in open space: it runs off the viewport's edges and the stage's overflow trims it.
-	// Streaming is then just a slow rotation of the text about the centre — the band doesn't move.
+	// They're stacked EDGE TO EDGE: the innermost (yellow Home) band sits as close to the masthead
+	// as it can without touching it — see measureBandR0 — and the rest lie straight on top of it, one
+	// band-width apart, so the four read as a single striped ribbon haloing the wordmark rather than
+	// as four separate rings. Each is a whole circle, so it never terminates in open space: it runs
+	// off the viewport's edges and the stage's overflow trims it. Streaming is then just a slow
+	// rotation of the text about the centre — the band beneath it doesn't move.
 	const BAND_W = 30; // band thickness, px — also the step between bands, so their edges meet
-	const BAND_R0 = ringRadii[2]; // Home keeps the third ring; the others stack outward from it
+	const BAND_GAP = 24; // breathing room between the masthead's corner and the ribbon's inner edge
 	const LAP_SECS = 60; // one lap of the Home band; the wider ones take proportionally longer,
 	// so every band's words travel at the same speed rather than the outer ones racing.
-	const bands = [
-		{ code: 'KSH', word: 'HOME', fill: '#e6b93c', ink: '#0a0a0a' },
-		{ code: 'ABT', word: 'ABOUT', fill: '#12a150', ink: '#ffffff' },
-		{ code: 'APP', word: 'APPS', fill: '#f06030', ink: '#0a0a0a' },
-		{ code: 'STG', word: 'SETTINGS', fill: '#8b46e0', ink: '#ffffff' }
-	].map((b, i) => {
-		const r = BAND_R0 + i * BAND_W;
-		const circumference = 2 * Math.PI * r;
-		// Enough repeats to go all the way round: an estimate off the word's length (fitBands trues
-		// the rest up), never fewer than one.
-		const reps = Math.max(1, Math.round(circumference / ((b.word.length + 3) * 9.5)));
-		return {
-			...b,
-			r,
-			// NBSPs, not plain spaces: SVG trims the trailing whitespace off a run of text, which
-			// eats the last separator's gap and leaves the seam butted up ("· APPS · APPS ·APPS").
-			text: `${b.word}\u00a0·\u00a0`.repeat(reps),
-			secs: (LAP_SECS * r) / BAND_R0
-		};
-	});
+	let bandR0 = $state(360); // innermost band's radius — measured off the masthead, see above
+	const bands = $derived(
+		[
+			{ code: 'KSH', word: 'HOME', fill: '#e6b93c', ink: '#0a0a0a' },
+			{ code: 'ABT', word: 'ABOUT', fill: '#12a150', ink: '#ffffff' },
+			{ code: 'APP', word: 'APPS', fill: '#f06030', ink: '#0a0a0a' },
+			{ code: 'STG', word: 'SETTINGS', fill: '#8b46e0', ink: '#ffffff' }
+		].map((b, i) => {
+			const r = bandR0 + i * BAND_W;
+			const circumference = 2 * Math.PI * r;
+			// Enough repeats to go all the way round: an estimate off the word's length (fitBands trues
+			// the rest up), never fewer than one.
+			const reps = Math.max(1, Math.round(circumference / ((b.word.length + 3) * 9.5)));
+			return {
+				...b,
+				r,
+				// NBSPs, not plain spaces: SVG trims the trailing whitespace off a run of text, which
+				// eats the last separator's gap and butts the seam up ("· APPS · APPS ·APPS").
+				text: `${b.word}\u00a0·\u00a0`.repeat(reps),
+				secs: (LAP_SECS * r) / bandR0
+			};
+		})
+	);
 	let bandTextEls = $state<(SVGTextElement | undefined)[]>([]);
 
 	// Splay each band's letters out (or pull them in) until its repeated words measure exactly one
@@ -405,6 +426,13 @@
 			}
 		});
 	}
+	// The radii move with the masthead (mount, resize, font load), and every move changes the
+	// circumferences the words have to fill. This runs after the DOM has taken the new radii, so the
+	// tracks it measures are the ones actually on screen.
+	$effect(() => {
+		bands;
+		fitBands();
+	});
 	// Angles run clockwise on screen from 3 o'clock (SVG's y grows downward), so 90° is a ring's
 	// lowest point — where each track starts, and so where its words begin. It runs from there back
 	// toward 3 o'clock: travelling that way, the text sits the right way up along the bottom of the
@@ -1470,13 +1498,13 @@
 		applySky();
 		STARS = makeStars(); // fresh random field per load (client-side)
 		SHOOT = makeShooting(); // and a few shooting stars to cross it
-		measureRings(); // centre the light-mode rings on the wordmark's "o" …
-		fitBands(); // … and fit each band's words to exactly one lap of its ring
-		// … and both again once the wordmark font has loaded: glyph widths shift the "o", and the
-		// bands' own measurements are only right once their real face is in.
+		// Centre the rings on the wordmark's "o" and size the band ribbon to clear the masthead. The
+		// words re-fit themselves off the resulting radii (see the $effect). Again once the wordmark
+		// font has loaded: glyph widths move both the "o" and the masthead's own box.
+		measureRings();
 		document.fonts?.ready.then(() => {
 			measureRings();
-			fitBands();
+			fitBands(); // the face changed, so re-fit even if the radii didn't move
 		});
 		starsOn = localStorage.getItem(STARS_KEY) !== '0'; // default on
 		if (localStorage.getItem(UI_KEY) === 'bubble') setUiStyle('bubble'); // else default flat
