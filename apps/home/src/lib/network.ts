@@ -62,5 +62,5 @@ export const portDescriptions: Record<string, string> = {
 	PRJ: 'Things I’ve made, on and off the clock.',
 	APP: 'A hub for the little live apps running on this site.',
 	ATFC: 'A live board of the aircraft arriving, departing, or passing overhead.',
-	PRES: 'A visual editor for the route-map slide decks.'
+	PRES: 'A visual editor for the slide decks.'
 };

@@ -13,12 +13,14 @@
 				var t = localStorage.getItem('ksh-theme');
 				if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
 				if (localStorage.getItem('ksh-ui') === 'bubble') document.documentElement.dataset.ui = 'bubble';
-				// Sky is opt-in now (default: a solid background, no data-sky). Apply a saved phase,
-				// or compute the phase when Auto is chosen; anything else (null / 'off') stays solid.
+				// Auto is the DEFAULT sky: a visitor who has never chosen (null) gets the time-of-day
+				// phase, same as an explicit 'auto'. Only 'off' opts out to a solid background. This
+				// runs pre-paint so the phase is on <html> before the first frame — the page's own
+				// skyMode default must match it, or the two disagree for a beat after hydration.
 				var sky = localStorage.getItem('ksh-sky');
 				if (['dawn', 'morning', 'noon', 'dusk', 'night'].indexOf(sky) >= 0) {
 					document.documentElement.dataset.sky = sky;
-				} else if (sky === 'auto') {
+				} else if (sky === 'auto' || sky === null) {
 					var h = new Date().getHours();
 					document.documentElement.dataset.sky =
 						h < 5 || h >= 21

@@ -32,8 +32,8 @@ const checkedIn = (page, group) =>
 const storage = (page) => page.evaluate(() => ({ ...localStorage }));
 const resetBtn = (page) => page.getByRole('button', { name: 'Reset to defaults' });
 
-// Seed an explicit sky phase so "reset restored the default (Off)" is distinguishable from
-// "nothing changed" — reset should strip the sky override entirely.
+// Seed an explicit sky phase so "reset restored the default (Auto)" is distinguishable from
+// "nothing changed" — reset should drop the override and go back to following the clock.
 const seedPhase = 'night';
 
 const DEFAULTS = {
@@ -41,7 +41,7 @@ const DEFAULTS = {
 	// in full. The key is still seeded below, because a reset must still wipe a stale saved one.)
 	'Display mode': 'System',
 	'Button style': 'Flat',
-	'Sky background': 'Off',
+	'Sky background': 'Auto',
 	Stars: 'On'
 };
 
@@ -92,8 +92,11 @@ const DEFAULTS = {
 	ok('reset → data-theme removed', (await page.locator('html').getAttribute('data-theme')) === null);
 	ok('reset → data-ui removed', (await page.locator('html').getAttribute('data-ui')) === null);
 	// Sky resets to Off (the new default) — the override attribute is removed entirely.
+	// Auto is the default, so a reset does NOT strip data-sky — it repaints it with whatever phase
+	// the clock is in. What must go is the stored override (checked with the other PREF_KEYS below).
 	const skyNow = await page.locator('html').getAttribute('data-sky');
-	ok('reset → sky removed (Off is the default)', skyNow === null, String(skyNow));
+	const PHASES = ['dawn', 'morning', 'noon', 'dusk', 'night'];
+	ok('reset → sky follows the clock again (Auto)', PHASES.includes(skyNow), String(skyNow));
 	// (The "reset → map is the train map" and "Route map style = Train" checks were removed with
 	// the transit-map motif — the map and its rail/air Settings toggle no longer exist.)
 	ok('reset → settings panel still open', await page.locator('aside.surface').isVisible());

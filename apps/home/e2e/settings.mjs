@@ -50,7 +50,7 @@ const checkedIn = (page, group) =>
 		'Display mode': 'System',
 		'Site look': 'Lab',
 		'Button style': 'Flat',
-		'Sky background': 'Off',
+		'Sky background': 'Auto',
 		Stars: 'On'
 	};
 	for (const [group, expected] of Object.entries(want)) {
@@ -101,7 +101,7 @@ const checkedIn = (page, group) =>
 	const want = {
 		'Display mode': 'Dark',
 		'Button style': 'Bubble',
-		'Sky background': 'Off',
+		'Sky background': 'Off', // seeded 'off' — the saved opt-out beats the Auto default
 		Stars: 'Off'
 	};
 	for (const [group, expected] of Object.entries(want)) {
@@ -114,20 +114,29 @@ const checkedIn = (page, group) =>
 // ── 4. Decoration is BUILT only when it can be seen ────────────────────────
 // The stars are dark-only and the rings light-only. Painting the hidden one transparent left its
 // animations running for nothing, so each is now gated on the scheme in use.
+//
+// The sky is pinned in both cases, not left on the Auto default: an opted-into sky decides the
+// colour scheme (dusk and night are dark), so with Auto the wall clock — not the seeded theme —
+// would pick which of the two renders, and this suite would pass or fail by time of day.
 {
-	const { ctx, page } = await firstVisit({ 'ksh-theme': 'light' });
+	const { ctx, page } = await firstVisit({ 'ksh-theme': 'light', 'ksh-sky': 'noon' });
 	const seen = await page.evaluate(() => ({
 		rings: document.querySelectorAll('.ring-line').length,
 		stars: document.querySelectorAll('.stars span').length,
-		running: document.getAnimations().filter((a) => a.playState === 'running').length
+		// Only ENDLESS animations matter: entrance flourishes are still winding down at this point
+		// and are supposed to be. What must not exist is anything that repaints forever.
+		forever: document
+			.getAnimations()
+			.filter((a) => a.playState === 'running' && a.effect?.getTiming().iterations === Infinity)
+			.length
 	}));
 	ok('light: rings drawn', seen.rings > 0, String(seen.rings));
 	ok('light: no stars in the DOM', seen.stars === 0, String(seen.stars));
-	ok('light: nothing animating at idle', seen.running === 0, String(seen.running));
+	ok('light: nothing animating forever at idle', seen.forever === 0, String(seen.forever));
 	await ctx.close();
 }
 {
-	const { ctx, page } = await firstVisit({ 'ksh-theme': 'dark' });
+	const { ctx, page } = await firstVisit({ 'ksh-theme': 'dark', 'ksh-sky': 'night' });
 	const seen = await page.evaluate(() => ({
 		rings: document.querySelectorAll('.ring-line').length,
 		stars: document.querySelectorAll('.stars span').length

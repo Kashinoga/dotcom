@@ -8,8 +8,8 @@
 	import Masthead from '$lib/Masthead.svelte';
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
 	import PresentationBuilder from '$lib/PresentationBuilder.svelte';
-	import { BACK_SVG } from '$lib/icons';
-	import { airports, airlines, HUB, type Pt } from '$lib/network';
+	import { BACK_SVG, AIRPLANE_SVG, PRESENTATION_SVG } from '$lib/icons';
+	import { airports, airlines, portDescriptions, HUB, type Pt } from '$lib/network';
 	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
 	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
 	import { rangeToken, refreshToken } from '$lib/scope';
@@ -151,7 +151,11 @@
 		{ id: 'dusk', label: 'Dusk' },
 		{ id: 'night', label: 'Night' }
 	];
-	let skyMode = $state<SkyMode>('off'); // default: a solid background (no time-of-day sky)
+	// Auto by DEFAULT: a first-ever visitor gets the time-of-day sky, following the clock. 'off' is
+	// the opt-OUT (a solid background). Four places have to agree on this — here, the pre-paint
+	// script in app.html (so there's no flash before hydration), settingsAreDefault, and
+	// resetSettings — which is why changing only one of them silently does nothing.
+	let skyMode = $state<SkyMode>('auto');
 	let skyPhase = $state<SkyPhase>('morning'); // the phase actually painted (for the note)
 	let skyTimer = 0;
 	function currentPhase(): SkyPhase {
@@ -266,12 +270,12 @@
 		theme === 'system' &&
 			uiStyle === 'flat' &&
 			look === 'lab' &&
-			skyMode === 'off' &&
+			skyMode === 'auto' &&
 			starsOn
 	);
 
 	function resetSettings() {
-		skyMode = 'off';
+		skyMode = 'auto';
 		starsOn = true;
 		setTheme('system'); // also strips data-theme and its key
 		setUiStyle('flat'); // also strips data-ui and its key
@@ -355,9 +359,9 @@
 	);
 	const skyStatus = $derived(
 		skyMode === 'off'
-			? 'Off — a solid background (the default): black in dark mode, white in light.'
+			? 'Off — a solid background: black in dark mode, white in light.'
 			: skyMode === 'auto'
-				? `Auto — following the clock (currently ${skyPhase}).`
+				? `Auto (the default) — following the clock, currently ${skyPhase}.`
 				: `Fixed to ${skyMode}.`
 	);
 	const uiStatus = $derived(
@@ -646,6 +650,15 @@
 			{ email: 'contact@kashinoga.com' }
 		]
 	};
+	// The apps the Apps panel shows as CARDS in its body — so they must not also appear as chips in
+	// its Related rail. Everywhere else the rail is unchanged, and the hub stays in it either way.
+	const APP_CARDS = ['ATFC', 'PRES'];
+	const APP_ICONS: Record<string, string> = { ATFC: AIRPLANE_SVG, PRES: PRESENTATION_SVG };
+	const relatedTo = (code: string) => {
+		const all = [...new Set(adj[code] ?? [])];
+		return code === 'APP' ? all.filter((c) => !APP_CARDS.includes(c)) : all;
+	};
+
 	const stub = (t: string): Block[] => [
 		{
 			p: `“${t}” is a placeholder destination. This surface scrolls and holds headings, paragraphs, images, and quotes — drop the real ${t.toLowerCase()} content here.`
@@ -1525,7 +1538,7 @@
 {/snippet}
 
 <!-- Onward-travel chip row, shared by every panel: a destination's connections, a
-     line's station list, and the Traffic board's Connections slot. `label` names the
+     line's station list, and the Traffic board's Related slot. `label` names the
      section; `codes` are the station codes to link to. -->
 {#snippet onward(label: string, codes: string[])}
 	{#if codes.length}
@@ -1639,7 +1652,7 @@
 							onRefreshChange={setRefresh}
 						>
 							{#snippet connections()}
-								{@render onward('Connections', conns)}
+								{@render onward('Related', relatedTo(v.code))}
 							{/snippet}
 						</TrafficBoard>
 					{:else if v.code === 'PRES'}
@@ -1933,7 +1946,32 @@
 						{/each}
 						{/if}
 
-						{@render onward('Connections', conns)}
+						<!-- Apps: the live apps themselves, promoted out of the Related rail and into the
+						     body as cards — each its own icon, name and blurb. They're the panel's real
+						     content; the rail below is for everything ELSE you can get to from here. -->
+						{#if v.code === 'APP'}
+							<ul class="app-cards">
+								{#each APP_CARDS as c}
+									<li>
+										<a
+											class="app-card"
+											href={viewPath({ kind: 'port', code: c })}
+											data-sveltekit-preload-data="off"
+											style:--card-accent={accent[c]}
+											onclick={(e) => onNodeClick(e, () => board(c))}
+										>
+											<span class="app-ico">{@html APP_ICONS[c]}</span>
+											<span class="app-copy">
+												<span class="app-name">{airports[c].title}</span>
+												<span class="app-blurb">{portDescriptions[c]}</span>
+											</span>
+										</a>
+									</li>
+								{/each}
+							</ul>
+						{/if}
+
+						{@render onward('Related', relatedTo(v.code))}
 					</div>
 					{/if}
 				{:else}
@@ -2748,6 +2786,62 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5rem;
+	}
+	/* ── Apps cards ───────────────────────────────────────────────────────────────────────────── */
+	/* The Apps panel's real content: one card per live app, each carrying its own mark. Flat, like
+	   the panels themselves — an edge and the station's accent, no shadow. */
+	.app-cards {
+		list-style: none;
+		margin: 1.75rem 0 0;
+		padding: 0;
+		display: grid;
+		gap: 0.75rem;
+	}
+	.app-card {
+		display: flex;
+		align-items: center;
+		gap: 0.9rem;
+		padding: 1rem 1.1rem;
+		border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+		border-radius: 14px;
+		color: var(--ink);
+		text-decoration: none;
+		background: color-mix(in srgb, var(--ink) 3%, transparent);
+		transition: border-color 0.15s ease, background 0.15s ease;
+	}
+	.app-card:hover,
+	.app-card:focus-visible {
+		border-color: var(--card-accent);
+		background: color-mix(in srgb, var(--card-accent) 8%, transparent);
+	}
+	/* The mark sits in the station's own accent — the same colour its dot carries everywhere else. */
+	.app-ico {
+		flex: none;
+		display: grid;
+		place-items: center;
+		width: 2.75rem;
+		height: 2.75rem;
+		border-radius: 12px;
+		color: var(--card-accent);
+		background: color-mix(in srgb, var(--card-accent) 12%, transparent);
+	}
+	.app-ico :global(svg) {
+		width: 1.4rem;
+		height: 1.4rem;
+		display: block;
+	}
+	.app-copy {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+		min-width: 0;
+	}
+	.app-name {
+		font-weight: 700;
+	}
+	.app-blurb {
+		font-size: 0.9rem;
+		color: var(--sub);
 	}
 	.chip {
 		display: inline-flex;
