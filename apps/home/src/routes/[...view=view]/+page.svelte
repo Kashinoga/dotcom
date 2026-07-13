@@ -203,6 +203,11 @@
 		return 'dusk';
 	}
 	function applySky() {
+		// data-sky-photo is what stops the server-rendered rings (and the star field) painting under a
+		// photo before hydration — see app.html. It's stamped pre-paint from storage, so it MUST be
+		// cleared here when the sky changes to anything else: leaving it set hid the stars for the
+		// rest of the session the moment anyone switched from Photo to a night sky.
+		document.documentElement.toggleAttribute('data-sky-photo', skyMode === 'photo');
 		// Off and Photo both carry no phase: Off has nothing to paint, and a photograph can't tell the
 		// tokens what time it is. Only the gradients set data-sky.
 		if (skyMode === 'off' || skyMode === 'photo') {
