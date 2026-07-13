@@ -68,8 +68,12 @@
 	/* TODO(lab): Metro's "premium plastic" frosted acrylic — swap for Lab's own
 	 * surface material (the tints, sheen, and blur that define the panel's feel). */
 	/* Body and header are the same pure stock — white in light, black in dark. The header
-	   reads as a header from its bottom border, not from a tint step. */
-	--panel-fill: light-dark(rgba(255, 255, 255, 0.75), rgba(0, 0, 0, 0.75));
+	   reads as a header from its bottom border, not from a tint step.
+	   The dark side is markedly lighter than the light side's 0.75: the dark skies (dusk,
+	   night) are already near the ink's floor, and 0.75 black over them was a dead-black
+	   slab — no sky colour, no stars. At 0.45 the pane still reads as a pane (the blur does
+	   the frosting) while the night keeps showing through. */
+	--panel-fill: light-dark(rgba(255, 255, 255, 0.75), rgba(0, 0, 0, 0.45));
 	--panel-fill-solid: light-dark(#ffffff, #000000);
 	/* The panel's SURFACE — its body and its header — is glass, not stock: the sky shows through it,
 	   and the panel is told apart by its edge. --panel-veil is how much of the page's own paper is

@@ -83,8 +83,10 @@
 	 * Colours use light-dark() so a manual [data-theme] toggle flips them (unlike the
 	 * OS-only --surface). --fill is the single frosted tint used in BOTH the compact
 	 * and expanded states (their background is identical); --head is the near-opaque
-	 * sticky-header tint. */
-	--panel-fill: light-dark(rgba(255, 255, 255, 0.75), rgba(0, 0, 0, 0.75));
+	 * sticky-header tint.
+	 * Dark side lighter than light's 0.75 on purpose: 0.75 black over the dark skies
+	 * (dusk, night) went dead black — see lab.css; 0.45 keeps the night showing through. */
+	--panel-fill: light-dark(rgba(255, 255, 255, 0.75), rgba(0, 0, 0, 0.45));
 	/* Flat mode's panel body: opaque, and pure — white in light, black in dark. A panel is a
 	   sheet laid over the map, separated by its edge, not a pane of glass separated by what
 	   shows through it. (Bubble keeps the frosted --panel-fill.) */
