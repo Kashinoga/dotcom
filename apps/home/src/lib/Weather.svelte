@@ -32,6 +32,87 @@
 
 	onMount(restore);
 
+	// The strip scrolls, but nothing could scroll it. A mouse wheel scrolls VERTICALLY, the panel
+	// swallowed that, and the scrollbar was hidden — so a fourth city sat cut off at the edge with no
+	// way to reach it (a trackpad's sideways swipe worked, which is exactly the kind of "works for
+	// me" that hides this). Now: the wheel moves it sideways, and the edges fade to show there's
+	// more, which is the affordance the scrollbar used to be.
+	let tabsEl = $state<HTMLElement | undefined>(undefined);
+	let atStart = $state(true);
+	let atEnd = $state(true);
+
+	function measureTabs() {
+		const el = tabsEl;
+		if (!el) return;
+		atStart = el.scrollLeft <= 1;
+		atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 1;
+	}
+
+	function onTabsWheel(e: WheelEvent) {
+		const el = tabsEl;
+		if (!el || el.scrollWidth <= el.clientWidth) return; // nothing hidden — let the panel scroll
+		// A vertical wheel is the only wheel most mice have; treat it as "move along the strip".
+		// Whichever axis is larger wins, so a trackpad's sideways swipe still works untouched.
+		const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+		if (!delta) return;
+		e.preventDefault();
+		el.scrollLeft += delta;
+	}
+
+	// Drag the strip, too — the other way people move a row like this, and the only one that works
+	// on a touchscreen without a fling. The catch is that the strip is made of BUTTONS: a drag that
+	// ends on a tab would otherwise also click it and switch cities. So a press only becomes a drag
+	// after it has actually moved (4px), and if it did, the click that follows is swallowed.
+	let dragFrom = 0; // pointer x where the press started
+	let dragScroll = 0; // where the strip was scrolled to then
+	let dragging = $state(false);
+	let dragged = false; // did this press ever move? (the click-swallowing flag)
+
+	function onTabsDown(e: PointerEvent) {
+		const el = tabsEl;
+		if (!el || el.scrollWidth <= el.clientWidth) return; // nothing to drag to
+		if (e.button !== 0) return;
+		dragFrom = e.clientX;
+		dragScroll = el.scrollLeft;
+		dragging = true;
+		dragged = false;
+		// NOT captured here, deliberately. Capturing on press redirects the whole gesture to the
+		// strip, so the click never reaches the tab underneath and a plain click stopped selecting a
+		// city. Capture only once the press has actually become a drag (below).
+	}
+
+	function onTabsMove(e: PointerEvent) {
+		if (!dragging || !tabsEl) return;
+		const dx = e.clientX - dragFrom;
+		if (!dragged && Math.abs(dx) < 4) return; // still a click, not yet a drag
+		if (!dragged) tabsEl.setPointerCapture(e.pointerId); // now it IS a drag — keep it on the strip
+		dragged = true;
+		tabsEl.scrollLeft = dragScroll - dx;
+	}
+
+	function onTabsUp(e: PointerEvent) {
+		if (!dragging) return;
+		dragging = false;
+		if (tabsEl?.hasPointerCapture(e.pointerId)) tabsEl.releasePointerCapture(e.pointerId);
+		// A drag that ends on a tab may or may not fire a click, depending on where it started and
+		// finished. `dragged` is cleared by the click that follows if there is one, and by the next
+		// press if there isn't — so a stray true can never swallow a later, genuine click.
+	}
+
+	function onTabsClick(e: MouseEvent) {
+		if (!dragged) return;
+		// The press moved: it was a drag, so it must not also pick a city.
+		e.stopPropagation();
+		e.preventDefault();
+		dragged = false;
+	}
+
+	// Re-measure whenever the cities change (a tab added or closed changes what's hidden).
+	$effect(() => {
+		wx.places.length;
+		requestAnimationFrame(measureTabs);
+	});
+
 	// NWS reports the sky as prose, not a code — "Mostly Cloudy", "Light Rain", "Thunderstorm". The
 	// order here is the priority: precipitation beats cloud cover, because a rainy overcast day is a
 	// rainy day. Anything unrecognised falls back to cloud rather than guessing.
@@ -65,7 +146,23 @@
 	     header's search pointed at ADDING a city rather than swapping the one you're looking at. A
 	     tab carries an × once there's more than one — the last city stays, since an empty panel would
 	     say nothing. -->
-	<div class="wx-tabs" role="tablist" aria-label="Cities">
+	<div
+		class="wx-tabs"
+		class:fade-start={!atStart}
+		class:fade-end={!atEnd}
+		role="tablist"
+		aria-label="Cities"
+		tabindex="-1"
+		class:dragging
+		bind:this={tabsEl}
+		onwheel={onTabsWheel}
+		onscroll={measureTabs}
+		onpointerdown={onTabsDown}
+		onpointermove={onTabsMove}
+		onpointerup={onTabsUp}
+		onpointercancel={onTabsUp}
+		onclickcapture={onTabsClick}
+	>
 		{#each wx.places as p, i}
 			<div class="wx-tab" class:on={i === wx.activeIdx}>
 				<button
@@ -202,7 +299,31 @@
 		overflow-x: auto;
 		scrollbar-width: none;
 		padding-bottom: 0.15rem;
-		scroll-snap-type: x proximity;
+		/* The edge that still hides a tab fades out — with the scrollbar gone, this is what says
+		   "there's more this way". Both edges can fade at once when you're in the middle of the row. */
+		--fade: 2.5rem;
+		mask-image: none;
+		/* Drag to scroll — and don't let the browser turn the drag into a text selection. */
+		touch-action: pan-x;
+		user-select: none;
+	}
+	.wx-tabs.dragging {
+		cursor: grabbing;
+	}
+	.wx-tabs.fade-end {
+		mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), transparent 100%);
+	}
+	.wx-tabs.fade-start {
+		mask-image: linear-gradient(to left, #000 calc(100% - var(--fade)), transparent 100%);
+	}
+	.wx-tabs.fade-start.fade-end {
+		mask-image: linear-gradient(
+			to right,
+			transparent 0,
+			#000 var(--fade),
+			#000 calc(100% - var(--fade)),
+			transparent 100%
+		);
 	}
 	.wx-tabs::-webkit-scrollbar {
 		display: none;

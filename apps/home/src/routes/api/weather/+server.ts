@@ -33,10 +33,30 @@ const c2f = (c: number) => (c * 9) / 5 + 32;
 const kmh2mph = (k: number) => k * 0.621371;
 const num = (r: Reading | undefined | null) => (typeof r?.value === 'number' ? r.value : null);
 
-// Cache per rounded lat/lon: conditions are re-reported about hourly, so a few minutes of staleness
-// is invisible and it keeps NWS from being hit once per page view. Module scope = per Worker isolate.
-const cache = new Map<string, { at: number; body: unknown }>();
-const TTL = 5 * 60 * 1000;
+// Cache per rounded lat/lon. Module scope = per Worker isolate.
+//
+// The TTL is derived from the OBSERVATION, not from a clock we picked. A station reports roughly
+// hourly, and each reading says when it was taken — so once we hold one, we know there is nothing
+// new to fetch until about an hour after that timestamp. Asking again before then would be a request
+// we already know the answer to, which is exactly the kind of traffic a free, keyless public service
+// shouldn't have to absorb.
+//
+// FLOOR is the fallback for a reading with no timestamp (or a station reporting more often than
+// hourly): never hit the upstream more than once every few minutes for the same place.
+const cache = new Map<string, { at: number; body: { observedAt?: string | null } }>();
+const FLOOR = 5 * 60 * 1000; // never refetch a place more often than this
+const CYCLE = 60 * 60 * 1000; // how often a station takes a reading
+const SLACK = 5 * 60 * 1000; // wait a little past the hour before expecting the next one
+
+/** Is the cached reading still the latest one the station has taken? */
+function stillCurrent(hit: { at: number; body: { observedAt?: string | null } }): boolean {
+	const now = Date.now();
+	if (now - hit.at < FLOOR) return true; // just fetched — don't ask again regardless
+	const observed = hit.body?.observedAt ? Date.parse(hit.body.observedAt) : NaN;
+	if (!Number.isFinite(observed)) return false; // no timestamp to reason from — refetch on FLOOR
+	// The next reading isn't due yet, so what we hold IS the current one.
+	return now < observed + CYCLE + SLACK;
+}
 
 export const GET: RequestHandler = async ({ url }) => {
 	const lat = Number(url.searchParams.get('lat'));
@@ -46,7 +66,7 @@ export const GET: RequestHandler = async ({ url }) => {
 	}
 	const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
 	const hit = cache.get(key);
-	if (hit && Date.now() - hit.at < TTL) {
+	if (hit && stillCurrent(hit)) {
 		return json(hit.body, { headers: { 'cache-control': 'public, max-age=300' } });
 	}
 
