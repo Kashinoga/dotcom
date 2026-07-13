@@ -2086,8 +2086,8 @@
 		position: relative;
 		display: inline-grid;
 		place-items: center;
-		width: 30px;
-		height: 30px;
+		width: 32px;
+		height: 32px;
 		flex: none;
 		padding: 0;
 		background: none;
@@ -2115,8 +2115,8 @@
 		transform: rotate(-90deg);
 	}
 	.ring {
-		width: 30px;
-		height: 30px;
+		width: 32px;
+		height: 32px;
 		transform: rotate(-90deg);
 	}
 	.ring-track {

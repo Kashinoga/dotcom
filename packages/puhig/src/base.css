@@ -151,7 +151,7 @@ body {
 }
 
 /* Icon-circle control — the shared panel button (back / expand / collapse / refresh):
- * a 30px disc. The icons are reicon's *-circle glyphs: a solid disc with the shape knocked out of
+ * a 32px disc. The icons are reicon's *-circle glyphs: a solid disc with the shape knocked out of
  * it (one evenodd path), so the button draws NO ring and NO fill of its own — the icon is the
  * button. It used to be the other way round (a drawn circle around a bare 15px glyph); the icons
  * carry the circle now, so the CSS stopped drawing one. Used across every panel so all panel
@@ -160,8 +160,8 @@ body {
 	display: inline-grid;
 	place-items: center;
 	box-sizing: border-box;
-	width: 30px;
-	height: 30px;
+	width: 32px;
+	height: 32px;
 	padding: 0;
 	color: color-mix(in srgb, var(--ink) 62%, transparent);
 	background: none;
@@ -185,8 +185,8 @@ body {
 /* The glyph fills the button, because the glyph IS the button — see above. */
 .icon-btn svg {
 	display: block;
-	width: 30px;
-	height: 30px;
+	width: 32px;
+	height: 32px;
 }
 
 /* Panel chrome entrance — the horizontal counterpart to the content column's `rise`. A

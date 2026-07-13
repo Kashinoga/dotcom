@@ -8,7 +8,18 @@
 	import Masthead from '$lib/Masthead.svelte';
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
 	import PresentationBuilder from '$lib/PresentationBuilder.svelte';
-	import { BACK_CIRCLE_SVG, AIRPLANE_SVG, PRESENTATION_SVG, CAMERA_SVG } from '$lib/icons';
+	import {
+		BACK_CIRCLE_SVG,
+		AIRPLANE_SVG,
+		PRESENTATION_SVG,
+		CAMERA_SVG,
+		HOME_SVG,
+		USER_SVG,
+		BRIEFCASE_SVG,
+		CODE_SVG,
+		GRID_SVG,
+		GEAR_SVG
+	} from '$lib/icons';
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
 	import faviconAtfc from '$lib/assets/favicon-atfc.svg';
@@ -754,6 +765,18 @@
 	// its Related rail. Everywhere else the rail is unchanged, and the hub stays in it either way.
 	const APP_CARDS = ['ATFC', 'PRES'];
 	const APP_ICONS: Record<string, string> = { ATFC: AIRPLANE_SVG, PRES: PRESENTATION_SVG };
+	// A mark per destination, worn by its chip in the Related rail. It replaced a plain accent dot:
+	// the dot named the LINE a stop sits on and nothing about the stop itself. The mark says what the
+	// place is — and keeps the line's colour, so the rail reads the same at a glance.
+	const PORT_ICONS: Record<string, string> = {
+		KSH: HOME_SVG,
+		ABT: USER_SVG,
+		WRK: BRIEFCASE_SVG,
+		PRJ: CODE_SVG,
+		APP: GRID_SVG,
+		STG: GEAR_SVG,
+		...APP_ICONS
+	};
 	const relatedTo = (code: string) => {
 		const all = [...new Set(adj[code] ?? [])];
 		return code === 'APP' ? all.filter((c) => !APP_CARDS.includes(c)) : all;
@@ -1675,7 +1698,7 @@
 							data-sveltekit-preload-data="off"
 							onclick={(e) => onNodeClick(e, () => board(c))}
 						>
-							<span class="chip-dot" style:background={accent[c]}></span>
+							<span class="chip-ico" style:color={accent[c]}>{@html PORT_ICONS[c] ?? ''}</span>
 							<span class="chip-title">{airports[c].title}</span>
 						</a>
 					</li>
@@ -2302,14 +2325,13 @@
 	   knocked out of it. reicon has no camera in that family (gallery-circle is the inverse: a ring
 	   around a solid picture), so the disc is composed here instead — an ink fill with the filled
 	   camera punched through it in the page's own stock. Same result, same rules: no ring, no
-	   shadow, the disc IS the button. Larger than the board's 30px because it sits on a photograph,
-	   where a small control is easy to lose. */
+	   shadow, the disc IS the button. Same 32px as every panel control — it reads as one of them. */
 	.photo-toggle {
 		flex: none;
 		display: grid;
 		place-items: center;
-		width: 2.25rem;
-		height: 2.25rem;
+		width: 32px;
+		height: 32px;
 		padding: 0;
 		border: 0;
 		border-radius: 999px;
@@ -2333,8 +2355,8 @@
 		outline-offset: 2px;
 	}
 	.photo-toggle :global(svg) {
-		width: 1.3rem;
-		height: 1.3rem;
+		width: 1.15rem;
+		height: 1.15rem;
 		display: block;
 	}
 	/* The flyout. Opaque, like the panels — it sits on a photograph, so it can't be a tint. */
@@ -3235,11 +3257,19 @@
 	.chip:hover {
 		background: var(--line);
 	}
-	.chip-dot {
-		width: 0.7rem;
-		height: 0.7rem;
-		border-radius: 50%;
+	/* The station's mark, in its line's colour — see PORT_ICONS. Sized to the dot it replaced, so
+	   the chips keep their rhythm. */
+	.chip-ico {
+		display: grid;
+		place-items: center;
 		flex: none;
+		width: 1rem;
+		height: 1rem;
+	}
+	.chip-ico :global(svg) {
+		display: block;
+		width: 100%;
+		height: 100%;
 	}
 	.chip-title {
 		font-weight: 600;
