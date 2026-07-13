@@ -13,20 +13,26 @@
 		WIND_SVG,
 		REFRESH_CIRCLE_SVG
 	} from '$lib/icons';
-	import { AIRPORTS, type Airport } from '$lib/fields';
-
-	// Current conditions from the National Weather Service, for one of the site's places.
+	// Current conditions from the National Weather Service, for any US city.
 	//
-	// The place list is the Traffic board's field list, on purpose: they're the same set of dots on
-	// the same map, and a second, parallel list of cities would be a second thing to keep true.
-	// Gracemeria is skipped — it's a fictional field (see $lib/fields), and NWS has no station over
-	// a place that doesn't exist.
+	// The place used to be one of the Traffic board's ten fields. It's a search box now: type a city,
+	// pick it, and the app reads the sky over it. Two upstreams, both proxied (neither sends CORS):
+	// /api/places geocodes the name, /api/weather turns the coordinates into a reading.
 	//
-	// Only US places work, and that's the API's boundary, not a shortcut: NWS covers the United
-	// States and its territories, full stop. It's free and keyless in exchange.
+	// US only, and that's the API's boundary rather than a shortcut — NWS covers the United States
+	// and its territories, full stop. It's free and keyless in exchange, and the search is filtered
+	// to match, so it never offers a city the app can't then report on.
 	let { edit = false }: { edit?: boolean } = $props();
 
-	const PLACES: Airport[] = AIRPORTS.filter((a) => !a.demo);
+	type Place = { id: string; name: string; state: string; lat: number; lon: number };
+	// Somewhere to start, so the panel says something on a first visit rather than an empty box.
+	const DEFAULT_PLACE: Place = {
+		id: 'default',
+		name: 'Des Moines',
+		state: 'Iowa',
+		lat: 41.601,
+		lon: -93.609
+	};
 	const PLACE_KEY = 'ksh-weather-place';
 
 	type Now = {
@@ -44,15 +50,86 @@
 		windDir: number | null;
 	};
 
-	let place = $state<Airport>(PLACES[0]);
+	let place = $state<Place>(DEFAULT_PLACE);
 	let now = $state<Now | null>(null);
 	let status = $state<'loading' | 'ok' | 'error'>('loading');
-	// Fahrenheit first — this is a US-only API reporting on US places, so it's the unit the people
-	// reading it use. The toggle is right there, and it's remembered.
+	// Fahrenheit first — a US-only API reporting on US places, so it's the unit the people reading it
+	// use. The toggle is right there, and it's remembered.
 	const UNIT_KEY = 'ksh-weather-unit';
 	let unit = $state<'F' | 'C'>('F');
 
-	async function load(p: Airport) {
+	// ── The search ──────────────────────────────────────────────────────────────
+	let query = $state('');
+	let hits = $state<Place[]>([]);
+	let searching = $state(false);
+	let open = $state(false); // is the results list showing?
+	let active = $state(0); // which result the arrow keys are on
+	let searchTimer = 0;
+	let searchSeq = 0; // guards against a slow response overwriting a newer one
+
+	function onQuery(v: string) {
+		query = v;
+		clearTimeout(searchTimer);
+		if (v.trim().length < 2) {
+			hits = [];
+			open = false;
+			return;
+		}
+		// Debounced: a keystroke is not a search. 250ms is about the gap between typing and pausing.
+		searchTimer = window.setTimeout(() => search(v), 250);
+	}
+
+	async function search(v: string) {
+		const seq = ++searchSeq;
+		searching = true;
+		try {
+			const r = await fetch(`/api/places?q=${encodeURIComponent(v.trim())}`);
+			const data = (await r.json()) as { places?: Place[] };
+			// A response that isn't the latest one is stale — dropping it stops an older, slower query
+			// from clobbering what the user has since typed.
+			if (seq !== searchSeq) return;
+			hits = data.places ?? [];
+			active = 0;
+			open = true;
+		} catch {
+			if (seq === searchSeq) hits = [];
+		} finally {
+			if (seq === searchSeq) searching = false;
+		}
+	}
+
+	function choose(p: Place) {
+		place = p;
+		query = '';
+		hits = [];
+		open = false;
+		try {
+			localStorage.setItem(PLACE_KEY, JSON.stringify(p));
+		} catch {
+			/* storage unavailable — the choice still holds for this visit */
+		}
+		load(p);
+	}
+
+	function onSearchKey(e: KeyboardEvent) {
+		if (!open || !hits.length) return;
+		if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			active = (active + 1) % hits.length;
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			active = (active - 1 + hits.length) % hits.length;
+		} else if (e.key === 'Enter') {
+			e.preventDefault();
+			choose(hits[active]);
+		} else if (e.key === 'Escape') {
+			// Swallowed here so it closes the list, not the whole panel.
+			e.stopPropagation();
+			open = false;
+		}
+	}
+
+	async function load(p: Place) {
 		status = 'loading';
 		try {
 			const r = await fetch(`/api/weather?lat=${p.lat}&lon=${p.lon}`);
@@ -62,16 +139,6 @@
 		} catch {
 			status = 'error';
 		}
-	}
-
-	function setPlace(p: Airport) {
-		place = p;
-		try {
-			localStorage.setItem(PLACE_KEY, p.iata);
-		} catch {
-			/* storage unavailable — the choice still holds for this visit */
-		}
-		load(p);
 	}
 
 	function setUnit(u: 'F' | 'C') {
@@ -85,12 +152,15 @@
 
 	onMount(() => {
 		try {
-			const saved = PLACES.find((p) => p.iata === localStorage.getItem(PLACE_KEY));
-			if (saved) place = saved;
+			const saved = localStorage.getItem(PLACE_KEY);
+			if (saved) {
+				const p = JSON.parse(saved) as Place;
+				if (p && typeof p.lat === 'number' && typeof p.lon === 'number') place = p;
+			}
 			const u = localStorage.getItem(UNIT_KEY);
 			if (u === 'C' || u === 'F') unit = u;
 		} catch {
-			/* storage unavailable — the defaults stand */
+			/* storage unavailable or malformed — the default place stands */
 		}
 		load(place);
 	});
@@ -124,22 +194,47 @@
 </script>
 
 <div class="wx">
-	<!-- The places: the same fields the Traffic board flies to. -->
-	<div class="wx-places" role="radiogroup" aria-label="Place">
-		{#each PLACES as p, i}
-			<button
-				type="button"
-				class="field"
-				class:on={place.iata === p.iata}
-				role="radio"
-				aria-checked={place.iata === p.iata}
-				style="--bn:{i + 1}"
-				onclick={() => setPlace(p)}
-				title={p.name}
-			>
-				{p.iata}
-			</button>
-		{/each}
+	<!-- Search a US city. The list is a plain listbox: arrow keys move, Enter picks, Escape closes
+	     it (and only it — the panel stays put). -->
+	<div class="wx-search">
+		<input
+			type="search"
+			class="wx-input"
+			placeholder="Search a US city…"
+			autocomplete="off"
+			spellcheck="false"
+			role="combobox"
+			aria-expanded={open && hits.length > 0}
+			aria-controls="wx-results"
+			aria-label="Search a US city"
+			value={query}
+			oninput={(e) => onQuery(e.currentTarget.value)}
+			onkeydown={onSearchKey}
+			onfocus={() => (open = hits.length > 0)}
+		/>
+		{#if open && hits.length}
+			<ul class="wx-results" id="wx-results" role="listbox">
+				{#each hits as h, i}
+					<li>
+						<button
+							type="button"
+							class="wx-hit"
+							class:on={i === active}
+							role="option"
+							aria-selected={i === active}
+							onclick={() => choose(h)}
+							onmouseenter={() => (active = i)}
+						>
+							<span class="wx-hit-name">{h.name}</span>
+							<span class="wx-hit-state">{h.state}</span>
+						</button>
+					</li>
+				{/each}
+			</ul>
+		{:else if open && query.trim().length >= 2 && !searching}
+			<p class="wx-none">No US city by that name. The weather here is the National Weather
+				Service's, so it only knows the United States.</p>
+		{/if}
 	</div>
 
 	{#if status === 'error'}
@@ -231,31 +326,71 @@
 		gap: 1.25rem;
 	}
 
-	/* The place pills — the Traffic board's field row, same control, same feel. */
-	.wx-places {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.4rem;
+	/* The search box, and the results that drop out of it. */
+	.wx-search {
+		position: relative;
 	}
-	.field {
-		padding: 0.35rem 0.7rem;
+	.wx-input {
+		width: 100%;
+		padding: 0.6rem 0.85rem;
 		font: inherit;
-		font-size: 0.8rem;
-		font-weight: 700;
-		letter-spacing: 0.04em;
 		color: var(--ink);
 		background: none;
 		border: 1px solid var(--line-edge);
-		border-radius: 999px;
-		cursor: pointer;
+		border-radius: 10px;
 	}
-	.field:hover {
+	.wx-input:hover {
 		border-color: var(--line-strong);
 	}
-	.field.on {
-		color: var(--paper);
-		background: var(--ink);
-		border-color: var(--ink);
+	.wx-input:focus-visible {
+		outline: var(--focus-ring);
+		outline-offset: 2px;
+	}
+	/* Over the reading, not shoving it down the panel — the list is transient. Opaque, like every
+	   other surface that floats. */
+	.wx-results {
+		position: absolute;
+		z-index: 3;
+		top: calc(100% + 0.35rem);
+		left: 0;
+		right: 0;
+		list-style: none;
+		margin: 0;
+		padding: 0.3rem;
+		background: var(--panel-fill-solid);
+		border: 1px solid var(--line);
+		border-radius: 10px;
+	}
+	.wx-hit {
+		display: flex;
+		align-items: baseline;
+		gap: 0.5rem;
+		width: 100%;
+		padding: 0.45rem 0.55rem;
+		font: inherit;
+		text-align: left;
+		color: var(--ink);
+		background: none;
+		border: 0;
+		border-radius: 7px;
+		cursor: pointer;
+	}
+	/* One highlight, driven by `active` — the arrow keys and the pointer set the same thing, so the
+	   keyboard and the mouse can't disagree about which row is next. */
+	.wx-hit.on {
+		background: color-mix(in srgb, var(--ink) 8%, transparent);
+	}
+	.wx-hit-name {
+		font-weight: 600;
+	}
+	.wx-hit-state {
+		font-size: 0.85rem;
+		color: var(--sub);
+	}
+	.wx-none {
+		margin: 0.5rem 0 0;
+		font-size: 0.85rem;
+		color: var(--sub);
 	}
 
 	/* The reading. The number carries it, so it's set at panel-title scale. */

@@ -2053,15 +2053,14 @@
 	}
 	.surface-head {
 		flex: none;
-		/* Cool plastic tint over the frosted backdrop, matching the Traffic board's
-		   .tfc-head and the Presentation Builder's toolbar — every panel gets the same
-		   darkened header band. Near-opaque, so the map doesn't read through it; the
-		   bottom border is the divider. */
 		background: var(--panel-head);
-		/* Extra bottom room so the now-large title's descenders ("g", "y") clear the
-		   header's bottom border. */
-		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(1.5rem, 2.5vw, 2.25rem);
-		border-bottom: 1px solid var(--line);
+		/* No rule under the title. The header and the body are the same stock (both are the panel's
+		   pure white/black), so the border was drawing a line between two things that are one thing —
+		   and with the title set at wordmark scale it read as an underline.
+		   The space it used to occupy does the separating instead: the bottom padding grew by roughly
+		   the room the divider took, so the body starts where it always did and the title has air
+		   under its descenders rather than a rule through them. */
+		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(1.75rem, 3vw, 2.75rem);
 	}
 	/* Icon-circle back control (shared .icon-btn); only its placement is set here. The gap
 	   below it (to the eyebrow/title) matches the header's top/left edge inset, so the back
