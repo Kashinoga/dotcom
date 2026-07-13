@@ -1219,7 +1219,7 @@
 				<div class="head-refresh">{@render accentDot()}</div>
 			</div>
 			<!-- Top-right corner: the live refresh control paired with the expand toggle. Sits
-			     inside the (sticky) header so it stays put as the panel scrolls. --bn keeps it
+			     inside the header, which stays put while the body scrolls. --bn keeps it
 			     a beat behind the Back cap so the two ends of the header don't snap in together. -->
 			<div class="corner corner-compact" style="--bn:2">
 				{@render manualButton()}
@@ -1500,13 +1500,16 @@
 </div>
 
 <style>
-	/* The board owns the whole panel interior: a header + a body that grows to the
-	   table's natural height (the panel itself scrolls when the data runs long, rather
-	   than boxing the table into its own inner scroller). */
+	/* The board owns the whole panel interior: a header that stays put, over a body that
+	   scrolls (same shape as the generic .surface-head/.surface-body pair). It used to be
+	   the other way — the whole panel scrolled under a sticky header — but that leaned on
+	   the header PAINTING over the rows, and a glass header has no paint to cover them
+	   with: rows read straight through the wash. So the body clips them at its top edge
+	   instead, and the header needs no background at all. */
 	.tfc {
 		display: flex;
 		flex-direction: column;
-		min-height: 100%;
+		height: 100%;
 		position: relative; /* anchors the compact expand toggle */
 	}
 	/* Back / super-bar end caps / compact expand toggle all use the shared .icon-btn (in
@@ -1535,25 +1538,30 @@
 	}
 	.tfc-head {
 		flex: none;
-		/* Sticky in both layouts: the header (compact) / super bar (expanded) stays at the
-		   top while the table scrolls under it. Near-opaque (no blur) so the rows passing
-		   beneath don't read through it — that opacity IS the divider now, not a rule. Also the
-		   positioning context for the compact expand button, so it sticks along with it. */
-		position: sticky;
-		top: 0;
-		z-index: 2;
-		background: var(--panel-head); /* cool plastic tint, matching the panel body */
+		/* No background: the header is the same glass as the body — one surface (see
+		   .surface-head). It stays put because the BODY owns the scroll, not because it's
+		   sticky; the rows never pass beneath it, so there's nothing to cover. (The compact
+		   expand button is anchored to .tfc, whose top edge this header shares.) */
 		/* No rule, and a tighter bottom — same as every other panel's header (see .surface-head).
 		   The old bottom room existed to hold the title's descenders off that rule. */
 		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(0.85rem, 1.5vw, 1.25rem);
 	}
 	.tfc-body {
-		/* Grow to fill a short panel, but never shrink below the data's height. */
-		flex: 1 0 auto;
+		/* The panel's scroller: rows clip at this box's top edge — under the glass header
+		   they never go. */
+		flex: 1 1 auto;
+		min-height: 0;
+		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
 		gap: 0.7rem;
 		padding: clamp(1.25rem, 3vw, 1.75rem) clamp(1.5rem, 4vw, 2.75rem) 2rem;
+	}
+	/* The body's children keep their natural height and OVERFLOW the box — that's what makes
+	   the body scroll. Left shrinkable, flex would squeeze the table into the box instead and
+	   hand the scrolling to .scroll's own overflow, headlessly. */
+	.tfc-body > * {
+		flex-shrink: 0;
 		/* Query against the body's own width so extra columns appear only when the
 		   panel is wide (expanded on a big viewport) — the compact panel is untouched. */
 		container-type: inline-size;
@@ -1843,7 +1851,7 @@
 	   Fonts step down from the compact header but keep the same hierarchy: the
 	   title is still the largest thing, then stat values, then labels. */
 	.tfc-head.bar {
-		/* Sticky + frosted background inherited from .tfc-head; this just re-lays the bar.
+		/* Same stay-put glass header as .tfc-head; this just re-lays the bar.
 		   One inset drives the padding (all four sides) AND the flex gap, so the back cap sits
 		   in an evenly-framed pocket — equal space above, below, left, and to the title — and
 		   the right collapse cap mirrors it. */
@@ -2125,7 +2133,12 @@
 		stroke: var(--accent);
 		stroke-width: 3;
 		stroke-linecap: round;
-		transition: stroke-dashoffset 0.2s linear;
+		/* NO transition on stroke-dashoffset, and it matters more than it looks: the timer
+		   ticks every 200ms, so a 0.2s transition here meant the arc was ANIMATING ON EVERY
+		   FRAME, forever — and each frame's repaint forced the panel's backdrop blur (Bubble's
+		   glass, now the default) to re-filter its full surface. Measured at idle on the
+		   board: ~20% of frames blown past budget, entirely recovered by removing this line.
+		   The un-smoothed step is ~0.3% of the circumference per tick — invisible. */
 	}
 	.is-paused .ring-arc {
 		stroke: color-mix(in srgb, var(--ink) 28%, transparent);
