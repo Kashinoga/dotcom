@@ -925,7 +925,7 @@
 
 					<!-- Slide -->
 					<div class="section-title">Slide</div>
-					<div class="field">
+					<div class="pb-field">
 						<label for="pb-label">Station label (route line)</label>
 						<input
 							id="pb-label"
@@ -935,7 +935,7 @@
 							placeholder="e.g. Intro"
 						/>
 					</div>
-					<div class="field">
+					<div class="pb-field">
 						<label for="pb-classes">Slide CSS classes</label>
 						<input
 							id="pb-classes"
@@ -1677,10 +1677,13 @@
 		padding-top: 0;
 		margin-top: 0;
 	}
-	.field {
+	/* NOT `.field`: that name is the ATFC field pill's, and the page's global Bubble rules
+	   key on it — a wrapper here wearing it grew the pill's gloss, radius, and hover spring
+	   (the "bubble artifact" on Station label / Slide CSS classes). */
+	.pb-field {
 		margin-bottom: 0.9rem;
 	}
-	.field label,
+	.pb-field label,
 	.field-label {
 		display: block;
 		font-size: 0.68rem;
