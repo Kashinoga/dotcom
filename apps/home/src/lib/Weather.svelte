@@ -139,6 +139,21 @@
 		['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(deg / 45) % 8];
 	const clock = (iso: string) =>
 		new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+	const reduceMotion =
+		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+	// When the shown city changes, glide its tab fully into view — picking one half-hidden
+	// under the edge fade (or adding a city, which lands at the end of the strip) would
+	// otherwise leave the SELECTED name cut off. `nearest` so an already-visible tab
+	// doesn't move at all.
+	$effect(() => {
+		const el = tabsEl?.children[wx.activeIdx] as HTMLElement | undefined;
+		el?.scrollIntoView({
+			behavior: reduceMotion ? 'auto' : 'smooth',
+			inline: 'nearest',
+			block: 'nearest'
+		});
+	});
 </script>
 
 <div class="wx">
@@ -164,7 +179,7 @@
 		onclickcapture={onTabsClick}
 	>
 		{#each wx.places as p, i}
-			<div class="wx-tab" class:on={i === wx.activeIdx}>
+			<div class="wx-tab" class:on={i === wx.activeIdx} style="--n:{i}">
 				<button
 					type="button"
 					class="wx-tab-name"
@@ -187,12 +202,20 @@
 		<button
 			type="button"
 			class="wx-add"
+			style="--n:{wx.places.length}"
 			aria-label="Add another city"
 			title="Add another city"
 			onclick={() => openSearch('add')}>{@html PLUS_SVG}</button
 		>
 	</div>
 
+	<!-- Keyed on the ACTIVE PLACE, so showing a different city remounts the reading and its
+	     entrance rise replays — the new city's numbers land the way the first one's did,
+	     instead of the old ones snapping into new values in place. The place object, not
+	     activeIdx: the header search REPLACES the city at the same index, and an index key
+	     would let that swap slip by unanimated. The tabs stay outside: they're the control
+	     you're using, and must not jump under the pointer. -->
+	{#key place}
 	{#if phase === 'error'}
 		<p class="wx-msg">
 			The National Weather Service isn't answering right now. It's a public service with no key
@@ -273,6 +296,7 @@
 			{now.place || place.name} · {now.station.name || now.station.id} · National Weather Service
 		</p>
 	{/if}
+	{/key}
 </div>
 
 <style>
@@ -280,6 +304,72 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.25rem;
+	}
+
+	/* Entrance — the panel's sections settle in on a stagger, top-to-bottom (`backwards`
+	   so nothing stays pinned after). Order tells the story: WHERE first (the tabs, each
+	   city a beat behind the last), then WHAT (the reading), then the detail rows. The
+	   motion DESCENDS — `settle` below, the global rise mirrored — because the cascade
+	   starts at the city selector at the TOP: content entering upward pointed away from
+	   the control that drives it. The reading remounts when the shown city changes (the
+	   #key in the markup), so its part of the cascade replays and a new city LANDS
+	   rather than snapping in. */
+	@media (prefers-reduced-motion: no-preference) {
+		/* The strip settles as ONE unit; the tabs fade in on beats inside it. Not a
+		   translate per tab: the strip is an overflow-x scroller with no vertical slack,
+		   so a translating tab clips against its edges mid-overshoot. Opacity carries
+		   the stagger without ever leaving the box. */
+		.wx-tabs {
+			animation: settle 0.45s ease backwards;
+		}
+		.wx-tab,
+		.wx-add {
+			animation: tab-in 0.35s ease backwards;
+			animation-delay: calc(0.08s + var(--n, 0) * 0.05s);
+		}
+		.wx-msg,
+		.wx-now,
+		.wx-stats,
+		.wx-source {
+			animation: settle 0.45s ease backwards;
+		}
+		.wx-msg,
+		.wx-now {
+			animation-delay: 0.1s;
+		}
+		.wx-stats {
+			animation-delay: 0.18s;
+		}
+		.wx-source {
+			animation-delay: 0.26s;
+		}
+	}
+	@keyframes tab-in {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+	/* The global `rise`, mirrored: drops in from a short offset ABOVE, overshoots past
+	   its resting spot, and settles — same beats, opposite direction. */
+	@keyframes settle {
+		0% {
+			opacity: 0;
+			transform: translateY(-8px);
+		}
+		60% {
+			opacity: 1;
+			transform: translateY(2px);
+		}
+		82% {
+			transform: translateY(-0.8px);
+		}
+		100% {
+			opacity: 1;
+			transform: translateY(0);
+		}
 	}
 
 
@@ -350,6 +440,10 @@
 		border: 0;
 		border-radius: 8px;
 		cursor: pointer;
+		/* Selection moves as a crossfade: the leaving city dims to sub while the arriving
+		   one takes the ink, instead of both snapping. (The weight change stays a cut —
+		   the loaded faces are static, so there's nothing between 600 and 700 to show.) */
+		transition: color 0.25s ease;
 	}
 	.wx-tab-name:hover {
 		color: var(--ink);
@@ -459,17 +553,22 @@
 		margin-left: auto;
 		display: flex;
 		align-items: center;
-		gap: 0.6rem;
+		/* One gap for the whole row: °F, °C and the refresh disc are three circles of the
+		   same size, and they only read as one set if the space between each pair matches
+		   (0.6rem here against the toggle's 0.25rem put visible extra air right of °C). */
+		gap: 0.25rem;
 	}
 	.wx-unit-toggle {
 		display: flex;
 		gap: 0.25rem;
 	}
-	.seg {
-		/* 32px DISCS, both dimensions fixed — the row is these two and the 32px refresh
-		   disc (.icon-btn), and it only reads as one set if all three are the same circle.
-		   Sized from padding, °F and °C came out different widths (different glyphs) and
-		   neither matched the disc. */
+	/* The °F/°C pair wear the refresh disc's exact clothes (the .photo-toggle recipe: the
+	   *-circle discs composed in page stock) — an ink disc with the glyph in paper, not an
+	   outline pill sitting beside a filled circle. 32px both ways, same as the disc; sized
+	   from padding, °F and °C came out different widths. Rest is the disc's 62% ink; hover
+	   and the SELECTED unit go full ink — the unit you're on is the one held down.
+	   Compound selector so the fill also beats Bubble's generic .seg paper face (0,2,1). */
+	.wx-unit-toggle .seg {
 		box-sizing: border-box;
 		width: 32px;
 		height: 32px;
@@ -479,16 +578,16 @@
 		font: inherit;
 		font-size: 0.8rem;
 		font-weight: 700;
-		color: var(--ink);
-		background: none;
-		border: 1px solid var(--line-edge);
+		color: var(--paper);
+		background: color-mix(in srgb, var(--ink) 62%, transparent);
+		border: 0;
 		border-radius: 999px;
 		cursor: pointer;
 	}
-	.seg.on {
-		color: var(--paper);
+	.wx-unit-toggle .seg:hover,
+	.wx-unit-toggle .seg.on {
 		background: var(--ink);
-		border-color: var(--ink);
+		color: var(--paper);
 	}
 
 	.wx-stats {
