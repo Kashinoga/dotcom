@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import { fly, fade } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import { browser, dev } from '$app/environment';
 	import { page } from '$app/state';
 	import { pushState, replaceState } from '$app/navigation';
@@ -367,18 +368,19 @@
 		}
 	}
 
-	// Button style (opt-in): 'bubble' gives every panel button a glossy, gel-like,
-	// pops-forward look borrowed from the presentation deck's controls; 'flat' is the
-	// default minimal chrome. data-ui="bubble" on the html element drives the global
-	// button CSS (see the :global bubble block in the style section); a pre-paint script
-	// in app.html applies the saved choice so there's no flash on load.
+	// Button style: 'bubble' (the default) gives every panel button a glossy, gel-like,
+	// pops-forward look borrowed from the presentation deck's controls; 'flat' opts out
+	// to minimal chrome. data-ui="bubble" on the html element drives the global button
+	// CSS (see the :global bubble block in the style section); app.html ships the
+	// attribute on <html> itself and its pre-paint script strips it for a saved 'flat',
+	// so there's no flash on load either way.
 	const UI_KEY = 'ksh-ui';
 	type UiStyle = 'flat' | 'bubble';
 	const uiOptions: { id: UiStyle; label: string; sub: string }[] = [
-		{ id: 'flat', label: 'Flat', sub: 'clean & minimal' },
-		{ id: 'bubble', label: 'Bubble', sub: 'glossy & springy' }
+		{ id: 'bubble', label: 'Bubble', sub: 'glossy & springy' },
+		{ id: 'flat', label: 'Flat', sub: 'clean & minimal' }
 	];
-	let uiStyle = $state<UiStyle>('flat');
+	let uiStyle = $state<UiStyle>('bubble');
 	function setUiStyle(s: UiStyle) {
 		uiStyle = s;
 		if (typeof document !== 'undefined') {
@@ -386,7 +388,7 @@
 			else document.documentElement.removeAttribute('data-ui');
 		}
 		try {
-			if (s === 'bubble') localStorage.setItem(UI_KEY, s);
+			if (s === 'flat') localStorage.setItem(UI_KEY, s);
 			else localStorage.removeItem(UI_KEY);
 		} catch {
 			/* storage unavailable — keep the in-memory choice */
@@ -438,7 +440,7 @@
 	// the default value reads as "already default", which is what the button implies.
 	const settingsAreDefault = $derived(
 		theme === 'system' &&
-			uiStyle === 'flat' &&
+			uiStyle === 'bubble' &&
 			look === 'lab' &&
 			skyMode === 'auto' &&
 			starsOn
@@ -448,7 +450,7 @@
 		skyMode = 'auto';
 		starsOn = true;
 		setTheme('system'); // also strips data-theme and its key
-		setUiStyle('flat'); // also strips data-ui and its key
+		setUiStyle('bubble'); // also restores data-ui and drops the key
 		setLook('lab'); // also strips data-look and its key
 		applySky();
 		// Forget the stored picks rather than saving the defaults over them, so a reset
@@ -544,8 +546,8 @@
 	);
 	const uiStatus = $derived(
 		uiStyle === 'bubble'
-			? 'Glossy, bubbly buttons that pop forward across the site.'
-			: 'Flat, minimal buttons.'
+			? 'Bubble (the default) — glossy, airy buttons that pop forward across the site.'
+			: 'Flat — minimal buttons, no gloss.'
 	);
 	const lookStatus = $derived(
 		look === 'metro'
@@ -846,8 +848,68 @@
 	}
 	// The panel element, for the slide transition.
 	let panelEl = $state<HTMLElement | undefined>(undefined);
+
+	// The last panel the visitor CLOSED — a port code, so the homepage can float a reopen
+	// bubble at the right edge (where the panel went). Watched from `view` rather than set
+	// inside home() so every close path counts: Back, the stage click, and the browser's
+	// own history. In-memory on purpose — "give me back what I just closed" is a gesture
+	// about this visit, not a bookmark, so it doesn't persist.
+	let lastClosed = $state<string | null>(null);
+	let prevOpenCode: string | null = null;
+	$effect(() => {
+		const code = view?.code ?? null;
+		if (!code && prevOpenCode) lastClosed = prevOpenCode;
+		prevOpenCode = code;
+	});
 	const reduce =
 		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	// Panel OPEN: the fly slide plus a slight overgrow — as the panel lands it swells a
+	// touch past its resting size and settles, on the same beat as the buttons' spring.
+	// A scale, not a translate overshoot, deliberately: the panel is pinned to a viewport
+	// edge (right on desktop, bottom on the phone sheet), and overshooting its POSITION
+	// would peel that edge back and flash a sliver of sky behind it. Growing from the
+	// anchored edge swells past on the far side only — full-bleed the whole way. Close
+	// keeps the plain fly (a swell makes sense arriving, not departing).
+	//
+	// 4% is deliberately more than a button's landing would take: the panel's own content
+	// is entering with its own animations at the same moment (title flip, chrome ripple),
+	// and a subtler swell got lost against them.
+	//
+	// One transform for BOTH entrances — the mount (in:panelIn) and the panel→panel return
+	// leg (playOpenBounce), so the two are one gesture.
+	function openTransform(t: number, x: number, y: number) {
+		const slide = 1 - cubicOut(t);
+		// The swell rides only the landing tail (t 0.5→1), peaking mid-tail and closing
+		// back to exactly 1 so there's no snap at the end.
+		const u = Math.max(0, (t - 0.5) / 0.5);
+		const grow = 1 + (reduce ? 0 : 0.04) * Math.sin(Math.PI * u);
+		return `translate(${slide * x}px, ${slide * y}px) ${y ? `scaleY(${grow})` : `scaleX(${grow})`}`;
+	}
+	function panelIn(node: HTMLElement, p: { x?: number; y?: number; duration?: number }) {
+		const { x = 0, y = 0, duration = 380 } = p;
+		return {
+			duration,
+			css: (t: number) =>
+				`transform-origin: ${y ? 'center bottom' : 'right center'}; transform: ${openTransform(t, x, y)};`
+		};
+	}
+	// A panel→panel move never unmounts the panel (its content swaps off-screen), so
+	// in:panelIn can't fire — the return leg replays the same landing by hand, over the
+	// .leaving class's plain transition (WAAPI wins while it runs, and both settle at rest).
+	function playOpenBounce() {
+		if (!panelEl || reduce) return;
+		const x = isMobile ? 0 : panelExpanded ? vw : 680;
+		const y = isMobile ? panelEl.clientHeight : 0;
+		const frames = Array.from({ length: 25 }, (_, i) => {
+			const t = i / 24;
+			return {
+				transform: openTransform(t, x, y),
+				transformOrigin: y ? 'center bottom' : 'right center'
+			};
+		});
+		panelEl.animate(frames, { duration: 380, easing: 'linear' });
+	}
 
 	const PANEL_SLIDE = 300;
 	let navTimer = 0;
@@ -1032,6 +1094,9 @@
 			navTimer = window.setTimeout(() => {
 				applyView(nv, push);
 				panelLeaving = false;
+				// After the class flip lands in the DOM: replay the open landing (see
+				// playOpenBounce — the panel never unmounted, so in:panelIn won't).
+				requestAnimationFrame(playOpenBounce);
 			}, PANEL_SLIDE);
 		} else {
 			applyView(nv, push);
@@ -1134,7 +1199,7 @@
 		// … and again once the wordmark font has loaded (glyph widths shift the "o").
 		document.fonts?.ready.then(measureRings);
 		starsOn = localStorage.getItem(STARS_KEY) !== '0'; // default on
-		if (localStorage.getItem(UI_KEY) === 'bubble') setUiStyle('bubble'); // else default flat
+		if (localStorage.getItem(UI_KEY) === 'flat') setUiStyle('flat'); // else default bubble
 		if (localStorage.getItem(LOOK_KEY) === 'metro') setLook('metro'); // else default lab
 		// While on Auto, keep the phase current if the tab is left open across a boundary.
 		skyTimer = window.setInterval(() => skyMode === 'auto' && applySky(), 5 * 60 * 1000);
@@ -1358,7 +1423,7 @@
 	<!-- Persistent masthead (wordmark + tagline + station nav) — its own component so a
 	     homepage-chrome tweak stays out of this catch-all page. It reports which destination
 	     was clicked; the page keeps the modifier-aware click + camera handling. -->
-	<Masthead {activeCode} onNavigate={(code, e) => onNodeClick(e, () => board(code))} />
+	<Masthead {activeCode} covered={backdropHidden} onNavigate={(code, e) => onNodeClick(e, () => board(code))} />
 
 	{#if view}
 		{@const v = view}
@@ -1367,7 +1432,8 @@
 			class="surface"
 			class:leaving={panelLeaving}
 			class:expanded={panelExpanded}
-			transition:fly|global={isMobile
+			in:panelIn|global={isMobile ? { y: 900, duration: 380 } : { x: panelExpanded ? vw : 680, duration: 380 }}
+			out:fly|global={isMobile
 				? { y: 900, opacity: 1, duration: 380 }
 				: { x: panelExpanded ? vw : 680, opacity: 1, duration: 380 }}
 		>
@@ -1754,6 +1820,22 @@
 			{/key}
 			</div>
 		</aside>
+	{/if}
+
+	<!-- The reopen bubble: while no panel is open and one was closed this visit, it floats
+	     at the right edge — where the panel went — offering it back. Its entrance waits for
+	     the panel's slide-out; leaving is immediate (the opening panel covers that edge). -->
+	{#if !view && lastClosed}
+		{@const last = lastClosed}
+		<button
+			type="button"
+			class="icon-btn reopen"
+			in:fly={{ x: 24, duration: 250, delay: 400 }}
+			out:fly={{ x: 24, duration: 180 }}
+			aria-label="Reopen {airports[last].title}"
+			title="Reopen {airports[last].title}"
+			onclick={() => board(last)}
+		>{@html BACK_CIRCLE_SVG}</button>
 	{/if}
 
 	{#if dev && editMode}
@@ -2177,9 +2259,11 @@
 	:global(html[data-sky-photo]) .surface-backdrop::after {
 		background: var(--panel-glass);
 	}
-	/* The actual scroller: fills the frame and holds all panel content above the frosted pane.
-	   Non-ATFC panels scroll their own .surface-body; the Traffic board grows to its data's
-	   natural height and scrolls here (with its sticky header pinned to this box). */
+	/* Fills the frame and holds all panel content above the frosted pane. Panels scroll
+	   their own body under a stay-put header (.surface-body here; the Traffic board's
+	   .tfc-body) — a glass header has no opaque paint, so it can't sit sticky OVER the rows;
+	   the body clips them instead. Only the Presentation Builder still scrolls this box,
+	   under its own sticky toolbar. */
 	.surface-scroll {
 		position: relative;
 		z-index: 1;
@@ -2818,8 +2902,14 @@
 		border-radius: 14px;
 		color: var(--ink);
 		text-decoration: none;
-		background: color-mix(in srgb, var(--ink) 3%, transparent);
+		/* The chips' exact fill (not 3%): the cards wear the same material as every other
+		   control — an ink mix, so it flips with the scheme on its own. */
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
 		transition: border-color 0.15s ease, background 0.15s ease;
+		/* The cards ride the universal button spring, but at card size the standard 5%
+		   pop is a 30px lurch — soften both amounts; the spring itself is shared. */
+		--btn-hover-scale: 1.015;
+		--btn-press-scale: 0.99;
 	}
 	.app-card:hover,
 	.app-card:focus-visible {
@@ -2854,6 +2944,20 @@
 	.app-blurb {
 		font-size: 0.9rem;
 		color: var(--sub);
+	}
+	/* ── The reopen bubble ──────────────────────────────────────────────────────────────
+	   Floats at the stage's right edge while no panel is open: the last panel you closed,
+	   one click away, wearing the shared disc (.icon-btn) so the bubble gloss and the
+	   universal spring come for free — only its perch is set here. Positioned with a calc
+	   top rather than a translate, because the hover pop owns `transform`.
+	   Doubled selector: Bubble's disc-gloss rule pins `position: relative` on every
+	   .icon-btn at (0,2,1), which silently beat a lone scoped .reopen and left the bubble
+	   sitting in-flow at the stage's left edge. */
+	.icon-btn.reopen {
+		position: fixed;
+		right: clamp(0.75rem, 2vw, 1.5rem);
+		top: calc(50% - 16px);
+		z-index: 40;
 	}
 	.chip {
 		display: inline-flex;
@@ -2919,7 +3023,8 @@
 	:global(html:root .manual),
 	:global(html:root .tb),
 	:global(html:root .mini),
-	:global(html:root .swatch-btn) {
+	:global(html:root .swatch-btn),
+	:global(html:root .app-card) {
 		transition:
 			transform 0.3s var(--btn-spring),
 			background 0.18s var(--btn-soft),
@@ -2957,7 +3062,8 @@
 	:global(html:root .manual:active:not(:disabled)),
 	:global(html:root .tb:active:not(:disabled)),
 	:global(html:root .mini:active:not(:disabled)),
-	:global(html:root .swatch-btn:active:not(:disabled)) {
+	:global(html:root .swatch-btn:active:not(:disabled)),
+	:global(html:root .app-card:active:not(:disabled)) {
 		box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.07);
 	}
 
@@ -2977,7 +3083,8 @@
 		:global(html:root .manual:hover:not(:disabled)),
 		:global(html:root .tb:hover:not(:disabled)),
 		:global(html:root .mini:hover:not(:disabled)),
-		:global(html:root .swatch-btn:hover:not(:disabled)) {
+		:global(html:root .swatch-btn:hover:not(:disabled)),
+		:global(html:root .app-card:hover:not(:disabled)) {
 			transform: scale(var(--btn-hover-scale));
 		}
 		:global(html:root .seg:active:not(:disabled)),
@@ -2994,7 +3101,8 @@
 		:global(html:root .pc-close:active:not(:disabled)),
 		:global(html:root .tb:active:not(:disabled)),
 		:global(html:root .mini:active:not(:disabled)),
-		:global(html:root .swatch-btn:active:not(:disabled)) {
+		:global(html:root .swatch-btn:active:not(:disabled)),
+		:global(html:root .app-card:active:not(:disabled)) {
 			transform: scale(var(--btn-press-scale));
 			transition-duration: 0.1s;
 		}
@@ -3004,35 +3112,44 @@
 	   LAST wins the tie. Bubble must win — its press is a sunken gloss, not a flat tint.
 	   Move this block below and Bubble silently stops sinking on click. */
 
-	/* ── "Bubble" button style (Settings → Button style; data-ui="bubble" on the html
-	   element) ── Opt-in glossy, gel-like buttons across every panel, echoing the deck's
-	   bubbly controls. A convex SHEEN rides on top as a background-IMAGE so each button's own
-	   background-color still shows through (orange ATFC fields, active segments, …). The ATFC
-	   Range/Refresh <select>s keep their chevron — we give them depth but never touch their
+	/* ── "Bubble" button style (the DEFAULT; Settings → Button style; data-ui="bubble" is
+	   shipped on <html> by app.html, stripped only for a saved 'flat') ── Glossy, airy,
+	   gel-like buttons across every panel. The look leans on light, not lines: hairline
+	   borders, a convex SHEEN riding on top as a background-IMAGE so each button's own
+	   background-color still shows through (orange ATFC fields, active segments, …), and
+	   depth from stacked inset highlights rather than dark edges. The ATFC Range/Refresh
+	   <select>s keep their chevron — we give them depth but never touch their
 	   background-image. Kept :global so it reaches the buttons in every panel. */
 
-	/* Sheen — solid-background controls only (NOT .field-select, whose bg-image IS its
-	   chevron arrow). */
+	/* Hairlines — Bubble trades the drawn 1.5px ink-adjacent edges for translucent
+	   hairlines; the gloss and shadows below do the work the border did. Settings controls
+	   only: elsewhere a border is load-bearing colour (.field.on's accent orange IS its
+	   selection), so those keep their own. Note .sky-opt.on still wins with its ink border
+	   (0,3,0 scoped beats this 0,2,1), which is right — there it matches the ink fill. */
 	:global(html[data-ui='bubble'] .seg),
-	:global(html[data-ui='bubble'] .sky-opt),
-	:global(html[data-ui='bubble'] .icon-btn),
-	:global(html[data-ui='bubble'] .edit-enter),
-	:global(html[data-ui='bubble'] .chip),
-	:global(html[data-ui='bubble'] .tb),
-	:global(html[data-ui='bubble'] .mini),
-	:global(html[data-ui='bubble'] .swatch-btn),
-	:global(html[data-ui='bubble'] .field),
-	:global(html[data-ui='bubble'] .manual) {
-		background-image: linear-gradient(
-			to bottom,
-			rgba(255, 255, 255, 0.3),
-			rgba(255, 255, 255, 0.04) 48%,
-			rgba(8, 10, 14, 0.05)
-		);
+	:global(html[data-ui='bubble'] .sky-opt) {
+		border-color: color-mix(in srgb, var(--ink) 12%, transparent);
+		/* Glassy but not see-through: at 45% the panel's dotted decor ghosted through the
+		   pill and read as grime; 72% keeps a hint of the glass while the face stays clean. */
+		background-color: color-mix(in srgb, var(--paper) 72%, transparent);
 	}
 
-	/* Depth — every bubble control, selects included. A soft top gloss + a light drop;
-	   deliberately NO heavy bottom-inset at rest (that read as a too-strong bottom border). */
+	/* NO sheen gradient — deliberately. There used to be a white-to-transparent wash here,
+	   and on a translucent fill (the ATFC pills over the photo header) it frosted the top
+	   half while the bottom half stayed bare glass: the button read as clipped in two, at
+	   any stop position, dark or light. The ATFC <select>s never got the wash (their
+	   bg-image is the chevron) and always looked right — so every control now gets the
+	   select's material: its own uniform fill, with ALL of the gloss carried by the
+	   edge-hugging insets in the depth rule below. background-image stays free for the
+	   chevron; do not reintroduce a gradient on any of these. */
+
+	/* Depth — every bubble control, selects included, all sharing ONE material. A white
+	   rim light along the top, a short top glow hugging that rim (the gloss — an inset,
+	   never a gradient, so it stays a highlight instead of a half-frost), and a drop
+	   that's more air than ink. NOTHING at the bottom, inset or painted: a bottom inset
+	   clips short of the border and leaves a bright rim (the "white underline"), and any
+	   wash fading across the face reads as the button being clipped. The bottom edge
+	   belongs to the hairline border alone. */
 	:global(html[data-ui='bubble'] .seg),
 	:global(html[data-ui='bubble'] .sky-opt),
 	:global(html[data-ui='bubble'] .icon-btn),
@@ -3043,12 +3160,21 @@
 	:global(html[data-ui='bubble'] .swatch-btn),
 	:global(html[data-ui='bubble'] .field),
 	:global(html[data-ui='bubble'] .field-select),
-	:global(html[data-ui='bubble'] .manual) {
+	:global(html[data-ui='bubble'] .manual),
+	:global(html[data-ui='bubble'] .app-card) {
 		border-radius: 999px;
 		box-shadow:
 			inset 0 1px 0 rgba(255, 255, 255, 0.55),
-			0 1px 1px rgba(8, 10, 14, 0.05),
-			0 3px 8px rgba(8, 10, 14, 0.08);
+			inset 0 7px 10px -8px rgba(255, 255, 255, 0.55),
+			0 1px 1px rgba(8, 10, 14, 0.04),
+			0 3px 8px rgba(8, 10, 14, 0.06);
+		/* Stay on a compositor layer. At 100% zoom (dpr exactly 1) the 1px rim light sits
+		   on a device-pixel boundary, and the hover spring's layer promotion re-rasterized
+		   the button — the rim visibly snapped ("flashed") at hover start and end. At 110%+
+		   the rim is already antialiased across pixels, so the artifact only showed at 100%.
+		   Pre-promoting makes the rest and in-motion renders identical. Bubble-only cost:
+		   these are small controls, and Flat has no shadows for a promotion to snap. */
+		will-change: transform;
 		/* Motion (transition, transform-origin, hover pop, press squash) is NOT set here —
 		   it's the universal button interaction at the bottom of this file, shared by both UI
 		   styles. Bubble only adds its material: the pill radius and the gloss. */
@@ -3057,25 +3183,53 @@
 	:global(html[data-ui='bubble'] .seg) {
 		border-radius: 16px;
 	}
+	/* Pre-promote the SPRING buttons the depth rule doesn't dress (they keep their own
+	   faces: the camera disc, the edit bar, the board key, the type chips, the photo
+	   card's close). They still scale on hover, so without a resting layer they'd
+	   re-rasterize at hover start and their edges snap at 100% zoom — the same flash the
+	   superbar's controls had before the depth rule pinned them (see will-change above). */
+	:global(html[data-ui='bubble'] .photo-toggle),
+	:global(html[data-ui='bubble'] .edit-btn),
+	:global(html[data-ui='bubble'] .legend-btn),
+	:global(html[data-ui='bubble'] .type-btn),
+	:global(html[data-ui='bubble'] .pc-close) {
+		will-change: transform;
+	}
+	/* The Apps cards join the family: the same material as everything above (fill + hairline,
+	   all gloss from the shared edge-hugging insets — no gradient, see the sheen note), at the
+	   card's own soft corners rather than the pill. The hover keeps the station accent the
+	   Flat card has, mixed into the glassy paper face instead of bare transparency so the
+	   card doesn't go see-through mid-hover. */
+	:global(html[data-ui='bubble'] .app-card) {
+		/* Only the corners are the card's own — everything else IS the chip material. The
+		   card's ink-mix fill and hairline (base rule above) already flip with the scheme
+		   the way the chips' do, and the chips' bubble reads right on a dark panel as-is:
+		   dark face, contrast from the hairline and the shared rim-light insets. No bespoke
+		   fills here — one material, worn at card size. */
+		border-radius: 14px;
+	}
 
-	/* Selected controls get the FULL convex bubble: a brighter top sheen with real bottom
-	   shading and a deeper drop, so an active pill no longer reads flat. */
+	/* Selected: shown with LIGHT, never a drawn outline. The ink border .seg.on carries in
+	   Flat read as a hard black frame here, so Bubble overrides it back to a hairline and
+	   says "on" three other ways: a brighter convex sheen, an inner white hairline just
+	   inside the edge (the glassy double rim), and a soft halo where the frame used to be. */
+	:global(html[data-ui='bubble'] .seg.on) {
+		border-color: color-mix(in srgb, var(--ink) 22%, transparent);
+	}
 	:global(html[data-ui='bubble'] .seg.on),
 	:global(html[data-ui='bubble'] .sky-opt.on),
 	:global(html[data-ui='bubble'] .field.on) {
-		/* Convex shading comes from the SHEEN (light top → dark bottom, reaching the very
-		   edge) rather than an inset bottom-shade. An inset shadow is clipped short of the
-		   border, so it left a bright rim at the bottom edge — the "white underline". */
-		background-image: linear-gradient(
-			to bottom,
-			rgba(255, 255, 255, 0.4),
-			rgba(255, 255, 255, 0.05) 42%,
-			rgba(8, 10, 14, 0.16)
-		);
+		/* No gradient here either (see the sheen note above) — selected reads through its
+		   own denser fill plus LIGHT at the edges: a brighter rim and top glow, the inner
+		   hairline just inside the edge (the glassy double rim), and the soft halo where
+		   Flat's ink frame would be. */
 		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.4),
-			0 2px 5px rgba(8, 10, 14, 0.13),
-			0 7px 18px rgba(8, 10, 14, 0.16);
+			inset 0 1px 0 rgba(255, 255, 255, 0.6),
+			inset 0 8px 12px -8px rgba(255, 255, 255, 0.65),
+			inset 0 0 0 1px rgba(255, 255, 255, 0.25),
+			0 0 0 3px color-mix(in srgb, var(--ink) 7%, transparent),
+			0 2px 5px rgba(8, 10, 14, 0.11),
+			0 6px 16px rgba(8, 10, 14, 0.13);
 	}
 
 	/* Hover: brighten the gloss and lift the drop so the button reads as inflating toward
@@ -3090,11 +3244,28 @@
 	:global(html[data-ui='bubble'] .swatch-btn:hover:not(:disabled)),
 	:global(html[data-ui='bubble'] .field:hover:not(:disabled)),
 	:global(html[data-ui='bubble'] .field-select:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .manual:hover:not(:disabled)) {
+	:global(html[data-ui='bubble'] .manual:hover:not(:disabled)),
+	:global(html[data-ui='bubble'] .app-card:hover:not(:disabled)) {
 		box-shadow:
 			inset 0 1px 0 rgba(255, 255, 255, 0.8),
+			inset 0 7px 10px -8px rgba(255, 255, 255, 0.7),
+			0 2px 5px rgba(8, 10, 14, 0.07),
+			0 9px 22px rgba(8, 10, 14, 0.1);
+	}
+	/* Hovering a SELECTED control: the plain hover rule above out-specifies the selected
+	   rule and would strip its halo and inner rim for the duration — so restate the full
+	   selected stack here (0,5,1 beats hover's 0,4,1) with the rim brightened and the drop
+	   lifted, so an active pill inflates like the rest without losing its "on". */
+	:global(html[data-ui='bubble'] .seg.on:hover:not(:disabled)),
+	:global(html[data-ui='bubble'] .sky-opt.on:hover:not(:disabled)),
+	:global(html[data-ui='bubble'] .field.on:hover:not(:disabled)) {
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.65),
+			inset 0 8px 12px -8px rgba(255, 255, 255, 0.75),
+			inset 0 0 0 1px rgba(255, 255, 255, 0.3),
+			0 0 0 3px color-mix(in srgb, var(--ink) 8%, transparent),
 			0 2px 5px rgba(8, 10, 14, 0.09),
-			0 9px 22px rgba(8, 10, 14, 0.13);
+			0 9px 22px rgba(8, 10, 14, 0.12);
 	}
 	/* Pressed: sink the gloss inward for a tactile squash. */
 	:global(html[data-ui='bubble'] .seg:active:not(:disabled)),
@@ -3107,13 +3278,56 @@
 	:global(html[data-ui='bubble'] .swatch-btn:active:not(:disabled)),
 	:global(html[data-ui='bubble'] .field:active:not(:disabled)),
 	:global(html[data-ui='bubble'] .field-select:active:not(:disabled)),
-	:global(html[data-ui='bubble'] .manual:active:not(:disabled)) {
+	:global(html[data-ui='bubble'] .manual:active:not(:disabled)),
+	:global(html[data-ui='bubble'] .app-card:active:not(:disabled)) {
+		/* Sunken, but still glass: a top inner shade for the dip and a lighter flood than
+		   before — the old 0.2/0.08 pairing went ink-dark and broke the airiness right at
+		   the most tactile moment. No bottom rim light here either: same white-underline
+		   clipping artifact as at rest. */
 		box-shadow:
-			inset 0 2px 4px rgba(0, 0, 0, 0.2),
-			inset 0 0 0 999px rgba(0, 0, 0, 0.08);
+			inset 0 2px 4px rgba(8, 10, 14, 0.14),
+			inset 0 0 0 999px rgba(8, 10, 14, 0.05);
 	}
 	/* Hover pop and press squash used to be duplicated here at 1.05 / 0.94. They now come from
 	   the universal interaction block, so Bubble and Flat move identically and only differ in
 	   material. */
+
+	/* ── Disc controls (Back / Refresh / Expand / the search disc) ── These wear reicon's
+	   *-circle glyphs: the disc IS the icon, painted as svg CONTENT — and inset shadows
+	   paint below content, so the gloss the depth rule gives every other control never
+	   reaches these. Overlay the same rim light + top glow ABOVE the disc instead, on an
+	   ::after clipped to the same circle. Safe to position: every .icon-btn placement rule
+	   is flex margins, none set position. The search control (.cs) is a div wearing the
+	   identical 32px disc, so it joins the family here — overlay only while it's the disc,
+	   never over the opened search field. */
+	:global(html[data-ui='bubble'] .icon-btn) {
+		position: relative;
+	}
+	:global(html[data-ui='bubble'] .icon-btn)::after,
+	:global(html[data-ui='bubble'] .cs:not(.open))::after {
+		content: '';
+		position: absolute; /* .cs is already position: relative for its results list */
+		inset: 0;
+		border-radius: 999px;
+		pointer-events: none;
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.4),
+			inset 0 7px 10px -8px rgba(255, 255, 255, 0.45);
+	}
+	/* Hover: the disc fills to full ink (base .icon-btn / .cs rules), so brighten the
+	   gloss with it — same move as every other bubble control's hover. */
+	:global(html[data-ui='bubble'] .icon-btn:hover:not(:disabled))::after,
+	:global(html[data-ui='bubble'] .cs:not(.open):hover)::after {
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.6),
+			inset 0 7px 10px -8px rgba(255, 255, 255, 0.6);
+	}
+	/* The search disc is a div, not a button, so the depth rule's airy drops never reached
+	   it — hand it the same pair (the overlay above already carries the insets). */
+	:global(html[data-ui='bubble'] .cs:not(.open)) {
+		box-shadow:
+			0 1px 1px rgba(8, 10, 14, 0.04),
+			0 3px 8px rgba(8, 10, 14, 0.06);
+	}
 
 </style>

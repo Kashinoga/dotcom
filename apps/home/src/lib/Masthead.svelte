@@ -11,11 +11,16 @@
 	// `activeCode` is the open station's code (or null) — a plain string, so this component
 	// needs neither the page's `View` union nor its navigation internals. `onNavigate` wraps the
 	// page's modifier-aware click + camera handling; the component just reports the clicked code.
+	// `covered` — a panel is filling the viewport over this masthead. It fades out entirely:
+	// blurred glass over a photo reads as texture, but blurred TEXT reads as something wrong
+	// with your eyes. (Also drops it from the tab order while it can't be seen.)
 	let {
 		activeCode = null,
+		covered = false,
 		onNavigate
 	}: {
 		activeCode?: string | null;
+		covered?: boolean;
 		onNavigate: (code: string, e: MouseEvent) => void;
 	} = $props();
 
@@ -32,7 +37,7 @@
 	const menuNodes = ['KSH', 'ABT', 'APP', 'STG'] as const;
 </script>
 
-<header class="masthead">
+<header class="masthead" class:covered>
 	<div class="brandline">
 		<h1><SplitFlap text="Kashinoga" /></h1>
 		<!-- Decorative station-sign bullets beside the wordmark, like the route icons beside a
@@ -76,6 +81,18 @@
 		max-width: min(90vw, 640px);
 		/* Shared so the tagline's offsets below scale with the wordmark. */
 		--wordmark: clamp(2.25rem, 9vw, 5.5rem);
+		transition: opacity 0.3s ease;
+	}
+	/* A panel is filling the viewport: get out of its way entirely. Its glass would only
+	   blur this — and blurred letterforms read as a rendering fault, not as depth.
+	   visibility waits for the fade (the delay lives HERE so uncovering flips it back
+	   instantly) — once invisible the nav also leaves the tab order, instead of catching
+	   focus behind a full-viewport panel. */
+	.masthead.covered {
+		opacity: 0;
+		visibility: hidden;
+		pointer-events: none;
+		transition: opacity 0.3s ease, visibility 0s 0.3s;
 	}
 	/* Title and tagline animate on their own so open/close staggers like the entrance:
 	   the tagline trails the title coming in, and leads going out. */

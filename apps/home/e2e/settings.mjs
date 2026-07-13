@@ -49,7 +49,7 @@ const checkedIn = (page, group) =>
 	const want = {
 		'Display mode': 'System',
 		'Site look': 'Lab',
-		'Button style': 'Flat',
+		'Button style': 'Bubble',
 		'Sky background': 'Auto',
 		Stars: 'On'
 	};
@@ -94,13 +94,13 @@ const checkedIn = (page, group) =>
 {
 	const { ctx, page } = await firstVisit({
 		'ksh-theme': 'dark',
-		'ksh-ui': 'bubble',
+		'ksh-ui': 'flat',
 		'ksh-sky': 'off',
 		'ksh-stars': '0'
 	});
 	const want = {
 		'Display mode': 'Dark',
-		'Button style': 'Bubble',
+		'Button style': 'Flat', // seeded 'flat' — the saved opt-out beats the Bubble default
 		'Sky background': 'Off', // seeded 'off' — the saved opt-out beats the Auto default
 		Stars: 'Off'
 	};

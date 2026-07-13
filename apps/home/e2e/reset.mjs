@@ -40,7 +40,7 @@ const DEFAULTS = {
 	// ('Station label style' was here; the codes/full-names toggle is gone — stops are always named
 	// in full. The key is still seeded below, because a reset must still wipe a stale saved one.)
 	'Display mode': 'System',
-	'Button style': 'Flat',
+	'Button style': 'Bubble', // the default since Bubble became the site's button style
 	'Sky background': 'Auto',
 	Stars: 'On'
 };
@@ -60,7 +60,7 @@ const DEFAULTS = {
 	const { ctx, page } = await open({
 		'ksh-stop-names': '0',
 		'ksh-theme': 'dark',
-		'ksh-ui': 'bubble',
+		'ksh-ui': 'flat', // Bubble is the default now, so Flat is the non-default seed
 		'ksh-sky': seedPhase,
 		'ksh-stars': '0',
 		// an unrelated key that must survive
@@ -72,7 +72,7 @@ const DEFAULTS = {
 
 	ok('button enabled when settings differ', await resetBtn(page).isEnabled());
 	ok('dark theme applied to <html>', (await page.locator('html').getAttribute('data-theme')) === 'dark');
-	ok('bubble ui applied to <html>', (await page.locator('html').getAttribute('data-ui')) === 'bubble');
+	ok('flat ui strips data-ui from <html>', (await page.locator('html').getAttribute('data-ui')) === null);
 	ok(`seeded sky applied to <html> (${seedPhase})`, (await page.locator('html').getAttribute('data-sky')) === seedPhase);
 
 	await resetBtn(page).click();
@@ -90,7 +90,8 @@ const DEFAULTS = {
 
 	ok('reset → no page reload', loads === 0, `${loads}`);
 	ok('reset → data-theme removed', (await page.locator('html').getAttribute('data-theme')) === null);
-	ok('reset → data-ui removed', (await page.locator('html').getAttribute('data-ui')) === null);
+	// Bubble is the default, so a reset RESTORES data-ui rather than stripping it.
+	ok('reset → data-ui restored (bubble default)', (await page.locator('html').getAttribute('data-ui')) === 'bubble');
 	// Sky resets to Off (the new default) — the override attribute is removed entirely.
 	// Auto is the default, so a reset does NOT strip data-sky — it repaints it with whatever phase
 	// the clock is in. What must go is the stored override (checked with the other PREF_KEYS below).

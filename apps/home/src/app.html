@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-ui="bubble">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -12,7 +12,10 @@
 					document.documentElement.dataset.look = 'metro';
 				var t = localStorage.getItem('ksh-theme');
 				if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
-				if (localStorage.getItem('ksh-ui') === 'bubble') document.documentElement.dataset.ui = 'bubble';
+				// Bubble is the DEFAULT button style — the attribute ships on <html> itself so even
+				// a no-JS load gets it; only a saved 'flat' strips it.
+				if (localStorage.getItem('ksh-ui') === 'flat')
+					document.documentElement.removeAttribute('data-ui');
 				// Auto is the DEFAULT sky: a visitor who has never chosen (null) gets the time-of-day
 				// phase, same as an explicit 'auto'. Only 'off' opts out to a solid background. This
 				// runs pre-paint so the phase is on <html> before the first frame — the page's own
