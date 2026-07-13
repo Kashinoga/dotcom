@@ -28,7 +28,9 @@ export const airports: Record<string, { at: Pt; title: string }> = {
 	ATFC: { at: [620, 520], title: 'Air Traffic' },
 	// Presentation Builder — a visual editor for the route-map slide decks; second app off
 	// the Apps hub, branching left-down opposite Air Traffic.
-	PRES: { at: [460, 520], title: 'Presentation Builder' }
+	PRES: { at: [460, 520], title: 'Presentation Builder' },
+	// Weather — current conditions from the National Weather Service; third app off the hub.
+	WTHR: { at: [540, 600], title: 'Weather' }
 };
 
 export const airlines: { name: string; color: string; legs: [string, string][]; body?: string }[] = [
@@ -47,7 +49,7 @@ export const airlines: { name: string; color: string; legs: [string, string][]; 
 	{
 		name: 'Terminal Way',
 		color: '#f06030',
-		legs: [['KSH', 'APP'], ['APP', 'ATFC'], ['APP', 'PRES']],
+		legs: [['KSH', 'APP'], ['APP', 'ATFC'], ['APP', 'PRES'], ['APP', 'WTHR']],
 		body: 'Named after the airport, Terminal Way represents the opportunities taken to expand my horizons.'
 	}
 ];

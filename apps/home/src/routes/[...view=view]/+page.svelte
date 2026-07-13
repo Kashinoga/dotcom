@@ -8,6 +8,7 @@
 	import Masthead from '$lib/Masthead.svelte';
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
 	import PresentationBuilder from '$lib/PresentationBuilder.svelte';
+	import Weather from '$lib/Weather.svelte';
 	import {
 		BACK_CIRCLE_SVG,
 		AIRPLANE_SVG,
@@ -19,12 +20,14 @@
 		CODE_SVG,
 		GRID_SVG,
 		GEAR_SVG,
-		EXTERNAL_SVG
+		EXTERNAL_SVG,
+		CLOUD_SUN_SVG
 	} from '$lib/icons';
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
 	import faviconAtfc from '$lib/assets/favicon-atfc.svg';
 	import faviconPres from '$lib/assets/favicon-pres.svg';
+	import faviconWeather from '$lib/assets/favicon-weather.svg';
 	import { airports, airlines, portDescriptions, HUB, type Pt } from '$lib/network';
 	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
 	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
@@ -790,8 +793,12 @@
 	};
 	// The apps the Apps panel shows as CARDS in its body — so they must not also appear as chips in
 	// its Related rail. Everywhere else the rail is unchanged, and the hub stays in it either way.
-	const APP_CARDS = ['ATFC', 'PRES'];
-	const APP_ICONS: Record<string, string> = { ATFC: AIRPLANE_SVG, PRES: PRESENTATION_SVG };
+	const APP_CARDS = ['ATFC', 'PRES', 'WTHR'];
+	const APP_ICONS: Record<string, string> = {
+		ATFC: AIRPLANE_SVG,
+		PRES: PRESENTATION_SVG,
+		WTHR: CLOUD_SUN_SVG
+	};
 	// A mark per destination, worn by its chip in the Related rail. It replaced a plain accent dot:
 	// the dot named the LINE a stop sits on and nothing about the stop itself. The mark says what the
 	// place is — and keeps the line's colour, so the rail reads the same at a glance.
@@ -1356,9 +1363,11 @@
 			? faviconAtfc
 			: view?.kind === 'port' && view.code === 'PRES'
 				? faviconPres
-				: dev
-					? faviconDev
-					: faviconSite
+				: view?.kind === 'port' && view.code === 'WTHR'
+					? faviconWeather
+					: dev
+						? faviconDev
+						: faviconSite
 	);
 	const headTitle = $derived(
 		selectedField ? `Air Traffic · ${selectedField.name} — ${SITE}` : viewTitle(view)
@@ -1909,7 +1918,11 @@
 						</div>
 					</div>
 					<div class="surface-body" class:settings={v.code === 'STG'}>
-						{#if v.code === 'STG'}
+						{#if v.code === 'WTHR'}
+							<!-- Weather lives INSIDE the ordinary panel — it's a reading, not a workspace, so
+							     it doesn't take over the viewport the way the board and the Builder do. -->
+							<Weather />
+						{:else if v.code === 'STG'}
 							{@const editStg = dev && editMode}
 							<div class="stg-group">
 							<p
