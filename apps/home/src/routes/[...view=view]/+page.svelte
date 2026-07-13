@@ -74,7 +74,8 @@
 		// and the Presentation Builder (left).
 		APP: [430, 500],
 		ATFC: [520, 610],
-		PRES: [340, 610]
+		PRES: [340, 610],
+		WTHR: [430, 690]
 	};
 
 	// Train mode (mobile, portrait): the network stacked vertically and solved for the ZOOMED home
@@ -100,7 +101,8 @@
 		// FAR below Apps so they run off the bottom on the home view.
 		APP: [298, 560],
 		ATFC: [330, 745],
-		PRES: [210, 735]
+		PRES: [210, 735],
+		WTHR: [270, 900]
 	};
 
 	// Layout mode for the (now-removed) map's coordinates. The rail/air Settings toggle and its
@@ -1425,7 +1427,11 @@
 			});
 			return;
 		}
-		flyTo(nv.kind === 'port' ? crop(P[nv.code][0], P[nv.code][1], 720, 0.3) : fitLine(nv.idx));
+		// A station with no coordinate is a real possibility — the map is dormant, so a new stop can
+		// be added to $lib/network without anyone thinking about these tables. Fall back to the hub
+		// rather than throwing: the camera is invisible now, but the exception it raised wasn't.
+		const at = (nv.kind === 'port' && P[nv.code]) || P[HUB];
+		flyTo(nv.kind === 'port' ? crop(at[0], at[1], 720, 0.3) : fitLine(nv.idx));
 	}
 	// Reuse the open panel across destinations: slide the whole panel out, swap its
 	// content off-screen, then slide it back in. A fresh open (no panel yet) or
@@ -1547,7 +1553,9 @@
 	}
 	// Frame a whole airline: fit all its airports, biased left of the panel.
 	function fitLine(idx: number) {
-		const codes = [...lineOf[idx]];
+		// Same trap as flyTo: a stop with no coordinate in the dormant map tables would throw here.
+		const codes = [...lineOf[idx]].filter((c) => P[c]);
+		if (!codes.length) return crop(P[HUB][0], P[HUB][1], 720, 0.3);
 		const pxs = codes.map((c) => P[c][0]);
 		const pys = codes.map((c) => P[c][1]);
 		const cx = (Math.min(...pxs) + Math.max(...pxs)) / 2;
