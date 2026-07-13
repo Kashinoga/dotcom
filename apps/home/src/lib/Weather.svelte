@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
 	import {
 		SUN_SVG,
 		MOON_SVG,
@@ -11,7 +12,8 @@
 		CLOUD_SNOW_SVG,
 		FOG_SVG,
 		WIND_SVG,
-		REFRESH_CIRCLE_SVG
+		REFRESH_CIRCLE_SVG,
+		PLUS_SVG
 	} from '$lib/icons';
 	// Current conditions from the National Weather Service, for any US city.
 	//
@@ -22,7 +24,10 @@
 	// US only, and that's the API's boundary rather than a shortcut — NWS covers the United States
 	// and its territories, full stop. It's free and keyless in exchange, and the search is filtered
 	// to match, so it never offers a city the app can't then report on.
-	let { edit = false }: { edit?: boolean } = $props();
+	// The panel's header owns the search BUTTON (it sits on the Back row, which this component
+	// doesn't render), so the open/closed state is bound from the page. Everything else about the
+	// search — the box, the results, what a pick does — lives here.
+	let { searchOpen = $bindable(false) }: { searchOpen?: boolean } = $props();
 
 	type Place = { id: string; name: string; state: string; lat: number; lon: number };
 	// Somewhere to start, so the panel says something on a first visit rather than an empty box.
@@ -33,7 +38,8 @@
 		lat: 41.601,
 		lon: -93.609
 	};
-	const PLACE_KEY = 'ksh-weather-place';
+	const PLACES_KEY = 'ksh-weather-places';
+	const UNIT_KEY = 'ksh-weather-unit';
 
 	type Now = {
 		place: string;
@@ -50,29 +56,50 @@
 		windDir: number | null;
 	};
 
-	let place = $state<Place>(DEFAULT_PLACE);
-	let now = $state<Now | null>(null);
-	let status = $state<'loading' | 'ok' | 'error'>('loading');
+	// Cities are TABS: several at once, one showing. Each keeps its own reading, so flicking between
+	// them is instant and doesn't re-ask NWS for a sky it already fetched.
+	let places = $state<Place[]>([DEFAULT_PLACE]);
+	let activeIdx = $state(0);
+	let readings = $state<Record<string, Now>>({});
+	let status = $state<Record<string, 'loading' | 'ok' | 'error'>>({});
+
+	const place = $derived(places[activeIdx] ?? DEFAULT_PLACE);
+	const now = $derived(readings[place.id] ?? null);
+	// Named `phase`, not `state`: a local called `state` shadows the $state rune, and every
+	// declaration after it stops compiling.
+	const phase = $derived(status[place.id] ?? 'loading');
+
 	// Fahrenheit first — a US-only API reporting on US places, so it's the unit the people reading it
 	// use. The toggle is right there, and it's remembered.
-	const UNIT_KEY = 'ksh-weather-unit';
 	let unit = $state<'F' | 'C'>('F');
 
-	// ── The search ──────────────────────────────────────────────────────────────
+	// What a pick does: swap the city showing, or open another beside it.
+	let searchMode = $state<'replace' | 'add'>('replace');
 	let query = $state('');
 	let hits = $state<Place[]>([]);
 	let searching = $state(false);
-	let open = $state(false); // is the results list showing?
 	let active = $state(0); // which result the arrow keys are on
 	let searchTimer = 0;
 	let searchSeq = 0; // guards against a slow response overwriting a newer one
+	let inputEl = $state<HTMLInputElement | undefined>(undefined);
+
+	// Opening the search focuses it — a search you have to click into isn't open, it's just visible.
+	$effect(() => {
+		if (searchOpen) inputEl?.focus();
+	});
+
+	function openSearch(mode: 'replace' | 'add') {
+		searchMode = mode;
+		query = '';
+		hits = [];
+		searchOpen = true;
+	}
 
 	function onQuery(v: string) {
 		query = v;
 		clearTimeout(searchTimer);
 		if (v.trim().length < 2) {
 			hits = [];
-			open = false;
 			return;
 		}
 		// Debounced: a keystroke is not a search. 250ms is about the gap between typing and pausing.
@@ -85,12 +112,11 @@
 		try {
 			const r = await fetch(`/api/places?q=${encodeURIComponent(v.trim())}`);
 			const data = (await r.json()) as { places?: Place[] };
-			// A response that isn't the latest one is stale — dropping it stops an older, slower query
+			// A response that isn't the latest is stale — dropping it stops an older, slower query
 			// from clobbering what the user has since typed.
 			if (seq !== searchSeq) return;
 			hits = data.places ?? [];
 			active = 0;
-			open = true;
 		} catch {
 			if (seq === searchSeq) hits = [];
 		} finally {
@@ -99,20 +125,48 @@
 	}
 
 	function choose(p: Place) {
-		place = p;
+		const already = places.findIndex((q) => q.id === p.id);
+		if (already >= 0) {
+			// It's already a tab — show it rather than opening a second one of the same city.
+			activeIdx = already;
+		} else if (searchMode === 'add') {
+			places = [...places, p];
+			activeIdx = places.length - 1;
+		} else {
+			places = places.map((q, i) => (i === activeIdx ? p : q));
+		}
+		searchOpen = false;
 		query = '';
 		hits = [];
-		open = false;
+		savePlaces();
+		load(places[activeIdx]);
+	}
+
+	function closeTab(i: number) {
+		if (places.length === 1) return; // the last city stays: an empty panel says nothing
+		places = places.filter((_, j) => j !== i);
+		if (activeIdx >= places.length) activeIdx = places.length - 1;
+		else if (i < activeIdx) activeIdx--;
+		savePlaces();
+		load(places[activeIdx]);
+	}
+
+	function savePlaces() {
 		try {
-			localStorage.setItem(PLACE_KEY, JSON.stringify(p));
+			localStorage.setItem(PLACES_KEY, JSON.stringify({ places, activeIdx }));
 		} catch {
-			/* storage unavailable — the choice still holds for this visit */
+			/* storage unavailable — the tabs still hold for this visit */
 		}
-		load(p);
 	}
 
 	function onSearchKey(e: KeyboardEvent) {
-		if (!open || !hits.length) return;
+		if (e.key === 'Escape') {
+			// Swallowed here so it closes the search, not the whole panel.
+			e.stopPropagation();
+			searchOpen = false;
+			return;
+		}
+		if (!hits.length) return;
 		if (e.key === 'ArrowDown') {
 			e.preventDefault();
 			active = (active + 1) % hits.length;
@@ -122,23 +176,25 @@
 		} else if (e.key === 'Enter') {
 			e.preventDefault();
 			choose(hits[active]);
-		} else if (e.key === 'Escape') {
-			// Swallowed here so it closes the list, not the whole panel.
-			e.stopPropagation();
-			open = false;
 		}
 	}
 
 	async function load(p: Place) {
-		status = 'loading';
+		status = { ...status, [p.id]: readings[p.id] ? 'ok' : 'loading' };
 		try {
 			const r = await fetch(`/api/weather?lat=${p.lat}&lon=${p.lon}`);
 			if (!r.ok) throw new Error(String(r.status));
-			now = (await r.json()) as Now;
-			status = 'ok';
+			readings = { ...readings, [p.id]: (await r.json()) as Now };
+			status = { ...status, [p.id]: 'ok' };
 		} catch {
-			status = 'error';
+			status = { ...status, [p.id]: readings[p.id] ? 'ok' : 'error' };
 		}
+	}
+
+	function show(i: number) {
+		activeIdx = i;
+		savePlaces();
+		if (!readings[places[i].id]) load(places[i]);
 	}
 
 	function setUnit(u: 'F' | 'C') {
@@ -152,15 +208,18 @@
 
 	onMount(() => {
 		try {
-			const saved = localStorage.getItem(PLACE_KEY);
+			const saved = localStorage.getItem(PLACES_KEY);
 			if (saved) {
-				const p = JSON.parse(saved) as Place;
-				if (p && typeof p.lat === 'number' && typeof p.lon === 'number') place = p;
+				const v = JSON.parse(saved) as { places?: Place[]; activeIdx?: number };
+				if (Array.isArray(v.places) && v.places.length) {
+					places = v.places.filter((p) => typeof p?.lat === 'number');
+					activeIdx = Math.min(Math.max(v.activeIdx ?? 0, 0), places.length - 1);
+				}
 			}
 			const u = localStorage.getItem(UNIT_KEY);
 			if (u === 'C' || u === 'F') unit = u;
 		} catch {
-			/* storage unavailable or malformed — the default place stands */
+			/* storage unavailable or malformed — the default city stands */
 		}
 		load(place);
 	});
@@ -194,64 +253,98 @@
 </script>
 
 <div class="wx">
-	<!-- The place, as a subtitle under the panel's title: the panel says "Weather", this says whose.
-	     NWS's own name for the spot once it answers ("Millbrae, CA" for SFO — the station's town,
-	     not always the one you typed), and what you picked until then. -->
-	<p class="wx-place">{now?.place || [place.name, place.state].filter(Boolean).join(', ')}</p>
-
-	<!-- Search a US city. The list is a plain listbox: arrow keys move, Enter picks, Escape closes
-	     it (and only it — the panel stays put). -->
-	<div class="wx-search">
-		<input
-			type="search"
-			class="wx-input"
-			placeholder="Search a US city…"
-			autocomplete="off"
-			spellcheck="false"
-			role="combobox"
-			aria-expanded={open && hits.length > 0}
-			aria-controls="wx-results"
-			aria-label="Search a US city"
-			value={query}
-			oninput={(e) => onQuery(e.currentTarget.value)}
-			onkeydown={onSearchKey}
-			onfocus={() => (open = hits.length > 0)}
-		/>
-		{#if open && hits.length}
-			<ul class="wx-results" id="wx-results" role="listbox">
-				{#each hits as h, i}
-					<li>
-						<button
-							type="button"
-							class="wx-hit"
-							class:on={i === active}
-							role="option"
-							aria-selected={i === active}
-							onclick={() => choose(h)}
-							onmouseenter={() => (active = i)}
-						>
-							<span class="wx-hit-name">{h.name}</span>
-							<span class="wx-hit-state">{h.state}</span>
-						</button>
-					</li>
-				{/each}
-			</ul>
-		{:else if open && query.trim().length >= 2 && !searching}
-			<p class="wx-none">No US city by that name. The weather here is the National Weather
-				Service's, so it only knows the United States.</p>
-		{/if}
+	<!-- The cities, as tabs: a sliding row of names, the showing one marked. The + opens the same
+	     search the header's button does, but pointed at ADDING a city rather than swapping the one
+	     you're looking at. A tab carries an × once there's more than one — the last city stays, since
+	     an empty panel would say nothing. -->
+	<div class="wx-tabs" role="tablist" aria-label="Cities">
+		{#each places as p, i}
+			<div class="wx-tab" class:on={i === activeIdx}>
+				<button
+					type="button"
+					class="wx-tab-name"
+					role="tab"
+					aria-selected={i === activeIdx}
+					onclick={() => show(i)}
+				>
+					{p.name}{#if p.state}<span class="wx-tab-state">{p.state}</span>{/if}
+				</button>
+				{#if places.length > 1}
+					<button
+						type="button"
+						class="wx-tab-x"
+						aria-label="Close {p.name}"
+						onclick={() => closeTab(i)}>×</button
+					>
+				{/if}
+			</div>
+		{/each}
+		<button
+			type="button"
+			class="wx-add"
+			aria-label="Add another city"
+			title="Add another city"
+			onclick={() => openSearch('add')}>{@html PLUS_SVG}</button
+		>
 	</div>
 
-	{#if status === 'error'}
+	<!-- The search, opened from the panel header (or the +). A plain listbox: arrow keys move, Enter
+	     picks, Escape closes it — and only it, never the panel. -->
+	{#if searchOpen}
+		<div class="wx-search" transition:fly={{ y: -6, duration: 160 }}>
+			<input
+				bind:this={inputEl}
+				type="search"
+				class="wx-input"
+				placeholder={searchMode === 'add' ? 'Add a US city…' : 'Search a US city…'}
+				autocomplete="off"
+				spellcheck="false"
+				role="combobox"
+				aria-expanded={hits.length > 0}
+				aria-controls="wx-results"
+				aria-label={searchMode === 'add' ? 'Add a US city' : 'Search a US city'}
+				value={query}
+				oninput={(e) => onQuery(e.currentTarget.value)}
+				onkeydown={onSearchKey}
+			/>
+			{#if hits.length}
+				<ul class="wx-results" id="wx-results" role="listbox">
+					{#each hits as h, i}
+						<li>
+							<button
+								type="button"
+								class="wx-hit"
+								class:on={i === active}
+								role="option"
+								aria-selected={i === active}
+								onclick={() => choose(h)}
+								onmouseenter={() => (active = i)}
+							>
+								<span class="wx-hit-name">{h.name}</span>
+								<span class="wx-hit-state">{h.state}</span>
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{:else if query.trim().length >= 2 && !searching}
+				<p class="wx-none">
+					No US city by that name. The weather here is the National Weather Service's, so it only
+					knows the United States.
+				</p>
+			{/if}
+		</div>
+	{/if}
+
+	{#if phase === 'error'}
 		<p class="wx-msg">
 			The National Weather Service isn't answering right now. It's a public service with no key
 			and no promises — try again in a minute.
 		</p>
-	{:else if status === 'loading' && !now}
+	{:else if phase === 'loading' && !now}
 		<p class="wx-msg">Reading the sky over {place.name}…</p>
 	{:else if now}
 		<!-- The reading itself: the mark, the number, and what the sky is doing. -->
-		<div class="wx-now" class:stale={status === 'loading'}>
+		<div class="wx-now" class:stale={phase === 'loading'}>
 			<span class="wx-mark" aria-hidden="true">
 				{@html conditionIcon(now.conditions, now.night)}
 			</span>
@@ -331,14 +424,90 @@
 		gap: 1.25rem;
 	}
 
-	/* The place, under the panel title — a subtitle, so it's set below the title's scale but above
-	   the body's. */
-	.wx-place {
-		margin: -0.35rem 0 0;
-		font-size: clamp(1.25rem, 3vw, 1.6rem);
+
+	/* The cities, as tabs. A sliding row: more cities than fit just scroll, they don't wrap and push
+	   the reading down the panel. Text, not chips — a tab is a name you're reading, not a button
+	   you're hunting for. */
+	.wx-tabs {
+		display: flex;
+		align-items: center;
+		gap: 0.15rem;
+		overflow-x: auto;
+		scrollbar-width: none;
+		padding-bottom: 0.15rem;
+	}
+	.wx-tabs::-webkit-scrollbar {
+		display: none;
+	}
+	.wx-tab {
+		flex: none;
+		display: flex;
+		align-items: center;
+		border-radius: 8px;
+	}
+	.wx-tab-name {
+		display: flex;
+		align-items: baseline;
+		gap: 0.4rem;
+		padding: 0.35rem 0.55rem;
+		font: inherit;
+		font-size: 1.05rem;
+		font-weight: 600;
+		white-space: nowrap;
+		color: var(--sub);
+		background: none;
+		border: 0;
+		border-radius: 8px;
+		cursor: pointer;
+	}
+	.wx-tab-name:hover {
+		color: var(--ink);
+	}
+	/* The city you're looking at: full ink, and the only one carrying weight. */
+	.wx-tab.on .wx-tab-name {
+		color: var(--ink);
 		font-weight: 700;
-		letter-spacing: -0.01em;
-		line-height: 1.15;
+	}
+	.wx-tab-state {
+		font-size: 0.8rem;
+		font-weight: 500;
+		color: var(--sub);
+	}
+	.wx-tab-x {
+		padding: 0 0.35rem 0 0;
+		font: inherit;
+		font-size: 1rem;
+		line-height: 1;
+		color: var(--sub);
+		background: none;
+		border: 0;
+		cursor: pointer;
+	}
+	.wx-tab-x:hover {
+		color: var(--ink);
+	}
+	.wx-add {
+		flex: none;
+		display: grid;
+		place-items: center;
+		width: 1.75rem;
+		height: 1.75rem;
+		margin-left: 0.15rem;
+		padding: 0;
+		color: var(--sub);
+		background: none;
+		border: 1px solid var(--line-edge);
+		border-radius: 999px;
+		cursor: pointer;
+	}
+	.wx-add:hover {
+		color: var(--ink);
+		border-color: var(--line-strong);
+	}
+	.wx-add :global(svg) {
+		display: block;
+		width: 0.85rem;
+		height: 0.85rem;
 	}
 
 	/* The search box, and the results that drop out of it. */

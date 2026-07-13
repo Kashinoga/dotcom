@@ -21,7 +21,8 @@
 		GRID_SVG,
 		GEAR_SVG,
 		EXTERNAL_SVG,
-		CLOUD_SUN_SVG
+		CLOUD_SUN_SVG,
+		SEARCH_SVG
 	} from '$lib/icons';
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
@@ -746,6 +747,10 @@
 	const reduce =
 		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+	// Weather's search box: opened from a button in the panel's header (which this page owns) and
+	// rendered by the Weather component (which owns the search itself).
+	let wxSearchOpen = $state(false);
+
 	const PANEL_SLIDE = 300;
 	let navTimer = 0;
 	// Keep the address bar on the panel that's actually showing.
@@ -1318,12 +1323,26 @@
 						<PresentationBuilder accent={accent[v.code]} title={port.title} onback={goBack} />
 					{:else}
 					<div class="surface-head">
-						<button
-							class="icon-btn back"
-							onclick={goBack}
-							aria-label={ownPushes > 0 ? 'Back' : 'Back to home'}
-							title={ownPushes > 0 ? 'Back' : 'Home'}>{@html BACK_CIRCLE_SVG}</button
-						>
+						<div class="head-row">
+							<button
+								class="icon-btn back"
+								onclick={goBack}
+								aria-label={ownPushes > 0 ? 'Back' : 'Back to home'}
+								title={ownPushes > 0 ? 'Back' : 'Home'}>{@html BACK_CIRCLE_SVG}</button
+							>
+							{#if v.code === 'WTHR'}
+								<!-- Weather's search lives up here, on the Back row — it acts on the whole panel,
+								     so it belongs with the panel's own controls rather than inside the body. The
+								     search UI itself is the component's; this just opens it. -->
+								<button
+									class="icon-btn head-action"
+									aria-label="Search a city"
+									title="Search a city"
+									aria-expanded={wxSearchOpen}
+									onclick={() => (wxSearchOpen = !wxSearchOpen)}>{@html SEARCH_SVG}</button
+								>
+							{/if}
+						</div>
 						<div class="title-row">
 							<h2 class="dest" style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
 							{@render accentDot(accent[v.code])}
@@ -1333,7 +1352,7 @@
 						{#if v.code === 'WTHR'}
 							<!-- Weather lives INSIDE the ordinary panel — it's a reading, not a workspace, so
 							     it doesn't take over the viewport the way the board and the Builder do. -->
-							<Weather />
+							<Weather bind:searchOpen={wxSearchOpen} />
 						{:else if v.code === 'STG'}
 							{@const editStg = dev && editMode}
 							<div class="stg-group">
@@ -2084,6 +2103,34 @@
 		   title it belongs to. */
 		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(0.85rem, 1.5vw, 1.25rem);
 	}
+	/* The header's control row: Back at the left, a panel's own action (Weather's search) at the
+	   right. It replaces the bare Back button, so the gap below it is the one Back used to set. */
+	/* The action reads as one of the disc controls, but reicon has no search in its *-circle family,
+	   so the disc is composed here — an ink fill with the filled glyph punched through it — exactly
+	   as the homepage's photo button does. */
+	.head-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: clamp(1.5rem, 4vw, 2.5rem);
+	}
+	.head-row .back {
+		margin-bottom: 0;
+	}
+	.head-action {
+		background: color-mix(in srgb, var(--ink) 62%, transparent);
+		color: var(--paper);
+	}
+	.head-action:hover,
+	.head-action[aria-expanded='true'] {
+		background: var(--ink);
+		color: var(--paper);
+	}
+	.head-action :global(svg) {
+		width: 1.1rem;
+		height: 1.1rem;
+	}
+
 	/* Icon-circle back control (shared .icon-btn); only its placement is set here. The gap
 	   below it (to the eyebrow/title) matches the header's top/left edge inset, so the back
 	   button sits in an evenly-framed pocket rather than crowding the text below it. */
