@@ -48,8 +48,6 @@ const SUITES = [
 	'field', // the field selector
 	'settings', // the settings panel
 	'reset', // reset to defaults
-	'maplayout', // station labels never collide, at any phone size
-	'hubsize', // the hub dot never outgrows the masthead bullets
 	'dots', // accent bullets beside every panel title
 	'buttons', // one hover pop and press squash, everywhere
 	'noshadow', // Flat mode grows no shadows — rest, hover, or :active
@@ -203,17 +201,16 @@ if (changed) {
 	}
 }
 
-// TODO(map): the homepage route map was removed, so these suites no longer have anything
-// real to drive. `maplayout` and `hubsize` measure station dots/labels that no longer render
-// (maplayout now "passes" vacuously — zero nodes means zero collisions — which is false
-// confidence, hence the skip); `deeplink` and `field` reach a board by CLICKING a station node;
-// `buttons` hovers the removed route-line legend. They need repointing to URL
-// navigation (page.goto) — and the two pure map-geometry suites retiring — before they mean
-// anything again. Parked here (not deleted) so the rewrite is a small, visible diff. Filtered
-// out of every path (full run, name filter, and --changed) so the suite stays green meanwhile.
-// (`settings` came off this list: it was rewritten to drive the panel by URL and to assert what
-// the panel actually has now, so it tests something real again.)
-const SKIP = new Set(['maplayout', 'hubsize', 'deeplink', 'field', 'buttons']);
+// The route map — and the whole transit motif behind it — is gone (see $lib/network). Most of what
+// was parked here has been repointed at the UI that replaced it: `deeplink` and `field` now reach a
+// place through the masthead's nav and the Apps cards, and `dots` checks the accents that used to
+// come from the lines. `maplayout` and `hubsize` were pure map geometry and are deleted, not
+// repaired — there is nothing left for them to measure.
+//
+// TODO(buttons): `buttons` is still parked, but NOT for the map any more — its legend section is
+// gone. It hangs hovering a Settings `.seg` that demonstrably exists, which is its own rot and
+// wants its own look.
+const SKIP = new Set(['buttons']);
 const parked = chosen.filter((s) => SKIP.has(s));
 if (parked.length) console.log(`e2e: skipping ${parked.length} map-dependent suite(s) — see TODO(map) in run.mjs: ${parked.join(', ')}`);
 chosen = chosen.filter((s) => !SKIP.has(s));

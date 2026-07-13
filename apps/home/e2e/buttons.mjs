@@ -43,7 +43,7 @@ for (const ui of ['flat','bubble']) {
     await p.mouse.move(5, 5); await p.mouse.up(); await p.waitForTimeout(200);
   }
 
-  // Panel chrome + settings + map legend
+  // Panel chrome + settings (the map legend went with the map)
   await p.goto(B+'/settings',{waitUntil:'networkidle'}); await p.waitForTimeout(1500);
   for (const [sel,label] of [['button.icon-btn.back','Panel Back'],['button.seg','Settings .seg'],['button.sky-opt','Settings .sky-opt'],['a.chip','Panel .chip']]) {
     const loc = p.locator(sel).first();
@@ -56,9 +56,6 @@ for (const ui of ['flat','bubble']) {
     await p.mouse.move(5, 5); await p.mouse.up(); await p.waitForTimeout(200);
   }
   await p.goto(B+'/',{waitUntil:'networkidle'}); await p.waitForTimeout(1500);
-  const leg = p.locator('a.legend-btn').first();
-  await leg.hover({force:true}); await p.waitForTimeout(450);
-  ok(`${ui}: map legend hover = ${HOVER}`, (await scaleOf(leg))===HOVER, String(await scaleOf(leg)));
 
   // ATFC board — the field pills live in the expanded super bar now (the compact panel uses a
   // dropdown), so expand it first to reach a .field pill.

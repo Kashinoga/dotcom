@@ -1,9 +1,12 @@
 import { firefox } from 'playwright';
 const B = process.env.BASE || 'http://localhost:5199';
+// Every panel wears its place's accent (see `accent` in $lib/network). The line panels
+// (/loess, /grays, /terminal-way) were retired with the transit-map motif; the accents they
+// used to imply are now stated per place, so the same three colours appear here.
 const want = {
   '/home': 'rgb(18, 161, 80)', '/about': 'rgb(18, 161, 80)', '/about/work': 'rgb(18, 161, 80)',
   '/about/projects': 'rgb(18, 161, 80)', '/settings': 'rgb(139, 70, 224)', '/apps': 'rgb(240, 96, 48)',
-  '/loess': 'rgb(18, 161, 80)', '/grays': 'rgb(139, 70, 224)', '/terminal-way': 'rgb(240, 96, 48)',
+  '/apps/weather': 'rgb(240, 96, 48)',
 };
 const b = await firefox.launch();
 let bad = 0, n = 0;

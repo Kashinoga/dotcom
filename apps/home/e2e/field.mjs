@@ -48,13 +48,9 @@ ok('pick default → param removed', page.url() === `${B}${A}`, page.url());
 ok('pick default → generic title', (await page.title()) === 'Air Traffic — Kashinoga');
 
 // ── back from the board leaves the board, not the field ─────────────────────
-await page.goto(`${B}/`, { waitUntil: 'networkidle' });
-// Air Traffic is off-frame on the zoomed home; show the full map to reach its node.
-if ((await page.locator('.map-full').getAttribute('aria-pressed')) === 'false') {
-	await page.locator('.map-full').click();
-	await page.waitForTimeout(900);
-}
-await page.locator('a.node[href="/apps/air-traffic"] circle.hit').click();
+await page.goto(`${B}/apps`, { waitUntil: 'networkidle' });
+// The map is gone: the board is reached from the Apps panel's card (or by URL).
+await page.locator('a.app-card[href="/apps/air-traffic"]').click();
 await page.waitForURL(`${B}${A}`, { timeout: 5000 });
 await page.waitForTimeout(700);
 await pickField('Denver');
@@ -62,8 +58,11 @@ await page.waitForTimeout(800);
 ok('clicked in, picked DEN', page.url() === `${B}${A}?field=den`, page.url());
 await page.goBack();
 await page.waitForTimeout(900);
-ok('back → returns to overview, not prior field', page.url() === `${B}/`, page.url());
-ok('back → panel closed', !(await page.locator('aside.surface').isVisible()));
+// The invariant: picking a field REPLACES the history entry, so stepping back never walks you
+// through the fields you tried — it leaves the field behind entirely. (Which entry you land on
+// depends on how you opened the board; what matters is that it carries no ?field.)
+ok('back → no ?field in the entry behind it', !page.url().includes('?field='), page.url());
+ok('back → not the prior field (den)', !page.url().includes('den'), page.url());
 
 // ── forward restores the board with its field ───────────────────────────────
 await page.goForward();
@@ -75,7 +74,8 @@ ok('forward → DEN still selected', (await field()) === 'Denver');
 await page.locator('aside.surface a.chip[href="/apps"]').first().click();
 await page.waitForURL(`${B}/apps`, { timeout: 5000 });
 await page.waitForTimeout(700);
-await page.locator('aside.surface a.chip[href="/apps/air-traffic"]').first().click();
+// The apps are CARDS in the Apps panel's body now, not chips in its Related rail.
+await page.locator('aside.surface a.app-card[href="/apps/air-traffic"]').first().click();
 await page.waitForURL(`${B}${A}`, { timeout: 5000 });
 await page.waitForTimeout(800);
 ok('re-open board → no stale ?field=', page.url() === `${B}${A}`, page.url());

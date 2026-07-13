@@ -28,7 +28,7 @@
 	import faviconAtfc from '$lib/assets/favicon-atfc.svg';
 	import faviconPres from '$lib/assets/favicon-pres.svg';
 	import faviconWeather from '$lib/assets/favicon-weather.svg';
-	import { airports, airlines, portDescriptions, HUB, type Pt } from '$lib/network';
+	import { airports, accent, connections, portDescriptions, HUB } from '$lib/network';
 	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
 	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
 	import { rangeToken, refreshToken } from '$lib/scope';
@@ -46,71 +46,6 @@
 	// instead of flashing the overview map first.
 	let { data }: { data: PageData } = $props();
 
-	// `airports` and `airlines` now live in $lib/network.ts — the URL layer derives its
-	// slugs from the same definitions the map draws from, so codes and links can't drift.
-
-	// Two layouts, same station codes; mapMode picks which screen coords are live.
-	// Airline mode: an isometric (true 30°) projection of the grid — a skewed
-	// in-flight board. Pure 2D affine, no perspective.
-	const COS = Math.cos(Math.PI / 6);
-	const SIN = Math.sin(Math.PI / 6);
-	const iso = ([x, y]: Pt): Pt => [(x - y) * COS, (x + y) * SIN];
-	const P_air: Record<string, Pt> = Object.fromEntries(
-		Object.entries(airports).map(([k, v]) => [k, iso(v.at)])
-	);
-
-	// Train mode (desktop, landscape): a flat, hand-laid transit map. Sparse for now —
-	// Loess's About cluster sits left of the hub (ABT fanning to Work/Projects) and
-	// Gray's Settings stop sits to the right. New routes slot in around these.
-	const P_rail: Record<string, Pt> = {
-		KSH: [380, 360],
-		// Loess — KSH→ABT, then ABT fans to Work (up) and Projects (down).
-		ABT: [250, 300],
-		WRK: [120, 200],
-		PRJ: [175, 430],
-		// Gray's — Settings, east of the hub.
-		STG: [560, 375],
-		// Apps — orange line dropping south of the hub, then on to Air Traffic (right)
-		// and the Presentation Builder (left).
-		APP: [430, 500],
-		ATFC: [520, 610],
-		PRES: [340, 610],
-		WTHR: [430, 690]
-	};
-
-	// Train mode (mobile, portrait): the network stacked vertically and solved for the ZOOMED home
-	// camera — HOME_RAIL_V frames only the hub cluster (Home + About + Settings + Apps, tier 0/1),
-	// so the tier-2 leaves are placed FAR out (Work/Projects high above, the Presentation Builder /
-	// Air Traffic low below) to run off the top and bottom of that frame, their routes trailing in.
-	//
-	// Every leaf's label points away from its parent (see labelFor) and labels scale with the map,
-	// so this is solved in WORLD units — a label that clears here clears at every phone size. The
-	// tight axis is horizontal (portrait): Settings sits down-LEFT of the hub and Apps down-RIGHT,
-	// pulled toward centre so their labels keep clear of the frame edges. maplayout.mjs is the
-	// guard — it fails if any tier-1 label clips or crowds an edge at any phone size.
-	const P_rail_v: Record<string, Pt> = {
-		KSH: [230, 450],
-		// Loess — ABT up, fanning to Work (left) and Projects (right). Work/Projects sit FAR up so
-		// they run off the top when the home camera frames the hub cluster.
-		ABT: [230, 345],
-		WRK: [148, 175],
-		PRJ: [312, 175],
-		// Gray's — Settings, down-left of the hub (pulled toward centre so its label clears).
-		STG: [165, 560],
-		// Apps — orange line down-right of the hub; Air Traffic and the Presentation Builder hang
-		// FAR below Apps so they run off the bottom on the home view.
-		APP: [298, 560],
-		ATFC: [330, 745],
-		PRES: [210, 735],
-		WTHR: [270, 900]
-	};
-
-	// Layout mode for the (now-removed) map's coordinates. The rail/air Settings toggle and its
-	// persistence were dropped with the transit-map motif; this stays fixed to 'rail' so the
-	// dormant camera/framing code below keeps resolving to one coordinate set. The `as` keeps the
-	// value's type the full union (control-flow would otherwise narrow the const to 'rail' and
-	// flag every dormant `=== 'air'` guard as an impossible comparison).
-	const mapMode = 'rail' as 'air' | 'rail';
 
 	// Stops are named in full ("Work"), never coded ("WRK"). This used to be a Settings toggle; the
 	// codes option is gone and full names are simply what the site does. The key is still listed in
@@ -420,9 +355,6 @@
 		} catch {
 			/* storage unavailable — the in-memory reset above still stands */
 		}
-		// The map's coordinates change with the mode, so re-frame on whatever's open.
-		if (view) applyView(view, false);
-		else flyTo(HOME);
 		showToast('Settings reset to defaults');
 	}
 
@@ -546,201 +478,6 @@
 	const visibleRings = $derived(
 		ringRadii.map((r, i) => ({ r, i })).filter(({ r }) => r <= cornerReach)
 	);
-	const P: Record<string, Pt> = $derived(
-		mapMode === 'air' ? P_air : isMobile ? P_rail_v : P_rail
-	);
-
-	// Great-circle-style arc: a quadratic bow perpendicular to the chord, lifted
-	// toward the top of the board (the in-flight-map curve).
-	function arc([ax, ay]: Pt, [bx, by]: Pt): string {
-		const mx = (ax + bx) / 2;
-		const my = (ay + by) / 2;
-		const dx = bx - ax;
-		const dy = by - ay;
-		const L = Math.hypot(dx, dy) || 1;
-		let nx = -dy / L;
-		let ny = dx / L;
-		if (ny > 0) {
-			nx = -nx;
-			ny = -ny;
-		}
-		const k = 0.2;
-		return `M${ax.toFixed(1)},${ay.toFixed(1)} Q${(mx + nx * L * k).toFixed(1)},${(my + ny * L * k).toFixed(1)} ${bx.toFixed(1)},${by.toFixed(1)}`;
-	}
-
-	// Break an airline's legs into the longest continuous runs of track: a walk stops
-	// at line ends and junctions (degree ≠ 2), so a through-station stays on one
-	// sweeping chain while a junction like NRT/LAX/ABT splits into branches — exactly
-	// how a transit line reads as a spine with spurs.
-	function chainsOf(legs: [string, string][]): string[][] {
-		const adj = new Map<string, string[]>();
-		const add = (a: string, b: string) => {
-			if (!adj.has(a)) adj.set(a, []);
-			adj.get(a)!.push(b);
-		};
-		for (const [a, b] of legs) {
-			add(a, b);
-			add(b, a);
-		}
-		const ekey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
-		const used = new Set<string>();
-		const codes = [...adj.keys()];
-		const seeds = codes.filter((n) => adj.get(n)!.length !== 2);
-		const chains: string[][] = [];
-		for (const s of seeds.length ? seeds : codes.slice(0, 1)) {
-			for (const first of adj.get(s)!) {
-				if (used.has(ekey(s, first))) continue;
-				const chain = [s];
-				let prev = s;
-				let cur = first;
-				used.add(ekey(prev, cur));
-				chain.push(cur);
-				while (adj.get(cur)!.length === 2) {
-					const nxt = adj.get(cur)!.find((x) => x !== prev);
-					if (nxt === undefined || used.has(ekey(cur, nxt))) break;
-					used.add(ekey(cur, nxt));
-					chain.push(nxt);
-					prev = cur;
-					cur = nxt;
-				}
-				chains.push(chain);
-			}
-		}
-		// Any edge left in a pure loop (no degree-≠2 seed) becomes its own segment.
-		for (const [a, b] of legs) {
-			if (!used.has(ekey(a, b))) {
-				used.add(ekey(a, b));
-				chains.push([a, b]);
-			}
-		}
-		return chains;
-	}
-
-	// Draw a station chain with rounded corners: straight runs joined by a short
-	// quadratic sweep at each interior stop — Chicago's soft turns, not sharp miters.
-	// The bend's curve is kept within MAX_DEV px of the station point so a through-stop's
-	// dot stays visually centred on the line (tighter turns shrink the radius, not the
-	// accuracy). Kept well under the node radius (~6.5) so the line never reads off-centre
-	// through a dot — even a gentle bend cut a ~1.6px notch at MAX_DEV 2.5.
-	const CORNER = 30;
-	const MAX_DEV = 0.6;
-	function roundedPath(pts: Pt[], r = CORNER): string {
-		const f = ([x, y]: Pt) => `${x.toFixed(1)},${y.toFixed(1)}`;
-		if (pts.length < 2) return '';
-		if (pts.length === 2) return `M${f(pts[0])} L${f(pts[1])}`;
-		let d = `M${f(pts[0])}`;
-		for (let i = 1; i < pts.length - 1; i++) {
-			const [x0, y0] = pts[i - 1];
-			const [x1, y1] = pts[i];
-			const [x2, y2] = pts[i + 1];
-			const l1 = Math.hypot(x1 - x0, y1 - y0) || 1;
-			const l2 = Math.hypot(x2 - x1, y2 - y1) || 1;
-			// Cap the radius by the bend angle: sin(half-turn) of the direction change
-			// bounds how far the quadratic bows off the vertex (≈ 0.5·r·sin(half)).
-			const cosTurn = ((x1 - x0) * (x2 - x1) + (y1 - y0) * (y2 - y1)) / (l1 * l2);
-			const sinHalf = Math.sqrt(Math.max(0, (1 - cosTurn) / 2));
-			const rr = sinHalf > 1e-3 ? Math.min(r, (2 * MAX_DEV) / sinHalf) : r;
-			const d1 = Math.min(rr, l1 / 2);
-			const d2 = Math.min(rr, l2 / 2);
-			const ax = x1 + ((x0 - x1) / l1) * d1;
-			const ay = y1 + ((y0 - y1) / l1) * d1;
-			const bx = x1 + ((x2 - x1) / l2) * d2;
-			const by = y1 + ((y2 - y1) / l2) * d2;
-			d += ` L${ax.toFixed(1)},${ay.toFixed(1)} Q${x1.toFixed(1)},${y1.toFixed(1)} ${bx.toFixed(1)},${by.toFixed(1)}`;
-		}
-		d += ` L${f(pts[pts.length - 1])}`;
-		return d;
-	}
-
-	// Airline mode bows each leg like an in-flight map; train mode sweeps each line's
-	// chain of stations with rounded corners like a printed transit map.
-	const arcs = $derived(
-		mapMode === 'air'
-			? airlines.flatMap((a, i) =>
-					a.legs.map(([f, t]) => ({
-						color: a.color,
-						d: arc(P[f], P[t]),
-						i,
-						delay: drawDelay([f, t])
-					}))
-				)
-			: airlines.flatMap((a, i) =>
-					chainsOf(a.legs).map((chain) => ({
-						color: a.color,
-						d: roundedPath(chain.map((c) => P[c])),
-						i,
-						delay: drawDelay(chain)
-					}))
-				)
-	);
-	// Station dot radii, in world units. The hub reads as the hub through its larger dot AND
-	// its larger label (.code-hub), so the dot itself doesn't have to shout: at R_HUB = 15 it
-	// rendered ~44px wide on a 1400px desktop and ~54px at 1920px — bigger than the masthead's
-	// 30px station-sign bullets. 10 lands the home view's hub level with them on a 1400px
-	// desktop; DOT_CAP_PX (below) holds that true on wider ones.
-	const R_HUB = 10;
-	const R_STOP = 6.5;
-	// The hub's rendered diameter, ceiling. Matches .theme-dot's 30px.
-	const DOT_CAP_PX = 30;
-	// Clearance from a dot's EDGE to the near edge of its label, in world units. Kept as a
-	// separate term (rather than baked into a literal gap) so changing a radius doesn't
-	// silently move the labels in or out. Measured off the UNSCALED radius, so where dotScale
-	// shrinks a dot the label simply gains clearance — it never loses any.
-	const LABEL_CLEAR_HUB = 19;
-	const LABEL_CLEAR_STOP = 8.5;
-
-	// Place each label in the clear: point it into the widest angular gap between a
-	// station's own tracks, so it never lands on a line even at a branch junction.
-	function labelFor(code: string, x: number, y: number) {
-		const angles = (adj[code] ?? [])
-			.map((nb) => {
-				const [nx, ny] = P[nb];
-				return Math.atan2(ny - y, nx - x);
-			})
-			.sort((a, b) => a - b);
-		let dir = -Math.PI / 2; // no tracks: default upward
-		let widest = -1;
-		for (let i = 0; i < angles.length; i++) {
-			const a = angles[i];
-			const b = i + 1 < angles.length ? angles[i + 1] : angles[0] + 2 * Math.PI;
-			if (b - a > widest) {
-				widest = b - a;
-				dir = a + (b - a) / 2;
-			}
-		}
-		const dx = Math.cos(dir);
-		const dy = Math.sin(dir);
-		// The hub's dot is larger, so its label needs a wider offset to clear it.
-		const gap = code === HUB ? R_HUB + LABEL_CLEAR_HUB : R_STOP + LABEL_CLEAR_STOP;
-		const anchor = dx > 0.3 ? 'start' : dx < -0.3 ? 'end' : 'middle';
-		return { lx: x + dx * gap, ly: y + dy * gap, anchor };
-	}
-	const nodes = $derived(
-		Object.entries(P).map(([code, [x, y]]) => ({
-			code,
-			x,
-			y,
-			hub: code === 'KSH',
-			title: airports[code].title,
-			pop: popDelay(code),
-			...labelFor(code, x, y)
-		}))
-	);
-
-	// World bounds + a background catch-rect (fly home on empty click), sized well
-	// past the live layout so a stray click anywhere lands on it.
-	const worldPad = 600;
-	const worldMinX = $derived(Math.min(...nodes.map((n) => n.x)));
-	const worldMaxX = $derived(Math.max(...nodes.map((n) => n.x)));
-	const worldMinY = $derived(Math.min(...nodes.map((n) => n.y)));
-	const worldMaxY = $derived(Math.max(...nodes.map((n) => n.y)));
-	const bg = $derived({
-		x: worldMinX - worldPad,
-		y: worldMinY - worldPad,
-		w: worldMaxX - worldMinX + worldPad * 2,
-		h: worldMaxY - worldMinY + worldPad * 2
-	});
-
 	// ─── Page content per destination ───────────────────────────────────────────
 	// A block list rendered into the content surface. Swap the placeholder copy for
 	// real writing; add { h }, { p }, { img }, { quote } blocks freely.
@@ -813,8 +550,10 @@
 		STG: GEAR_SVG,
 		...APP_ICONS
 	};
+	// A panel's Related rail: the place above it and the places below it (see $lib/network). The
+	// Apps panel is the exception — its apps are cards in the body, so they'd be listed twice.
 	const relatedTo = (code: string) => {
-		const all = [...new Set(adj[code] ?? [])];
+		const all = connections(code);
 		return code === 'APP' ? all.filter((c) => !APP_CARDS.includes(c)) : all;
 	};
 
@@ -830,9 +569,6 @@
 	// whole thing to the clipboard so it can be baked back into the source.
 	const CONTENT_KEY = 'ksh-content';
 	let pages = $state<Record<string, Block[]>>(structuredClone(defaultPages));
-	// Editable train-line names (Loess, Gray's, …), same Edit-Mode machinery.
-	const defaultLineNames = airlines.map((a) => a.name);
-	let lineNames = $state([...defaultLineNames]);
 	let editMode = $state(false);
 	let editRev = $state(0); // bump to remount panel content (reset DOM after save/discard)
 	let toast = $state('');
@@ -851,15 +587,6 @@
 	}
 	function stageEdit(code: string, i: number, f: EditField, text: string) {
 		drafts[fieldKey(code, i, f)] = text;
-	}
-	// Line names share the drafts buffer under a distinct `LINE.<idx>.name` key.
-	const lineKey = (idx: number) => `LINE.${idx}.name`;
-	function lineFieldText(idx: number) {
-		const k = lineKey(idx);
-		return k in drafts ? drafts[k] : lineNames[idx];
-	}
-	function stageLineEdit(idx: number, text: string) {
-		drafts[lineKey(idx)] = text;
 	}
 	function showToast(msg: string) {
 		toast = msg;
@@ -888,14 +615,9 @@
 		editRev++; // remount so any edited-but-discarded DOM resets to saved text
 	}
 	async function saveEdits() {
-		// Apply staged drafts onto the live pages (and line names).
+		// Apply staged drafts onto the live pages.
 		for (const [k, val] of Object.entries(drafts)) {
 			const [code, iStr, f] = k.split('.');
-			if (code === 'LINE') {
-				if (f === 'name') lineNames[Number(iStr)] = val;
-				else if (f === 'body') lineBodies[Number(iStr)] = val;
-				continue;
-			}
 			if (code === 'SETTINGS') {
 				if (iStr in settings) settings[iStr] = val;
 				continue;
@@ -918,12 +640,6 @@
 					}
 				});
 			}
-			lineNames.forEach((name, i) => {
-				if (name !== defaultLineNames[i]) overrides[lineKey(i)] = name;
-			});
-			lineBodies.forEach((body, i) => {
-				if (body !== defaultLineBodies[i]) overrides[lineBodyKey(i)] = body;
-			});
 			for (const k of Object.keys(settings)) {
 				if (settings[k] !== defaultSettings[k]) overrides[settingsKey(k)] = settings[k];
 			}
@@ -933,15 +649,7 @@
 			/* storage unavailable — the clipboard copy is still the source of truth */
 		}
 		// Hand the full edited copy back: copy JSON to the clipboard (and log it).
-		const json = JSON.stringify(
-			{
-				pages,
-				lines: airlines.map((_, i) => ({ name: lineNames[i], body: lineBodies[i] })),
-				settings
-			},
-			null,
-			2
-		);
+		const json = JSON.stringify({ pages, settings }, null, 2);
 		console.log('[Kashinoga] edited panel copy:\n' + json);
 		try {
 			await navigator.clipboard.writeText(json);
@@ -950,7 +658,7 @@
 			showToast('Saved locally. Copy the JSON from the console to make it permanent.');
 		}
 	}
-	// Apply any saved overrides from this browser onto the live pages and line names.
+	// Apply any saved overrides from this browser onto the live pages.
 	function applySavedContent() {
 		try {
 			const raw = localStorage.getItem(CONTENT_KEY);
@@ -960,12 +668,6 @@
 			for (const [k, val] of Object.entries(ov)) {
 				if (typeof val !== 'string') continue;
 				const [code, iStr, f] = k.split('.');
-				if (code === 'LINE') {
-					const idx = Number(iStr);
-					if (f === 'name' && idx < lineNames.length) lineNames[idx] = val;
-					else if (f === 'body' && idx < lineBodies.length) lineBodies[idx] = val;
-					continue;
-				}
 				if (code === 'SETTINGS') {
 					if (iStr in settings) settings[iStr] = val;
 					continue;
@@ -976,37 +678,6 @@
 		} catch {
 			/* ignore malformed saved content */
 		}
-	}
-
-	// Which airline colour serves each airport, and everywhere it connects to.
-	const accent: Record<string, string> = {};
-	const adj: Record<string, string[]> = {};
-	for (const a of airlines) {
-		for (const [f, t] of a.legs) {
-			accent[f] ??= a.color;
-			accent[t] ??= a.color;
-			(adj[f] ??= []).push(t);
-			(adj[t] ??= []).push(f);
-		}
-	}
-	// Airports on each airline (index → set of codes) for line highlighting.
-	const lineOf = airlines.map((a) => new Set<string>(a.legs.flat()));
-
-	// Editable line body copy: a stored blurb per line (defaults to the generated
-	// "calls at N destinations" sentence, or an airline's own `body` if set).
-	const defaultLineBodies = airlines.map(
-		(a, i) =>
-			a.body ??
-			`The ${defaultLineNames[i]} line calls at ${lineOf[i].size} destinations across the network — tap a station to fly there.`
-	);
-	let lineBodies = $state([...defaultLineBodies]);
-	const lineBodyKey = (idx: number) => `LINE.${idx}.body`;
-	function lineBodyText(idx: number) {
-		const k = lineBodyKey(idx);
-		return k in drafts ? drafts[k] : lineBodies[idx];
-	}
-	function stageLineBody(idx: number, text: string) {
-		drafts[lineBodyKey(idx)] = text;
 	}
 
 	// Editable Settings-panel copy — the section descriptions. Same Edit-Mode
@@ -1044,212 +715,39 @@
 	const noteText = (k: string, dyn: string, edit: boolean) =>
 		edit ? settingsText(k) : settingsText(k).replace('{}', dyn);
 
-	// BFS depth from the hub, so the map reveals in rings: the hub pops first, then
-	// its neighbours, then theirs, and so on — each section's lines drawing just after.
-	const depth: Record<string, number> = { KSH: 0 };
-	{
-		const queue = ['KSH'];
-		while (queue.length) {
-			const cur = queue.shift()!;
-			for (const nb of adj[cur] ?? []) {
-				if (depth[nb] === undefined) {
-					depth[nb] = depth[cur] + 1;
-					queue.push(nb);
-				}
-			}
-		}
-	}
-	// Reveal cadence (seconds): first node, per-ring step, and how far a ring's lines
-	// trail its nodes. Node d pops at START + d·STEP; its incoming line draws a beat later.
-	const REVEAL_START = 0.2;
-	const REVEAL_STEP = 0.35;
-	const REVEAL_LINE = 0.12;
-	const popDelay = (code: string) => REVEAL_START + (depth[code] ?? 0) * REVEAL_STEP;
-	const drawDelay = (codes: string[]) =>
-		REVEAL_START + Math.max(...codes.map((c) => depth[c] ?? 0)) * REVEAL_STEP + REVEAL_LINE;
-
-	// ─── Camera: crop the world, fly between crops to "move pages" ───────────────
-	// Landscape viewBox on desktop; a portrait one for the vertical mobile train map.
-	// viewBox w/h. Only the portrait train map is tall; everything else is the wide crop.
-	const ASPECT_WIDE = 1.5;
-	const ASPECT_TALL = 0.64;
-	const ASPECT = $derived(mapMode === 'rail' && isMobile ? ASPECT_TALL : ASPECT_WIDE);
-	// Home is zoomed to the hub so routes bleed off every edge; a node focus keeps
-	// the node in the left-of-panel area (biasX) with its neighbours in view.
-	// `aspect` defaults to the live ASPECT — right for a fly-to, which always targets the
-	// map as it's currently drawn. The home framings below pass theirs explicitly: each
-	// belongs to one (mode, orientation) pair, so it must not be built from whatever
-	// ASPECT happened to hold when the module initialised.
-	function crop(cx: number, cy: number, w: number, biasX = 0.5, biasY = 0.5, aspect = ASPECT) {
-		const h = w / aspect;
-		return { x: cx - w * biasX, y: cy - h * biasY, w, h };
-	}
-	// Home framing: the whole left column is UI (the masthead top-left, with the nav
-	// menus — destinations then route lines — stacked directly beneath it), so bias the
-	// network to the centre-right — hub past centre, spokes fanning right — keeping the
-	// left clear of routes and nodes. Both modes
-	// zoom into the hub at a comfortable scale so the outermost stations run off the
-	// edges (reached by flying to them), rather than shrinking to fit everything in.
-	const HOME_AIR = crop(P_air.KSH[0], P_air.KSH[1], 860, 0.66, 0.56, ASPECT_WIDE);
-	// Desktop zooms onto the hub cluster — Home centred with About, Settings and Apps (tier 0
-	// and 1) framed, while Work/Projects and the Presentation Builder / Air Traffic run off the
-	// edges with their routes trailing into the crop. Centred on the cluster, not the hub.
-	const HOME_RAIL = crop(400, 385, 540, 0.5, 0.47, ASPECT_WIDE);
-	// Mobile zooms onto the hub cluster — Home with About above and Settings/Apps below (tier 0
-	// and 1) filling the frame, while Work/Projects run off the top and the Presentation Builder /
-	// Air Traffic off the bottom (the layout above puts them far enough out to clip). Centred on
-	// the cluster (y 450), not the hub.
-	const HOME_RAIL_V = crop(223, 450, 270, 0.5, 0.5, ASPECT_TALL);
-	const HOME = $derived(mapMode === 'air' ? HOME_AIR : isMobile ? HOME_RAIL_V : HOME_RAIL);
-
-	// The whole map, unzoomed: the origin of the load-in fly, and where the masthead's "show full
-	// map" button eases out to. Wide enough to frame every node — including the tier-2 leaves the
-	// home crop pushes off — with margin. (Air isn't zoomed on home, so its full == its home.)
-	const FULL_AIR = HOME_AIR;
-	const FULL_RAIL = crop(P_rail.KSH[0], P_rail.KSH[1], 900, 0.62, 0.54, ASPECT_WIDE);
-	const FULL_RAIL_V = crop(230, 460, 430, 0.5, 0.5, ASPECT_TALL);
-	const FULL = $derived(mapMode === 'air' ? FULL_AIR : isMobile ? FULL_RAIL_V : FULL_RAIL);
-
-	// Dot sizing, decoupled from the camera's zoom.
-	//
-	// Dot radii are world units, so they'd scale with the map — but the masthead's bullets are
-	// a fixed 30px (its wordmark clamps at 5.5rem and stops growing, and the bullets never
-	// grew at all). Past ~1400px the map keeps zooming and the masthead doesn't, so the hub
-	// pulls ahead of the bullets it's supposed to sit level with: 1.20× at 1920px.
-	//
-	// So shrink the dots, in world units, by however much the home camera has overshot
-	// DOT_CAP_PX — the hub then holds at 30px and every other dot keeps its proportion to it
-	// (a stop stays 0.65× the hub, always). Lines and labels still scale; only the dots pin.
-	//
-	// Measured against HOME rather than the live camera on purpose: pinning to HOME makes this
-	// a per-viewport constant, not something that recomputes on every frame of a fly and fights
-	// Bubble's `r` transition. (Dormant since the map's dots were removed — kept for an easy
-	// restore, along with the rest of the camera/node machinery.)
-	const homeScale = $derived(Math.min(vw / HOME.w, vh / HOME.h) || 1);
-	const dotScale = $derived(Math.min(1, DOT_CAP_PX / (2 * R_HUB * homeScale)));
-	const rHub = $derived(R_HUB * dotScale);
-	const rStop = $derived(R_STOP * dotScale);
-
-	// The camera starts on the WHOLE map (the desktop rail full framing the server renders, since
-	// `vw` starts at its desktop default); onMount flies it in to the zoomed home. Seeding it at
-	// full here — not the home crop — means the server paints the same first frame the load-in
-	// animation starts from, so there's no jump between hydration and the fly.
-	let cam = $state({ ...FULL_RAIL });
-	// The masthead's "show full map" toggle: eases the camera out to the whole map and back. Only
-	// reachable on the home view (the masthead hides under a panel), and reset whenever one opens.
-	let showFull = $state(false);
-	// A destination page, a highlighted airline line, or neither. `View` and the slug
-	// mapping live in $lib/views.ts; the incoming URL seeds this so a deep link renders
-	// its panel on the server.
-	//
-	// `data.view` is read once, on purpose: from here on the open panel is local state
-	// (clicks mutate it directly, and the panel-slide animation needs to defer the swap).
-	// The URL is mirrored onto it by `syncUrl`, and any change coming the other way —
-	// back/forward, or a full navigation that swaps `data` — is picked up by the
-	// `page.url` effect below. So this staying pinned to the initial value is correct.
-	// svelte-ignore state_referenced_locally
+	// ─── The open panel ─────────────────────────────────────────────────────────
+	// `data.view` is read once, on purpose: from here on the open panel is local state (clicks
+	// mutate it directly, and the panel-slide animation defers the swap), and the URL is
+	// reconciled against it rather than the other way round.
+	// eslint-disable-next-line svelte/no-reactive-reassign -- read ONCE, deliberately: see above
 	let view = $state<View | null>(data.view);
-	// When navigating panel→panel, the whole panel slides off before its content swaps.
+	// Navigating panel→panel slides the whole panel off before its content swaps.
 	let panelLeaving = $state(false);
-	// Expand the panel to fill the viewport (handy for the wide Traffic board).
-	// Remembered across panels and reloads.
+	// Expand the panel to fill the viewport (handy for the wide Traffic board). Remembered across
+	// panels and reloads.
 	const EXPAND_KEY = 'ksh-panel-expanded';
 	let panelExpanded = $state(false);
-
-	// Nothing decorative is BUILT unless it can actually be seen. Two things can hide the backdrop
-	// wholesale: the colour scheme (stars are dark-only, rings light-only — a transparent star still
-	// runs its twinkle, and a transparent ring still costs a dashed circle's worth of paint), and a
-	// panel that covers the entire viewport (expanded on desktop, or any panel on mobile, where it's
-	// a full-screen sheet). Before this, an expanded Presentation Builder sat over 46 twinkling stars
-	// nobody could see. Rendering nothing is the only way to animate nothing.
+	// Nothing decorative is BUILT unless it can be seen: the stars are dark-only, the rings
+	// light-only, and both go when a panel covers the whole viewport (expanded on desktop, or any
+	// panel on mobile, where it's a full-screen sheet).
 	const backdropHidden = $derived(!!view && (panelExpanded || isMobile));
 	const starsVisible = $derived(starsOn && darkScheme && !backdropHidden && !photoSky);
 	const ringsVisible = $derived(!darkScheme && !backdropHidden && !photoSky);
 	function toggleExpand() {
 		panelExpanded = !panelExpanded;
-		// Expanding covers the map, so let it fade once it's rested; un-expanding puts
-		// the map back beside the panel, so bring it straight back.
-		if (panelExpanded) scheduleHide();
-		else {
-			clearTimeout(hideTimer);
-			mapHidden = false;
-		}
 		try {
 			localStorage.setItem(EXPAND_KEY, panelExpanded ? '1' : '0');
 		} catch {
 			/* storage unavailable — keep the in-memory choice */
 		}
 	}
-	// maximize / minimize (expand-panel toggle) are shared with the Traffic board, so
-	// they live in $lib/icons.
-	const PANEL_SLIDE = 300;
-	let navTimer = 0;
-	// The load-in holds on the whole map while the nodes pop in, then flies to the zoomed home.
-	let homeFlyTimer = 0;
-	const HOME_HOLD = 1000; // ms on the full map before the zoom (≈ when the tier-2 dots have popped)
-	let target = { ...HOME_RAIL };
-	let raf = 0;
-
-	// With an EXPANDED panel the map is fully covered, so it keeps flying to its
-	// framing as usual — you see the movement — but once the camera settles there's
-	// nothing left to look at behind the panel, so fade the whole map out a beat
-	// later. A non-expanded panel sits beside the map, so it always stays visible.
-	// Each fresh open, panel→panel nav, un-expand, or close brings it back so the
-	// motion replays first.
-	let mapHidden = $state(false);
-	let hideTimer = 0;
-	const HIDE_LINGER = 520; // ms to let the settled map rest before it fades
-	function scheduleHide() {
-		clearTimeout(hideTimer);
-		if (!view || !panelExpanded) return;
-		hideTimer = window.setTimeout(() => {
-			if (view && panelExpanded) mapHidden = true;
-		}, HIDE_LINGER);
-	}
-
+	// The panel element, for the slide transition.
 	let panelEl = $state<HTMLElement | undefined>(undefined);
-	// Dormant since the map was removed: no drag-to-pan surface remains, so this never
-	// flips true. Kept (with `class:panning` on the stage) so the cursor plumbing is a
-	// one-line restore if the map ever returns.
-	let panning = $state(false);
-
 	const reduce =
 		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-	function step() {
-		const s = 0.17;
-		for (const k of ['x', 'y', 'w', 'h'] as const) cam[k] += (target[k] - cam[k]) * s;
-		if ((['x', 'y', 'w', 'h'] as const).every((k) => Math.abs(target[k] - cam[k]) < 0.4)) {
-			cam = { ...target };
-			raf = 0;
-			// Movement's done — if a panel's up, let the resting map fade out shortly.
-			if (view && !mapHidden) scheduleHide();
-			return;
-		}
-		raf = requestAnimationFrame(step);
-	}
-	function flyTo(t: typeof HOME) {
-		target = t;
-		if (reduce) {
-			cam = { ...t };
-			// No fly to watch under reduced motion — settle straight into the fade.
-			if (view && !mapHidden) scheduleHide();
-			return;
-		}
-		if (!raf) raf = requestAnimationFrame(step);
-	}
-	// Where the camera rests with no panel open: the whole map while the "show full map" toggle is
-	// on, otherwise the zoomed home framing.
-	const restFrame = $derived(showFull ? FULL : HOME);
-	// Masthead "show full map" button. Only reachable on the home view, so it just eases the
-	// camera between the whole map and the zoomed home.
-	function toggleFullMap() {
-		// Cancel any still-pending load-in fly, so it can't yank the camera home after this.
-		clearTimeout(homeFlyTimer);
-		showFull = !showFull;
-		flyTo(restFrame);
-	}
-
+	const PANEL_SLIDE = 300;
+	let navTimer = 0;
 	// Keep the address bar on the panel that's actually showing.
 	//
 	// The URL is pushed here, at the moment the content swaps — not when navigation
@@ -1390,48 +888,22 @@
 	// Show a destination/line: fly the camera there and render its panel content.
 	function applyView(nv: View, push = true) {
 		view = nv;
-		// A panel takes over the camera, so drop the "show full map" toggle — closing returns to
-		// the zoomed home, not the full map.
-		showFull = false;
 		// A fresh open starts the board on its defaults — the previous visit's `?field=` and
-		// friends belong to the history entry we left, not to this new one. On a
-		// history-driven open (`push` false) the reconciler has already set them.
+		// friends belong to the history entry we left, not to this new one. On a history-driven
+		// open (`push` false) the reconciler has already set them.
 		if (push) {
 			field = null;
 			range = null;
 			refresh = null;
 			syncUrl(nv, NO_PARAMS);
 		}
-		// Only the Air Traffic board and the Presentation Builder are designed to fill the
-		// viewport. PRES forces the full layout on open (its compact form is a fallback); every
-		// other panel is compact-only, so clear any lingering expand intent (e.g. from a previous
-		// ATFC visit) — that keeps panelExpanded true to what's shown, so the panel renders AND
-		// slides out at the right width (a stale expand no longer jerks the close). ATFC keeps
-		// whatever the user last toggled.
-		if (nv.kind === 'port' && nv.code === 'PRES') panelExpanded = true;
-		else if (!(nv.kind === 'port' && nv.code === 'ATFC')) panelExpanded = false;
-		// Reveal the map for this open so the fly is seen; scheduleHide (on settle)
-		// fades it again if the panel is expanded.
-		clearTimeout(hideTimer);
-		mapHidden = false;
-		// On mobile the panel is a full-screen sheet, so there's no "beside the panel"
-		// to bias toward — panning would just slide the map sideways behind the sheet.
-		// Instead dolly straight back from the home framing (further away, centred).
-		if (isMobile) {
-			const f = 1.3;
-			flyTo({
-				x: HOME.x - (HOME.w * (f - 1)) / 2,
-				y: HOME.y - (HOME.h * (f - 1)) / 2,
-				w: HOME.w * f,
-				h: HOME.h * f
-			});
-			return;
-		}
-		// A station with no coordinate is a real possibility — the map is dormant, so a new stop can
-		// be added to $lib/network without anyone thinking about these tables. Fall back to the hub
-		// rather than throwing: the camera is invisible now, but the exception it raised wasn't.
-		const at = (nv.kind === 'port' && P[nv.code]) || P[HUB];
-		flyTo(nv.kind === 'port' ? crop(at[0], at[1], 720, 0.3) : fitLine(nv.idx));
+		// Only the Air Traffic board and the Presentation Builder are designed to fill the viewport.
+		// PRES forces the full layout on open (its compact form is a fallback); every other panel is
+		// compact-only, so clear any lingering expand intent (e.g. from a previous ATFC visit) —
+		// that keeps panelExpanded true to what's shown, so the panel renders AND slides out at the
+		// right width. ATFC keeps whatever the user last toggled.
+		if (nv.code === 'PRES') panelExpanded = true;
+		else if (nv.code !== 'ATFC') panelExpanded = false;
 	}
 	// Reuse the open panel across destinations: slide the whole panel out, swap its
 	// content off-screen, then slide it back in. A fresh open (no panel yet) or
@@ -1454,18 +926,11 @@
 		if (view?.kind === 'port' && view.code === code) return;
 		navigate({ kind: 'port', code });
 	}
-	function openLine(idx: number) {
-		if (view?.kind === 'line' && view.idx === idx) return;
-		navigate({ kind: 'line', idx });
-	}
 	function home(push = true) {
 		clearTimeout(navTimer);
-		clearTimeout(hideTimer);
 		panelLeaving = false;
-		// Bring the map back so the fly home is visible behind the closing panel.
-		mapHidden = false;
-		// Keep panelExpanded set so the panel flies out at its current width in one
-		// clean slide (it's reset on the next fresh open, not mid-close).
+		// Keep panelExpanded set so the panel slides out at its current width in one clean move
+		// (it's reset on the next fresh open, not mid-close).
 		view = null;
 		if (push) {
 			// The overview map has no board; leaving these set would linger in the head tags.
@@ -1474,10 +939,8 @@
 			refresh = null;
 			syncUrl(null);
 		}
-		flyTo(HOME);
-		// Drop focus off the selected node so its dot returns to its normal weight
-		// (the bolder stroke comes from :focus-visible, which otherwise lingers when
-		// the panel closes via Escape or an empty-space click).
+		// Drop focus off whatever was selected, so its :focus-visible ring doesn't linger when the
+		// panel closes via Escape or a click on the bare stage.
 		if (typeof document !== 'undefined') {
 			(document.activeElement as HTMLElement | null)?.blur?.();
 		}
@@ -1496,11 +959,11 @@
 	}
 
 
-	// Shared by every in-map link (stations, line legend, onward chips).
+	// Shared by every in-app link (the masthead's nav, Related chips, the Apps cards).
 	//
-	// Left-click with no modifier is ours: cancel the navigation and fly the camera.
-	// Anything else — ⌘/ctrl (new tab), shift (new window), alt (download), middle-click —
-	// is the browser's, so the link behaves like a link.
+	// Left-click with no modifier is ours: cancel the navigation and open the panel in place.
+	// Anything else — ⌘/ctrl (new tab), shift (new window), alt (download), middle-click — is the
+	// browser's, so the link behaves like a link.
 	function onNodeClick(e: MouseEvent, run: () => void) {
 		if (e.defaultPrevented) return; // a pan just ended; onClickCapture killed it
 		if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
@@ -1508,15 +971,6 @@
 		run();
 	}
 
-	// Stations carry an explicit tabindex because SVG <a> is not reliably in the tab
-	// order across browsers. Enter needs no handler — the browser fires a click on a
-	// focused link, which `onNodeClick` picks up. Space does not, so it's wired here to
-	// keep the behaviour the old role="button" nodes had.
-	const onNodeKey = (code: string) => (e: KeyboardEvent) => {
-		if (e.key !== ' ') return;
-		e.preventDefault();
-		board(code);
-	};
 	// Click the exposed background beside an unexpanded panel to dismiss it — the "click off
 	// the panel" affordance the map's catch-rect used to give. Gated to a click that lands on
 	// the stage itself (`target === currentTarget`), so the masthead, its nav, and the panel
@@ -1528,67 +982,16 @@
 		photoOpen = false;
 		if (view && !panelExpanded && e.target === e.currentTarget) home();
 	}
-	// Smallest screen-space shift that fits the dot inside [safeLo, safeHi], then
-	// reveals as much of the label as possible without pushing the dot back out.
-	function axisDelta(
-		dotLo: number,
-		dotHi: number,
-		labLo: number,
-		labHi: number,
-		safeLo: number,
-		safeHi: number
-	) {
-		let d = 0;
-		if (dotLo < safeLo) d = safeLo - dotLo;
-		else if (dotHi > safeHi) d = safeHi - dotHi;
-		const lo = Math.min(dotLo, labLo);
-		const hi = Math.max(dotHi, labHi);
-		if (hi + d > safeHi) {
-			// Pull toward the low edge to show the label, but keep the dot's low edge in.
-			d += Math.max(safeHi - (hi + d), safeLo - (dotLo + d));
-		} else if (lo + d < safeLo) {
-			d += Math.min(safeLo - (lo + d), safeHi - (dotHi + d));
-		}
-		return d;
-	}
-	// Frame a whole airline: fit all its airports, biased left of the panel.
-	function fitLine(idx: number) {
-		// Same trap as flyTo: a stop with no coordinate in the dormant map tables would throw here.
-		const codes = [...lineOf[idx]].filter((c) => P[c]);
-		if (!codes.length) return crop(P[HUB][0], P[HUB][1], 720, 0.3);
-		const pxs = codes.map((c) => P[c][0]);
-		const pys = codes.map((c) => P[c][1]);
-		const cx = (Math.min(...pxs) + Math.max(...pxs)) / 2;
-		const cy = (Math.min(...pys) + Math.max(...pys)) / 2;
-		const spanW = Math.max(...pxs) - Math.min(...pxs);
-		const spanH = Math.max(...pys) - Math.min(...pys);
-		const w = Math.max(spanW, spanH * ASPECT) * 1.3 + 260;
-		return crop(cx, cy, w, 0.36);
-	}
 	// The open station's code (or null) — drives the masthead nav's active highlight. A plain
 	// string so <Masthead> stays free of the View union.
-	const activeCode = $derived(view?.kind === 'port' ? view.code : null);
-	// Dimming only applies to the expanded panel (where the map fades out behind it anyway).
-	// With an unexpanded panel the map sits beside it in full colour — no dimming.
-	function nodeDim(code: string) {
-		if (!view || !panelExpanded) return false;
-		return view.kind === 'port' ? view.code !== code : !lineOf[view.idx].has(code);
-	}
-	function arcDim(airlineIdx: number) {
-		if (!view || !panelExpanded) return false;
-		return view.kind === 'port' ? true : view.idx !== airlineIdx;
-	}
+	const activeCode = $derived(view?.code ?? null);
 
 	let wasMobile = false;
 	function onResize() {
 		vw = window.innerWidth;
 		vh = window.innerHeight;
 		measureRings(); // the wordmark (and so the "o") shifts as it clamps with the viewport
-		// On a desktop⇄mobile crossover the layout swaps; re-frame if idle at home.
-		if (isMobile !== wasMobile) {
-			wasMobile = isMobile;
-			if (!view) flyTo(restFrame);
-		}
+		wasMobile = isMobile;
 	}
 
 	onMount(() => {
@@ -1619,22 +1022,9 @@
 		// While on Auto, keep the phase current if the tab is left open across a boundary.
 		skyTimer = window.setInterval(() => skyMode === 'auto' && applySky(), 5 * 60 * 1000);
 		if (dev) applySavedContent();
-		// Seed the camera at the resolved mode/orientation FULL framing (the whole map), the origin
-		// for the load-in fly.
-		cam = { ...FULL };
-		target = { ...FULL };
-		// Arrived on a deep link (/atfc, /terminal-way, …): its panel already rendered on
-		// the server, but the camera is still parked at the full map. Fly it in — same motion a
-		// click would produce. `push: false` — this URL is already the current entry. On the plain
-		// home view, fly the whole map in to the zoomed home framing.
-		//
-		// This runs after the localStorage reads above because the framing depends on the
-		// restored map mode, and after `cam`/`target` are seeded so the fly has an origin.
+		// Arrived on a deep link (/apps/weather, /about/work, …): the panel already rendered on the
+		// server, so re-apply it locally without pushing — this URL is already the current entry.
 		if (view) applyView(view, false);
-		else if (reduce) flyTo(HOME); // no fly to watch — snap straight to the resting framing
-		// Home load: hold on the whole map so the ring-by-ring node pop plays at full framing, then
-		// fly in to the hub. The guard covers a click that opens a panel during the hold.
-		else homeFlyTimer = window.setTimeout(() => !view && flyTo(HOME), HOME_HOLD);
 	});
 
 	// Reconcile the panel when history moves without us — the back/forward buttons
@@ -1676,18 +1066,12 @@
 	const cleanups: (() => void)[] = [];
 
 	onDestroy(() => {
-		if (raf) cancelAnimationFrame(raf);
 		clearTimeout(navTimer);
-		clearTimeout(homeFlyTimer);
-		clearTimeout(hideTimer);
 		clearTimeout(toastTimer);
 		clearInterval(skyTimer);
 		for (const off of cleanups) off();
 	});
 
-	const viewBox = $derived(
-		`${cam.x.toFixed(1)} ${cam.y.toFixed(1)} ${cam.w.toFixed(1)} ${cam.h.toFixed(1)}`
-	);
 </script>
 
 <svelte:window onkeydown={onKey} onresize={onResize} />
@@ -1753,7 +1137,7 @@
 {/snippet}
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="stage" class:panning class:photo={photoSky} onclick={onStageClick}>
+<div class="stage" class:photo={photoSky} onclick={onStageClick}>
 	{#if photoSky && photo}
 		<!-- Bing's photo of the day. Two layers, not one: the picture, and a veil over it. The panels
 		     are opaque so they're fine, but the masthead and nav sit straight on the sky — over a
@@ -1881,11 +1265,9 @@
 			     inner key (no transition) just remounts content so the arrival-board
 			     titles re-flip on each destination. -->
 			<div class="surface-scroll">
-			{#key (v.kind === 'port' ? 'p' + v.code : 'l' + v.idx) + ':' + editRev}
-				{#if v.kind === 'port'}
+			{#key v.code + ':' + editRev}
 					{@const port = airports[v.code]}
 					{@const blocks = pages[v.code] ?? stub(port.title)}
-					{@const conns = [...new Set(adj[v.code] ?? [])]}
 					{#if v.code === 'ATFC'}
 						<!-- The Traffic board owns its whole panel interior so, when expanded, its
 						     controls + a live summary fill the header beside the title. It gets the
@@ -2235,38 +1617,6 @@
 						{@render onward('Related', relatedTo(v.code))}
 					</div>
 					{/if}
-				{:else}
-					{@const a = airlines[v.idx]}
-					{@const stops = [...lineOf[v.idx]]}
-					{@const editLine = dev && editMode}
-					<div class="surface-head">
-						<button class="icon-btn back" onclick={() => home()} aria-label="Back to home" title="Home">{@html BACK_CIRCLE_SVG}</button>
-						<div class="title-row">
-							{#if editLine}
-								<h2
-									class="dest editable"
-									style:font-size={destSize(lineFieldText(v.idx))}
-									contenteditable="true"
-									oninput={(e) => stageLineEdit(v.idx, e.currentTarget.textContent ?? '')}
-								>{lineFieldText(v.idx)}</h2>
-							{:else}
-								<h2 class="dest" style:font-size={destSize(lineNames[v.idx])}><SplitFlap text={lineNames[v.idx]} base={160} stagger={45} /></h2>
-							{/if}
-							<!-- A line's own colour, not a station's accent. -->
-							{@render accentDot(a.color)}
-						</div>
-					</div>
-					<div class="surface-body">
-						<p
-							class:editable={editLine}
-							contenteditable={editLine}
-							oninput={editLine
-								? (e) => stageLineBody(v.idx, e.currentTarget.textContent ?? '')
-								: undefined}
-						>{lineBodyText(v.idx)}</p>
-						{@render onward('Along the way', stops)}
-					</div>
-				{/if}
 			{/key}
 			</div>
 		</aside>
