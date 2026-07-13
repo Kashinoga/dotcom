@@ -89,10 +89,19 @@
 	   sheet laid over the map, separated by its edge, not a pane of glass separated by what
 	   shows through it. (Bubble keeps the frosted --panel-fill.) */
 	--panel-fill-solid: light-dark(#ffffff, #000000);
+	/* The panel's SURFACE — its body and its header — is glass, not stock: the sky shows through it,
+	   and the panel is told apart by its edge. --panel-veil is how much of the page's own paper is
+	   washed over what's behind, and it is NOT a constant: over a solid or gradient sky a light veil
+	   is plenty, but a photograph is busy and unpredictable, so the page MEASURES the picture and
+	   sets this from it (see photoVeil in +page.svelte). Small floating things — the search results,
+	   the photo card — keep --panel-fill-solid: they sit ON content and must not blend into it. */
+	--panel-veil: 0.34;
+	--panel-glass: color-mix(in srgb, var(--paper) calc(var(--panel-veil) * 100%), transparent);
 	/* Same pure stock as the body: the header band is drawn by its bottom border, not a tint
 	   step. Near-opaque, because the ATFC header is sticky over scrolling rows and no longer
 	   blurs, so it must hide what passes beneath. */
-	--panel-head: light-dark(rgba(255, 255, 255, 0.97), rgba(0, 0, 0, 0.97));
+	/* The header is the same glass as the body — one surface, no tint step (its rule is gone too). */
+	--panel-head: var(--panel-glass);
 	/* Backdrop filter shared by both panel states (compact + expanded): blur enough that the
 	   map beneath reads as diffuse colour — never a legible shape — and saturate so that
 	   transmitted colour stays lively rather than washing out grey. */

@@ -24,9 +24,12 @@ for (const ui of ['flat','bubble']) {
     const blurs = await p.evaluate(scanBlur);
     if (ui==='flat') ok(`flat: ${path} no backdrop-filter`, blurs.length===0, blurs.slice(0,2).join(' | '));
     else ok(`bubble: ${path} keeps backdrop-filter`, blurs.length>0, `${blurs.length}`);
-    // panel opacity: is the backdrop opaque?
+    // The panel's material. Flat used to be an OPAQUE sheet; it is glass now — the sky reads through
+    // it, and over a photograph the page measures the picture and firms the wash up until the text
+    // clears 4.5:1 (see measureVeil). What still separates Flat from Bubble is the LIVE filter:
+    // Bubble frosts what's behind it with a backdrop-filter; Flat never does.
     const bd = await p.locator('.surface-backdrop').evaluate(e=>{const s=getComputedStyle(e);return {bg:s.backgroundColor,bi:s.backgroundImage.slice(0,30)}});
-    if (ui==='flat') ok(`flat: ${path} backdrop opaque (no alpha)`, /^rgb\(\d+, \d+, \d+\)$/.test(bd.bg) && bd.bi==='none', JSON.stringify(bd));
+    if (ui==='flat') ok(`flat: ${path} backdrop is glass (translucent, no live filter)`, /rgba|\/ 0?\.\d+\)/.test(bd.bg) && bd.bi==='none', JSON.stringify(bd));
     else ok(`bubble: ${path} backdrop translucent + sheen`, bd.bg.startsWith('rgba') && bd.bi!=='none', JSON.stringify(bd));
   }
   // PB toolbar buttons

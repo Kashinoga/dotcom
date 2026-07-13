@@ -149,6 +149,8 @@
 		// cleared here when the sky changes to anything else: leaving it set hid the stars for the
 		// rest of the session the moment anyone switched from Photo to a night sky.
 		document.documentElement.toggleAttribute('data-sky-photo', skyMode === 'photo');
+		// The measured veil belongs to a photograph. Any other sky takes the theme's own.
+		if (skyMode !== 'photo') resetVeil();
 		// Off and Photo both carry no phase: Off has nothing to paint, and a photograph can't tell the
 		// tokens what time it is. Only the gradients set data-sky.
 		if (skyMode === 'off' || skyMode === 'photo') {
@@ -227,9 +229,109 @@
 	// whatever sky is already up (or the solid background, on the first load).
 	async function showPhoto(p: Photo) {
 		const img = new Image();
+		// Same-origin rules for READING pixels are stricter than for showing them: without this the
+		// canvas below is tainted and getImageData throws. Bing's CDN sends `access-control-allow-
+		// origin: *`, so asking for CORS costs nothing and buys the measurement.
+		img.crossOrigin = 'anonymous';
 		img.src = p.url;
 		await img.decode().catch(() => {});
 		photo = p;
+		// The panel's blurred copy of the picture reads it from here (a CSS var, so no second
+		// download — the browser has this exact URL in cache already).
+		document.documentElement.style.setProperty('--photo-url', `url("${p.url}")`);
+		measureVeil(img);
+	}
+
+	// How much glass the panel needs over THIS photograph.
+	//
+	// The panel is see-through by design, which is lovely over a gradient sky and a liability over a
+	// picture: a photo is busy and unpredictable, so one fixed transparency is legible over one image
+	// and unreadable over the next. So don't pick a number — measure the picture and solve for one.
+	//
+	// Two things make text hard to read through glass, and each sets a floor on the veil:
+	//   • the backdrop's BRIGHTNESS fighting the ink (dark ink on a dark photo), and
+	//   • the backdrop's BUSYNESS — texture behind letterforms, which no amount of "average
+	//     brightness is fine" will fix.
+	// Washing the page's own paper over the photo at alpha α pulls the mean toward the paper AND
+	// flattens the variation by (1 − α). Solve both for α, take the larger, and clamp: never so thin
+	// that the text is at risk, never so thick that the photograph is gone.
+	const VEIL_MIN = 0.28;
+	const VEIL_MAX = 0.9;
+	function measureVeil(img: HTMLImageElement) {
+		try {
+			const c = document.createElement('canvas');
+			c.width = 64;
+			c.height = 36;
+			const ctx = c.getContext('2d', { willReadFrequently: true });
+			if (!ctx || !img.naturalWidth) return resetVeil();
+			const lumOf = (w: number, h: number) => {
+				c.width = w;
+				c.height = h;
+				ctx.drawImage(img, 0, 0, w, h);
+				const { data } = ctx.getImageData(0, 0, w, h);
+				const out: number[] = [];
+				for (let i = 0; i < data.length; i += 4) {
+					out.push((0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]) / 255);
+				}
+				return out;
+			};
+			// The picture, sampled COARSELY (8×5). Downsampling is a blur, and the panel blurs what's
+			// behind it — so these 40 cells stand in for the tones that actually survive behind a
+			// letterform. Measuring the sharp image would have the panel pay for detail no reader sees.
+			const coarse = lumOf(8, 5).sort((x, y) => x - y);
+			c.width = 1;
+			c.height = 1;
+
+			// Solve for the CONTRAST the text needs, against the WORST tone it will land on — not the
+			// average (a photo's mean says nothing about the dark corner the panel happens to cover)
+			// and not "wash it toward the paper" (an earlier pass aimed for 86% of the way to white
+			// and measured 13:1 where the bar is 4.5:1 — an opaque panel for no reason).
+			//
+			// The compositing is done in ENCODED sRGB, because that's what the browser does when it
+			// lays a translucent fill over an image. Contrast, though, is defined on LINEAR luminance.
+			// Conflating the two is not a rounding error: it predicted 6:1 for a panel that rendered
+			// 2.3:1. So: solve in encoded space, convert to linear only to state the target.
+			const toLinear = (e: number) =>
+				e <= 0.04045 ? e / 12.92 : ((e + 0.055) / 1.055) ** 2.4;
+			const toEncoded = (l: number) =>
+				l <= 0.0031308 ? 12.92 * l : 1.055 * l ** (1 / 2.4) - 0.055;
+
+			const at = (q: number) => coarse[Math.min(coarse.length - 1, Math.floor(q * coarse.length))];
+			// Aim past the bar, not at it: the sample is 40 cells, the blur is approximate, and the panel
+			// can sit anywhere over the picture. Measured across all eight photos, aiming at 5.5 left one
+			// at 4.2:1 — just under. Aiming at 6.5 keeps every one of them clear of 4.5:1.
+			const TARGET = 6.5;
+			const inkL = toLinear(darkScheme ? 0.949 : 0.039); // --ink, light-dark(#0a0a0a, #f2f2ee)
+
+			let alpha: number;
+			if (darkScheme) {
+				// Paper is black (encoded 0): the veil pulls the backdrop DOWN, away from light ink, so
+				// the BRIGHTEST tone is the one that fights it.
+				const worst = at(0.95);
+				const needL = (inkL + 0.05) / TARGET - 0.05; // composite must be no brighter than this
+				const needE = toEncoded(Math.max(needL, 0));
+				alpha = 1 - needE / Math.max(worst, 0.001);
+			} else {
+				// Paper is white (encoded 1): the veil pulls the backdrop UP, away from dark ink, so the
+				// DARKEST tone is the one that fights it.
+				const worst = at(0.05);
+				const needL = TARGET * (inkL + 0.05) - 0.05; // composite must be at least this bright
+				const needE = toEncoded(Math.min(needL, 1));
+				alpha = (needE - worst) / Math.max(1 - worst, 0.001);
+			}
+			document.documentElement.style.setProperty(
+				'--panel-veil',
+				Math.min(VEIL_MAX, Math.max(VEIL_MIN, alpha)).toFixed(3)
+			);
+		} catch {
+			// Tainted canvas, or an image that never decoded: fall back to a veil thick enough to be
+			// safe over anything, rather than leaving the text to chance.
+			document.documentElement.style.setProperty('--panel-veil', '0.82');
+		}
+	}
+
+	function resetVeil() {
+		document.documentElement.style.removeProperty('--panel-veil');
 	}
 
 	// Picked from the flyout: paint it, and remember it. Picking the one already showing is how you
@@ -2023,12 +2125,57 @@
 		inset: 0;
 		z-index: 0;
 		pointer-events: none;
-		background: var(--panel-fill-solid);
+		/* Glass: the sky reads through the panel, and the panel is told apart by its edge. How much
+		   glass is not fixed — over a photograph the page measures the picture and firms this up
+		   until the text is safely legible. See --panel-veil / measureVeil. */
+		background: var(--panel-glass);
 	}
+	/* Bubble keeps its own material: frosted acrylic — a sheen over a translucent tint, with a real
+	   backdrop blur. Flat's glass is a flat wash with no live filter; Bubble's is glass you can tell
+	   is glass. (This rule went missing for a moment when the glass landed, and Bubble quietly lost
+	   its blur — the `glass` suite caught it.) */
 	:global(html[data-ui='bubble']) .surface-backdrop {
 		background: var(--panel-sheen), var(--panel-fill);
 		-webkit-backdrop-filter: var(--panel-blur);
 		backdrop-filter: var(--panel-blur);
+	}
+
+	/* Under the panel, over a PHOTO: the same picture, softened, with the veil laid over it.
+	   Two things make text hard to read through glass — the backdrop's brightness and its BUSYNESS.
+	   The veil can only fix the first; texture behind letterforms needs the second fixed too, and
+	   washing that out means washing the photograph out (measured, it wanted 0.8 — glass in name
+	   only). So the busyness is removed at the source: a copy of the photo, blurred, under the panel.
+	   `background-attachment: fixed` is what keeps it honest — the copy is framed to the VIEWPORT,
+	   not the panel, so it lines up with the sky either side and the panel reads as a pane you're
+	   looking through rather than a picture of its own.
+
+	   Two pseudo-elements, in this order, and it matters: the photo on ::before, the veil on ::after.
+	   The obvious shape — photo on ::before with z-index:-1, veil as the element's own background —
+	   is WRONG, and silently so. .surface-backdrop is a stacking context, and inside one the
+	   element's background paints before its negative-z children, so the photo landed on TOP of the
+	   veil. It looked plausible and measured 1.7:1. */
+	:global(html[data-sky-photo]) .surface-backdrop {
+		background: none;
+	}
+	:global(html[data-sky-photo]) .surface-backdrop::before,
+	:global(html[data-sky-photo]) .surface-backdrop::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+	}
+	:global(html[data-sky-photo]) .surface-backdrop::before {
+		background-image: var(--photo-url);
+		background-attachment: fixed;
+		background-position: center;
+		background-size: cover;
+		/* No backdrop-filter: that re-filters live on every repaint. This is one static layer. */
+		filter: blur(22px) saturate(1.05);
+		/* The blur samples from beyond the panel's box; scaling up hides the soft, empty rim it would
+		   otherwise leave along the edge. */
+		transform: scale(1.06);
+	}
+	:global(html[data-sky-photo]) .surface-backdrop::after {
+		background: var(--panel-glass);
 	}
 	/* The actual scroller: fills the frame and holds all panel content above the frosted pane.
 	   Non-ATFC panels scroll their own .surface-body; the Traffic board grows to its data's
@@ -2085,7 +2232,12 @@
 	}
 	.surface-head {
 		flex: none;
-		background: var(--panel-head);
+		/* Transparent, NOT the glass token: the panel's own backdrop already lays the glass over the
+		   whole surface, and painting a second veil here stacked two of them — the header came out
+		   visibly darker than the body it belongs to. (The Traffic board's and the Builder's headers
+		   DO keep their own: they're sticky, with rows scrolling under them, so they need to stop
+		   what passes beneath from reading through.) */
+		background: none;
 		/* No rule under the title. The header and the body are the same stock — both are the panel's
 		   pure white/black — so the border drew a line between two things that are one thing, and at
 		   wordmark scale it read as an underline.
