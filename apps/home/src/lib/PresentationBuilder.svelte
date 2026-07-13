@@ -1082,7 +1082,6 @@
 		flex-wrap: wrap;
 		padding: var(--pb-inset);
 		background: var(--panel-head);
-		border-bottom: 1px solid var(--line);
 	}
 	.pb-brand {
 		display: inline-flex;

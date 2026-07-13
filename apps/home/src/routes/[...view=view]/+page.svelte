@@ -806,7 +806,21 @@
 		// Picking a field *replaces* the entry: it's a control on the open panel, not a
 		// new place. Otherwise every chip click would need its own press of Back.
 		if (replace) replaceState(path, state);
-		else pushState(path, state);
+		else {
+			pushState(path, state);
+			ownPushes++;
+		}
+	}
+
+	// How many history entries WE pushed this visit. It's what lets Back step back through the site
+	// instead of always slamming shut: with one of ours behind us, Back is the browser's Back.
+	// Without one — a deep link opened cold, a reload — there is nothing of ours to return to, so it
+	// closes the panel and goes home. (A count, not `history.length`: that includes entries from
+	// before the visitor ever reached this site, and stepping into those would leave it.)
+	let ownPushes = $state(0);
+	function goBack() {
+		if (ownPushes > 0) history.back();
+		else home();
 	}
 
 	// The panel the current history entry stands for.
@@ -1057,6 +1071,9 @@
 			field = nextField;
 			range = nextRange;
 			refresh = nextRefresh;
+			// History moved without us — a Back or Forward. Keep the count of our own entries
+			// honest, or Back would keep stepping past the site's own first page.
+			if (ownPushes > 0) ownPushes--;
 			if (nextView) navigate(nextView, false);
 			else home(false);
 		});
@@ -1278,7 +1295,7 @@
 							code={v.code}
 							title={port.title}
 							expanded={panelExpanded}
-							onback={() => home()}
+							onback={goBack}
 							onToggleExpand={toggleExpand}
 							edit={dev && editMode}
 							copyText={settingsText}
@@ -1298,10 +1315,15 @@
 						<!-- The Presentation Builder owns its whole panel interior (its own toolbar +
 						     three-column editor), like the Traffic board. It's always full-viewport —
 						     forced expanded on open (applyView), with no collapse toggle. -->
-						<PresentationBuilder accent={accent[v.code]} title={port.title} onback={() => home()} />
+						<PresentationBuilder accent={accent[v.code]} title={port.title} onback={goBack} />
 					{:else}
 					<div class="surface-head">
-						<button class="icon-btn back" onclick={() => home()} aria-label="Back to home" title="Home">{@html BACK_CIRCLE_SVG}</button>
+						<button
+							class="icon-btn back"
+							onclick={goBack}
+							aria-label={ownPushes > 0 ? 'Back' : 'Back to home'}
+							title={ownPushes > 0 ? 'Back' : 'Home'}>{@html BACK_CIRCLE_SVG}</button
+						>
 						<div class="title-row">
 							<h2 class="dest" style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
 							{@render accentDot(accent[v.code])}
@@ -2054,13 +2076,13 @@
 	.surface-head {
 		flex: none;
 		background: var(--panel-head);
-		/* No rule under the title. The header and the body are the same stock (both are the panel's
-		   pure white/black), so the border was drawing a line between two things that are one thing —
-		   and with the title set at wordmark scale it read as an underline.
-		   The space it used to occupy does the separating instead: the bottom padding grew by roughly
-		   the room the divider took, so the body starts where it always did and the title has air
-		   under its descenders rather than a rule through them. */
-		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(1.75rem, 3vw, 2.75rem);
+		/* No rule under the title. The header and the body are the same stock — both are the panel's
+		   pure white/black — so the border drew a line between two things that are one thing, and at
+		   wordmark scale it read as an underline.
+		   The bottom padding TIGHTENS with it. The old value was sized to hold the title's descenders
+		   clear of that rule; with no rule to clear, the same gap just left the body adrift from the
+		   title it belongs to. */
+		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(0.85rem, 1.5vw, 1.25rem);
 	}
 	/* Icon-circle back control (shared .icon-btn); only its placement is set here. The gap
 	   below it (to the eyebrow/title) matches the header's top/left edge inset, so the back

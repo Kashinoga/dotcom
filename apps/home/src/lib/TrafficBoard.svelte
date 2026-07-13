@@ -1213,9 +1213,6 @@
 			</div>
 		{:else}
 			{#if onback}<button type="button" class="icon-btn back" style="--bn:0" onclick={onback} aria-label="Back to route map" title="Route map">{@html BACK_CIRCLE_SVG}</button>{/if}
-			<!-- --bn 1: the eyebrow follows the Back cap, a beat ahead of the title flip and the
-			     Airport row that ripple in below it. -->
-			<p class="eyebrow" style="--bn:1">Now arriving &middot; <span class="eyebrow-code">{code}</span></p>
 			<div class="title-row">
 				<h2 class="dest">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
 				<!-- Decorative accent dot beside the title (station-sign bullet). -->
@@ -1332,12 +1329,19 @@
 			</div>
 			<div class="pc-info">
 				<p class="pc-title">{selected.title || selected.desc || selected.type || 'Unknown type'}</p>
+				<!-- Joined in JS, not stitched together from inline {#if}s. The markup version wrapped a
+				     branch onto its own line, and the indent that followed swallowed the space before
+				     the separator — the card read "MIHALY· ERU-01· SU57". A separator is punctuation
+				     between values, so let the values be a list and put the punctuation between them. -->
 				<p class="pc-sub mono">
-					{selected.call || selected.hex || '—'}{#if selected.reg} · {selected.reg}{/if}{#if selected.type}
-						· {selected.type}{/if}
+					{[selected.call || selected.hex || '—', selected.reg, selected.type]
+						.filter(Boolean)
+						.join(' · ')}
 				</p>
 				{#if selected.op}
-					<p class="pc-op">{selected.op}{#if selected.year} · built {selected.year}{/if}</p>
+					<p class="pc-op">
+						{[selected.op, selected.year ? `built ${selected.year}` : ''].filter(Boolean).join(' · ')}
+					</p>
 				{/if}
 				{#if selected.route}
 					<p class="pc-route mono">
@@ -1533,16 +1537,15 @@
 		flex: none;
 		/* Sticky in both layouts: the header (compact) / super bar (expanded) stays at the
 		   top while the table scrolls under it. Near-opaque (no blur) so the rows passing
-		   beneath don't read through it; the bottom border is the divider. Also the
+		   beneath don't read through it — that opacity IS the divider now, not a rule. Also the
 		   positioning context for the compact expand button, so it sticks along with it. */
 		position: sticky;
 		top: 0;
 		z-index: 2;
 		background: var(--panel-head); /* cool plastic tint, matching the panel body */
-		/* Extra bottom room so the now-large title's descenders ("g", "y") clear the
-		   header's bottom border. */
-		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(1.5rem, 2.5vw, 2.25rem);
-		border-bottom: 1px solid var(--line);
+		/* No rule, and a tighter bottom — same as every other panel's header (see .surface-head).
+		   The old bottom room existed to hold the title's descenders off that rule. */
+		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(0.85rem, 1.5vw, 1.25rem);
 	}
 	.tfc-body {
 		/* Grow to fill a short panel, but never shrink below the data's height. */
@@ -1562,19 +1565,8 @@
 	.back {
 		align-self: flex-start;
 		/* Match the header's top/left edge inset so the back button is evenly framed rather
-		   than crowding the eyebrow/title below it (mirrors the generic .surface-head). */
+		   than crowding the title below it (mirrors the generic .surface-head). */
 		margin-bottom: clamp(1.5rem, 4vw, 2.5rem);
-	}
-	.eyebrow {
-		margin: 0 0 0.3rem;
-		font-size: 0.8rem;
-		font-weight: 600;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--sub);
-	}
-	.eyebrow-code {
-		color: var(--accent);
 	}
 	.dest {
 		margin: 0;
@@ -1649,7 +1641,7 @@
 	   ripple; the beat is the tight --btn-enter-step, since a dozen-plus controls end to end
 	   want to populate briskly, not deal out like prose.
 
-	   The group LABELS ride along on the same beat as the controls they head — the eyebrow, the
+	   The group LABELS ride along on the same beat as the controls they head — the
 	   Field/Range/Refresh captions, the summary readout. A label inherits its --bn from the
 	   same wrapper its control does, so "Field" arrives with the first pill and "Range" with its
 	   select, rather than sitting there fully drawn while the buttons beside it slide in under it.
@@ -1667,7 +1659,6 @@
 		.tfc-head .field,
 		.tfc-head .field-select,
 		.tfc-head .manual,
-		.tfc-head .eyebrow,
 		.tfc-head .ctl-label,
 		.tfc-head .deck-summary dt,
 		.tfc-head .deck-summary dd,
@@ -1850,7 +1841,7 @@
 	   the left cap; the parent's absolute expand button at the right (padding-right
 	   keeps clear of it). Identity → controls → summary ride in between, centred.
 	   Fonts step down from the compact header but keep the same hierarchy: the
-	   title is still the largest thing, then stat values, then labels/eyebrow. */
+	   title is still the largest thing, then stat values, then labels. */
 	.tfc-head.bar {
 		/* Sticky + frosted background inherited from .tfc-head; this just re-lays the bar.
 		   One inset drives the padding (all four sides) AND the flex gap, so the back cap sits
@@ -1862,6 +1853,13 @@
 		gap: var(--bar-inset);
 		padding: var(--bar-inset);
 	}
+	/* With no rule under the bar, the body's old top gap had nothing to hold itself off, and the
+	   table read as adrift from the header. Halve it: the bar's own bottom inset already separates
+	   them, and the table's first row is a header of its own. (Compact keeps the roomier value — its
+	   header is a full-height title block, not a strip.) */
+	.expanded .tfc-body {
+		padding-top: clamp(0.6rem, 1.2vw, 0.9rem);
+	}
 	/* Global-control end caps — matched to the parent's expand button so back/expand
 	   read as one set framing the bar (shared styling in the .icon-circle group above). */
 	.nav-edge {
@@ -1872,9 +1870,6 @@
 		display: flex;
 		align-items: baseline;
 		gap: 0.5rem;
-	}
-	.bar .eyebrow {
-		margin: 0;
 	}
 	.bar .dest {
 		font-size: clamp(1.15rem, 1.5vw, 1.5rem);

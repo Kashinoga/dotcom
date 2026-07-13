@@ -194,6 +194,11 @@
 </script>
 
 <div class="wx">
+	<!-- The place, as a subtitle under the panel's title: the panel says "Weather", this says whose.
+	     NWS's own name for the spot once it answers ("Millbrae, CA" for SFO — the station's town,
+	     not always the one you typed), and what you picked until then. -->
+	<p class="wx-place">{now?.place || [place.name, place.state].filter(Boolean).join(', ')}</p>
+
 	<!-- Search a US city. The list is a plain listbox: arrow keys move, Enter picks, Escape closes
 	     it (and only it — the panel stays put). -->
 	<div class="wx-search">
@@ -324,6 +329,16 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.25rem;
+	}
+
+	/* The place, under the panel title — a subtitle, so it's set below the title's scale but above
+	   the body's. */
+	.wx-place {
+		margin: -0.35rem 0 0;
+		font-size: clamp(1.25rem, 3vw, 1.6rem);
+		font-weight: 700;
+		letter-spacing: -0.01em;
+		line-height: 1.15;
 	}
 
 	/* The search box, and the results that drop out of it. */
