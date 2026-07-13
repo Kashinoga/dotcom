@@ -1256,7 +1256,7 @@
 		font-weight: 600;
 		color: var(--ink);
 		background: color-mix(in srgb, var(--ink) 5%, transparent);
-		border: 1.5px solid color-mix(in srgb, var(--ink) 14%, transparent);
+		border: 1.5px solid var(--line-edge);
 		border-radius: 999px;
 		padding: 0.4rem 0.85rem;
 		cursor: pointer;
@@ -1273,7 +1273,7 @@
 	/* Hover lifts by line and motion — a darker border, a denser fill, a small scale —
 	   not by a drop shadow. Bubble reinstates its gloss globally (+page.svelte). */
 	.tb:hover:not(:disabled) {
-		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
+		border-color: var(--line-strong);
 		background: color-mix(in srgb, var(--ink) 5%, transparent);
 	}
 	:global(html[data-ui='bubble']) .tb:hover:not(:disabled) {
@@ -1306,7 +1306,7 @@
 		font: inherit;
 		color: var(--sub);
 		background: color-mix(in srgb, var(--ink) 5%, transparent);
-		border: 1.5px solid color-mix(in srgb, var(--ink) 14%, transparent);
+		border: 1.5px solid var(--line-edge);
 		border-radius: 8px;
 		padding: 0.32rem;
 		cursor: pointer;
@@ -1318,7 +1318,7 @@
 	}
 	.chip:hover:not(:disabled) {
 		color: var(--ink);
-		border-color: color-mix(in srgb, var(--ink) 26%, transparent);
+		border-color: var(--line-strong);
 	}
 	.chip.danger:hover:not(:disabled) {
 		color: #c93328;
@@ -1443,7 +1443,7 @@
 		   corners under its scale() transform on some GPUs — see the deck's .stn-dot. */
 		border-radius: 999px;
 		background: var(--paper);
-		border: 2px solid color-mix(in srgb, var(--ink) 22%, transparent);
+		border: 2px solid var(--line-strong);
 		transition: background 0.25s, border-color 0.25s, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 	}
 	.stn-v.passed .stn-dot {
@@ -1863,7 +1863,7 @@
 		flex-shrink: 0;
 	}
 	.mini:hover:not(:disabled) {
-		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
+		border-color: var(--line-strong);
 	}
 	.swatch-row {
 		display: flex;
@@ -1897,7 +1897,7 @@
 		height: 12px;
 		border-radius: 50%;
 		display: inline-block;
-		border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+		border: 1px solid var(--line-strong);
 	}
 
 	/* ── Toast ── */

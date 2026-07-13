@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import { fly, fade } from 'svelte/transition';
-	import { dev } from '$app/environment';
+	import { browser, dev } from '$app/environment';
 	import { page } from '$app/state';
 	import { pushState, replaceState } from '$app/navigation';
 	import SplitFlap from '$lib/SplitFlap.svelte';
@@ -18,7 +18,8 @@
 		BRIEFCASE_SVG,
 		CODE_SVG,
 		GRID_SVG,
-		GEAR_SVG
+		GEAR_SVG,
+		EXTERNAL_SVG
 	} from '$lib/icons';
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
@@ -177,7 +178,20 @@
 	// the opt-OUT (a solid background). Four places have to agree on this — here, the pre-paint
 	// script in app.html (so there's no flash before hydration), settingsAreDefault, and
 	// resetSettings — which is why changing only one of them silently does nothing.
-	let skyMode = $state<SkyMode>('auto');
+	// Seeded synchronously on the client, not in onMount: by the time onMount runs, the first client
+	// render has already happened, and a Photo-mode visitor would have had the rings (and, in dark,
+	// the star field) built underneath the picture for that frame. Reading the key here means the
+	// very first render already knows. On the server there's no storage, so it's the plain default.
+	const savedSky = (): SkyMode => {
+		if (!browser) return 'auto';
+		try {
+			const v = localStorage.getItem(SKY_KEY) as SkyMode | null;
+			return v && SKY_MODES.includes(v) ? v : 'auto';
+		} catch {
+			return 'auto';
+		}
+	};
+	let skyMode = $state<SkyMode>(savedSky());
 	let skyPhase = $state<SkyPhase>('morning'); // the phase actually painted (for the note)
 	let skyTimer = 0;
 	function currentPhase(): SkyPhase {
@@ -274,8 +288,11 @@
 
 	// Picked from the flyout: paint it, and remember it. Picking the one already showing is how you
 	// clear the choice — it hands the sky back to "a different one each visit".
+	//
+	// The flyout deliberately STAYS OPEN: choosing is how you browse these, and a picker that shut
+	// on every pick would make comparing two photos a matter of reopening it each time. Escape or a
+	// click anywhere off it closes it.
 	async function choosePhoto(p: Photo) {
-		photoOpen = false;
 		const sticky = photo?.date !== p.date;
 		try {
 			if (sticky) localStorage.setItem(PHOTO_KEY, p.date);
@@ -440,7 +457,12 @@
 	// A photograph IS the decoration — the rings and the star field would just litter it, so under
 	// the Photo sky neither is built (same bargain as everywhere else: if it can't be seen, or
 	// shouldn't be, it isn't rendered).
-	const photoSky = $derived(skyMode === 'photo' && !!photo);
+	//
+	// Keyed on the MODE, not on the photo having arrived. It used to wait for the image, which meant
+	// that for the second or two it took to fetch and decode, the page still built the star field
+	// (and its 47 endless animations) only to throw it away the moment the picture landed. Choosing
+	// Photo is the decision; nothing underneath it should ever be built.
+	const photoSky = $derived(skyMode === 'photo');
 
 	// Stars ride along with dark mode, not the sky: they show on a solid black background, a
 	// manual/OS dark theme, and the dusk/night skies alike.
@@ -1772,7 +1794,7 @@
 						{@html CAMERA_SVG}
 					</button>
 					<a class="photo-link" href={photo.copyrightlink} target="_blank" rel="noreferrer noopener">
-						{photo.copyright}
+						{photo.copyright}<span class="ext-ico">{@html EXTERNAL_SVG}</span>
 					</a>
 				</div>
 			</div>
@@ -2257,6 +2279,15 @@
 		   page-field token, and so it matches the panel's own pure stock exactly. */
 		background: var(--sky, light-dark(#ffffff, #000000));
 	}
+	/* Photo mode, before hydration: the server's HTML still carries the rings (it can't know what the
+	   visitor chose), and they'd paint for a frame or two underneath the picture. The pre-paint script
+	   in app.html stamps data-sky-photo, so they never get a frame at all. Once hydrated the page
+	   doesn't build them in the first place — this is only for the gap. */
+	:global(html[data-sky-photo]) .rings,
+	:global(html[data-sky-photo]) .stars {
+		display: none;
+	}
+
 	/* ── Photo sky ────────────────────────────────────────────────────────────────────────────── */
 	/* Bing's wallpaper of the day, as an alternative to the time-of-day gradients. The picture is a
 	   plain background-image on its own layer (the browser can then decode and cache it like any
@@ -2282,17 +2313,17 @@
 		background:
 			linear-gradient(
 				180deg,
-				light-dark(rgba(255, 255, 255, 0.92), rgba(0, 0, 0, 0.92)) 0,
-				light-dark(rgba(255, 255, 255, 0.62), rgba(0, 0, 0, 0.68)) 190px,
+				light-dark(rgba(255, 255, 255, 0.72), rgba(0, 0, 0, 0.74)) 0,
+				light-dark(rgba(255, 255, 255, 0.4), rgba(0, 0, 0, 0.46)) 190px,
 				transparent 420px
 			),
 			linear-gradient(
 				0deg,
-				light-dark(rgba(255, 255, 255, 0.94), rgba(0, 0, 0, 0.9)) 0,
-				light-dark(rgba(255, 255, 255, 0.55), rgba(0, 0, 0, 0.55)) 90px,
+				light-dark(rgba(255, 255, 255, 0.72), rgba(0, 0, 0, 0.72)) 0,
+				light-dark(rgba(255, 255, 255, 0.34), rgba(0, 0, 0, 0.36)) 90px,
 				transparent 190px
 			),
-			light-dark(rgba(255, 255, 255, 0.1), rgba(0, 0, 0, 0.24));
+			light-dark(rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.12));
 		pointer-events: none;
 	}
 	/* The credit. Bing licenses these photos from Getty/Shutterstock for its own homepage — they are
@@ -2320,6 +2351,20 @@
 		color: var(--ink);
 		text-decoration: underline;
 	}
+	/* The outbound mark: it rides at the end of the link's last word, so it can't be orphaned onto a
+	   line of its own. Sized off the text, not in px, so it tracks whatever the link is set in. */
+	.ext-ico {
+		display: inline-block;
+		vertical-align: -0.1em;
+		width: 0.85em;
+		height: 0.85em;
+		margin-left: 0.3em;
+	}
+	.ext-ico :global(svg) {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
 	/* The disclosure: a camera, because what it opens is a choice of photographs. Built to match the
 	   Traffic board's controls, which are reicon's *-circle glyphs — a solid disc with the shape
 	   knocked out of it. reicon has no camera in that family (gallery-circle is the inverse: a ring
@@ -2338,17 +2383,13 @@
 		background: color-mix(in srgb, var(--ink) 62%, transparent);
 		color: var(--paper);
 		cursor: pointer;
-		transition: background 0.15s ease, transform 0.15s ease;
 	}
+	/* Hover pop, press squash and the flat press-flood all come from the app's universal button
+	   rules — the disc is listed with .icon-btn there, so it springs exactly like a panel control
+	   rather than inventing its own feel. All that's left here is the colour it goes to. */
 	.photo-toggle:hover,
 	.photo-toggle[aria-expanded='true'] {
 		background: var(--ink);
-	}
-	/* Flat mode takes no shadows, so the press is the disc going full-ink and shrinking a touch —
-	   the same treatment the board's discs get. */
-	.photo-toggle:active {
-		background: var(--ink);
-		transform: scale(0.92);
 	}
 	.photo-toggle:focus-visible {
 		outline: var(--focus-ring);
@@ -2363,7 +2404,10 @@
 	.photo-pick {
 		margin-bottom: 0.5rem;
 		width: min(22rem, 80vw);
-		max-height: min(24rem, 55vh);
+		/* Tall enough to show every photo at once whenever the window allows — the cap is what's
+		   actually left above the credit, not an arbitrary 24rem, so nothing scrolls unless the
+		   viewport genuinely can't fit the set. */
+		max-height: calc(100vh - 7rem);
 		overflow-y: auto;
 		padding: 0.5rem;
 		background: var(--panel-fill-solid);
@@ -2404,7 +2448,7 @@
 	}
 	/* The one that's up. Its border is the affordance — pressing it again unpins. */
 	.photo-opt.on {
-		border-color: color-mix(in srgb, var(--ink) 30%, transparent);
+		border-color: var(--line-strong);
 		background: color-mix(in srgb, var(--ink) 8%, transparent);
 	}
 	.photo-opt img {
@@ -2869,7 +2913,7 @@
 	.edit-enter.ghost {
 		color: var(--ink);
 		background: transparent;
-		border-color: color-mix(in srgb, var(--ink) 26%, transparent);
+		border-color: var(--line-strong);
 	}
 	.edit-enter.ghost:hover {
 		opacity: 1;
@@ -2896,7 +2940,7 @@
 		padding: 0.5rem 0.6rem 0.5rem 1rem;
 		background: color-mix(in srgb, var(--paper) 88%, transparent);
 		backdrop-filter: blur(12px);
-		border: 1.5px solid color-mix(in srgb, var(--ink) 16%, transparent);
+		border: 1.5px solid var(--line-edge);
 		border-radius: 999px;
 	}
 	.edit-flag {
@@ -2930,7 +2974,7 @@
 	.edit-btn.discard {
 		color: var(--ink);
 		background: transparent;
-		border-color: color-mix(in srgb, var(--ink) 26%, transparent);
+		border-color: var(--line-strong);
 	}
 	.edit-btn.discard:hover {
 		background: color-mix(in srgb, var(--ink) 6%, transparent);
@@ -3023,7 +3067,7 @@
 		text-align: left;
 		color: var(--ink);
 		background: color-mix(in srgb, var(--ink) 4%, transparent);
-		border: 1.5px solid color-mix(in srgb, var(--ink) 16%, transparent);
+		border: 1.5px solid var(--line-edge);
 		border-radius: 12px;
 		cursor: pointer;
 		transition: border-color 0.15s ease, background 0.15s ease;
@@ -3153,13 +3197,13 @@
 		font-size: 0.9rem;
 		color: var(--ink);
 		background: color-mix(in srgb, var(--ink) 4%, transparent);
-		border: 1.5px solid color-mix(in srgb, var(--ink) 16%, transparent);
+		border: 1.5px solid var(--line-edge);
 		border-radius: 999px;
 		cursor: pointer;
 		transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 	}
 	.sky-opt:hover {
-		border-color: color-mix(in srgb, var(--ink) 32%, transparent);
+		border-color: var(--line-strong);
 	}
 	.sky-opt.on {
 		color: var(--paper);
@@ -3199,7 +3243,7 @@
 		align-items: center;
 		gap: 0.9rem;
 		padding: 1rem 1.1rem;
-		border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+		border: 1px solid var(--line-edge);
 		border-radius: 14px;
 		color: var(--ink);
 		text-decoration: none;
@@ -3249,7 +3293,7 @@
 		font-size: 0.9rem;
 		color: var(--ink);
 		background: color-mix(in srgb, var(--ink) 5%, transparent);
-		border: 1px solid color-mix(in srgb, var(--ink) 14%, transparent);
+		border: 1px solid var(--line-edge);
 		border-radius: 999px;
 		cursor: pointer;
 		text-decoration: none;
@@ -3291,7 +3335,8 @@
 	   and `.refresh` is a countdown ring. Both still darken. */
 	:global(html:root .seg),
 	:global(html:root .sky-opt),
-	:global(html:root .icon-btn),
+	:global(html:root .photo-toggle),
+:global(html:root .icon-btn),
 	:global(html:root .edit-enter),
 	:global(html:root .edit-btn),
 	:global(html:root .chip),
@@ -3327,7 +3372,8 @@
 	   themes, without Flat ever growing a shadow. */
 	:global(html:root .seg:active:not(:disabled)),
 	:global(html:root .sky-opt:active:not(:disabled)),
-	:global(html:root .icon-btn:active:not(:disabled)),
+	:global(html:root .photo-toggle:active:not(:disabled)),
+:global(html:root .icon-btn:active:not(:disabled)),
 	:global(html:root .field:active:not(:disabled)),
 	:global(html:root .field-select:active:not(:disabled)),
 	:global(html:root .edit-enter:active:not(:disabled)),
@@ -3347,7 +3393,8 @@
 	@media (prefers-reduced-motion: no-preference) {
 		:global(html:root .seg:hover:not(:disabled)),
 		:global(html:root .sky-opt:hover:not(:disabled)),
-		:global(html:root .icon-btn:hover:not(:disabled)),
+		:global(html:root .photo-toggle:hover:not(:disabled)),
+:global(html:root .icon-btn:hover:not(:disabled)),
 		:global(html:root .edit-enter:hover:not(:disabled)),
 		:global(html:root .edit-btn:hover:not(:disabled)),
 		:global(html:root .chip:hover:not(:disabled)),
@@ -3364,7 +3411,8 @@
 		}
 		:global(html:root .seg:active:not(:disabled)),
 		:global(html:root .sky-opt:active:not(:disabled)),
-		:global(html:root .icon-btn:active:not(:disabled)),
+		:global(html:root .photo-toggle:active:not(:disabled)),
+:global(html:root .icon-btn:active:not(:disabled)),
 		:global(html:root .field:active:not(:disabled)),
 		:global(html:root .field-select:active:not(:disabled)),
 		:global(html:root .edit-enter:active:not(:disabled)),

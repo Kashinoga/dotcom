@@ -5,6 +5,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import SplitFlap from '$lib/SplitFlap.svelte';
 	import {
+		EXTERNAL_SVG,
 		BACK_CIRCLE_SVG,
 		REFRESH_CIRCLE_SVG,
 		FULLSCREEN_CIRCLE_SVG,
@@ -1359,7 +1360,7 @@
 					<p class="pc-credit">
 						Photo:
 						{#if photo.url}<a href={photo.url} target="_blank" rel="noopener noreferrer"
-								>{photo.credit}</a
+								>{photo.credit}<span class="ext-ico">{@html EXTERNAL_SVG}</span></a
 							>{:else}{photo.credit}{/if} · Wikimedia
 					</p>
 				{/if}
@@ -2012,13 +2013,13 @@
 		letter-spacing: 0.03em;
 		color: var(--ink);
 		background: color-mix(in srgb, var(--ink) 4%, transparent);
-		border: 1.5px solid color-mix(in srgb, var(--ink) 15%, transparent);
+		border: 1.5px solid var(--line-edge);
 		border-radius: 8px;
 		cursor: pointer;
 		transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
 	}
 	.field:hover {
-		border-color: color-mix(in srgb, var(--ink) 32%, transparent);
+		border-color: var(--line-strong);
 	}
 	.field.on {
 		color: var(--paper);
@@ -2045,13 +2046,13 @@
 		background-repeat: no-repeat;
 		background-position: right 0.5rem center;
 		background-size: 0.8rem;
-		border: 1.5px solid color-mix(in srgb, var(--ink) 15%, transparent);
+		border: 1.5px solid var(--line-edge);
 		border-radius: 8px;
 		cursor: pointer;
 		transition: border-color 0.15s ease, background-color 0.15s ease;
 	}
 	.field-select:hover {
-		border-color: color-mix(in srgb, var(--ink) 32%, transparent);
+		border-color: var(--line-strong);
 	}
 	.field-select:focus-visible {
 		outline: var(--focus-ring);
@@ -2063,7 +2064,7 @@
 		justify-content: space-between;
 		gap: 0.75rem;
 		flex-wrap: wrap;
-		border-bottom: 1px solid color-mix(in srgb, var(--ink) 12%, transparent);
+		border-bottom: 1px solid var(--line-edge);
 		padding-bottom: 0.4rem;
 	}
 	.board-head h3 {
@@ -2498,7 +2499,7 @@
 		gap: 0.9rem;
 		padding: 0.7rem;
 		background: color-mix(in srgb, var(--ink) 4%, transparent);
-		border: 1.5px solid color-mix(in srgb, var(--ink) 12%, transparent);
+		border: 1.5px solid var(--line-edge);
 		border-radius: 12px;
 	}
 	.pc-img {
@@ -2556,6 +2557,19 @@
 		font-size: 0.8rem;
 		color: var(--sub);
 	}
+	/* The outbound mark, same as the site's — see .ext-ico in +page.svelte. */
+	.ext-ico {
+		display: inline-block;
+		vertical-align: -0.1em;
+		width: 0.85em;
+		height: 0.85em;
+		margin-left: 0.3em;
+	}
+	.ext-ico :global(svg) {
+		display: block;
+		width: 100%;
+		height: 100%;
+	}
 	.pc-credit {
 		margin: 0.3rem 0 0;
 		font-size: 0.72rem;
@@ -2584,13 +2598,13 @@
 		color: var(--sub);
 		background: var(--panel-fill-solid);
 		/* A 1.5px ring, matching the card's own border — a line, not a shadow. */
-		border: 1.5px solid color-mix(in srgb, var(--ink) 12%, transparent);
+		border: 1.5px solid var(--line-edge);
 		border-radius: 8px;
 		cursor: pointer;
 	}
 	.pc-close:hover {
 		color: var(--ink);
-		border-color: color-mix(in srgb, var(--ink) 28%, transparent);
+		border-color: var(--line-strong);
 	}
 	.pc-close:focus-visible {
 		outline: var(--focus-ring);
