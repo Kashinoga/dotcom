@@ -466,7 +466,16 @@
 		gap: 0.25rem;
 	}
 	.seg {
-		padding: 0.3rem 0.55rem;
+		/* 32px DISCS, both dimensions fixed — the row is these two and the 32px refresh
+		   disc (.icon-btn), and it only reads as one set if all three are the same circle.
+		   Sized from padding, °F and °C came out different widths (different glyphs) and
+		   neither matched the disc. */
+		box-sizing: border-box;
+		width: 32px;
+		height: 32px;
+		display: grid;
+		place-items: center;
+		padding: 0;
 		font: inherit;
 		font-size: 0.8rem;
 		font-weight: 700;
