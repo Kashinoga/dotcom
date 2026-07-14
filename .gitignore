@@ -40,6 +40,7 @@ dist/
 !*.mjs
 !*.css
 !*.svg
+!*.webp
 !*.woff2
 !*.html
 !*.md

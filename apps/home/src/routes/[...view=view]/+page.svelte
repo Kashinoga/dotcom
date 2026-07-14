@@ -28,6 +28,8 @@
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
 	import faviconAtfc from '$lib/assets/favicon-atfc.svg';
+	import cloudFar from '$lib/assets/cloud-far.webp';
+	import cloudNear from '$lib/assets/cloud-near.webp';
 	import faviconPres from '$lib/assets/favicon-pres.svg';
 	import faviconWeather from '$lib/assets/favicon-weather.svg';
 	import { airports, accent, connections, portDescriptions, HUB } from '$lib/network';
@@ -839,6 +841,14 @@
 	const backdropHidden = $derived(!!view && (panelExpanded || isMobile));
 	const starsVisible = $derived(starsOn && darkScheme && !backdropHidden && !photoSky);
 	const ringsVisible = $derived(!darkScheme && !backdropHidden && skyMode === 'off');
+	// Clouds belong to the DAYLIT skybox — the gradient's own weather. They're baked bitmaps
+	// drifting on transform alone (compositor-only; the softness was painted once, offline),
+	// so the frame cost is a couple of cached layers — but the same bargain still applies:
+	// not built when a panel covers the viewport, under a dark phase (dusk/night belong to
+	// the stars), on a solid background, or over a photograph.
+	const cloudsVisible = $derived(
+		skyMode !== 'off' && skyMode !== 'photo' && !darkScheme && !backdropHidden
+	);
 	function toggleExpand() {
 		panelExpanded = !panelExpanded;
 		try {
@@ -1404,6 +1414,17 @@
 				<circle class="ring-line" cx={ringCx} cy={ringCy} {r} />
 			{/each}
 		</svg>
+	{/if}
+	<!-- Daylit-sky clouds: two baked, tileable strips drifting at different speeds (the near
+	     one faster — parallax without a z-axis). All the softness lives in the bitmaps; the
+	     only thing that ever changes per frame is each strip's transform, which the
+	     compositor slides between two cached layers — no paint, no main-thread work, the
+	     budget the stars' spans already live in. -->
+	{#if cloudsVisible}
+		<div class="clouds" aria-hidden="true" transition:fade={{ duration: 700 }}>
+			<div class="cloud-layer cloud-far" style="background-image: url({cloudFar})"></div>
+			<div class="cloud-layer cloud-near" style="background-image: url({cloudNear})"></div>
+		</div>
 	{/if}
 	{#if starsVisible}
 		<div class="stars" aria-hidden="true" transition:fade={{ duration: 700 }}>
@@ -2102,6 +2123,60 @@
 		stroke-width: 1;
 		stroke-dasharray: 2.5 7;
 		pointer-events: none;
+	}
+	/* ── Daylit clouds ── Two baked, tileable strips over the sky gradient. Each strip is
+	   200% wide with the tile sized to exactly HALF of it (background-size: 50% 100%), so
+	   the drift's translate3d(-50%) lands precisely one tile later and the loop is
+	   seamless. transform is the ONLY thing that ever animates: the softness was painted
+	   once, offline, into the bitmaps — the compositor just slides two cached layers, no
+	   paint, no main thread (the budget the stars' spans live in). will-change pins the
+	   layers up front, same flash-avoidance as the bubble depth rule. */
+	.clouds {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		pointer-events: none;
+	}
+	.cloud-layer {
+		position: absolute;
+		left: 0;
+		width: 200%;
+		background-repeat: repeat-x;
+		background-size: 50% 100%;
+		will-change: transform;
+	}
+	.cloud-far {
+		top: 2vh;
+		height: clamp(120px, 20vh, 220px);
+		opacity: 0.55;
+	}
+	.cloud-near {
+		top: 11vh;
+		height: clamp(160px, 26vh, 300px);
+		opacity: 0.68;
+	}
+	/* The drift — the near layer faster than the far one: parallax without a z-axis. Gated
+	   like every other motion here; without it the clouds simply hang, which is also weather. */
+	@media (prefers-reduced-motion: no-preference) {
+		.cloud-far {
+			animation: cloud-drift 480s linear infinite;
+		}
+		.cloud-near {
+			animation: cloud-drift 280s linear infinite;
+		}
+	}
+	@keyframes cloud-drift {
+		to {
+			transform: translate3d(-50%, 0, 0);
+		}
+	}
+	/* Phase sets the mood: dawn wears its clouds thin (the gradient is the show), noon a
+	   touch lighter than morning's full value. */
+	:global(html[data-sky='dawn']) .clouds {
+		opacity: 0.6;
+	}
+	:global(html[data-sky='noon']) .clouds {
+		opacity: 0.85;
 	}
 	/* Stars — shown in DARK mode only. The light-dark() paints them transparent under a light
 	   colour-scheme and bright under a dark one, so they appear on the solid black default, a
