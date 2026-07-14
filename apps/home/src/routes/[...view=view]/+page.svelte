@@ -809,14 +809,29 @@
 	// everything goes when a panel covers the whole viewport (expanded on desktop, or any
 	// panel on mobile, where it's a full-screen sheet).
 	const backdropHidden = $derived(!!view && (panelExpanded || isMobile));
-	const starsVisible = $derived(starsOn && darkScheme && !backdropHidden && !photoSky);
+	// … but the DECOR follows that cover on a DELAY, past the panel's own geometry
+	// animation (width 260ms, slide 300ms). Tearing the stage down in the same frames
+	// Safari is animating the panel's width made the expand stutter: the backdrop blur
+	// had to re-sample a scene that was being dismantled while its own surface grew. So
+	// the decor holds perfectly still while the panel moves and leaves only once the
+	// cover has settled — instantly then, since it's behind the panel with nothing to
+	// see. The reveal waits the same beat: the collapse animates over a bare sky, and
+	// the decor fades back in after.
+	let decorHidden = $state(false);
+	let decorTimer = 0;
+	$effect(() => {
+		const covered = backdropHidden;
+		clearTimeout(decorTimer);
+		decorTimer = window.setTimeout(() => (decorHidden = covered), 380);
+	});
+	const starsVisible = $derived(starsOn && darkScheme && !decorHidden && !photoSky);
 	// Clouds belong to the DAYLIT skybox — the gradient's own weather. They're baked bitmaps
 	// drifting on transform alone (compositor-only; the softness was painted once, offline),
 	// so the frame cost is a couple of cached layers — but the same bargain still applies:
 	// not built when a panel covers the viewport, under a dark phase (dusk/night belong to
 	// the stars), on a solid background, or over a photograph.
 	const cloudsVisible = $derived(
-		skyMode !== 'off' && skyMode !== 'photo' && !darkScheme && !backdropHidden
+		skyMode !== 'off' && skyMode !== 'photo' && !darkScheme && !decorHidden
 	);
 
 	// ── Weather dressing ── With the Weather panel open, the stage wears the ACTIVE CITY's
@@ -829,7 +844,7 @@
 		view?.code === 'WTHR' ? wx.readings[wx.places[wx.activeIdx]?.id] : undefined
 	);
 	const wxKind = $derived(wxReading ? weatherKind(wxReading.conditions) : null);
-	const fxOn = $derived(!backdropHidden && !photoSky);
+	const fxOn = $derived(!decorHidden && !photoSky);
 	const fxRain = $derived(fxOn && (wxKind === 'rain' || wxKind === 'storm'));
 	const fxSnow = $derived(fxOn && wxKind === 'snow');
 	const fxFog = $derived(fxOn && wxKind === 'fog');
@@ -1359,7 +1374,7 @@
 			transition:fade={{ duration: 500 }}
 		></div>
 		<div class="photo-veil" aria-hidden="true" transition:fade={{ duration: 500 }}></div>
-		{#if !backdropHidden}
+		{#if !decorHidden}
 			<!-- The credit doubles as the picker: the line names the photo that's up (and links out to
 			     Bing's page for it, because the credit is not decoration — these are licensed to
 			     Microsoft, not to us), and the button beside it opens the other seven. -->
@@ -1420,18 +1435,18 @@
 	     compositor slides between two cached layers — no paint, no main-thread work, the
 	     budget the stars' spans already live in. -->
 	{#if cloudsVisible}
-		<!-- The fade is for SKY changes. When the hide is panel-driven (backdropHidden), it's
-		     instant: the panel is covering the stage anyway, and in Safari a fading (and still
-		     drifting) backdrop forced the panel's blur to re-sample a changing scene on every
-		     frame of its width animation — the expand visibly stuttered. Same guard on every
-		     decor layer below. -->
-		<div class="clouds" class:overcast={fxOvercast} aria-hidden="true" transition:fade={{ duration: backdropHidden ? 0 : 700 }}>
+		<!-- The fade is for SKY changes. When the hide is panel-driven (decorHidden), it's
+		     instant — and it happens AFTER the panel's own animation has settled (see
+		     decorHidden): the panel already covers the stage, so there's nothing to see, and
+		     Safari never has to blur a dissolving scene while animating the panel's width.
+		     Same guard on every decor layer below. -->
+		<div class="clouds" class:overcast={fxOvercast} aria-hidden="true" transition:fade={{ duration: decorHidden ? 0 : 700 }}>
 			<div class="cloud-layer cloud-far" style="background-image: url({cloudFar})"></div>
 			<div class="cloud-layer cloud-near" style="background-image: url({cloudNear})"></div>
 		</div>
 	{/if}
 	{#if starsVisible}
-		<div class="stars" aria-hidden="true" transition:fade={{ duration: backdropHidden ? 0 : 700 }}>
+		<div class="stars" aria-hidden="true" transition:fade={{ duration: decorHidden ? 0 : 700 }}>
 			{#each STARS as s}
 				<span
 					class:tw={s.tw}
@@ -1451,7 +1466,7 @@
 	     Everything animates transform or opacity only — the same physics as the clouds and
 	     the stars' twinkle. -->
 	{#if fxRain}
-		<div class="fx-rain" aria-hidden="true" transition:fade={{ duration: backdropHidden ? 0 : 500 }}>
+		<div class="fx-rain" aria-hidden="true" transition:fade={{ duration: decorHidden ? 0 : 500 }}>
 			{#each RAIN as d}
 				<span
 					style="left:{d.x}%; height:{d.len}px; animation-duration:{d.dur}s; animation-delay:{d.delay}s"
@@ -1460,7 +1475,7 @@
 		</div>
 	{/if}
 	{#if fxSnow}
-		<div class="fx-snow" aria-hidden="true" transition:fade={{ duration: backdropHidden ? 0 : 500 }}>
+		<div class="fx-snow" aria-hidden="true" transition:fade={{ duration: decorHidden ? 0 : 500 }}>
 			{#each SNOW as f}
 				<span
 					style="left:{f.x}%; width:{f.size}px; height:{f.size}px; --drift:{f.drift}vw; animation-duration:{f.dur}s; animation-delay:{f.delay}s"
@@ -1472,7 +1487,7 @@
 		<!-- The fog reuses the far cloud strip, stretched tall and slowed — the same baked
 		     softness at bank scale, one layer rolling against the other. The veil beneath
 		     flattens the contrast the way real fog does. -->
-		<div class="fx-fog" aria-hidden="true" transition:fade={{ duration: backdropHidden ? 0 : 900 }}>
+		<div class="fx-fog" aria-hidden="true" transition:fade={{ duration: decorHidden ? 0 : 900 }}>
 			<div class="fog-veil"></div>
 			<div class="fog-band fog-a" style="background-image: url({cloudFar})"></div>
 			<div class="fog-band fog-b" style="background-image: url({cloudFar})"></div>

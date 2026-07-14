@@ -748,6 +748,32 @@
 		color: var(--ink);
 		border-color: var(--line-strong);
 	}
+	/* Bubble: the + joins the family — the chips' ink-mix face and the shared rim-light
+	   gloss over airy drops (restated locally, like the ghost's rules: the depth list in
+	   the page can't know about this component's classes). Flat keeps the bare outline. */
+	:global(html[data-ui='bubble']) .wx-add {
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.55),
+			inset 0 7px 10px -8px rgba(255, 255, 255, 0.55),
+			0 1px 1px rgba(8, 10, 14, 0.04),
+			0 3px 8px rgba(8, 10, 14, 0.06);
+		will-change: transform;
+		transition:
+			transform 0.3s var(--btn-spring),
+			background 0.18s var(--btn-soft),
+			border-color 0.18s var(--btn-soft),
+			color 0.15s ease;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		:global(html[data-ui='bubble']) .wx-add:hover {
+			transform: scale(var(--btn-hover-scale));
+		}
+		:global(html[data-ui='bubble']) .wx-add:active {
+			transform: scale(var(--btn-press-scale));
+			transition-duration: 0.1s;
+		}
+	}
 	.wx-add :global(svg) {
 		display: block;
 		width: 0.85rem;
