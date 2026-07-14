@@ -117,12 +117,19 @@
 		<ul class="cs-results" id="cs-results" role="listbox">
 			{#each hits as h, i}
 				<li>
+					<!-- pointerdown is swallowed so the input never blurs: Safari and Firefox on macOS
+					     don't focus a button on click, so focusout's relatedTarget is null and the
+					     click-away guard (onFocusOut) can't tell this press from one outside — the list
+					     unmounted before its own click could land. Keeping focus in the field means
+					     focusout never fires, and the click goes through. (Chrome focuses the button,
+					     which is why the relatedTarget check alone looked sufficient.) -->
 					<button
 						type="button"
 						class="cs-hit"
 						class:on={i === active}
 						role="option"
 						aria-selected={i === active}
+						onpointerdown={(e) => e.preventDefault()}
 						onclick={() => choose(h)}
 						onmouseenter={() => (active = i)}
 					>

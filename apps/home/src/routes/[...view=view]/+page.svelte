@@ -3374,5 +3374,18 @@
 			0 1px 1px rgba(8, 10, 14, 0.04),
 			0 3px 8px rgba(8, 10, 14, 0.06);
 	}
+	/* OPEN, the field joins the family too: the chips' ink-mix face and 1px line-edge in
+	   place of its bare glass + drawn outline (Flat keeps that look), with the depth
+	   rule's full set carried directly — no ::after needed here, the face is a plain
+	   background, not svg content like the disc's glyph. */
+	:global(html[data-ui='bubble'] .cs.open) {
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		border-color: var(--line-edge);
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.55),
+			inset 0 7px 10px -8px rgba(255, 255, 255, 0.55),
+			0 1px 1px rgba(8, 10, 14, 0.04),
+			0 3px 8px rgba(8, 10, 14, 0.06);
+	}
 
 </style>
