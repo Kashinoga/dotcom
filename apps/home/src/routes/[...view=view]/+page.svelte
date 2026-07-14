@@ -849,6 +849,23 @@
 	// is bare and glides back in with the arriving sheet (the transition rides the
 	// clipped state, so the lift itself is instant, behind the departing panel).
 	const decorClipped = $derived(!!view && !isMobile && !panelExpanded && !panelLeaving);
+	// The clip's glide belongs to the panel's ARRIVAL alone. Its inset tracks 100vw, so a
+	// standing transition made every window resize ANIMATE the cutoff chasing the panel —
+	// the clouds visibly cleared their clip after the sash had settled. The glide class
+	// exists only for the arrival beat; at all other times (resizes included) the clip
+	// moves in lockstep with layout.
+	let clipGliding = $state(false);
+	let clipGlideTimer = 0;
+	$effect(() => {
+		if (decorClipped) {
+			clipGliding = true;
+			clearTimeout(clipGlideTimer);
+			clipGlideTimer = window.setTimeout(() => (clipGliding = false), 420);
+		} else {
+			clearTimeout(clipGlideTimer);
+			clipGliding = false;
+		}
+	});
 	let decorHidden = $state(false);
 	let decorTimer = 0;
 	$effect(() => {
@@ -1487,7 +1504,7 @@
 {/snippet}
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="stage" class:photo={photoSky} class:clip-decor={decorClipped} onclick={onStageClick}>
+<div class="stage" class:photo={photoSky} class:clip-decor={decorClipped} class:clip-glide={clipGliding} onclick={onStageClick}>
 	{#if photoSky && photo}
 		<!-- Bing's photo of the day. Two layers, not one: the picture, and a veil over it. The panels
 		     are opaque so they're fine, but the masthead and nav sit straight on the sky — over a
@@ -2382,12 +2399,12 @@
 	   decor pops behind the departing panel, which covers it (that already felt right).
 	   The resting inset(0) is load-bearing: a transition needs a same-type start value. */
 	@media (prefers-reduced-motion: no-preference) {
-		.stage.clip-decor .clouds,
-		.stage.clip-decor .stars,
-		.stage.clip-decor .fx-rain,
-		.stage.clip-decor .fx-snow,
-		.stage.clip-decor .fx-fog,
-		.stage.clip-decor .fx-flash {
+		.stage.clip-decor.clip-glide .clouds,
+		.stage.clip-decor.clip-glide .stars,
+		.stage.clip-decor.clip-glide .fx-rain,
+		.stage.clip-decor.clip-glide .fx-snow,
+		.stage.clip-decor.clip-glide .fx-fog,
+		.stage.clip-decor.clip-glide .fx-flash {
 			transition: clip-path 380ms cubic-bezier(0.6, 0, 0.3, 1);
 		}
 	}
