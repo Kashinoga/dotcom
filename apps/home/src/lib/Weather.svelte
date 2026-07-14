@@ -14,7 +14,7 @@
 		REFRESH_CIRCLE_SVG,
 		PLUS_SVG
 	} from '$lib/icons';
-	import { wx, current, load, show, closeTab, openSearch, setUnit, restore } from '$lib/weather.svelte';
+	import { wx, current, load, show, closeTab, openSearch, setUnit, restore } from '$lib/weather-state.svelte';
 
 	// Current conditions from the National Weather Service, for any US city.
 	//

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SEARCH_SVG } from '$lib/icons';
-	import { wx, choose, type Place } from '$lib/weather.svelte';
+	import { wx, choose, type Place } from '$lib/weather-state.svelte';
 
 	// The Weather panel's search, drawn in the panel's HEADER (on the Back row) rather than its body.
 	//
