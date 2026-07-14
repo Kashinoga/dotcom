@@ -1,5 +1,9 @@
 // One-off: bake tileable cloud strips. The softness is painted ONCE here — the page then
 // animates only transform, so the browser never computes a blur again.
+//
+// STRATUS, not cumulus: long, flat, horizontally-drawn layers — streaks of x-stretched
+// puffs with little vertical wander, layered a couple of decks per streak. The page's
+// tile math assumes this stays 1536×384 (exactly 4:1).
 import { chromium } from 'playwright';
 import { writeFileSync } from 'node:fs';
 
@@ -19,54 +23,64 @@ const draw = await page.evaluate(([W, H]) => {
 		};
 	}
 
-	function strip({ seed, clusters, scale, alpha }) {
+	function strip({ seed, streaks, scale, alpha }) {
 		const c = document.createElement('canvas');
 		c.width = W; c.height = H;
 		const g = c.getContext('2d');
 		const rand = rng(seed);
 
-		// A cluster = a flat-bottomed cumulus: a row of base puffs on a shared baseline,
-		// domes stacked above. Every puff is drawn thrice (x, x±W) so the strip tiles.
-		function puff(x, y, r, a) {
+		// An x-stretched puff — the stratus grain. Drawn thrice (x, x±W) so the strip
+		// tiles; the ellipse comes from scaling the context, not the path, so the
+		// gradient stretches with it.
+		function puff(x, y, r, a, sx) {
 			for (const dx of [-W, 0, W]) {
-				const grad = g.createRadialGradient(x + dx, y, r * 0.15, x + dx, y, r);
+				g.save();
+				g.translate(x + dx, y);
+				g.scale(sx, 1);
+				const grad = g.createRadialGradient(0, 0, r * 0.12, 0, 0, r);
 				grad.addColorStop(0, `rgba(255,255,255,${a})`);
-				grad.addColorStop(0.65, `rgba(255,255,255,${a * 0.55})`);
+				grad.addColorStop(0.7, `rgba(255,255,255,${a * 0.5})`);
 				grad.addColorStop(1, 'rgba(255,255,255,0)');
 				g.fillStyle = grad;
 				g.beginPath();
-				g.arc(x + dx, y, r, 0, Math.PI * 2);
+				g.arc(0, 0, r, 0, Math.PI * 2);
 				g.fill();
+				g.restore();
 			}
 		}
 
-		for (let i = 0; i < clusters; i++) {
+		// A streak = a long, mostly-level band: a dense core deck with a thinner wisp
+		// deck above it, both wandering only a little in y. The ends thin out (alpha
+		// eases toward the tips) so the band feathers away instead of stopping.
+		for (let i = 0; i < streaks; i++) {
 			const cx = rand() * W;
-			const baseY = H * (0.35 + rand() * 0.35);
-			const size = (0.6 + rand() * 0.8) * scale;
-			const span = 5 + Math.floor(rand() * 4); // base puffs in the row
-			// the flat-ish bottom row
-			for (let j = 0; j < span; j++) {
-				const px = cx + (j - span / 2) * 26 * size + (rand() - 0.5) * 10;
-				puff(px, baseY, (26 + rand() * 12) * size, alpha);
+			const baseY = H * (0.2 + rand() * 0.55);
+			const size = (0.7 + rand() * 0.6) * scale;
+			const halfLen = (220 + rand() * 260) * size; // long: streaks run 440–960px
+			const puffs = 14 + Math.floor(rand() * 8);
+			for (let j = 0; j < puffs; j++) {
+				const t = (j + 0.5) / puffs - 0.5; // -0.5..0.5 across the streak
+				const px = cx + t * 2 * halfLen + (rand() - 0.5) * 24;
+				const py = baseY + (rand() - 0.5) * 10 * size; // barely wanders
+				const tip = 1 - Math.abs(t) * 1.6; // feathered ends
+				puff(px, py, (16 + rand() * 10) * size, alpha * Math.max(0.25, tip), 2.6 + rand() * 1.2);
 			}
-			// domes on top, tallest near the middle
-			const domes = 3 + Math.floor(rand() * 3);
-			for (let j = 0; j < domes; j++) {
-				const t = (j + 0.5) / domes; // 0..1 across the cloud
-				const px = cx + (t - 0.5) * span * 22 * size;
-				const lift = Math.sin(t * Math.PI); // taller centre
-				puff(px, baseY - (18 + lift * 26) * size, (24 + rand() * 14) * size, alpha * 0.95);
+			// the wisp deck: sparser, fainter, a shade above
+			const wisps = 6 + Math.floor(rand() * 4);
+			for (let j = 0; j < wisps; j++) {
+				const t = (j + 0.5) / wisps - 0.5;
+				const px = cx + t * 1.7 * halfLen + (rand() - 0.5) * 30;
+				puff(px, baseY - (14 + rand() * 8) * size, (13 + rand() * 8) * size, alpha * 0.45, 3 + rand() * 1.4);
 			}
 		}
 		return c.toDataURL('image/webp', 0.82);
 	}
 
 	return {
-		// FAR: more, smaller, fainter — the haze band the near layer floats over.
-		far: strip({ seed: 11, clusters: 12, scale: 0.65, alpha: 0.34 }),
-		// NEAR: fewer, bigger, more present.
-		near: strip({ seed: 47, clusters: 6, scale: 1.15, alpha: 0.5 })
+		// FAR: more, thinner, fainter — the haze sheet the near layer slides over.
+		far: strip({ seed: 11, streaks: 7, scale: 0.75, alpha: 0.36 }),
+		// NEAR: fewer, longer, more present.
+		near: strip({ seed: 47, streaks: 4, scale: 1.2, alpha: 0.5 })
 	};
 }, [W, H]);
 
