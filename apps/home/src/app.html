@@ -30,15 +30,26 @@
 				if (['dawn', 'morning', 'noon', 'dusk', 'night'].indexOf(sky) >= 0) {
 					document.documentElement.dataset.sky = sky;
 				} else if (sky === 'auto' || sky === null) {
-					var h = new Date().getHours();
+					// Season-aware clock — MUST match currentPhase() in the page, which owns the
+					// same math after hydration: a solstice-anchored cosine approximating
+					// mid-northern sunrise/sunset (Jun 21 ≈ 4:40/20:50, Dec 21 ≈ 7:40/16:40).
+					var d = new Date();
+					var doy =
+						(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) -
+							Date.UTC(d.getFullYear(), 0, 0)) /
+						86400000;
+					var w = Math.cos(((doy - 172) / 365) * 2 * Math.PI);
+					var rise = 6.1 - 1.55 * w;
+					var set = 18.75 + 2.1 * w;
+					var h = d.getHours() + d.getMinutes() / 60;
 					document.documentElement.dataset.sky =
-						h < 5 || h >= 21
+						h < rise - 1 || h >= set + 1.25
 							? 'night'
-							: h < 8
+							: h < rise + 1.5
 								? 'dawn'
 								: h < 11
 									? 'morning'
-									: h < 17
+									: h < set - 1.5
 										? 'noon'
 										: 'dusk';
 				}
