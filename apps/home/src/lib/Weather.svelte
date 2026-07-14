@@ -81,10 +81,11 @@
 	let pressY = 0;
 	// The GHOST — a floating copy of the carried tab riding under the cursor, free in BOTH
 	// axes even though the reorder only reads x: the hand sees what it's holding, and a drift
-	// off the row doesn't snatch it away. Positioned absolute in .wx rather than fixed — the
-	// Bubble surface's backdrop-filter makes the panel the containing block for fixed
-	// descendants anyway, so panel-relative is the coordinate space that's actually stable.
-	let wxEl = $state<HTMLElement | undefined>(undefined);
+	// off the row doesn't snatch it away. It CANNOT live in the panel: .surface-body is a
+	// scroller, and no z-index wins against an ancestor's overflow clip — carried up over the
+	// masthead the ghost just vanished at the body's top edge. And the panel itself is no
+	// better a home (its backdrop-filter makes it the containing block for any fixed child),
+	// so the node is PORTALED to <body>: fixed, viewport coords, clipped by nothing.
 	let ghostX = $state(0);
 	let ghostY = $state(0);
 	let ghostW = $state(0);
@@ -92,11 +93,15 @@
 	let grabDY = 0;
 
 	function placeGhost(cx: number, cy: number) {
-		const host = wxEl;
-		if (!host) return;
-		const hr = host.getBoundingClientRect();
-		ghostX = cx - hr.left - grabDX;
-		ghostY = cy - hr.top - grabDY;
+		ghostX = cx - grabDX;
+		ghostY = cy - grabDY;
+	}
+
+	// The portal: the ghost's DOM node moves to <body> for its lifetime (Svelte still owns
+	// it — scoped styles ride along on the element's own class, and teardown removes it).
+	function portal(node: HTMLElement) {
+		document.body.appendChild(node);
+		return { destroy: () => node.remove() };
 	}
 	// The swap slide's length — 0 under reduced motion: the entrance animations gate themselves
 	// in CSS, but a JS-driven FLIP can't, so the preference is read here. (window-guarded: the
@@ -305,7 +310,7 @@
 	});
 </script>
 
-<div class="wx" bind:this={wxEl}>
+<div class="wx">
 	<!-- The cities, as tabs: a sliding row of names, the showing one in full ink. The + opens the
 	     header's search pointed at ADDING a city rather than swapping the one you're looking at. A
 	     tab carries an × once there's more than one — the last city stays, since an empty panel would
@@ -373,9 +378,11 @@
 
 	<!-- The carried tab's ghost: what the hand is holding, floating free of the strip while
 	     the dimmed placeholder below marks the slot it will drop into. Inert — pointer events
-	     pass through to the strip, which owns the whole gesture. -->
+	     pass through to the strip, which owns the whole gesture. Portaled to <body>: see the
+	     note on placeGhost — inside the panel it clipped against the body scroller and
+	     disappeared under the masthead. -->
 	{#if lift !== null && wx.places[lift]}
-		<div class="wx-ghost" aria-hidden="true" style="left:{ghostX}px; top:{ghostY}px; width:{ghostW}px">
+		<div use:portal class="wx-ghost" aria-hidden="true" style="left:{ghostX}px; top:{ghostY}px; width:{ghostW}px">
 			<span class="wx-tab-name">
 				{wx.places[lift].name}{#if wx.places[lift].state}<span class="wx-tab-state">{wx.places[lift].state}</span>{/if}
 			</span>
@@ -477,8 +484,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.25rem;
-		/* The ghost's coordinate space (it rides absolute in here, under the cursor). */
-		position: relative;
 	}
 
 	/* Entrance — the panel's sections settle in on a stagger, top-to-bottom (`backwards`
@@ -597,10 +602,13 @@
 	}
 	/* The ghost itself: the carried tab's copy in the hand — a solid face slightly proud of
 	   the page (scale + drop), free in both axes even though the reorder reads only x. Inert:
-	   pointer events pass through to the strip, which owns the gesture. */
+	   pointer events pass through to the strip, which owns the gesture. Lives in <body> (see
+	   the portal), so it's FIXED in viewport space and outranks the panel's chrome — the
+	   app's fixed elements top out at z-index 60, and a thing in the hand rides over all of
+	   it. Scoped styles still reach it: the scoping class travels with the node. */
 	.wx-ghost {
-		position: absolute;
-		z-index: 6;
+		position: fixed;
+		z-index: 70;
 		pointer-events: none;
 		display: flex;
 		align-items: center;
