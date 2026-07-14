@@ -139,12 +139,25 @@
 	let skyMode = $state<SkyMode>(savedSky());
 	let skyPhase = $state<SkyPhase>('morning'); // the phase actually painted (for the note)
 	let skyTimer = 0;
+	// Season-aware: fixed boundaries called 18:00 in July "dusk" when it's broad daylight.
+	// Sunrise/sunset are approximated by a solstice-anchored cosine for mid-northern
+	// latitudes (the app's home turf) — Jun 21 ≈ 4:40/20:50, Dec 21 ≈ 7:40/16:40, Des
+	// Moines-ish — without asking anyone's location. MUST match the pre-paint script in
+	// app.html, which stamps the same phase before hydration; if the two disagree the sky
+	// flips a beat after load.
 	function currentPhase(): SkyPhase {
-		const h = new Date().getHours();
-		if (h < 5 || h >= 21) return 'night';
-		if (h < 8) return 'dawn';
+		const d = new Date();
+		const doy =
+			(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(d.getFullYear(), 0, 0)) /
+			86400000;
+		const w = Math.cos(((doy - 172) / 365) * 2 * Math.PI); // 1 at the June solstice, -1 in December
+		const sunrise = 6.1 - 1.55 * w;
+		const sunset = 18.75 + 2.1 * w;
+		const h = d.getHours() + d.getMinutes() / 60;
+		if (h < sunrise - 1 || h >= sunset + 1.25) return 'night';
+		if (h < sunrise + 1.5) return 'dawn';
 		if (h < 11) return 'morning';
-		if (h < 17) return 'noon';
+		if (h < sunset - 1.5) return 'noon';
 		return 'dusk';
 	}
 	function applySky() {
@@ -2548,6 +2561,27 @@
 	}
 	.surface.expanded.leaving {
 		transform: translateX(100%);
+	}
+	/* Expanded, the panel IS the app, with its own painted background. Full-viewport,
+	   nothing meaningful shows through (the decor behind it is unmounted), so the glass
+	   was paying WebKit's dearest price — re-filtering a full-screen backdrop on every
+	   frame of the entrance slide — to blur a smooth gradient into itself. Paint the same
+	   picture instead: the sky under the panel's own fill and sheen, no filter. A blurred
+	   smooth gradient IS that gradient, so the look holds, and the entrance becomes a
+	   translating opaque layer — the one move Safari never stumbles on. (Photo mode made
+	   this same trade long ago — it paints the picture into the backdrop — so it keeps its
+	   own arrangement and is excluded here. Flat mode is already blur-free.) */
+	:global(html[data-ui='bubble']:not([data-sky-photo])) .surface.expanded .surface-backdrop {
+		/* --panel-fill is a COLOUR, and a colour is only legal in a shorthand's LAST layer —
+		   raw in the middle it invalidates the whole declaration (silently: the blur lines
+		   below still applied, leaving a see-through pane). The gradient wrapper makes it a
+		   layer image. */
+		background:
+			var(--panel-sheen),
+			linear-gradient(var(--panel-fill), var(--panel-fill)),
+			var(--sky, light-dark(#ffffff, #000000));
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
 	}
 	/* Navigation between destinations slides the whole panel off (and back) while its
 	   content is swapped off-screen. Open/close is handled by the fly transition,
