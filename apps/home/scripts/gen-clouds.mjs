@@ -49,28 +49,37 @@ const draw = await page.evaluate(([W, H]) => {
 			}
 		}
 
-		// A streak = a long, mostly-level band: a dense core deck with a thinner wisp
-		// deck above it, both wandering only a little in y. The ends thin out (alpha
-		// eases toward the tips) so the band feathers away instead of stopping.
+		// A streak = a long, mostly-level band with real THICKNESS: a dense core deck, a
+		// belly deck beneath it, and a thinner wisp deck above — three decks tall, still
+		// barely wandering in y. The ends thin out (alpha eases toward the tips) so the
+		// band feathers away instead of stopping.
 		for (let i = 0; i < streaks; i++) {
 			const cx = rand() * W;
-			const baseY = H * (0.2 + rand() * 0.55);
+			const baseY = H * (0.22 + rand() * 0.45);
 			const size = (0.7 + rand() * 0.6) * scale;
 			const halfLen = (220 + rand() * 260) * size; // long: streaks run 440–960px
 			const puffs = 14 + Math.floor(rand() * 8);
 			for (let j = 0; j < puffs; j++) {
 				const t = (j + 0.5) / puffs - 0.5; // -0.5..0.5 across the streak
 				const px = cx + t * 2 * halfLen + (rand() - 0.5) * 24;
-				const py = baseY + (rand() - 0.5) * 10 * size; // barely wanders
+				const py = baseY + (rand() - 0.5) * 14 * size;
 				const tip = 1 - Math.abs(t) * 1.6; // feathered ends
-				puff(px, py, (16 + rand() * 10) * size, alpha * Math.max(0.25, tip), 2.6 + rand() * 1.2);
+				puff(px, py, (26 + rand() * 14) * size, alpha * Math.max(0.25, tip), 2.4 + rand() * 1.1);
+			}
+			// the belly deck: as dense as the core, hanging just beneath it
+			const belly = 10 + Math.floor(rand() * 5);
+			for (let j = 0; j < belly; j++) {
+				const t = (j + 0.5) / belly - 0.5;
+				const px = cx + t * 1.8 * halfLen + (rand() - 0.5) * 26;
+				const tip = 1 - Math.abs(t) * 1.6;
+				puff(px, baseY + (20 + rand() * 12) * size, (22 + rand() * 12) * size, alpha * 0.7 * Math.max(0.25, tip), 2.5 + rand() * 1);
 			}
 			// the wisp deck: sparser, fainter, a shade above
 			const wisps = 6 + Math.floor(rand() * 4);
 			for (let j = 0; j < wisps; j++) {
 				const t = (j + 0.5) / wisps - 0.5;
 				const px = cx + t * 1.7 * halfLen + (rand() - 0.5) * 30;
-				puff(px, baseY - (14 + rand() * 8) * size, (13 + rand() * 8) * size, alpha * 0.45, 3 + rand() * 1.4);
+				puff(px, baseY - (24 + rand() * 12) * size, (18 + rand() * 10) * size, alpha * 0.45, 2.8 + rand() * 1.3);
 			}
 		}
 		return c.toDataURL('image/webp', 0.82);
