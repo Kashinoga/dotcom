@@ -880,13 +880,54 @@
 	$effect(() => {
 		if (fxSnow && !SNOW.length) SNOW = makeSnow();
 	});
+	// Expand/collapse is a FLIP, not a width animation. Animating width cost a layout pass
+	// per frame AND — the real stutter — WebKit re-rasterises .surface-backdrop's blur on
+	// every frame the surface's geometry changes (Firefox shrugged; Safari lagged; same
+	// cliff the scroller already dodges by keeping the pane static). So: the width SNAPS
+	// to its target in one layout, and the visible motion is transform: scaleX from the
+	// old footprint — compositor-only. While the glass stretches, .stretching swaps the
+	// frost for the solid sheet (nothing to re-blur) and hides the content (a scaling
+	// surface would shear it; it fades back in at the settled size — the same
+	// content-swaps-offscreen bargain panel navigation already makes).
+	let stretchTimer = 0;
+	// Svelte state, NOT classList: the compiler prunes scoped CSS it can't see used in the
+	// template, so a class only ever added at runtime loses its rules silently. These flush
+	// in the same microtask as panelExpanded — the held scale and the width snap land on
+	// the same frame.
+	let stretching = $state(false);
+	let stretchRun = $state(false);
+	let stretchTf = $state('');
 	function toggleExpand() {
+		const el = panelEl;
+		const w0 = el?.getBoundingClientRect().width ?? 0;
 		panelExpanded = !panelExpanded;
 		try {
 			localStorage.setItem(EXPAND_KEY, panelExpanded ? '1' : '0');
 		} catch {
 			/* storage unavailable — keep the in-memory choice */
 		}
+		// Both widths are knowable without a second layout: expanded fills the stage,
+		// compact is the sheet's clamp.
+		if (!el || !w0 || isMobile || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		const w1 = panelExpanded ? window.innerWidth : Math.min(window.innerWidth * 0.94, 640);
+		if (!w1 || Math.abs(w1 - w0) < 1) return;
+		clearTimeout(stretchTimer);
+		stretching = true; // blur off, content hidden, width transition off
+		stretchRun = false;
+		stretchTf = `scaleX(${w0 / w1})`; // hold the OLD width while the real one snaps
+		// Two rAFs: the first paints the held frame, the second starts the transition from it.
+		requestAnimationFrame(() =>
+			requestAnimationFrame(() => {
+				stretchRun = true;
+				stretchTf = 'scaleX(1)';
+			})
+		);
+		// A timeout, not transitionend — an interrupted transition never fires the event.
+		stretchTimer = window.setTimeout(() => {
+			stretching = false;
+			stretchRun = false;
+			stretchTf = '';
+		}, 340);
 	}
 	// The panel element, for the slide transition.
 	let panelEl = $state<HTMLElement | undefined>(undefined);
@@ -1509,6 +1550,9 @@
 			class="surface"
 			class:leaving={panelLeaving}
 			class:expanded={panelExpanded}
+			class:stretching
+			class:stretch-run={stretchRun}
+			style:transform={stretchTf || undefined}
 			in:panelIn|global={isMobile ? { y: 900, duration: 380 } : { x: panelExpanded ? vw : 680, duration: 380 }}
 			out:fly|global={isMobile
 				? { y: 900, opacity: 1, duration: 380 }
@@ -2497,6 +2541,8 @@
 		display: flex;
 		flex-direction: column;
 		overflow-y: auto;
+		/* The content's RETURN after a stretch (below) — the hide itself is instant. */
+		transition: opacity 150ms ease;
 	}
 	/* Expanded: fill the viewport (desktop) — useful for the wide Traffic board. Same frosted
 	   background + backdrop blur as the compact state; only the width and edge treatment change. */
@@ -2506,6 +2552,29 @@
 		   chrome be the frame around the app. */
 		border-left: none;
 		box-shadow: none;
+	}
+	/* ── The stretch (see toggleExpand) ── While the panel FLIPs between widths, the width
+	   has already snapped — the only per-frame work is a compositor scale. The frost swaps
+	   for the solid sheet so WebKit has nothing to re-blur (the Safari expand stutter), and
+	   the content hides — a scaling surface would shear it; it fades back in at the settled
+	   size via the .surface-scroll transition above. */
+	.surface.stretching {
+		transform-origin: right center;
+		transition: none;
+		will-change: transform;
+	}
+	.surface.stretching.stretch-run {
+		transition: transform 260ms cubic-bezier(0.6, 0, 0.3, 1);
+	}
+	/* (0,3,0): out-specifies both the flat pane and Bubble's frosted one. */
+	.surface.stretching .surface-backdrop {
+		background: var(--panel-fill-solid);
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+	}
+	.surface.stretching .surface-scroll {
+		opacity: 0;
+		transition: none;
 	}
 	.surface.expanded.leaving {
 		transform: translateX(100%);
