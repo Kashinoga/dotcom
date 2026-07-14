@@ -2444,23 +2444,23 @@
 		will-change: transform;
 	}
 	.cloud-far {
-		--ch: clamp(120px, 20vh, 220px);
-		top: 2vh;
+		--ch: clamp(200px, 32vh, 360px);
+		top: 1vh;
 		opacity: 0.55;
 	}
 	.cloud-near {
-		--ch: clamp(160px, 26vh, 300px);
-		top: 11vh;
+		--ch: clamp(280px, 44vh, 520px);
+		top: 9vh;
 		opacity: 0.68;
 	}
 	/* The drift — the near layer faster than the far one: parallax without a z-axis. Gated
 	   like every other motion here; without it the clouds simply hang, which is also weather. */
 	@media (prefers-reduced-motion: no-preference) {
 		.cloud-far {
-			animation: cloud-drift 240s linear infinite;
+			animation: cloud-drift 380s linear infinite;
 		}
 		.cloud-near {
-			animation: cloud-drift 140s linear infinite;
+			animation: cloud-drift 300s linear infinite;
 		}
 	}
 	/* One tile per cycle — the tile is 4× the layer height (the art's 4:1), so the loop
