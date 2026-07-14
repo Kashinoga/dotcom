@@ -79,6 +79,25 @@
 	let holdTimer = 0;
 	let pressX = 0;
 	let pressY = 0;
+	// The GHOST — a floating copy of the carried tab riding under the cursor, free in BOTH
+	// axes even though the reorder only reads x: the hand sees what it's holding, and a drift
+	// off the row doesn't snatch it away. Positioned absolute in .wx rather than fixed — the
+	// Bubble surface's backdrop-filter makes the panel the containing block for fixed
+	// descendants anyway, so panel-relative is the coordinate space that's actually stable.
+	let wxEl = $state<HTMLElement | undefined>(undefined);
+	let ghostX = $state(0);
+	let ghostY = $state(0);
+	let ghostW = $state(0);
+	let grabDX = 0; // where inside the tab the press landed — the ghost keeps that grip
+	let grabDY = 0;
+
+	function placeGhost(cx: number, cy: number) {
+		const host = wxEl;
+		if (!host) return;
+		const hr = host.getBoundingClientRect();
+		ghostX = cx - hr.left - grabDX;
+		ghostY = cy - hr.top - grabDY;
+	}
 	// The swap slide's length — 0 under reduced motion: the entrance animations gate themselves
 	// in CSS, but a JS-driven FLIP can't, so the preference is read here. (window-guarded: the
 	// panel SSRs, and the sniff can be static — flipping the OS setting mid-visit is not a case
@@ -100,12 +119,20 @@
 		const tab = t.closest?.('.wx-tab');
 		if (tab && !t.closest('.wx-tab-x') && wx.places.length > 1) {
 			const idx = Array.prototype.indexOf.call(el.querySelectorAll('.wx-tab'), tab);
+			const rect = (tab as HTMLElement).getBoundingClientRect();
 			const pid = e.pointerId;
 			holdTimer = window.setTimeout(() => {
 				holdTimer = 0;
 				lift = idx;
 				dragging = false; // the press is a carry now, never a scroll
 				dragged = true; // and the click it would fire on release is swallowed
+				// The ghost lifts from exactly where the tab sat, held by the point you pressed —
+				// measured at the press, which is where the tab still is (holding still for 280ms
+				// is what a hold IS).
+				grabDX = pressX - rect.left;
+				grabDY = pressY - rect.top;
+				ghostW = rect.width;
+				placeGhost(pressX, pressY);
 				try {
 					el.setPointerCapture(pid);
 				} catch {
@@ -145,6 +172,7 @@
 	function carry(e: PointerEvent) {
 		const el = tabsEl;
 		if (!el || lift === null) return;
+		placeGhost(e.clientX, e.clientY); // the ghost follows the hand, both axes
 		// Carrying against the faded edge walks the strip along — without this, a tab could
 		// never be carried to a slot that's currently scrolled out of reach.
 		const r = el.getBoundingClientRect();
@@ -277,7 +305,7 @@
 	});
 </script>
 
-<div class="wx">
+<div class="wx" bind:this={wxEl}>
 	<!-- The cities, as tabs: a sliding row of names, the showing one in full ink. The + opens the
 	     header's search pointed at ADDING a city rather than swapping the one you're looking at. A
 	     tab carries an × once there's more than one — the last city stays, since an empty panel would
@@ -290,6 +318,7 @@
 		aria-label="Cities"
 		tabindex="-1"
 		class:dragging
+		class:carrying={lift !== null}
 		bind:this={tabsEl}
 		onwheel={onTabsWheel}
 		onscroll={measureTabs}
@@ -341,6 +370,17 @@
 			onclick={() => openSearch('add')}>{@html PLUS_SVG}</button
 		>
 	</div>
+
+	<!-- The carried tab's ghost: what the hand is holding, floating free of the strip while
+	     the dimmed placeholder below marks the slot it will drop into. Inert — pointer events
+	     pass through to the strip, which owns the whole gesture. -->
+	{#if lift !== null && wx.places[lift]}
+		<div class="wx-ghost" aria-hidden="true" style="left:{ghostX}px; top:{ghostY}px; width:{ghostW}px">
+			<span class="wx-tab-name">
+				{wx.places[lift].name}{#if wx.places[lift].state}<span class="wx-tab-state">{wx.places[lift].state}</span>{/if}
+			</span>
+		</div>
+	{/if}
 
 	<!-- Keyed on the ACTIVE PLACE, so showing a different city remounts the reading and its
 	     entrance rise replays — the new city's numbers land the way the first one's did,
@@ -437,6 +477,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.25rem;
+		/* The ghost's coordinate space (it rides absolute in here, under the cursor). */
+		position: relative;
 	}
 
 	/* Entrance — the panel's sections settle in on a stagger, top-to-bottom (`backwards`
@@ -459,6 +501,14 @@
 		.wx-add {
 			animation: tab-in 0.35s ease backwards;
 			animation-delay: calc(0.08s + var(--n, 0) * 0.05s);
+		}
+		/* Reordering rewrites each tab's --n, which rewrites this entrance delay — and a
+		   changed delay RESTARTS the entrance. Mid-carry that read as tabs flashing awake on
+		   every swap, and the replay fought the placeholder's dim. The strip is not entering
+		   while you're holding it. */
+		.wx-tabs.carrying .wx-tab,
+		.wx-tabs.carrying .wx-add {
+			animation: none;
 		}
 		.wx-msg,
 		.wx-now,
@@ -534,20 +584,33 @@
 		position: relative;
 		-webkit-touch-callout: none;
 	}
-	.wx-tabs.dragging {
+	.wx-tabs.dragging,
+	.wx-tabs.carrying {
 		cursor: grabbing;
 	}
-	/* The carried tab: held slightly proud of the row, with the row's own hover tint as its
-	   face. The scale rides the inner name, not the wrapper — the wrapper's transform belongs
-	   to the FLIP that slides tabs around it. */
+	/* While carried, the tab's own slot dims to a placeholder — the hole the ghost drops
+	   into. The wrapper keeps its transform free for the FLIP that walks the slot along as
+	   the ghost trades places; the LIFT visual lives on the ghost, not here. */
 	.wx-tab.carried {
-		cursor: grabbing;
-		background: color-mix(in srgb, var(--ink) 8%, transparent);
+		opacity: 0.3;
+		transition: opacity 0.15s ease;
 	}
-	.wx-tab.carried .wx-tab-name {
-		cursor: grabbing;
-		transform: scale(1.06);
-		transition: transform 0.15s ease;
+	/* The ghost itself: the carried tab's copy in the hand — a solid face slightly proud of
+	   the page (scale + drop), free in both axes even though the reorder reads only x. Inert:
+	   pointer events pass through to the strip, which owns the gesture. */
+	.wx-ghost {
+		position: absolute;
+		z-index: 6;
+		pointer-events: none;
+		display: flex;
+		align-items: center;
+		background: var(--panel-fill-solid);
+		border: 1px solid var(--line);
+		border-radius: 8px;
+		transform: scale(1.05);
+		box-shadow:
+			0 1px 2px rgba(8, 10, 14, 0.1),
+			0 6px 18px rgba(8, 10, 14, 0.18);
 	}
 	.wx-tabs.fade-end {
 		mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), transparent 100%);
