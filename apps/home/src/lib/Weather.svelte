@@ -14,7 +14,7 @@
 		REFRESH_CIRCLE_SVG,
 		PLUS_SVG
 	} from '$lib/icons';
-	import { wx, current, load, show, closeTab, openSearch, setUnit, restore, reorder } from '$lib/weather-state.svelte';
+	import { wx, current, load, show, closeTab, openSearch, setUnit, restore, reorder, weatherKind } from '$lib/weather-state.svelte';
 	import { flip } from 'svelte/animate';
 
 	// Current conditions from the National Weather Service, for any US city.
@@ -243,19 +243,28 @@
 		return () => el.removeEventListener('touchmove', veto);
 	});
 
-	// NWS reports the sky as prose, not a code — "Mostly Cloudy", "Light Rain", "Thunderstorm". The
-	// order here is the priority: precipitation beats cloud cover, because a rainy overcast day is a
-	// rainy day. Anything unrecognised falls back to cloud rather than guessing.
+	// The prose→kind reading (keywords, priority, fallbacks) lives in $lib/weather-state's
+	// weatherKind — shared with the homepage's weather dressing, so the two can't disagree
+	// about what "Light Rain" means. This is just the kind→glyph half.
 	function conditionIcon(text: string, night: boolean): string {
-		const t = text.toLowerCase();
-		if (/thunder|tstorm|squall/.test(t)) return CLOUD_BOLT_SVG;
-		if (/snow|sleet|ice|freezing|wintry/.test(t)) return CLOUD_SNOW_SVG;
-		if (/rain|drizzle|shower/.test(t)) return CLOUD_RAIN_SVG;
-		if (/fog|mist|haze|smoke/.test(t)) return FOG_SVG;
-		if (/wind/.test(t)) return WIND_SVG;
-		if (/clear|fair|sunny/.test(t)) return night ? MOON_SVG : SUN_SVG;
-		if (/partly|few|scattered/.test(t)) return night ? MOON_CLOUD_SVG : CLOUD_SUN_SVG;
-		return CLOUD_SVG; // cloudy, overcast, and anything the API says that this doesn't know
+		switch (weatherKind(text)) {
+			case 'storm':
+				return CLOUD_BOLT_SVG;
+			case 'snow':
+				return CLOUD_SNOW_SVG;
+			case 'rain':
+				return CLOUD_RAIN_SVG;
+			case 'fog':
+				return FOG_SVG;
+			case 'wind':
+				return WIND_SVG;
+			case 'clear':
+				return night ? MOON_SVG : SUN_SVG;
+			case 'partly':
+				return night ? MOON_CLOUD_SVG : CLOUD_SUN_SVG;
+			default:
+				return CLOUD_SVG; // cloudy, overcast, and anything the API says that this doesn't know
+		}
 	}
 
 	const temp = $derived(wx.unit === 'F' ? now?.tempF : now?.tempC);

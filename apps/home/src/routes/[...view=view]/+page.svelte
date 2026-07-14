@@ -30,6 +30,7 @@
 	import faviconAtfc from '$lib/assets/favicon-atfc.svg';
 	import cloudFar from '$lib/assets/cloud-far.webp';
 	import cloudNear from '$lib/assets/cloud-near.webp';
+	import { wx, weatherKind } from '$lib/weather-state.svelte';
 	import faviconPres from '$lib/assets/favicon-pres.svg';
 	import faviconWeather from '$lib/assets/favicon-weather.svg';
 	import { airports, accent, connections, portDescriptions, HUB } from '$lib/network';
@@ -123,7 +124,7 @@
 	// script in app.html (so there's no flash before hydration), settingsAreDefault, and
 	// resetSettings — which is why changing only one of them silently does nothing.
 	// Seeded synchronously on the client, not in onMount: by the time onMount runs, the first client
-	// render has already happened, and a Photo-mode visitor would have had the rings (and, in dark,
+	// render has already happened, and a Photo-mode visitor would have had the decor (in dark,
 	// the star field) built underneath the picture for that frame. Reading the key here means the
 	// very first render already knows. On the server there's no storage, so it's the plain default.
 	const savedSky = (): SkyMode => {
@@ -147,7 +148,7 @@
 		return 'dusk';
 	}
 	function applySky() {
-		// data-sky-photo is what stops the server-rendered rings (and the star field) painting under a
+		// data-sky-photo is what stops any server-rendered decor (the star field) painting under a
 		// photo before hydration — see app.html. It's stamped pre-paint from storage, so it MUST be
 		// cleared here when the sky changes to anything else: leaving it set hid the stars for the
 		// rest of the session the moment anyone switched from Photo to a night sky.
@@ -503,8 +504,8 @@
 			? skyPhase === 'dusk' || skyPhase === 'night'
 			: theme === 'dark' || (theme === 'system' && osDark)
 	);
-	// A photograph IS the decoration — the rings and the star field would just litter it, so under
-	// the Photo sky neither is built (same bargain as everywhere else: if it can't be seen, or
+	// A photograph IS the decoration — the star field (or the clouds) would just litter it, so under
+	// the Photo sky none of it is built (same bargain as everywhere else: if it can't be seen, or
 	// shouldn't be, it isn't rendered).
 	//
 	// Keyed on the MODE, not on the photo having arrived. It used to wait for the image, which meant
@@ -516,23 +517,11 @@
 	// Stars ride along with dark mode, not the sky: they show on a solid black background, a
 	// manual/OS dark theme, and the dusk/night skies alike.
 	//
-	// See starsVisible / ringsVisible, below — they need the panel state to be declared first.
+	// See starsVisible, below — it needs the panel state to be declared first.
+	// (The light scheme once had concentric rings radiating from the wordmark's "o" as its
+	// counterpart; they were retired — first squeezed out of the skybox phases in favour of
+	// the sky itself, then out of the solid background too.)
 
-	// LIGHT-mode counterpart to the stars: concentric rings radiating from the "o" of the wordmark.
-	// Radii are fixed; only the centre moves — measured from the "o" cell (index 6 of "Kashinoga")
-	// and refreshed on resize / font load, since the wordmark clamps with the viewport. Rendered only
-	// under a light scheme (see ringsVisible), for the same reason the stars are only rendered under
-	// a dark one: a transparent stroke still costs a dashed circle's worth of paint.
-	const ringRadii = Array.from({ length: 20 }, (_, i) => (i + 1) * 150);
-	let ringCx = $state(170);
-	let ringCy = $state(120);
-	function measureRings() {
-		const o = document.querySelectorAll('.masthead .flap .cell')[6]; // K a s h i n [o] g a
-		if (!o) return;
-		const r = o.getBoundingClientRect();
-		ringCx = r.left + r.width / 2;
-		ringCy = r.top + r.height / 2;
-	}
 	// Live values the Settings notes interpolate into their `{}` placeholder.
 	const displayValue = $derived(
 		theme === 'system' ? 'Following your device setting' : `Always ${theme}`
@@ -567,24 +556,6 @@
 	let vh = $state(800);
 	const isMobile = $derived(vw <= 720);
 
-	// The rings run far past the viewport by design, but the ones that clear it ENTIRELY are pure
-	// cost: nothing of them can ever show, and yet Firefox still generates the dash pattern around
-	// each of those enormous circumferences on every repaint. At 1400×900 that was 12 of the 20,
-	// and it was the whole reason a streaming band juddered — the band's rotation dirties the disc
-	// beneath it, so all twenty rings were re-dashed every frame (~34ms/frame; culling → ~17ms).
-	// The centre always sits inside the viewport, so a circle shows iff it reaches no farther than
-	// the farthest corner.
-	const cornerReach = $derived(
-		Math.max(
-			Math.hypot(ringCx, ringCy),
-			Math.hypot(vw - ringCx, ringCy),
-			Math.hypot(ringCx, vh - ringCy),
-			Math.hypot(vw - ringCx, vh - ringCy)
-		)
-	);
-	const visibleRings = $derived(
-		ringRadii.map((r, i) => ({ r, i })).filter(({ r }) => r <= cornerReach)
-	);
 	// ─── Page content per destination ───────────────────────────────────────────
 	// A block list rendered into the content surface. Swap the placeholder copy for
 	// real writing; add { h }, { p }, { img }, { quote } blocks freely.
@@ -834,13 +805,11 @@
 	// panels and reloads.
 	const EXPAND_KEY = 'ksh-panel-expanded';
 	let panelExpanded = $state(false);
-	// Nothing decorative is BUILT unless it can be seen: the stars are dark-only, the rings
-	// light-only AND solid-background-only (a skybox gradient or photo is its own decoration —
-	// circles on top just litter it), and both go when a panel covers the whole viewport
-	// (expanded on desktop, or any panel on mobile, where it's a full-screen sheet).
+	// Nothing decorative is BUILT unless it can be seen: the stars are dark-only, and
+	// everything goes when a panel covers the whole viewport (expanded on desktop, or any
+	// panel on mobile, where it's a full-screen sheet).
 	const backdropHidden = $derived(!!view && (panelExpanded || isMobile));
 	const starsVisible = $derived(starsOn && darkScheme && !backdropHidden && !photoSky);
-	const ringsVisible = $derived(!darkScheme && !backdropHidden && skyMode === 'off');
 	// Clouds belong to the DAYLIT skybox — the gradient's own weather. They're baked bitmaps
 	// drifting on transform alone (compositor-only; the softness was painted once, offline),
 	// so the frame cost is a couple of cached layers — but the same bargain still applies:
@@ -849,6 +818,53 @@
 	const cloudsVisible = $derived(
 		skyMode !== 'off' && skyMode !== 'photo' && !darkScheme && !backdropHidden
 	);
+
+	// ── Weather dressing ── With the Weather panel open, the stage wears the ACTIVE CITY's
+	// sky: rain falls, snow drifts, fog banks in, a storm flashes, an overcast day thickens
+	// the clouds. Read straight from $lib/weather-state — the same reading the panel shows,
+	// keyed by weatherKind so the stage and the panel's icon can't disagree. Same bargains
+	// as every other decor: nothing while a panel covers the viewport, nothing over a
+	// photograph, and none of it BUILT unless its condition is actually up.
+	const wxReading = $derived(
+		view?.code === 'WTHR' ? wx.readings[wx.places[wx.activeIdx]?.id] : undefined
+	);
+	const wxKind = $derived(wxReading ? weatherKind(wxReading.conditions) : null);
+	const fxOn = $derived(!backdropHidden && !photoSky);
+	const fxRain = $derived(fxOn && (wxKind === 'rain' || wxKind === 'storm'));
+	const fxSnow = $derived(fxOn && wxKind === 'snow');
+	const fxFog = $derived(fxOn && wxKind === 'fog');
+	const fxFlash = $derived(fxOn && wxKind === 'storm');
+	// Cloudy (and every precipitating sky) thickens the drifting clouds — a class on the
+	// layer that already exists, not a new one.
+	const fxOvercast = $derived(
+		fxOn && (wxKind === 'cloudy' || wxKind === 'rain' || wxKind === 'storm' || wxKind === 'snow')
+	);
+
+	// The particle fields, built LAZILY on first need (client-only, like the stars) and
+	// kept after — closing the panel just unmounts the spans; reopening reuses the field.
+	const makeRain = () =>
+		Array.from({ length: 44 }, () => ({
+			x: Math.random() * 100,
+			len: 9 + Math.random() * 8,
+			dur: 0.9 + Math.random() * 0.7,
+			delay: -Math.random() * 2 // negative: the sky is already mid-rain on arrival
+		}));
+	let RAIN = $state<ReturnType<typeof makeRain>>([]);
+	const makeSnow = () =>
+		Array.from({ length: 36 }, () => ({
+			x: Math.random() * 100,
+			size: 3 + Math.random() * 3,
+			dur: 7 + Math.random() * 6,
+			drift: -14 + Math.random() * 28, // sideways vw across one fall — the flutter
+			delay: -Math.random() * 13
+		}));
+	let SNOW = $state<ReturnType<typeof makeSnow>>([]);
+	$effect(() => {
+		if (fxRain && !RAIN.length) RAIN = makeRain();
+	});
+	$effect(() => {
+		if (fxSnow && !SNOW.length) SNOW = makeSnow();
+	});
 	function toggleExpand() {
 		panelExpanded = !panelExpanded;
 		try {
@@ -1183,7 +1199,6 @@
 	function onResize() {
 		vw = window.innerWidth;
 		vh = window.innerHeight;
-		measureRings(); // the wordmark (and so the "o") shifts as it clamps with the viewport
 		wasMobile = isMobile;
 	}
 
@@ -1198,7 +1213,7 @@
 		if (sky && SKY_MODES.includes(sky as SkyMode)) skyMode = sky as SkyMode; // else default 'auto'
 		applySky();
 		// Follow the OS scheme, and keep following it: with the display mode on 'system', this is
-		// what decides whether the stars or the rings are the ones that get built at all.
+		// what decides whether the stars get built at all.
 		const osq = matchMedia('(prefers-color-scheme: dark)');
 		osDark = osq.matches;
 		const onOsScheme = (e: MediaQueryListEvent) => (osDark = e.matches);
@@ -1206,9 +1221,6 @@
 		cleanups.push(() => osq.removeEventListener('change', onOsScheme));
 		STARS = makeStars(); // fresh random field per load (client-side)
 		SHOOT = makeShooting(); // and a few shooting stars to cross it
-		measureRings(); // centre the light-mode rings on the wordmark's "o" …
-		// … and again once the wordmark font has loaded (glyph widths shift the "o").
-		document.fonts?.ready.then(measureRings);
 		starsOn = localStorage.getItem(STARS_KEY) !== '0'; // default on
 		if (localStorage.getItem(UI_KEY) === 'flat') setUiStyle('flat'); // else default bubble
 		if (localStorage.getItem(LOOK_KEY) === 'metro') setLook('metro'); // else default lab
@@ -1402,32 +1414,24 @@
 			</div>
 		{/if}
 	{/if}
-	<!-- Light-mode concentric rings radiating from the wordmark's "o" (dark mode gets the stars
-	     instead). Centre tracks the measured "o". Purely decorative and inert: they don't spin, and
-	     nothing here takes the pointer. Two things are deliberately NOT drawn: the rings that never
-	     reach the viewport (visibleRings), and any of them at all under a dark scheme or a skybox —
-	     gradient or photo, the sky is its own decoration (ringsVisible) — invisible geometry still
-	     costs paint. -->
-	{#if ringsVisible}
-		<svg class="rings" aria-hidden="true" transition:fade={{ duration: 700 }}>
-			{#each visibleRings as { r, i } (i)}
-				<circle class="ring-line" cx={ringCx} cy={ringCy} {r} />
-			{/each}
-		</svg>
-	{/if}
 	<!-- Daylit-sky clouds: two baked, tileable strips drifting at different speeds (the near
 	     one faster — parallax without a z-axis). All the softness lives in the bitmaps; the
 	     only thing that ever changes per frame is each strip's transform, which the
 	     compositor slides between two cached layers — no paint, no main-thread work, the
 	     budget the stars' spans already live in. -->
 	{#if cloudsVisible}
-		<div class="clouds" aria-hidden="true" transition:fade={{ duration: 700 }}>
+		<!-- The fade is for SKY changes. When the hide is panel-driven (backdropHidden), it's
+		     instant: the panel is covering the stage anyway, and in Safari a fading (and still
+		     drifting) backdrop forced the panel's blur to re-sample a changing scene on every
+		     frame of its width animation — the expand visibly stuttered. Same guard on every
+		     decor layer below. -->
+		<div class="clouds" class:overcast={fxOvercast} aria-hidden="true" transition:fade={{ duration: backdropHidden ? 0 : 700 }}>
 			<div class="cloud-layer cloud-far" style="background-image: url({cloudFar})"></div>
 			<div class="cloud-layer cloud-near" style="background-image: url({cloudNear})"></div>
 		</div>
 	{/if}
 	{#if starsVisible}
-		<div class="stars" aria-hidden="true" transition:fade={{ duration: 700 }}>
+		<div class="stars" aria-hidden="true" transition:fade={{ duration: backdropHidden ? 0 : 700 }}>
 			{#each STARS as s}
 				<span
 					class:tw={s.tw}
@@ -1441,6 +1445,41 @@
 				></span>
 			{/each}
 		</div>
+	{/if}
+
+	<!-- The weather dressing: the ACTIVE CITY's sky while its panel is open (see wxKind).
+	     Everything animates transform or opacity only — the same physics as the clouds and
+	     the stars' twinkle. -->
+	{#if fxRain}
+		<div class="fx-rain" aria-hidden="true" transition:fade={{ duration: backdropHidden ? 0 : 500 }}>
+			{#each RAIN as d}
+				<span
+					style="left:{d.x}%; height:{d.len}px; animation-duration:{d.dur}s; animation-delay:{d.delay}s"
+				></span>
+			{/each}
+		</div>
+	{/if}
+	{#if fxSnow}
+		<div class="fx-snow" aria-hidden="true" transition:fade={{ duration: backdropHidden ? 0 : 500 }}>
+			{#each SNOW as f}
+				<span
+					style="left:{f.x}%; width:{f.size}px; height:{f.size}px; --drift:{f.drift}vw; animation-duration:{f.dur}s; animation-delay:{f.delay}s"
+				></span>
+			{/each}
+		</div>
+	{/if}
+	{#if fxFog}
+		<!-- The fog reuses the far cloud strip, stretched tall and slowed — the same baked
+		     softness at bank scale, one layer rolling against the other. The veil beneath
+		     flattens the contrast the way real fog does. -->
+		<div class="fx-fog" aria-hidden="true" transition:fade={{ duration: backdropHidden ? 0 : 900 }}>
+			<div class="fog-veil"></div>
+			<div class="fog-band fog-a" style="background-image: url({cloudFar})"></div>
+			<div class="fog-band fog-b" style="background-image: url({cloudFar})"></div>
+		</div>
+	{/if}
+	{#if fxFlash}
+		<div class="fx-flash" aria-hidden="true"></div>
 	{/if}
 
 	<!-- Persistent masthead (wordmark + tagline + station nav) — its own component so a
@@ -1890,17 +1929,15 @@
 		overflow: hidden;
 		/* The default background: pure white in light, pure black in dark — or the time-of-day
 		   sky gradient when sky mode is opted into. Kept here (not --page) so the backdrop is a
-		   clean white/black the stars and rings sit on, independent of the theme's softer
+		   clean white/black the stars sit on, independent of the theme's softer
 		   page-field token, and so it matches the panel's own pure stock exactly. */
 		background: var(--sky, light-dark(#ffffff, #000000));
 	}
 	/* Photo mode, before hydration: the server can't know what the visitor chose, so any decor in its
 	   HTML would paint for a frame or two underneath the picture. The pre-paint script in app.html
-	   stamps data-sky-photo, so it never gets a frame at all. (Since rings became sky-off-only the
-	   server — whose default sky is auto — emits neither rings nor stars, but this stays as the belt
-	   for the gap should that ever change.) Once hydrated the page doesn't build them in the first
-	   place. */
-	:global(html[data-sky-photo]) .rings,
+	   stamps data-sky-photo, so it never gets a frame at all. (The server — whose default sky is
+	   auto — currently emits no stars anyway, but this stays as the belt for the gap should that
+	   ever change.) Once hydrated the page doesn't build them in the first place. */
 	:global(html[data-sky-photo]) .stars {
 		display: none;
 	}
@@ -2102,28 +2139,6 @@
 		}
 	}
 
-	/* Concentric rings radiating from the wordmark's "o" — LIGHT mode only (the light-dark() stroke
-	   goes transparent in dark, where the star field takes over). SVG so they can be finely dashed
-	   like the inspiration; centred on the measured "o", radii fixed. Behind the chrome, clicks
-	   fall through. `overflow: visible` lets the outer rings extend past the stage box. */
-	.rings {
-		position: absolute;
-		inset: 0;
-		width: 100%;
-		height: 100%;
-		overflow: visible;
-		/* Wholly decorative and inert: every click falls straight through to the stage beneath. */
-		pointer-events: none;
-	}
-	.ring-line {
-		fill: none;
-		/* Tuned against the pure-white light background — legible dashed rings, still light.
-		   Transparent in dark, where the stars take over. */
-		stroke: light-dark(rgba(10, 14, 32, 0.26), transparent);
-		stroke-width: 1;
-		stroke-dasharray: 2.5 7;
-		pointer-events: none;
-	}
 	/* ── Daylit clouds ── Two baked, tileable strips over the sky gradient. Each strip is
 	   200% wide with the tile sized to exactly HALF of it (background-size: 50% 100%), so
 	   the drift's translate3d(-50%) lands precisely one tile later and the loop is
@@ -2177,6 +2192,122 @@
 	}
 	:global(html[data-sky='noon']) .clouds {
 		opacity: 0.85;
+	}
+	/* An overcast reading thickens whatever sky is up — full-strength clouds, any phase.
+	   (0,2,0 with the class beats the phase rules' 0,2,0 by order: this sits after.) */
+	:global(html[data-sky]) .clouds.overcast,
+	.clouds.overcast {
+		opacity: 1;
+	}
+
+	/* ── Weather dressing ── the ACTIVE CITY's sky, worn by the stage while its panel is
+	   open. Same physics as the clouds and the stars' twinkle: every animation is
+	   transform or opacity on small fixed elements — no paint after first composite. */
+	.fx-rain,
+	.fx-snow,
+	.fx-fog,
+	.fx-flash {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		pointer-events: none;
+	}
+	.fx-rain span {
+		position: absolute;
+		top: -24px;
+		width: 1.5px;
+		border-radius: 1px;
+		/* Blue-gray on the daylit sky, pale on the dark phases — same light-dark() trick
+		   as the stars, so no JS scheme check. */
+		background: light-dark(rgba(60, 82, 110, 0.38), rgba(200, 220, 245, 0.42));
+		animation: fx-fall linear infinite;
+		will-change: transform;
+	}
+	@keyframes fx-fall {
+		to {
+			transform: translate3d(0, 108vh, 0);
+		}
+	}
+	.fx-snow span {
+		position: absolute;
+		top: -10px;
+		border-radius: 50%;
+		background: light-dark(rgba(178, 196, 220, 0.9), rgba(235, 242, 255, 0.85));
+		animation: fx-snow-fall linear infinite;
+		will-change: transform;
+	}
+	@keyframes fx-snow-fall {
+		to {
+			transform: translate3d(var(--drift), 108vh, 0);
+		}
+	}
+	/* Fog: the far cloud strip at bank scale — same drift keyframes as the clouds, one
+	   band rolling against the other; the veil flattens contrast the way real fog does. */
+	.fog-veil {
+		position: absolute;
+		inset: 0;
+		background: light-dark(rgba(233, 238, 245, 0.55), rgba(24, 30, 42, 0.5));
+	}
+	.fog-band {
+		position: absolute;
+		left: 0;
+		width: 200%;
+		background-repeat: repeat-x;
+		background-size: 50% 100%;
+		opacity: 0.75;
+		will-change: transform;
+	}
+	.fog-a {
+		top: -5vh;
+		height: 60vh;
+	}
+	.fog-b {
+		top: 35vh;
+		height: 65vh;
+		opacity: 0.6;
+	}
+	/* Lightning: one full-stage white layer, dark the vast majority of a long cycle with a
+	   double blink near the middle — opacity only, and rare. */
+	.fx-flash {
+		background: #fff;
+		opacity: 0;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.fog-a {
+			animation: cloud-drift 340s linear infinite;
+		}
+		.fog-b {
+			animation: cloud-drift 220s linear infinite reverse;
+		}
+		.fx-flash {
+			animation: fx-flash 9s linear infinite;
+		}
+	}
+	@keyframes fx-flash {
+		0%,
+		55.9%,
+		57.3%,
+		58.6%,
+		100% {
+			opacity: 0;
+		}
+		56.3% {
+			opacity: 0.5;
+		}
+		56.8% {
+			opacity: 0.08;
+		}
+		57.9% {
+			opacity: 0.35;
+		}
+	}
+	/* Reduced motion: precipitation frozen mid-air reads as broken glass, so it's simply
+	   not shown; the fog just sits, which is also weather. */
+	@media (prefers-reduced-motion: reduce) {
+		.fx-rain span,
+		.fx-snow span {
+			display: none;
+		}
 	}
 	/* Stars — shown in DARK mode only. The light-dark() paints them transparent under a light
 	   colour-scheme and bright under a dark one, so they appear on the solid black default, a

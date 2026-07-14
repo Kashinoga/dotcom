@@ -22,8 +22,8 @@
 				// skyMode default must match it, or the two disagree for a beat after hydration.
 				var sky = localStorage.getItem('ksh-sky');
 				// Photo mode paints a picture, and NOTHING is meant to sit under it. The server can't
-				// know the visitor chose it, so its HTML still carries the rings (and dark mode would
-				// build the star field on top) — which flashed up behind the photo while it loaded.
+				// know the visitor chose it, so its HTML may carry decor (dark mode would build the
+				// star field on top) — which flashed up behind the photo while it loaded.
 				// Marking <html> here, pre-paint, lets the CSS hide that decor before its first frame;
 				// the page's own skyMode is seeded from the same key, so hydration builds none of it.
 				if (sky === 'photo') document.documentElement.dataset.skyPhoto = '';

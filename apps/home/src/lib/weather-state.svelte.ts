@@ -49,6 +49,32 @@ export const wx = $state({
 
 export const current = (): Place => wx.places[wx.activeIdx] ?? DEFAULT_PLACE;
 
+// What the sky is DOING, as a coarse kind. NWS reports conditions as prose ("Mostly
+// Cloudy", "Light Rain"), and two places need the same reading of it: the panel's icon
+// and the homepage's weather dressing — so the keyword list lives here, once. The order
+// is the priority: precipitation beats cloud cover, because a rainy overcast day is a
+// rainy day. Anything unrecognised falls back to cloud rather than guessing.
+export type WeatherKind =
+	| 'storm'
+	| 'snow'
+	| 'rain'
+	| 'fog'
+	| 'wind'
+	| 'clear'
+	| 'partly'
+	| 'cloudy';
+export function weatherKind(text: string): WeatherKind {
+	const t = text.toLowerCase();
+	if (/thunder|tstorm|squall/.test(t)) return 'storm';
+	if (/snow|sleet|ice|freezing|wintry/.test(t)) return 'snow';
+	if (/rain|drizzle|shower/.test(t)) return 'rain';
+	if (/fog|mist|haze|smoke/.test(t)) return 'fog';
+	if (/wind/.test(t)) return 'wind';
+	if (/clear|fair|sunny/.test(t)) return 'clear';
+	if (/partly|few|scattered/.test(t)) return 'partly';
+	return 'cloudy';
+}
+
 export async function load(p: Place) {
 	wx.status[p.id] = wx.readings[p.id] ? 'ok' : 'loading';
 	try {
