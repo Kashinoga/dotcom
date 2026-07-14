@@ -822,7 +822,9 @@
 	$effect(() => {
 		const covered = backdropHidden;
 		clearTimeout(decorTimer);
-		decorTimer = window.setTimeout(() => (decorHidden = covered), 380);
+		// Cover: past the panel's own move. Reveal: past the promotion's full round trip
+		// (slide-off 300ms + landing 380ms), so nothing fades under a still-moving blur.
+		decorTimer = window.setTimeout(() => (decorHidden = covered), covered ? 380 : 720);
 	});
 	const starsVisible = $derived(starsOn && darkScheme && !decorHidden && !photoSky);
 	// Clouds belong to the DAYLIT skybox — the gradient's own weather. They're baked bitmaps
@@ -880,54 +882,32 @@
 	$effect(() => {
 		if (fxSnow && !SNOW.length) SNOW = makeSnow();
 	});
-	// Expand/collapse is a FLIP, not a width animation. Animating width cost a layout pass
-	// per frame AND — the real stutter — WebKit re-rasterises .surface-backdrop's blur on
-	// every frame the surface's geometry changes (Firefox shrugged; Safari lagged; same
-	// cliff the scroller already dodges by keeping the pane static). So: the width SNAPS
-	// to its target in one layout, and the visible motion is transform: scaleX from the
-	// old footprint — compositor-only. While the glass stretches, .stretching swaps the
-	// frost for the solid sheet (nothing to re-blur) and hides the content (a scaling
-	// surface would shear it; it fades back in at the settled size — the same
-	// content-swaps-offscreen bargain panel navigation already makes).
-	let stretchTimer = 0;
-	// Svelte state, NOT classList: the compiler prunes scoped CSS it can't see used in the
-	// template, so a class only ever added at runtime loses its rules silently. These flush
-	// in the same microtask as panelExpanded — the held scale and the width snap land on
-	// the same frame.
-	let stretching = $state(false);
-	let stretchRun = $state(false);
-	let stretchTf = $state('');
+	// Expanding is a PROMOTION, not a resize. Every attempt to animate the panel between
+	// widths — width transitions, then a FLIP scaleX — stuttered in Safari, because WebKit
+	// re-rasterises the backdrop blur whenever the blurred surface's on-screen geometry
+	// changes (Firefox shrugged every time). So the geometry never changes on screen:
+	// the compact sheet DEPARTS and the full-page version ARRIVES — the same
+	// slide-off/slide-back choreography destination navigation uses (see navigate), with
+	// the width snapping while the panel is off-stage. Slides are pure transforms on a
+	// constant-size surface, the one move Safari demonstrably handles well here.
+	let expandTimer = 0;
 	function toggleExpand() {
-		const el = panelEl;
-		const w0 = el?.getBoundingClientRect().width ?? 0;
-		panelExpanded = !panelExpanded;
-		try {
-			localStorage.setItem(EXPAND_KEY, panelExpanded ? '1' : '0');
-		} catch {
-			/* storage unavailable — keep the in-memory choice */
-		}
-		// Both widths are knowable without a second layout: expanded fills the stage,
-		// compact is the sheet's clamp.
-		if (!el || !w0 || isMobile || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-		const w1 = panelExpanded ? window.innerWidth : Math.min(window.innerWidth * 0.94, 640);
-		if (!w1 || Math.abs(w1 - w0) < 1) return;
-		clearTimeout(stretchTimer);
-		stretching = true; // blur off, content hidden, width transition off
-		stretchRun = false;
-		stretchTf = `scaleX(${w0 / w1})`; // hold the OLD width while the real one snaps
-		// Two rAFs: the first paints the held frame, the second starts the transition from it.
-		requestAnimationFrame(() =>
-			requestAnimationFrame(() => {
-				stretchRun = true;
-				stretchTf = 'scaleX(1)';
-			})
-		);
-		// A timeout, not transitionend — an interrupted transition never fires the event.
-		stretchTimer = window.setTimeout(() => {
-			stretching = false;
-			stretchRun = false;
-			stretchTf = '';
-		}, 340);
+		const flip = () => {
+			panelExpanded = !panelExpanded;
+			try {
+				localStorage.setItem(EXPAND_KEY, panelExpanded ? '1' : '0');
+			} catch {
+				/* storage unavailable — keep the in-memory choice */
+			}
+		};
+		if (reduce || isMobile) return flip(); // no choreography — just the new size
+		clearTimeout(expandTimer);
+		panelLeaving = true;
+		expandTimer = window.setTimeout(() => {
+			flip(); // resized while off-stage — the blur never sees it happen
+			panelLeaving = false;
+			requestAnimationFrame(playOpenBounce);
+		}, PANEL_SLIDE);
 	}
 	// The panel element, for the slide transition.
 	let panelEl = $state<HTMLElement | undefined>(undefined);
@@ -1550,9 +1530,6 @@
 			class="surface"
 			class:leaving={panelLeaving}
 			class:expanded={panelExpanded}
-			class:stretching
-			class:stretch-run={stretchRun}
-			style:transform={stretchTf || undefined}
 			in:panelIn|global={isMobile ? { y: 900, duration: 380 } : { x: panelExpanded ? vw : 680, duration: 380 }}
 			out:fly|global={isMobile
 				? { y: 900, opacity: 1, duration: 380 }
@@ -2541,8 +2518,6 @@
 		display: flex;
 		flex-direction: column;
 		overflow-y: auto;
-		/* The content's RETURN after a stretch (below) — the hide itself is instant. */
-		transition: opacity 150ms ease;
 	}
 	/* Expanded: fill the viewport (desktop) — useful for the wide Traffic board. Same frosted
 	   background + backdrop blur as the compact state; only the width and edge treatment change. */
@@ -2552,29 +2527,6 @@
 		   chrome be the frame around the app. */
 		border-left: none;
 		box-shadow: none;
-	}
-	/* ── The stretch (see toggleExpand) ── While the panel FLIPs between widths, the width
-	   has already snapped — the only per-frame work is a compositor scale. The frost swaps
-	   for the solid sheet so WebKit has nothing to re-blur (the Safari expand stutter), and
-	   the content hides — a scaling surface would shear it; it fades back in at the settled
-	   size via the .surface-scroll transition above. */
-	.surface.stretching {
-		transform-origin: right center;
-		transition: none;
-		will-change: transform;
-	}
-	.surface.stretching.stretch-run {
-		transition: transform 260ms cubic-bezier(0.6, 0, 0.3, 1);
-	}
-	/* (0,3,0): out-specifies both the flat pane and Bubble's frosted one. */
-	.surface.stretching .surface-backdrop {
-		background: var(--panel-fill-solid);
-		-webkit-backdrop-filter: none;
-		backdrop-filter: none;
-	}
-	.surface.stretching .surface-scroll {
-		opacity: 0;
-		transition: none;
 	}
 	.surface.expanded.leaving {
 		transform: translateX(100%);
@@ -2587,8 +2539,10 @@
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		.surface {
-			transition: width 260ms cubic-bezier(0.6, 0, 0.3, 1),
-				transform 300ms cubic-bezier(0.6, 0, 0.3, 1);
+			/* transform only — width is never animated: expanding SWAPS the size while the
+			   panel is off-stage (see toggleExpand), because any on-screen geometry change
+			   of the blurred surface makes WebKit re-rasterise the blur per frame. */
+			transition: transform 300ms cubic-bezier(0.6, 0, 0.3, 1);
 		}
 	}
 	/* On phones the panel is a bottom sheet: full width, anchored to the bottom, and
