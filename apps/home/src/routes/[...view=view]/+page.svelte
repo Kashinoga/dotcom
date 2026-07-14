@@ -837,7 +837,11 @@
 	// falling drop under the glass kept Safari re-rasterising the blur forever). Clipped,
 	// the panel stands over a static gradient and the blur rasterises ONCE. Applied the
 	// moment the view opens, so even the panel's entrance slides over clean sky.
-	const decorClipped = $derived(!!view && !isMobile && !panelExpanded);
+	// !panelLeaving: a panel→panel swap slides the sheet off for a beat, and a clip with
+	// no panel over it read as a hole cut out of the sky — the clip lifts while the stage
+	// is bare and glides back in with the arriving sheet (the transition rides the
+	// clipped state, so the lift itself is instant, behind the departing panel).
+	const decorClipped = $derived(!!view && !isMobile && !panelExpanded && !panelLeaving);
 	let decorHidden = $state(false);
 	let decorTimer = 0;
 	$effect(() => {
@@ -872,6 +876,9 @@
 	// dresses the skybox with no panel open. A live reading still wins while Weather is
 	// up — the dial is scene-setting, not a forecast.
 	const STAGE_WX_KEY = 'ksh-stage-wx';
+	// The console folds into ONE chip; the rows live in a popout above it. Closes on
+	// Escape or any stage click (the stage's own click handler runs on empty sky).
+	let skyConsoleOpen = $state(false);
 	let stageWx = $state<WeatherKind | null>(null);
 	function setStageWx(k: WeatherKind | null) {
 		stageWx = k;
@@ -1009,20 +1016,12 @@
 	// toward the viewer (scale from 96.5%, opacity riding along; both compositor
 	// currency) and only then lets its elements make their entrances (see contentHeld).
 	// The timeline HOLDS for its first half — the skybox's 420ms farewell owns the stage
-	// (see decorHidden) — then the board rises through the second.
+	// (see decorHidden) — then the board simply FADES IN through the second. No scale, no
+	// travel: the promoted app appears in place, opacity being the cheapest thing any
+	// compositor can animate.
 	const ZOOM_MS = 760;
 	const zoomT = (t: number) => Math.max(0, (t - 0.5) / 0.5); // 0 through the hold, then 0→1
-	function zoomTransform(t: number) {
-		const tt = zoomT(t);
-		// The house swell, at depth: overshoot a hair past 1 on the landing tail and close
-		// back to exactly 1 — same shape as openTransform's grow.
-		const u = Math.max(0, (tt - 0.55) / 0.45);
-		const s =
-			0.965 +
-			0.035 * cubicOut(Math.min(tt / 0.7, 1)) +
-			(reduce ? 0 : 0.006) * Math.sin(Math.PI * u);
-		return `scale(${s})`;
-	}
+	const fadeInAt = (t: number) => Math.min(1, zoomT(t) / 0.75);
 	function panelIn(
 		node: HTMLElement,
 		p: { x?: number; y?: number; duration?: number; zoom?: boolean }
@@ -1031,8 +1030,7 @@
 		if (p.zoom)
 			return {
 				duration: p.duration ?? ZOOM_MS,
-				css: (t: number) =>
-					`transform-origin: center center; opacity: ${Math.min(1, zoomT(t) / 0.6)}; transform: ${zoomTransform(t)};`
+				css: (t: number) => `opacity: ${fadeInAt(t)};`
 			};
 		return {
 			duration,
@@ -1046,15 +1044,8 @@
 	function playOpenBounce() {
 		if (!panelEl || reduce) return;
 		if (!isMobile && panelExpanded) {
-			// The promoted board surfaces from the back — the WAAPI twin of panelIn's zoom.
-			const frames = Array.from({ length: 49 }, (_, i) => {
-				const t = i / 48;
-				return {
-					opacity: String(Math.min(1, zoomT(t) / 0.6)),
-					transform: zoomTransform(t),
-					transformOrigin: 'center center'
-				};
-			});
+			// The promoted board fades in in place — the WAAPI twin of panelIn's zoom mode.
+			const frames = Array.from({ length: 49 }, (_, i) => ({ opacity: String(fadeInAt(i / 48)) }));
 			panelEl.animate(frames, { duration: ZOOM_MS, easing: 'linear' });
 			return;
 		}
@@ -1326,6 +1317,7 @@
 		// Anywhere off the picker closes it. The credit and the flyout stop their own clicks getting
 		// here (the picker's own buttons handle those), so this only fires on the bare sky.
 		photoOpen = false;
+		skyConsoleOpen = false; // the sky console makes the same bargain
 		if (view && !panelExpanded && e.target === e.currentTarget) home();
 	}
 	// The open station's code (or null) — drives the masthead nav's active highlight. A plain
@@ -1599,8 +1591,13 @@
 			role="group"
 			aria-label="Sky controls"
 			onclick={(e) => e.stopPropagation()}
+			onkeydown={(e) => {
+				if (e.key === 'Escape') skyConsoleOpen = false;
+			}}
 		>
-			<div class="sky-row" role="group" aria-label="Time of day">
+			{#if skyConsoleOpen}
+				<div class="sky-pop" transition:fade={{ duration: 150 }}>
+					<div class="sky-row" role="group" aria-label="Time of day">
 				{#each [['auto', 'Auto'], ['dawn', 'Dawn'], ['morning', 'Morning'], ['noon', 'Noon'], ['dusk', 'Dusk'], ['night', 'Night']] as [id, label] (id)}
 					<button
 						type="button"
@@ -1609,9 +1606,9 @@
 						aria-pressed={skyMode === id}
 						onclick={() => setSkyMode(id as SkyMode)}>{label}</button
 					>
-				{/each}
-			</div>
-			<div class="sky-row" role="group" aria-label="Stage weather">
+					{/each}
+					</div>
+					<div class="sky-row" role="group" aria-label="Stage weather">
 				{#each [[null, 'Clear'], ['cloudy', 'Clouds'], ['rain', 'Rain'], ['snow', 'Snow'], ['fog', 'Fog'], ['storm', 'Storm']] as [id, label] (label)}
 					<button
 						type="button"
@@ -1620,8 +1617,19 @@
 						aria-pressed={stageWx === id}
 						onclick={() => setStageWx(id as WeatherKind | null)}>{label}</button
 					>
-				{/each}
-			</div>
+					{/each}
+					</div>
+				</div>
+			{/if}
+			<button
+				type="button"
+				class="chip sky-chip sky-toggle"
+				aria-expanded={skyConsoleOpen}
+				aria-label="Sky controls"
+				onclick={() => (skyConsoleOpen = !skyConsoleOpen)}
+			>
+				Sky · {skyMode === 'auto' ? `Auto (${skyPhase})` : skyMode}{stageWx ? ` · ${stageWx}` : ''}
+			</button>
 		</div>
 	{/if}
 
@@ -2336,6 +2344,30 @@
 	.stage.clip-decor .fx-flash {
 		clip-path: inset(0 min(94vw, 640px) 0 0);
 	}
+	/* The clip edge GLIDES IN, in step with the panel's opening slide (same 380ms, same
+	   curve) — snapping it in read as the sky being cut with scissors. On CLOSE it's the
+	   old instant un-clip: the transition lives on the CLIPPED state only, so dropping
+	   the class falls back to the base rule below — no transition — and the returning
+	   decor pops behind the departing panel, which covers it (that already felt right).
+	   The resting inset(0) is load-bearing: a transition needs a same-type start value. */
+	@media (prefers-reduced-motion: no-preference) {
+		.stage.clip-decor .clouds,
+		.stage.clip-decor .stars,
+		.stage.clip-decor .fx-rain,
+		.stage.clip-decor .fx-snow,
+		.stage.clip-decor .fx-fog,
+		.stage.clip-decor .fx-flash {
+			transition: clip-path 380ms cubic-bezier(0.6, 0, 0.3, 1);
+		}
+	}
+	.clouds,
+	.stars,
+	.fx-rain,
+	.fx-snow,
+	.fx-fog,
+	.fx-flash {
+		clip-path: inset(0 0 0 0);
+	}
 	/* ── Daylit clouds ── Two baked, tileable strips over the sky gradient. Each strip is
 	   200% wide with the tile sized to exactly HALF of it (background-size: 50% 100%), so
 	   the drift's translate3d(-50%) lands precisely one tile later and the loop is
@@ -2408,10 +2440,25 @@
 		flex-direction: column;
 		gap: 0.35rem;
 	}
+	/* The popout: the two rows on a solid card above the toggle (it overlays sky, so it
+	   gets the opaque panel stock, like the city search's results). */
+	.sky-pop {
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+		padding: 0.5rem;
+		background: var(--panel-fill-solid);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+	}
 	.sky-row {
 		display: flex;
 		gap: 0.3rem;
 		flex-wrap: wrap;
+	}
+	.sky-toggle {
+		align-self: flex-start;
+		text-transform: capitalize;
 	}
 	.sky-chip {
 		padding: 0.22rem 0.6rem;
@@ -3686,14 +3733,18 @@
 	}
 
 	/* Pre-promote the SPRING buttons the depth rule doesn't dress (they keep their own
-	   faces: the camera disc, the edit bar, the board key, the type chips, the photo
-	   card's close). They still scale on hover, so without a resting layer they'd
-	   re-rasterize at hover start and their edges snap at 100% zoom — the same flash the
-	   superbar's controls had before the depth rule pinned them (see will-change above). */
+	   faces: the camera disc, the edit bar, the board key, the photo card's close). They
+	   still scale on hover, so without a resting layer they'd re-rasterize at hover start
+	   and their edges snap at 100% zoom — the same flash the superbar's controls had
+	   before the depth rule pinned them (see will-change above).
+
+	   .type-btn is deliberately NOT here any more: it sits in EVERY table row, so the pin
+	   put one compositor layer per row inside the board's scroller — and Safari scrolling
+	   a layer-per-row table was the jank, far worse than the hover snap the pin bought.
+	   The chips take the 100%-zoom flash; the scroll takes the win. */
 	:global(html[data-ui='bubble'] .photo-toggle),
 	:global(html[data-ui='bubble'] .edit-btn),
 	:global(html[data-ui='bubble'] .legend-btn),
-	:global(html[data-ui='bubble'] .type-btn),
 	:global(html[data-ui='bubble'] .pc-close) {
 		will-change: transform;
 	}

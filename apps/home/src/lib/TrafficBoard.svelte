@@ -1552,6 +1552,9 @@
 		flex: 1 1 auto;
 		min-height: 0;
 		overflow-y: auto;
+		/* Safari repaints exposed strips as the board scrolls; without containment each
+		   strip's invalidation walks the whole table. contain lets it stop at the box. */
+		contain: layout style;
 		display: flex;
 		flex-direction: column;
 		gap: 0.7rem;
@@ -1705,6 +1708,15 @@
 	   and the Arr/Dep/Ovr legend deals in. Keyed off the column order or the row index (--ri),
 	   capped so a long board doesn't trail on. `backwards` throughout: the type buttons nested
 	   in the rows are in the universal hover/press list. */
+	/* EXPANDED, the body waits its turn: the super bar's full ripple runs to rung 19
+	   (≈0.12s lead + 19 × 0.035s + the 0.42s slide ≈ 1.2s), and data drawing under a
+	   still-assembling chrome read as two scenes talking over each other. Deepening
+	   --enter-layer holds the table (and the closing Connections nav, which shares the
+	   token) until the bar has landed — chrome first, then, finally, the data. Compact
+	   keeps the stock beat: its chrome is a short stack, not a 19-rung bar. */
+	.tfc.expanded {
+		--enter-layer: 1.1s;
+	}
 	@media (prefers-reduced-motion: no-preference) {
 		.booting .board-head {
 			animation: rise 0.5s ease backwards;
