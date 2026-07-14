@@ -232,6 +232,24 @@
 	.menu-btn:hover {
 		opacity: 0.6;
 	}
+	/* Bubble: the nav joins the button family — the chips' material at nav scale (ink-mix
+	   fill, 1px line-edge, pill corners; the gloss and spring ride in from the page's
+	   shared bubble rules, which list .menu-btn). Flat keeps the typographic nav above:
+	   plain names, hover by opacity. */
+	:global(html[data-ui='bubble']) .menu-btn {
+		padding: 0.5rem 1rem;
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		border: 1px solid var(--line-edge);
+		border-radius: 999px;
+	}
+	/* The pop is the hover now — dimming a lifting button muddied both gestures. */
+	:global(html[data-ui='bubble']) .menu-btn:hover {
+		opacity: 1;
+	}
+	/* Pills carry their own inner air; the wide text-nav gap read as a hole between them. */
+	:global(html[data-ui='bubble']) .menubar ul {
+		gap: 0.35rem 0.6rem;
+	}
 	/* Current section — the masthead persists while a panel is open, so the active
 	   destination stays highlighted in the nav. */
 	.menu-btn.active {

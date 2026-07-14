@@ -3176,7 +3176,8 @@
 	:global(html[data-ui='bubble'] .field),
 	:global(html[data-ui='bubble'] .field-select),
 	:global(html[data-ui='bubble'] .manual),
-	:global(html[data-ui='bubble'] .app-card) {
+	:global(html[data-ui='bubble'] .app-card),
+	:global(html[data-ui='bubble'] .menu-btn) {
 		border-radius: 999px;
 		box-shadow:
 			inset 0 1px 0 rgba(255, 255, 255, 0.55),
@@ -3198,6 +3199,29 @@
 	:global(html[data-ui='bubble'] .seg) {
 		border-radius: 16px;
 	}
+	/* The masthead nav springs like the rest of the family — but ONLY in Bubble. In Flat
+	   the nav is typographic (plain names, hover by opacity), so it takes none of the
+	   universal interaction block; the motion is restated here under the bubble key
+	   instead of adding .menu-btn to the shared lists. */
+	:global(html[data-ui='bubble'] .menu-btn) {
+		transition:
+			transform 0.3s var(--btn-spring),
+			background 0.18s var(--btn-soft),
+			border-color 0.18s var(--btn-soft),
+			box-shadow 0.28s var(--btn-soft),
+			opacity 0.18s var(--btn-soft),
+			color 0.15s ease;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		:global(html[data-ui='bubble'] .menu-btn:hover) {
+			transform: scale(var(--btn-hover-scale));
+		}
+		:global(html[data-ui='bubble'] .menu-btn:active) {
+			transform: scale(var(--btn-press-scale));
+			transition-duration: 0.1s;
+		}
+	}
+
 	/* Pre-promote the SPRING buttons the depth rule doesn't dress (they keep their own
 	   faces: the camera disc, the edit bar, the board key, the type chips, the photo
 	   card's close). They still scale on hover, so without a resting layer they'd
@@ -3260,7 +3284,8 @@
 	:global(html[data-ui='bubble'] .field:hover:not(:disabled)),
 	:global(html[data-ui='bubble'] .field-select:hover:not(:disabled)),
 	:global(html[data-ui='bubble'] .manual:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .app-card:hover:not(:disabled)) {
+	:global(html[data-ui='bubble'] .app-card:hover:not(:disabled)),
+	:global(html[data-ui='bubble'] .menu-btn:hover:not(:disabled)) {
 		box-shadow:
 			inset 0 1px 0 rgba(255, 255, 255, 0.8),
 			inset 0 7px 10px -8px rgba(255, 255, 255, 0.7),
@@ -3294,7 +3319,8 @@
 	:global(html[data-ui='bubble'] .field:active:not(:disabled)),
 	:global(html[data-ui='bubble'] .field-select:active:not(:disabled)),
 	:global(html[data-ui='bubble'] .manual:active:not(:disabled)),
-	:global(html[data-ui='bubble'] .app-card:active:not(:disabled)) {
+	:global(html[data-ui='bubble'] .app-card:active:not(:disabled)),
+	:global(html[data-ui='bubble'] .menu-btn:active:not(:disabled)) {
 		/* Sunken, but still glass: a top inner shade for the dip and a lighter flood than
 		   before — the old 0.2/0.08 pairing went ink-dark and broke the airiness right at
 		   the most tactile moment. No bottom rim light here either: same white-underline
