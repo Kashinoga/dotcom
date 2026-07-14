@@ -855,15 +855,6 @@
 		decorTimer = window.setTimeout(() => (decorHidden = covered), covered ? (isMobile ? 380 : 0) : 720);
 	});
 	const starsVisible = $derived(starsOn && darkScheme && !decorHidden && !photoSky);
-	// Clouds belong to the DAYLIT skybox — the gradient's own weather. They're baked bitmaps
-	// drifting on transform alone (compositor-only; the softness was painted once, offline),
-	// so the frame cost is a couple of cached layers — but the same bargain still applies:
-	// not built when a panel covers the viewport, under a dark phase (dusk/night belong to
-	// the stars), on a solid background, or over a photograph.
-	const cloudsVisible = $derived(
-		skyMode !== 'off' && skyMode !== 'photo' && !darkScheme && !decorHidden
-	);
-
 	// ── Weather dressing ── With the Weather panel open, the stage wears the ACTIVE CITY's
 	// sky: rain falls, snow drifts, fog banks in, a storm flashes, an overcast day thickens
 	// the clouds. Read straight from $lib/weather-state — the same reading the panel shows,
@@ -891,6 +882,18 @@
 		}
 	}
 	const wxKind = $derived(wxReading ? weatherKind(wxReading.conditions) : stageWx);
+
+	// Clouds belong to the DAYLIT skybox — the gradient's own weather. They're baked bitmaps
+	// drifting on transform alone (compositor-only; the softness was painted once, offline),
+	// so the frame cost is a couple of cached layers — but the same bargain still applies:
+	// not built when a panel covers the viewport, under a dark phase (dusk/night belong to
+	// the stars), on a solid background, or over a photograph.
+	// wxKind !== 'clear': a CLEAR sky (the console's chip, or a live clear reading while
+	// Weather is up) means no clouds at all — 'clear' is weather too, not just the
+	// absence of the wet kinds.
+	const cloudsVisible = $derived(
+		skyMode !== 'off' && skyMode !== 'photo' && !darkScheme && !decorHidden && wxKind !== 'clear'
+	);
 	const fxOn = $derived(!decorHidden && !photoSky);
 	const fxRain = $derived(fxOn && (wxKind === 'rain' || wxKind === 'storm'));
 	const fxSnow = $derived(fxOn && wxKind === 'snow');
@@ -1353,7 +1356,7 @@
 		SHOOT = makeShooting(); // and a few shooting stars to cross it
 		starsOn = localStorage.getItem(STARS_KEY) !== '0'; // default on
 		const swx = localStorage.getItem(STAGE_WX_KEY);
-		if (swx && ['storm', 'snow', 'rain', 'fog', 'cloudy'].includes(swx))
+		if (swx && ['storm', 'snow', 'rain', 'fog', 'cloudy', 'clear'].includes(swx))
 			stageWx = swx as WeatherKind;
 		if (localStorage.getItem(UI_KEY) === 'flat') setUiStyle('flat'); // else default bubble
 		if (localStorage.getItem(LOOK_KEY) === 'metro') setLook('metro'); // else default lab
@@ -1598,7 +1601,9 @@
 		>
 			{#if skyConsoleOpen}
 				<div class="sky-pop" transition:fade={{ duration: 150 }}>
-					<div class="sky-row" role="group" aria-label="Time of day">
+					<div class="sky-group" role="group" aria-labelledby="sky-lab-time">
+						<span class="sky-lab" id="sky-lab-time">Time of Day</span>
+						<div class="sky-row">
 				{#each [['auto', 'Auto'], ['dawn', 'Dawn'], ['morning', 'Morning'], ['noon', 'Noon'], ['dusk', 'Dusk'], ['night', 'Night']] as [id, label] (id)}
 					<button
 						type="button"
@@ -1608,17 +1613,24 @@
 						onclick={() => setSkyMode(id as SkyMode)}>{label}</button
 					>
 					{/each}
+						</div>
 					</div>
-					<div class="sky-row" role="group" aria-label="Stage weather">
-				{#each [[null, 'Clear'], ['cloudy', 'Clouds'], ['rain', 'Rain'], ['snow', 'Snow'], ['fog', 'Fog'], ['storm', 'Storm']] as [id, label] (label)}
+					<div class="sky-group" role="group" aria-labelledby="sky-lab-wx">
+						<span class="sky-lab" id="sky-lab-wx">Weather Feature</span>
+						<div class="sky-row">
+				<!-- Clear is a CHOICE, not the absence of one: it empties the sky (see
+				     cloudsVisible), where no selection keeps the ambient drift. Clicking the
+				     active chip again deselects back to ambient. -->
+				{#each [['clear', 'Clear'], ['cloudy', 'Clouds'], ['rain', 'Rain'], ['snow', 'Snow'], ['fog', 'Fog'], ['storm', 'Storm']] as [id, label] (label)}
 					<button
 						type="button"
 						class="chip sky-chip"
 						class:on={stageWx === id}
 						aria-pressed={stageWx === id}
-						onclick={() => setStageWx(id as WeatherKind | null)}>{label}</button
+						onclick={() => setStageWx(stageWx === id ? null : (id as WeatherKind))}>{label}</button
 					>
 					{/each}
+						</div>
 					</div>
 				</div>
 			{/if}
@@ -2261,9 +2273,17 @@
 		max-height: calc(100vh - 7rem);
 		overflow-y: auto;
 		padding: 0.5rem;
-		background: var(--panel-fill-solid);
+		/* The panel's own material — Flat's glass here, Bubble's frost below — so the
+		   popout reads as a shard of the same surface the panels are cut from. */
+		background: var(--panel-glass);
 		border: 1px solid var(--line);
 		border-radius: 12px;
+	}
+	:global(html[data-ui='bubble']) .sky-pop {
+		background: var(--panel-sheen), var(--panel-fill);
+		-webkit-backdrop-filter: var(--panel-blur);
+		backdrop-filter: var(--panel-blur);
+		border-color: var(--panel-edge);
 	}
 	.photo-pick-head {
 		margin: 0.15rem 0 0.4rem;
@@ -2347,7 +2367,7 @@
 	.stage.clip-decor .fx-snow,
 	.stage.clip-decor .fx-fog,
 	.stage.clip-decor .fx-flash {
-		clip-path: inset(0 min(94vw, 640px) 0 0);
+		clip-path: inset(0 clamp(340px, calc(100vw - 560px), 640px) 0 0);
 	}
 	/* The clip edge GLIDES IN, in step with the panel's opening slide (same 380ms, same
 	   curve) — snapping it in read as the sky being cut with scissors. On CLOSE it's the
@@ -2452,9 +2472,30 @@
 		flex-direction: column;
 		gap: 0.35rem;
 		padding: 0.5rem;
-		background: var(--panel-fill-solid);
+		/* The panel's own material — Flat's glass here, Bubble's frost below — so the
+		   popout reads as a shard of the same surface the panels are cut from. */
+		background: var(--panel-glass);
 		border: 1px solid var(--line);
 		border-radius: 12px;
+	}
+	:global(html[data-ui='bubble']) .sky-pop {
+		background: var(--panel-sheen), var(--panel-fill);
+		-webkit-backdrop-filter: var(--panel-blur);
+		backdrop-filter: var(--panel-blur);
+		border-color: var(--panel-edge);
+	}
+	.sky-group {
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+	}
+	/* The caption, in the same small-caps voice as the stats' dt labels. */
+	.sky-lab {
+		font-size: 0.62rem;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--sub);
 	}
 	.sky-row {
 		display: flex;
@@ -2476,6 +2517,13 @@
 		color: var(--paper);
 		background: color-mix(in srgb, var(--ink) 88%, transparent);
 		border-color: transparent;
+	}
+	/* Hovering the SELECTED chip: .chip:hover's pale wash (0,2,1) out-specifies .on
+	   (0,2,0) and left paper text on a pale bubble — restate the ink face, a shade
+	   deeper so the hover still reads as a response. */
+	.sky-chip.on:hover {
+		color: var(--paper);
+		background: var(--ink);
 	}
 	/* On phones the console would sit under the thumb and over the reopen bubble — the
 	   Settings panel already owns these controls there. */
@@ -2673,7 +2721,12 @@
 		top: 0;
 		right: 0;
 		height: 100%;
-		width: min(94vw, 640px);
+		/* The masthead keeps ITS OWN COLUMN: on middling desktop widths the old
+		   min(94vw, 640px) opened the sheet clear across the wordmark. The 560px reserve
+		   holds the masthead's clamp comfortably; the sheet takes what's left, floored so
+		   panel content stays usable. Phones swap to the bottom sheet anyway (the media
+		   query below). KEEP IN STEP with the decor clip's inset. */
+		width: clamp(340px, calc(100vw - 560px), 640px);
 		display: flex;
 		flex-direction: column;
 		/* The frame itself never scrolls (see .surface-scroll) — this keeps the frosted
