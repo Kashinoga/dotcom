@@ -1515,7 +1515,7 @@
 	/* Back / super-bar end caps / compact expand toggle all use the shared .icon-btn (in
 	   tokens.css) so every panel control reads the same; only per-button placement differs
 	   (below, near each usage). */
-	@media (max-width: 720px) {
+	@media (max-width: 900px) {
 		.expand-compact {
 			display: none; /* phone bottom-sheet is already full width */
 		}

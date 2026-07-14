@@ -568,7 +568,11 @@
 	// Height matters too: the viewBox has a fixed aspect and `preserveAspectRatio` defaults to
 	// `meet`, so the map's scale is min(vw/cam.w, vh/cam.h) — a short wide window fits by height.
 	let vh = $state(800);
-	const isMobile = $derived(vw <= 720);
+	// 900, not a phone width: it's where the COLUMN MATH stops working — the compact
+	// sheet's 340px floor plus the masthead's 560px reserve (see .surface's width). Below
+	// it the panel would open across the wordmark, so it becomes the bottom sheet instead;
+	// every "mobile" behaviour keys off the same line, because they all mean "the sheet".
+	const isMobile = $derived(vw <= 900);
 
 	// ─── Page content per destination ───────────────────────────────────────────
 	// A block list rendered into the content surface. Swap the placeholder copy for
@@ -2349,7 +2353,7 @@
 		-webkit-box-orient: vertical;
 		overflow: hidden;
 	}
-	@media (max-width: 720px) {
+	@media (max-width: 900px) {
 		/* On a phone the sky is a sliver above the sheet — don't spend it on a credit line. */
 		.photo-credit {
 			display: none;
@@ -2527,7 +2531,7 @@
 	}
 	/* On phones the console would sit under the thumb and over the reopen bubble — the
 	   Settings panel already owns these controls there. */
-	@media (max-width: 720px) {
+	@media (max-width: 900px) {
 		.sky-console {
 			display: none;
 		}
@@ -2870,7 +2874,7 @@
 	}
 	/* On phones the panel is a bottom sheet: full width, anchored to the bottom, and
 	   it slides down (rather than off to the right) both to close and between stops. */
-	@media (max-width: 720px) {
+	@media (max-width: 900px) {
 		.surface {
 			top: 0;
 			bottom: 0;
@@ -3532,7 +3536,7 @@
 	}
 	/* On the phone the panel is a bottom sheet, so its bubble waits where the sheet comes
 	   from: bottom-centre, with the arrow turned to point up. */
-	@media (max-width: 720px) {
+	@media (max-width: 900px) {
 		.icon-btn.reopen {
 			top: auto;
 			right: auto;
