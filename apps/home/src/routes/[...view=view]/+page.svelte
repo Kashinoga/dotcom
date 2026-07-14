@@ -817,6 +817,14 @@
 	// cover has settled — instantly then, since it's behind the panel with nothing to
 	// see. The reveal waits the same beat: the collapse animates over a bare sky, and
 	// the decor fades back in after.
+	// With a COMPACT panel open the decor stays — but CLIPPED to the uncovered stage.
+	// Through the glass's 18px of frost a cloud was never legible anyway, and WebKit
+	// re-filters the panel's whole backdrop every frame anything moves beneath it (the
+	// measured ring-arc lesson in TrafficBoard, but continuous: a drifting cloud or a
+	// falling drop under the glass kept Safari re-rasterising the blur forever). Clipped,
+	// the panel stands over a static gradient and the blur rasterises ONCE. Applied the
+	// moment the view opens, so even the panel's entrance slides over clean sky.
+	const decorClipped = $derived(!!view && !isMobile && !panelExpanded);
 	let decorHidden = $state(false);
 	let decorTimer = 0;
 	$effect(() => {
@@ -1381,7 +1389,7 @@
 {/snippet}
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="stage" class:photo={photoSky} onclick={onStageClick}>
+<div class="stage" class:photo={photoSky} class:clip-decor={decorClipped} onclick={onStageClick}>
 	{#if photoSky && photo}
 		<!-- Bing's photo of the day. Two layers, not one: the picture, and a veil over it. The panels
 		     are opaque so they're fine, but the masthead and nav sit straight on the sky — over a
@@ -2175,6 +2183,16 @@
 		}
 	}
 
+	/* A compact panel over the stage: every decor layer stops at the panel's left edge
+	   (see decorClipped). The 640px must stay in step with .surface's width. */
+	.stage.clip-decor .clouds,
+	.stage.clip-decor .stars,
+	.stage.clip-decor .fx-rain,
+	.stage.clip-decor .fx-snow,
+	.stage.clip-decor .fx-fog,
+	.stage.clip-decor .fx-flash {
+		right: min(94vw, 640px);
+	}
 	/* ── Daylit clouds ── Two baked, tileable strips over the sky gradient. Each strip is
 	   200% wide with the tile sized to exactly HALF of it (background-size: 50% 100%), so
 	   the drift's translate3d(-50%) lands precisely one tile later and the loop is
