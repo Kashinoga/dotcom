@@ -3121,17 +3121,16 @@
 	   <select>s keep their chevron — we give them depth but never touch their
 	   background-image. Kept :global so it reaches the buttons in every panel. */
 
-	/* Hairlines — Bubble trades the drawn 1.5px ink-adjacent edges for translucent
-	   hairlines; the gloss and shadows below do the work the border did. Settings controls
-	   only: elsewhere a border is load-bearing colour (.field.on's accent orange IS its
-	   selection), so those keep their own. Note .sky-opt.on still wins with its ink border
-	   (0,3,0 scoped beats this 0,2,1), which is right — there it matches the ink fill. */
+	/* The Settings segments and sky chips wear the SAME material as every other bubble
+	   control (the chips, the pills, the Apps cards): their base ink-mix fill — the sky
+	   reads through it, as it does everywhere else — with the border thinned to the same
+	   1px line-edge the rest of the family draws. They used to keep a special paper-72
+	   face here, and it was the odd one out once the app settled on the symmetric ink mix.
+	   Note .sky-opt.on still wins with its ink border (0,3,0 scoped beats this 0,2,1),
+	   which is right — there it matches the ink fill. */
 	:global(html[data-ui='bubble'] .seg),
 	:global(html[data-ui='bubble'] .sky-opt) {
-		border-color: color-mix(in srgb, var(--ink) 12%, transparent);
-		/* Glassy but not see-through: at 45% the panel's dotted decor ghosted through the
-		   pill and read as grime; 72% keeps a hint of the glass while the face stays clean. */
-		background-color: color-mix(in srgb, var(--paper) 72%, transparent);
+		border-width: 1px;
 	}
 
 	/* NO sheen gradient — deliberately. There used to be a white-to-transparent wash here,
