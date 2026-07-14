@@ -833,11 +833,12 @@
 	const EXPAND_KEY = 'ksh-panel-expanded';
 	let panelExpanded = $state(false);
 	// Nothing decorative is BUILT unless it can be seen: the stars are dark-only, the rings
-	// light-only, and both go when a panel covers the whole viewport (expanded on desktop, or any
-	// panel on mobile, where it's a full-screen sheet).
+	// light-only AND solid-background-only (a skybox gradient or photo is its own decoration —
+	// circles on top just litter it), and both go when a panel covers the whole viewport
+	// (expanded on desktop, or any panel on mobile, where it's a full-screen sheet).
 	const backdropHidden = $derived(!!view && (panelExpanded || isMobile));
 	const starsVisible = $derived(starsOn && darkScheme && !backdropHidden && !photoSky);
-	const ringsVisible = $derived(!darkScheme && !backdropHidden && !photoSky);
+	const ringsVisible = $derived(!darkScheme && !backdropHidden && skyMode === 'off');
 	function toggleExpand() {
 		panelExpanded = !panelExpanded;
 		try {
@@ -1394,8 +1395,9 @@
 	<!-- Light-mode concentric rings radiating from the wordmark's "o" (dark mode gets the stars
 	     instead). Centre tracks the measured "o". Purely decorative and inert: they don't spin, and
 	     nothing here takes the pointer. Two things are deliberately NOT drawn: the rings that never
-	     reach the viewport (visibleRings), and any of them at all under a dark scheme
-	     (ringsVisible) — invisible geometry still costs paint. -->
+	     reach the viewport (visibleRings), and any of them at all under a dark scheme or a skybox —
+	     gradient or photo, the sky is its own decoration (ringsVisible) — invisible geometry still
+	     costs paint. -->
 	{#if ringsVisible}
 		<svg class="rings" aria-hidden="true" transition:fade={{ duration: 700 }}>
 			{#each visibleRings as { r, i } (i)}
@@ -1871,10 +1873,12 @@
 		   page-field token, and so it matches the panel's own pure stock exactly. */
 		background: var(--sky, light-dark(#ffffff, #000000));
 	}
-	/* Photo mode, before hydration: the server's HTML still carries the rings (it can't know what the
-	   visitor chose), and they'd paint for a frame or two underneath the picture. The pre-paint script
-	   in app.html stamps data-sky-photo, so they never get a frame at all. Once hydrated the page
-	   doesn't build them in the first place — this is only for the gap. */
+	/* Photo mode, before hydration: the server can't know what the visitor chose, so any decor in its
+	   HTML would paint for a frame or two underneath the picture. The pre-paint script in app.html
+	   stamps data-sky-photo, so it never gets a frame at all. (Since rings became sky-off-only the
+	   server — whose default sky is auto — emits neither rings nor stars, but this stays as the belt
+	   for the gap should that ever change.) Once hydrated the page doesn't build them in the first
+	   place. */
 	:global(html[data-sky-photo]) .rings,
 	:global(html[data-sky-photo]) .stars {
 		display: none;
