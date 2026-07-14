@@ -620,6 +620,25 @@
 			0 1px 2px rgba(8, 10, 14, 0.1),
 			0 6px 18px rgba(8, 10, 14, 0.18);
 	}
+	/* Bubble: the ghost joins the family — the pill, the 1px line-edge, and the shared
+	   rim-light gloss riding above the carry's own drop shadows. The face is the family's
+	   ink mix over a FROSTED pane rather than the flat solid: the ghost floats over whatever
+	   the carry crosses, and the blur does the legibility work the way it does for every
+	   glass surface here. (Restated locally like the Masthead's bubble rules — the ghost
+	   lives in <body>, but the html[data-ui] key reaches it anywhere.) Flat keeps the plain
+	   card above. */
+	:global(html[data-ui='bubble']) .wx-ghost {
+		border-radius: 999px;
+		border-color: var(--line-edge);
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		-webkit-backdrop-filter: blur(8px);
+		backdrop-filter: blur(8px);
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.55),
+			inset 0 7px 10px -8px rgba(255, 255, 255, 0.55),
+			0 1px 2px rgba(8, 10, 14, 0.1),
+			0 6px 18px rgba(8, 10, 14, 0.18);
+	}
 	.wx-tabs.fade-end {
 		mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), transparent 100%);
 	}
