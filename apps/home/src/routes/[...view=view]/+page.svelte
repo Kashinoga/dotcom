@@ -824,8 +824,8 @@
 	// `data.view` is read once, on purpose: from here on the open panel is local state (clicks
 	// mutate it directly, and the panel-slide animation defers the swap), and the URL is
 	// reconciled against it rather than the other way round.
-	// eslint-disable-next-line svelte/no-reactive-reassign -- read ONCE, deliberately: see above
-	let view = $state<View | null>(data.view);
+	// svelte-ignore state_referenced_locally
+	let view = $state<View | null>(data.view); // eslint-disable-line svelte/no-reactive-reassign -- read ONCE, deliberately: see above
 	// Navigating panel→panel slides the whole panel off before its content swaps.
 	let panelLeaving = $state(false);
 	// Expand the panel to fill the viewport (handy for the wide Traffic board). Remembered across
