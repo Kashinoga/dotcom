@@ -144,15 +144,39 @@
 		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 	// When the shown city changes, glide its tab fully into view — picking one half-hidden
 	// under the edge fade (or adding a city, which lands at the end of the strip) would
-	// otherwise leave the SELECTED name cut off. `nearest` so an already-visible tab
-	// doesn't move at all.
+	// otherwise leave the SELECTED name cut off.
+	//
+	// By scrolling THE STRIP's own scrollLeft, never scrollIntoView: that walks every
+	// scrollable ancestor, and overflow:hidden boxes count in Chrome — the panel mounts
+	// while it's still translated off-screen (a panel→panel move swaps content mid-slide),
+	// so chasing the tab dragged the page's own .stage sideways and the whole homepage
+	// wiggled behind the opening panel. The strip can't overshoot anything: it's the only
+	// thing that moves. On mount the reveal is a JUMP, not a glide — the entrance cascade
+	// owns that moment.
+	let glidedIdx = -1;
 	$effect(() => {
-		const el = tabsEl?.children[wx.activeIdx] as HTMLElement | undefined;
-		el?.scrollIntoView({
-			behavior: reduceMotion ? 'auto' : 'smooth',
-			inline: 'nearest',
-			block: 'nearest'
-		});
+		const i = wx.activeIdx;
+		const strip = tabsEl;
+		if (!strip) return;
+		const first = glidedIdx === -1;
+		if (glidedIdx === i) return;
+		glidedIdx = i;
+		const el = strip.children[i] as HTMLElement | undefined;
+		if (!el) return;
+		const pad = 44; // clear the edge fade, so "visible" means readable
+		const left = el.offsetLeft - pad;
+		const right = el.offsetLeft + el.offsetWidth + pad;
+		const target =
+			left < strip.scrollLeft
+				? left
+				: right > strip.scrollLeft + strip.clientWidth
+					? right - strip.clientWidth
+					: null;
+		if (target !== null)
+			strip.scrollTo({
+				left: Math.max(0, target),
+				behavior: first || reduceMotion ? 'auto' : 'smooth'
+			});
 	});
 </script>
 
