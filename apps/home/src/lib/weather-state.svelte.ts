@@ -106,6 +106,22 @@ export function closeTab(i: number) {
 	load(current());
 }
 
+// Move the tab at `from` to sit at `to` — the strip's drag-reorder. The ACTIVE CITY rides
+// along: what you're reading is a place, not a slot number, so the index is re-found by id
+// after the move rather than left pointing at whatever slid into the old position.
+export function reorder(from: number, to: number) {
+	const n = wx.places.length;
+	if (from === to || from < 0 || to < 0 || from >= n || to >= n) return;
+	const activeId = wx.places[wx.activeIdx]?.id;
+	const places = [...wx.places];
+	const [moved] = places.splice(from, 1);
+	places.splice(to, 0, moved);
+	wx.places = places;
+	const idx = places.findIndex((p) => p.id === activeId);
+	if (idx >= 0) wx.activeIdx = idx;
+	save();
+}
+
 export function openSearch(mode: 'replace' | 'add') {
 	wx.searchMode = mode;
 	wx.searchOpen = true;

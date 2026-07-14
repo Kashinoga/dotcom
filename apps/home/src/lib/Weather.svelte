@@ -14,7 +14,8 @@
 		REFRESH_CIRCLE_SVG,
 		PLUS_SVG
 	} from '$lib/icons';
-	import { wx, current, load, show, closeTab, openSearch, setUnit, restore } from '$lib/weather-state.svelte';
+	import { wx, current, load, show, closeTab, openSearch, setUnit, restore, reorder } from '$lib/weather-state.svelte';
+	import { flip } from 'svelte/animate';
 
 	// Current conditions from the National Weather Service, for any US city.
 	//
@@ -68,20 +69,67 @@
 	let dragging = $state(false);
 	let dragged = false; // did this press ever move? (the click-swallowing flag)
 
+	// HOLD a tab to carry it — the third gesture, and the reorder. It can't share the drag's
+	// trigger (both are "press and move sideways"), so time disambiguates where distance can't:
+	// a press that moves is the scroll, a press that HOLDS (280ms, still) lifts the tab, and
+	// from there movement reorders instead of scrolling. Crossing a neighbour's midpoint swaps
+	// the tabs (the FLIP on the strip slides them around the carried one); the drop is already
+	// saved, because reorder() persists per swap like every other mutation in $lib/weather.
+	let lift = $state<number | null>(null); // index of the tab being carried
+	let holdTimer = 0;
+	let pressX = 0;
+	let pressY = 0;
+	// The swap slide's length — 0 under reduced motion: the entrance animations gate themselves
+	// in CSS, but a JS-driven FLIP can't, so the preference is read here. (window-guarded: the
+	// panel SSRs, and the sniff can be static — flipping the OS setting mid-visit is not a case
+	// worth re-subscribing for.)
+	const flipMs =
+		typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+			? 0
+			: 220;
+
 	function onTabsDown(e: PointerEvent) {
 		const el = tabsEl;
-		if (!el || el.scrollWidth <= el.clientWidth) return; // nothing to drag to
-		if (e.button !== 0) return;
+		if (!el || e.button !== 0) return;
+		dragged = false;
+		pressX = e.clientX;
+		pressY = e.clientY;
+		// Arm the lift — only on a tab's name (the × keeps its own meaning), and only when
+		// there's another tab to trade places with.
+		const t = e.target as Element;
+		const tab = t.closest?.('.wx-tab');
+		if (tab && !t.closest('.wx-tab-x') && wx.places.length > 1) {
+			const idx = Array.prototype.indexOf.call(el.querySelectorAll('.wx-tab'), tab);
+			const pid = e.pointerId;
+			holdTimer = window.setTimeout(() => {
+				holdTimer = 0;
+				lift = idx;
+				dragging = false; // the press is a carry now, never a scroll
+				dragged = true; // and the click it would fire on release is swallowed
+				try {
+					el.setPointerCapture(pid);
+				} catch {
+					/* pointer already gone — the up handler clears the lift */
+				}
+			}, 280);
+		}
+		if (el.scrollWidth <= el.clientWidth) return; // nothing to scroll to
 		dragFrom = e.clientX;
 		dragScroll = el.scrollLeft;
 		dragging = true;
-		dragged = false;
 		// NOT captured here, deliberately. Capturing on press redirects the whole gesture to the
 		// strip, so the click never reaches the tab underneath and a plain click stopped selecting a
 		// city. Capture only once the press has actually become a drag (below).
 	}
 
 	function onTabsMove(e: PointerEvent) {
+		if (lift !== null) return carry(e);
+		// A press that wanders was never a hold — disarm the lift; this move is a scroll (or a
+		// finger drifting on its way to a click, which the 4px floor below still forgives).
+		if (holdTimer && Math.hypot(e.clientX - pressX, e.clientY - pressY) > 5) {
+			clearTimeout(holdTimer);
+			holdTimer = 0;
+		}
 		if (!dragging || !tabsEl) return;
 		const dx = e.clientX - dragFrom;
 		if (!dragged && Math.abs(dx) < 4) return; // still a click, not yet a drag
@@ -90,7 +138,42 @@
 		tabsEl.scrollLeft = dragScroll - dx;
 	}
 
+	// The carry itself. The pointer is compared against the OTHER tabs' midpoints in the strip's
+	// content space — offsetLeft, not getBoundingClientRect, because the FLIP animation is a
+	// transform and a transformed rect would report the tab mid-slide: the midpoint chases the
+	// swap and the pair oscillates under a stationary pointer. Layout positions hold still.
+	function carry(e: PointerEvent) {
+		const el = tabsEl;
+		if (!el || lift === null) return;
+		// Carrying against the faded edge walks the strip along — without this, a tab could
+		// never be carried to a slot that's currently scrolled out of reach.
+		const r = el.getBoundingClientRect();
+		if (e.clientX < r.left + 28) el.scrollLeft -= 10;
+		else if (e.clientX > r.right - 28) el.scrollLeft += 10;
+		const x = e.clientX - r.left + el.scrollLeft;
+		const kids = el.querySelectorAll('.wx-tab') as NodeListOf<HTMLElement>;
+		let to = lift;
+		for (let j = 0; j < kids.length; j++) {
+			if (j === lift) continue;
+			const mid = kids[j].offsetLeft + kids[j].offsetWidth / 2;
+			if (j < lift && x < mid) to = Math.min(to, j);
+			else if (j > lift && x > mid) to = Math.max(to, j);
+		}
+		if (to !== lift) {
+			reorder(lift, to);
+			lift = to;
+		}
+	}
+
 	function onTabsUp(e: PointerEvent) {
+		clearTimeout(holdTimer);
+		holdTimer = 0;
+		if (lift !== null) {
+			// The drop. Order is already saved (reorder() persists per swap); just set it down.
+			lift = null;
+			if (tabsEl?.hasPointerCapture(e.pointerId)) tabsEl.releasePointerCapture(e.pointerId);
+			return;
+		}
 		if (!dragging) return;
 		dragging = false;
 		if (tabsEl?.hasPointerCapture(e.pointerId)) tabsEl.releasePointerCapture(e.pointerId);
@@ -111,6 +194,20 @@
 	$effect(() => {
 		wx.places.length;
 		requestAnimationFrame(measureTabs);
+	});
+
+	// On touch, the strip's touch-action: pan-x hands horizontal panning to the browser — which
+	// would cancel the pointer stream mid-carry and drop the tab. Once lifted, the native pan is
+	// vetoed by preventDefault on touchmove; that needs a NON-passive listener, and Svelte
+	// attaches ontouchmove passively, so this one is wired by hand.
+	$effect(() => {
+		const el = tabsEl;
+		if (!el) return;
+		const veto = (e: TouchEvent) => {
+			if (lift !== null) e.preventDefault();
+		};
+		el.addEventListener('touchmove', veto, { passive: false });
+		return () => el.removeEventListener('touchmove', veto);
 	});
 
 	// NWS reports the sky as prose, not a code — "Mostly Cloudy", "Light Rain", "Thunderstorm". The
@@ -201,9 +298,21 @@
 		onpointerup={onTabsUp}
 		onpointercancel={onTabsUp}
 		onclickcapture={onTabsClick}
+		oncontextmenu={(e) => {
+			// A long-press is the LIFT here, so the browser's long-press menu can't also fire.
+			if (lift !== null || holdTimer) e.preventDefault();
+		}}
 	>
-		{#each wx.places as p, i}
-			<div class="wx-tab" class:on={i === wx.activeIdx} style="--n:{i}">
+		<!-- Keyed by the place, so a reorder MOVES a tab rather than rewriting every label in
+		     place — that's what animate:flip animates. -->
+		{#each wx.places as p, i (p.id)}
+			<div
+				class="wx-tab"
+				class:on={i === wx.activeIdx}
+				class:carried={lift === i}
+				style="--n:{i}"
+				animate:flip={{ duration: flipMs }}
+			>
 				<button
 					type="button"
 					class="wx-tab-name"
@@ -420,9 +529,25 @@
 		/* Drag to scroll — and don't let the browser turn the drag into a text selection. */
 		touch-action: pan-x;
 		user-select: none;
+		/* The tabs' offsetLeft is measured against the strip (the carry's midpoint math) — and a
+		   long-press LIFTS a tab here, so iOS's own long-press callout stays out of it. */
+		position: relative;
+		-webkit-touch-callout: none;
 	}
 	.wx-tabs.dragging {
 		cursor: grabbing;
+	}
+	/* The carried tab: held slightly proud of the row, with the row's own hover tint as its
+	   face. The scale rides the inner name, not the wrapper — the wrapper's transform belongs
+	   to the FLIP that slides tabs around it. */
+	.wx-tab.carried {
+		cursor: grabbing;
+		background: color-mix(in srgb, var(--ink) 8%, transparent);
+	}
+	.wx-tab.carried .wx-tab-name {
+		cursor: grabbing;
+		transform: scale(1.06);
+		transition: transform 0.15s ease;
 	}
 	.wx-tabs.fade-end {
 		mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), transparent 100%);
