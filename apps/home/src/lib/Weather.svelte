@@ -323,7 +323,9 @@
 	<!-- The cities, as tabs: a sliding row of names, the showing one in full ink. The + opens the
 	     header's search pointed at ADDING a city rather than swapping the one you're looking at. A
 	     tab carries an × once there's more than one — the last city stays, since an empty panel would
-	     say nothing. -->
+	     say nothing. The + sits OUTSIDE the scroller, pinned past its end fade: however many
+	     cities the strip hides, adding another is never scrolled out of reach. -->
+	<div class="wx-tabrow">
 	<div
 		class="wx-tabs"
 		class:fade-start={!atStart}
@@ -375,14 +377,15 @@
 				{/if}
 			</div>
 		{/each}
-		<button
-			type="button"
-			class="wx-add"
-			style="--n:{wx.places.length}"
-			aria-label="Add another city"
-			title="Add another city"
-			onclick={() => openSearch('add')}>{@html PLUS_SVG}</button
-		>
+	</div>
+	<button
+		type="button"
+		class="wx-add"
+		style="--n:{wx.places.length}"
+		aria-label="Add another city"
+		title="Add another city"
+		onclick={() => openSearch('add')}>{@html PLUS_SVG}</button
+	>
 	</div>
 
 	<!-- The carried tab's ghost: what the hand is holding, floating free of the strip while
@@ -504,11 +507,11 @@
 	   #key in the markup), so its part of the cascade replays and a new city LANDS
 	   rather than snapping in. */
 	@media (prefers-reduced-motion: no-preference) {
-		/* The strip settles as ONE unit; the tabs fade in on beats inside it. Not a
+		/* The row settles as ONE unit; the tabs fade in on beats inside it. Not a
 		   translate per tab: the strip is an overflow-x scroller with no vertical slack,
 		   so a translating tab clips against its edges mid-overshoot. Opacity carries
 		   the stagger without ever leaving the box. */
-		.wx-tabs {
+		.wx-tabrow {
 			animation: settle 0.45s ease backwards;
 		}
 		.wx-tab,
@@ -520,8 +523,7 @@
 		   changed delay RESTARTS the entrance. Mid-carry that read as tabs flashing awake on
 		   every swap, and the replay fought the placeholder's dim. The strip is not entering
 		   while you're holding it. */
-		.wx-tabs.carrying .wx-tab,
-		.wx-tabs.carrying .wx-add {
+		.wx-tabs.carrying .wx-tab {
 			animation: none;
 		}
 		.wx-msg,
@@ -573,6 +575,15 @@
 	/* The cities, as tabs. A sliding row: more cities than fit just scroll, they don't wrap and push
 	   the reading down the panel. Text, not chips — a tab is a name you're reading, not a button
 	   you're hunting for. */
+	/* The row: the scroller takes what width it needs (and shrinks when it must), the +
+	   is pinned after it — however many cities the strip hides, adding one never scrolls
+	   out of reach. */
+	.wx-tabrow {
+		display: flex;
+		align-items: center;
+		gap: 0.15rem;
+		min-width: 0;
+	}
 	.wx-tabs {
 		display: flex;
 		align-items: center;
