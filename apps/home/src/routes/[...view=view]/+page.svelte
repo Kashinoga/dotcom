@@ -12,6 +12,7 @@
 	import Weather from '$lib/Weather.svelte';
 	import CitySearch from '$lib/CitySearch.svelte';
 	import {
+		CLOUD_SVG,
 		BACK_CIRCLE_SVG,
 		AIRPLANE_SVG,
 		PRESENTATION_SVG,
@@ -1621,14 +1622,18 @@
 					</div>
 				</div>
 			{/if}
+			<!-- The toggle wears reicon's cloud on the shared disc (.icon-btn), so the bubble
+			     gloss and the universal spring come for free — the current phase/weather read
+			     lives in the title instead of a label. -->
 			<button
 				type="button"
-				class="chip sky-chip sky-toggle"
+				class="icon-btn sky-toggle"
 				aria-expanded={skyConsoleOpen}
 				aria-label="Sky controls"
+				title={`Sky · ${skyMode === 'auto' ? `auto (${skyPhase})` : skyMode}${stageWx ? ` · ${stageWx}` : ''}`}
 				onclick={() => (skyConsoleOpen = !skyConsoleOpen)}
 			>
-				Sky · {skyMode === 'auto' ? `Auto (${skyPhase})` : skyMode}{stageWx ? ` · ${stageWx}` : ''}
+				{@html CLOUD_SVG}
 			</button>
 		</div>
 	{/if}
@@ -2458,7 +2463,10 @@
 	}
 	.sky-toggle {
 		align-self: flex-start;
-		text-transform: capitalize;
+	}
+	.sky-toggle :global(svg) {
+		width: 1.05rem;
+		height: 1.05rem;
 	}
 	.sky-chip {
 		padding: 0.22rem 0.6rem;
