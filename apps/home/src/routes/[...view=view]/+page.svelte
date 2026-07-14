@@ -30,7 +30,7 @@
 	import faviconAtfc from '$lib/assets/favicon-atfc.svg';
 	import cloudFar from '$lib/assets/cloud-far.webp';
 	import cloudNear from '$lib/assets/cloud-near.webp';
-	import { wx, weatherKind } from '$lib/weather-state.svelte';
+	import { wx, weatherKind, type WeatherKind } from '$lib/weather-state.svelte';
 	import faviconPres from '$lib/assets/favicon-pres.svg';
 	import faviconWeather from '$lib/assets/favicon-weather.svg';
 	import { airports, accent, connections, portDescriptions, HUB } from '$lib/network';
@@ -843,9 +843,11 @@
 	$effect(() => {
 		const covered = backdropHidden;
 		clearTimeout(decorTimer);
-		// Cover: past the panel's own move. Reveal: past the promotion's full round trip
-		// (slide-off 300ms + landing 380ms), so nothing fades under a still-moving blur.
-		decorTimer = window.setTimeout(() => (decorHidden = covered), covered ? 380 : 720);
+		// Cover on DESKTOP is immediate: the expanded arrival holds back (the zoom's first
+		// half is a hold — see zoomTransform) while the skybox visibly bows out first, on an
+		// open stage. Mobile keeps the delay (the sheet slides over the decor; hiding early
+		// would pop a void behind it). Reveal waits out the promotion's full round trip.
+		decorTimer = window.setTimeout(() => (decorHidden = covered), covered ? (isMobile ? 380 : 0) : 720);
 	});
 	const starsVisible = $derived(starsOn && darkScheme && !decorHidden && !photoSky);
 	// Clouds belong to the DAYLIT skybox — the gradient's own weather. They're baked bitmaps
@@ -866,7 +868,21 @@
 	const wxReading = $derived(
 		view?.code === 'WTHR' ? wx.readings[wx.places[wx.activeIdx]?.id] : undefined
 	);
-	const wxKind = $derived(wxReading ? weatherKind(wxReading.conditions) : null);
+	// The stage's own weather dial (the homepage sky console): a hand-picked kind that
+	// dresses the skybox with no panel open. A live reading still wins while Weather is
+	// up — the dial is scene-setting, not a forecast.
+	const STAGE_WX_KEY = 'ksh-stage-wx';
+	let stageWx = $state<WeatherKind | null>(null);
+	function setStageWx(k: WeatherKind | null) {
+		stageWx = k;
+		try {
+			if (k) localStorage.setItem(STAGE_WX_KEY, k);
+			else localStorage.removeItem(STAGE_WX_KEY);
+		} catch {
+			/* storage unavailable — keep the in-memory choice */
+		}
+	}
+	const wxKind = $derived(wxReading ? weatherKind(wxReading.conditions) : stageWx);
 	const fxOn = $derived(!decorHidden && !photoSky);
 	const fxRain = $derived(fxOn && (wxKind === 'rain' || wxKind === 'storm'));
 	const fxSnow = $derived(fxOn && wxKind === 'snow');
@@ -927,8 +943,26 @@
 		expandTimer = window.setTimeout(() => {
 			flip(); // resized while off-stage — the blur never sees it happen
 			panelLeaving = false;
+			holdContentForArrival(); // expanded: the surface lands empty, content follows
 			requestAnimationFrame(playOpenBounce);
 		}, PANEL_SLIDE);
+	}
+	// "The background appears from the back, then the elements start their entrances":
+	// during an expanded arrival the panel's content is HELD (not mounted at all — the
+	// empty surface is what zooms in), and when the surface lands it mounts fresh under a
+	// bumped key, so every entrance animation plays from zero on a settled stage. Desktop
+	// expanded only; compact panels keep their slide-with-content arrival.
+	let contentHeld = $state(false);
+	let arriveRev = $state(0);
+	let arriveTimer = 0;
+	function holdContentForArrival() {
+		if (isMobile || !panelExpanded || reduce) return;
+		clearTimeout(arriveTimer);
+		contentHeld = true;
+		arriveTimer = window.setTimeout(() => {
+			contentHeld = false;
+			arriveRev++;
+		}, ZOOM_MS + 40);
 	}
 	// The panel element, for the slide transition.
 	let panelEl = $state<HTMLElement | undefined>(undefined);
@@ -970,8 +1004,36 @@
 		const grow = 1 + (reduce ? 0 : 0.04) * Math.sin(Math.PI * u);
 		return `translate(${slide * x}px, ${slide * y}px) ${y ? `scaleY(${grow})` : `scaleX(${grow})`}`;
 	}
-	function panelIn(node: HTMLElement, p: { x?: number; y?: number; duration?: number }) {
+	// The EXPANDED arrival comes from the BACK, not from the right: a full-page surface
+	// sliding in reads as a sheet, but the promoted board is its own app — it surfaces
+	// toward the viewer (scale from 96.5%, opacity riding along; both compositor
+	// currency) and only then lets its elements make their entrances (see contentHeld).
+	// The timeline HOLDS for its first half — the skybox's 420ms farewell owns the stage
+	// (see decorHidden) — then the board rises through the second.
+	const ZOOM_MS = 760;
+	const zoomT = (t: number) => Math.max(0, (t - 0.5) / 0.5); // 0 through the hold, then 0→1
+	function zoomTransform(t: number) {
+		const tt = zoomT(t);
+		// The house swell, at depth: overshoot a hair past 1 on the landing tail and close
+		// back to exactly 1 — same shape as openTransform's grow.
+		const u = Math.max(0, (tt - 0.55) / 0.45);
+		const s =
+			0.965 +
+			0.035 * cubicOut(Math.min(tt / 0.7, 1)) +
+			(reduce ? 0 : 0.006) * Math.sin(Math.PI * u);
+		return `scale(${s})`;
+	}
+	function panelIn(
+		node: HTMLElement,
+		p: { x?: number; y?: number; duration?: number; zoom?: boolean }
+	) {
 		const { x = 0, y = 0, duration = 380 } = p;
+		if (p.zoom)
+			return {
+				duration: p.duration ?? ZOOM_MS,
+				css: (t: number) =>
+					`transform-origin: center center; opacity: ${Math.min(1, zoomT(t) / 0.6)}; transform: ${zoomTransform(t)};`
+			};
 		return {
 			duration,
 			css: (t: number) =>
@@ -983,6 +1045,19 @@
 	// .leaving class's plain transition (WAAPI wins while it runs, and both settle at rest).
 	function playOpenBounce() {
 		if (!panelEl || reduce) return;
+		if (!isMobile && panelExpanded) {
+			// The promoted board surfaces from the back — the WAAPI twin of panelIn's zoom.
+			const frames = Array.from({ length: 49 }, (_, i) => {
+				const t = i / 48;
+				return {
+					opacity: String(Math.min(1, zoomT(t) / 0.6)),
+					transform: zoomTransform(t),
+					transformOrigin: 'center center'
+				};
+			});
+			panelEl.animate(frames, { duration: ZOOM_MS, easing: 'linear' });
+			return;
+		}
 		const x = isMobile ? 0 : panelExpanded ? vw : 680;
 		const y = isMobile ? panelEl.clientHeight : 0;
 		const frames = Array.from({ length: 25 }, (_, i) => {
@@ -1178,12 +1253,17 @@
 			navTimer = window.setTimeout(() => {
 				applyView(nv, push);
 				panelLeaving = false;
+				holdContentForArrival(); // no-op unless this arrival is expanded (PRES)
 				// After the class flip lands in the DOM: replay the open landing (see
 				// playOpenBounce — the panel never unmounted, so in:panelIn won't).
 				requestAnimationFrame(playOpenBounce);
 			}, PANEL_SLIDE);
 		} else {
+			const wasOpen = !!view;
 			applyView(nv, push);
+			// A fresh open that lands expanded (ATFC's remembered toggle, PRES always)
+			// surfaces from the back — the in:panelIn zoom — with its content held.
+			if (!wasOpen) holdContentForArrival();
 		}
 	}
 	function board(code: string) {
@@ -1279,6 +1359,9 @@
 		STARS = makeStars(); // fresh random field per load (client-side)
 		SHOOT = makeShooting(); // and a few shooting stars to cross it
 		starsOn = localStorage.getItem(STARS_KEY) !== '0'; // default on
+		const swx = localStorage.getItem(STAGE_WX_KEY);
+		if (swx && ['storm', 'snow', 'rain', 'fog', 'cloudy'].includes(swx))
+			stageWx = swx as WeatherKind;
 		if (localStorage.getItem(UI_KEY) === 'flat') setUiStyle('flat'); // else default bubble
 		if (localStorage.getItem(LOOK_KEY) === 'metro') setLook('metro'); // else default lab
 		// While on Auto, keep the phase current if the tab is left open across a boundary.
@@ -1482,13 +1565,13 @@
 		     decorHidden): the panel already covers the stage, so there's nothing to see, and
 		     Safari never has to blur a dissolving scene while animating the panel's width.
 		     Same guard on every decor layer below. -->
-		<div class="clouds" class:overcast={fxOvercast} aria-hidden="true" transition:fade={{ duration: decorHidden ? 0 : 700 }}>
+		<div class="clouds" class:overcast={fxOvercast} aria-hidden="true" transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 700 }}>
 			<div class="cloud-layer cloud-far" style="background-image: url({cloudFar})"></div>
 			<div class="cloud-layer cloud-near" style="background-image: url({cloudNear})"></div>
 		</div>
 	{/if}
 	{#if starsVisible}
-		<div class="stars" aria-hidden="true" transition:fade={{ duration: decorHidden ? 0 : 700 }}>
+		<div class="stars" aria-hidden="true" transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 700 }}>
 			{#each STARS as s}
 				<span
 					class:tw={s.tw}
@@ -1504,11 +1587,49 @@
 		</div>
 	{/if}
 
+	<!-- The sky console: the skybox's own dials, drawn only on the OPEN stage (no panel)
+	     under a gradient sky. Top row picks the time of day (the same modes Settings
+	     offers, minus Off/Photo — those belong to Settings); bottom row hand-picks the
+	     stage's weather. Chips, like everything else here. -->
+	{#if !view && skyMode !== 'off' && skyMode !== 'photo' && !decorHidden}
+		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+		<div
+			class="sky-console"
+			transition:fade={{ duration: 300 }}
+			role="group"
+			aria-label="Sky controls"
+			onclick={(e) => e.stopPropagation()}
+		>
+			<div class="sky-row" role="group" aria-label="Time of day">
+				{#each [['auto', 'Auto'], ['dawn', 'Dawn'], ['morning', 'Morning'], ['noon', 'Noon'], ['dusk', 'Dusk'], ['night', 'Night']] as [id, label] (id)}
+					<button
+						type="button"
+						class="chip sky-chip"
+						class:on={skyMode === id}
+						aria-pressed={skyMode === id}
+						onclick={() => setSkyMode(id as SkyMode)}>{label}</button
+					>
+				{/each}
+			</div>
+			<div class="sky-row" role="group" aria-label="Stage weather">
+				{#each [[null, 'Clear'], ['cloudy', 'Clouds'], ['rain', 'Rain'], ['snow', 'Snow'], ['fog', 'Fog'], ['storm', 'Storm']] as [id, label] (label)}
+					<button
+						type="button"
+						class="chip sky-chip"
+						class:on={stageWx === id}
+						aria-pressed={stageWx === id}
+						onclick={() => setStageWx(id as WeatherKind | null)}>{label}</button
+					>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
 	<!-- The weather dressing: the ACTIVE CITY's sky while its panel is open (see wxKind).
 	     Everything animates transform or opacity only — the same physics as the clouds and
 	     the stars' twinkle. -->
 	{#if fxRain}
-		<div class="fx-rain" aria-hidden="true" transition:fade={{ duration: decorHidden ? 0 : 500 }}>
+		<div class="fx-rain" aria-hidden="true" transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 500 }}>
 			{#each RAIN as d}
 				<span
 					style="left:{d.x}%; height:{d.len}px; animation-duration:{d.dur}s; animation-delay:{d.delay}s"
@@ -1517,7 +1638,7 @@
 		</div>
 	{/if}
 	{#if fxSnow}
-		<div class="fx-snow" aria-hidden="true" transition:fade={{ duration: decorHidden ? 0 : 500 }}>
+		<div class="fx-snow" aria-hidden="true" transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 500 }}>
 			{#each SNOW as f}
 				<span
 					style="left:{f.x}%; width:{f.size}px; height:{f.size}px; --drift:{f.drift}vw; animation-duration:{f.dur}s; animation-delay:{f.delay}s"
@@ -1529,7 +1650,7 @@
 		<!-- The fog reuses the far cloud strip, stretched tall and slowed — the same baked
 		     softness at bank scale, one layer rolling against the other. The veil beneath
 		     flattens the contrast the way real fog does. -->
-		<div class="fx-fog" aria-hidden="true" transition:fade={{ duration: decorHidden ? 0 : 900 }}>
+		<div class="fx-fog" aria-hidden="true" transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 900 }}>
 			<div class="fog-veil"></div>
 			<div class="fog-band fog-a" style="background-image: url({cloudFar})"></div>
 			<div class="fog-band fog-b" style="background-image: url({cloudFar})"></div>
@@ -1551,7 +1672,11 @@
 			class="surface"
 			class:leaving={panelLeaving}
 			class:expanded={panelExpanded}
-			in:panelIn|global={isMobile ? { y: 900, duration: 380 } : { x: panelExpanded ? vw : 680, duration: 380 }}
+			in:panelIn|global={isMobile
+				? { y: 900, duration: 380 }
+				: panelExpanded
+					? { zoom: true }
+					: { x: 680, duration: 380 }}
 			out:fly|global={isMobile
 				? { y: 900, opacity: 1, duration: 380 }
 				: { x: panelExpanded ? vw : 680, opacity: 1, duration: 380 }}
@@ -1570,7 +1695,8 @@
 			     inner key (no transition) just remounts content so the arrival-board
 			     titles re-flip on each destination. -->
 			<div class="surface-scroll">
-			{#key v.code + ':' + editRev}
+			{#if !contentHeld}
+			{#key v.code + ':' + editRev + ':' + arriveRev}
 					{@const port = airports[v.code]}
 					{@const blocks = pages[v.code] ?? stub(port.title)}
 					{#if v.code === 'ATFC'}
@@ -1937,6 +2063,7 @@
 					</div>
 					{/if}
 			{/key}
+			{/if}
 			</div>
 		</aside>
 	{/if}
@@ -2197,14 +2324,17 @@
 	}
 
 	/* A compact panel over the stage: every decor layer stops at the panel's left edge
-	   (see decorClipped). The 640px must stay in step with .surface's width. */
+	   (see decorClipped). clip-path, NOT a narrowed right edge — the cloud strips size
+	   their tiles off their container's width, so shrinking the box inward-squeezed the
+	   clouds; a clip leaves layout alone and just stops the paint. The 640px must stay
+	   in step with .surface's width. */
 	.stage.clip-decor .clouds,
 	.stage.clip-decor .stars,
 	.stage.clip-decor .fx-rain,
 	.stage.clip-decor .fx-snow,
 	.stage.clip-decor .fx-fog,
 	.stage.clip-decor .fx-flash {
-		right: min(94vw, 640px);
+		clip-path: inset(0 min(94vw, 640px) 0 0);
 	}
 	/* ── Daylit clouds ── Two baked, tileable strips over the sky gradient. Each strip is
 	   200% wide with the tile sized to exactly HALF of it (background-size: 50% 100%), so
@@ -2265,6 +2395,39 @@
 	:global(html[data-sky]) .clouds.overcast,
 	.clouds.overcast {
 		opacity: 1;
+	}
+
+	/* ── The sky console ── bottom-left (the photo credit's perch — the two never share
+	   a sky). Two rows of small chips; the active one wears full ink. */
+	.sky-console {
+		position: absolute;
+		left: clamp(1rem, 4vw, 2rem);
+		bottom: clamp(0.75rem, 3vh, 1.25rem);
+		z-index: 3;
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
+	}
+	.sky-row {
+		display: flex;
+		gap: 0.3rem;
+		flex-wrap: wrap;
+	}
+	.sky-chip {
+		padding: 0.22rem 0.6rem;
+		font-size: 0.78rem;
+	}
+	.sky-chip.on {
+		color: var(--paper);
+		background: color-mix(in srgb, var(--ink) 88%, transparent);
+		border-color: transparent;
+	}
+	/* On phones the console would sit under the thumb and over the reopen bubble — the
+	   Settings panel already owns these controls there. */
+	@media (max-width: 720px) {
+		.sky-console {
+			display: none;
+		}
 	}
 
 	/* ── Weather dressing ── the ACTIVE CITY's sky, worn by the stage while its panel is
