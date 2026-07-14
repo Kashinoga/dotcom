@@ -1830,8 +1830,8 @@
 		<button
 			type="button"
 			class="icon-btn reopen"
-			in:fly={{ x: 24, duration: 250, delay: 400 }}
-			out:fly={{ x: 24, duration: 180 }}
+			in:fly={isMobile ? { y: 24, duration: 250, delay: 400 } : { x: 24, duration: 250, delay: 400 }}
+			out:fly={isMobile ? { y: 24, duration: 180 } : { x: 24, duration: 180 }}
 			aria-label="Reopen {airports[last].title}"
 			title="Reopen {airports[last].title}"
 			onclick={() => board(last)}
@@ -2958,6 +2958,22 @@
 		right: clamp(0.75rem, 2vw, 1.5rem);
 		top: calc(50% - 16px);
 		z-index: 40;
+	}
+	/* On the phone the panel is a bottom sheet, so its bubble waits where the sheet comes
+	   from: bottom-centre, with the arrow turned to point up. */
+	@media (max-width: 720px) {
+		.icon-btn.reopen {
+			top: auto;
+			right: auto;
+			left: calc(50% - 16px);
+			bottom: clamp(0.9rem, 4vw, 1.5rem);
+		}
+		/* reicon has no arrow-up-circle; the back disc turned a quarter IS one (the disc
+		   is symmetric). Rotated on the svg, not the button — the hover pop owns the
+		   button's transform. */
+		.icon-btn.reopen :global(svg) {
+			transform: rotate(90deg);
+		}
 	}
 	.chip {
 		display: inline-flex;
