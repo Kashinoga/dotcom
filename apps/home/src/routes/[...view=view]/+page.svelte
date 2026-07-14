@@ -2429,37 +2429,45 @@
 		overflow: hidden;
 		pointer-events: none;
 	}
+	/* The tile keeps the ARTWORK's aspect (the strips are 1536×384 — exactly 4:1), sized
+	   off the layer's height: auto 100%. It used to be 50% of the strip — a tile as wide
+	   as the viewport — so resizing the window stretched the clouds. The strip runs one
+	   tile past the box so the drift (exactly one tile, see cloud-drift) never shows an
+	   edge, and the loop lands on the same pixels. */
 	.cloud-layer {
 		position: absolute;
 		left: 0;
-		width: 200%;
+		height: var(--ch);
+		width: calc(100% + var(--ch) * 4);
 		background-repeat: repeat-x;
-		background-size: 50% 100%;
+		background-size: auto 100%;
 		will-change: transform;
 	}
 	.cloud-far {
+		--ch: clamp(120px, 20vh, 220px);
 		top: 2vh;
-		height: clamp(120px, 20vh, 220px);
 		opacity: 0.55;
 	}
 	.cloud-near {
+		--ch: clamp(160px, 26vh, 300px);
 		top: 11vh;
-		height: clamp(160px, 26vh, 300px);
 		opacity: 0.68;
 	}
 	/* The drift — the near layer faster than the far one: parallax without a z-axis. Gated
 	   like every other motion here; without it the clouds simply hang, which is also weather. */
 	@media (prefers-reduced-motion: no-preference) {
 		.cloud-far {
-			animation: cloud-drift 480s linear infinite;
+			animation: cloud-drift 240s linear infinite;
 		}
 		.cloud-near {
-			animation: cloud-drift 280s linear infinite;
+			animation: cloud-drift 140s linear infinite;
 		}
 	}
+	/* One tile per cycle — the tile is 4× the layer height (the art's 4:1), so the loop
+	   closes on identical pixels. Durations retuned to keep the old px/s drift. */
 	@keyframes cloud-drift {
 		to {
-			transform: translate3d(-50%, 0, 0);
+			transform: translate3d(calc(var(--ch) * -4), 0, 0);
 		}
 	}
 	/* Phase sets the mood: dawn wears its clouds thin (the gradient is the show), noon a
@@ -2607,19 +2615,20 @@
 	.fog-band {
 		position: absolute;
 		left: 0;
-		width: 200%;
+		height: var(--ch);
+		width: calc(100% + var(--ch) * 4);
 		background-repeat: repeat-x;
-		background-size: 50% 100%;
+		background-size: auto 100%;
 		opacity: 0.75;
 		will-change: transform;
 	}
 	.fog-a {
+		--ch: 60vh;
 		top: -5vh;
-		height: 60vh;
 	}
 	.fog-b {
+		--ch: 65vh;
 		top: 35vh;
-		height: 65vh;
 		opacity: 0.6;
 	}
 	/* Lightning: one full-stage white layer, dark the vast majority of a long cycle with a
