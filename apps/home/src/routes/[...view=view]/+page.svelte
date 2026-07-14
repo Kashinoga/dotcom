@@ -568,11 +568,13 @@
 	// Height matters too: the viewBox has a fixed aspect and `preserveAspectRatio` defaults to
 	// `meet`, so the map's scale is min(vw/cam.w, vh/cam.h) — a short wide window fits by height.
 	let vh = $state(800);
-	// 900, not a phone width: it's where the COLUMN MATH stops working — the compact
-	// sheet's 340px floor plus the masthead's 560px reserve (see .surface's width). Below
-	// it the panel would open across the wordmark, so it becomes the bottom sheet instead;
-	// every "mobile" behaviour keys off the same line, because they all mean "the sheet".
-	const isMobile = $derived(vw <= 900);
+	// 960, not a phone width: it's where the COLUMN MATH stops working — the compact
+	// sheet's 340px floor plus the masthead's 620px reserve (see .surface's width; the
+	// reserve covers the masthead's WIDEST row, the wordmark + theme dots, which tops out
+	// measured at ~592px). Below it the panel would open across the masthead, so it
+	// becomes the bottom sheet instead; every "mobile" behaviour keys off the same line,
+	// because they all mean "the sheet".
+	const isMobile = $derived(vw <= 960);
 
 	// ─── Page content per destination ───────────────────────────────────────────
 	// A block list rendered into the content surface. Swap the placeholder copy for
@@ -2353,7 +2355,7 @@
 		-webkit-box-orient: vertical;
 		overflow: hidden;
 	}
-	@media (max-width: 900px) {
+	@media (max-width: 960px) {
 		/* On a phone the sky is a sliver above the sheet — don't spend it on a credit line. */
 		.photo-credit {
 			display: none;
@@ -2371,7 +2373,7 @@
 	.stage.clip-decor .fx-snow,
 	.stage.clip-decor .fx-fog,
 	.stage.clip-decor .fx-flash {
-		clip-path: inset(0 clamp(340px, calc(100vw - 560px), 640px) 0 0);
+		clip-path: inset(0 clamp(340px, calc(100vw - 620px), 640px) 0 0);
 	}
 	/* The clip edge GLIDES IN, in step with the panel's opening slide (same 380ms, same
 	   curve) — snapping it in read as the sky being cut with scissors. On CLOSE it's the
@@ -2531,7 +2533,7 @@
 	}
 	/* On phones the console would sit under the thumb and over the reopen bubble — the
 	   Settings panel already owns these controls there. */
-	@media (max-width: 900px) {
+	@media (max-width: 960px) {
 		.sky-console {
 			display: none;
 		}
@@ -2726,11 +2728,13 @@
 		right: 0;
 		height: 100%;
 		/* The masthead keeps ITS OWN COLUMN: on middling desktop widths the old
-		   min(94vw, 640px) opened the sheet clear across the wordmark. The 560px reserve
-		   holds the masthead's clamp comfortably; the sheet takes what's left, floored so
-		   panel content stays usable. Phones swap to the bottom sheet anyway (the media
-		   query below). KEEP IN STEP with the decor clip's inset. */
-		width: clamp(340px, calc(100vw - 560px), 640px);
+		   min(94vw, 640px) opened the sheet clear across the masthead. The 620px reserve
+		   covers the masthead's WIDEST row — the wordmark plus its theme dots, ~592px at
+		   full clamp (the dots are part of the masthead; a 560px reserve sliced the red
+		   one). The sheet takes what's left, floored so panel content stays usable; below
+		   the floor+reserve (960px) the bottom sheet takes over (isMobile). KEEP IN STEP
+		   with the decor clip's inset. */
+		width: clamp(340px, calc(100vw - 620px), 640px);
 		display: flex;
 		flex-direction: column;
 		/* The frame itself never scrolls (see .surface-scroll) — this keeps the frosted
@@ -2874,7 +2878,7 @@
 	}
 	/* On phones the panel is a bottom sheet: full width, anchored to the bottom, and
 	   it slides down (rather than off to the right) both to close and between stops. */
-	@media (max-width: 900px) {
+	@media (max-width: 960px) {
 		.surface {
 			top: 0;
 			bottom: 0;
@@ -3536,7 +3540,7 @@
 	}
 	/* On the phone the panel is a bottom sheet, so its bubble waits where the sheet comes
 	   from: bottom-centre, with the arrow turned to point up. */
-	@media (max-width: 900px) {
+	@media (max-width: 960px) {
 		.icon-btn.reopen {
 			top: auto;
 			right: auto;
