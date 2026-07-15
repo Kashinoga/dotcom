@@ -3596,8 +3596,10 @@
 		--btn-hover-scale: 1.015;
 		--btn-press-scale: 0.99;
 	}
-	.app-card:hover,
-	.app-card:focus-visible {
+	/* FLAT keeps the station-accent hover; Bubble hovers like every aero control — the
+	   family gloss brighten and face firming, no orange (see the bubble hover lists). */
+	:global(html:not([data-ui='bubble'])) .app-card:hover,
+	:global(html:not([data-ui='bubble'])) .app-card:focus-visible {
 		border-color: var(--card-accent);
 		background: color-mix(in srgb, var(--card-accent) 8%, transparent);
 	}
@@ -3969,9 +3971,8 @@
 	}
 	/* The Apps cards join the family: the same material as everything above (fill + hairline,
 	   all gloss from the shared edge-hugging insets — no gradient, see the sheen note), at the
-	   card's own soft corners rather than the pill. The hover keeps the station accent the
-	   Flat card has, mixed into the glassy paper face instead of bare transparency so the
-	   card doesn't go see-through mid-hover. */
+	   card's own soft corners rather than the pill. The hover is the FAMILY's — gloss
+	   brighten, face firming — with no station accent: that stayed Flat's language. */
 	:global(html[data-ui='bubble'] .app-card) {
 		/* Only the corners are the card's own — everything else IS the chip material. The
 		   card's ink-mix fill and hairline (base rule above) already flip with the scheme
