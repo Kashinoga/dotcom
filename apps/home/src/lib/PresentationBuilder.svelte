@@ -1062,7 +1062,12 @@
 	.pb {
 		display: flex;
 		flex-direction: column;
-		min-height: 100%;
+		/* FILLS the scroll box rather than growing past it: the columns' .col-body panes
+		   own their own scrolling, so nothing ever passes beneath the header — which is
+		   what lets the header go CLEAR, the same bargain the Traffic board makes (its
+		   body owns the scroll; the header needs no paint). The phone sheet stacks the
+		   columns and goes back to page scroll — see the media block. */
+		height: 100%;
 		flex: 1;
 		position: relative;
 		font-size: 0.9rem;
@@ -1081,7 +1086,10 @@
 		gap: var(--pb-inset);
 		flex-wrap: wrap;
 		padding: var(--pb-inset);
-		background: var(--panel-head);
+		/* No background: nothing scrolls under this header on desktop (see .pb) — it's the
+		   same glass as the body, one surface, exactly like the Traffic board's. The phone
+		   sheet, which DOES scroll beneath it, restores the veil in the media block. */
+		background: none;
 	}
 	.pb-brand {
 		display: inline-flex;
@@ -1969,9 +1977,16 @@
 		.pb {
 			font-size: 0.88rem;
 		}
+		.pb {
+			/* The phone sheet stacks the columns and scrolls the whole page again. */
+			height: auto;
+			min-height: 100%;
+		}
 		.pb-head {
 			/* Keep the even-pocket inset, a touch tighter for the phone sheet. */
 			--pb-inset: 0.7rem;
+			/* Content passes beneath here, so the sticky head keeps its veil. */
+			background: var(--panel-head);
 		}
 		/* Back button + brand share the first row; the brand fills the rest of it. */
 		.pb-brand {
