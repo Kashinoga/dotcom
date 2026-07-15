@@ -35,7 +35,7 @@ const UNIT_KEY = 'ksh-weather-unit';
 
 // Cities are TABS: several at once, one showing. Each keeps its own reading, so flicking between
 // them is instant and doesn't re-ask NWS for a sky it already has.
-export const wx = $state({
+export const weather = $state({
 	places: [DEFAULT_PLACE] as Place[],
 	activeIdx: 0,
 	readings: {} as Record<string, Now>,
@@ -47,7 +47,7 @@ export const wx = $state({
 	searchMode: 'replace' as 'replace' | 'add'
 });
 
-export const current = (): Place => wx.places[wx.activeIdx] ?? DEFAULT_PLACE;
+export const current = (): Place => weather.places[weather.activeIdx] ?? DEFAULT_PLACE;
 
 // What the sky is DOING, as a coarse kind. NWS reports conditions as prose ("Mostly
 // Cloudy", "Light Rain"), and two places need the same reading of it: the panel's icon
@@ -76,16 +76,16 @@ export function weatherKind(text: string): WeatherKind {
 }
 
 export async function load(p: Place) {
-	wx.status[p.id] = wx.readings[p.id] ? 'ok' : 'loading';
+	weather.status[p.id] = weather.readings[p.id] ? 'ok' : 'loading';
 	try {
 		const r = await fetch(`/api/weather?lat=${p.lat}&lon=${p.lon}`);
 		if (!r.ok) throw new Error(String(r.status));
-		wx.readings[p.id] = (await r.json()) as Now;
-		wx.status[p.id] = 'ok';
+		weather.readings[p.id] = (await r.json()) as Now;
+		weather.status[p.id] = 'ok';
 	} catch {
 		// A failed refresh keeps the reading that's up: it was true a few minutes ago, which beats
 		// blanking the panel. Only a city we've never read fails outright.
-		wx.status[p.id] = wx.readings[p.id] ? 'ok' : 'error';
+		weather.status[p.id] = weather.readings[p.id] ? 'ok' : 'error';
 	}
 }
 
@@ -93,7 +93,7 @@ function save() {
 	try {
 		localStorage.setItem(
 			PLACES_KEY,
-			JSON.stringify({ places: wx.places, activeIdx: wx.activeIdx })
+			JSON.stringify({ places: weather.places, activeIdx: weather.activeIdx })
 		);
 	} catch {
 		/* storage unavailable — the tabs still hold for this visit */
@@ -102,32 +102,32 @@ function save() {
 
 /** Picked from the search: swap the city showing, or open it as another tab. */
 export function choose(p: Place) {
-	const already = wx.places.findIndex((q) => q.id === p.id);
+	const already = weather.places.findIndex((q) => q.id === p.id);
 	if (already >= 0) {
 		// Already a tab — show it rather than opening a second one of the same city.
-		wx.activeIdx = already;
-	} else if (wx.searchMode === 'add') {
-		wx.places = [...wx.places, p];
-		wx.activeIdx = wx.places.length - 1;
+		weather.activeIdx = already;
+	} else if (weather.searchMode === 'add') {
+		weather.places = [...weather.places, p];
+		weather.activeIdx = weather.places.length - 1;
 	} else {
-		wx.places = wx.places.map((q, i) => (i === wx.activeIdx ? p : q));
+		weather.places = weather.places.map((q, i) => (i === weather.activeIdx ? p : q));
 	}
-	wx.searchOpen = false;
+	weather.searchOpen = false;
 	save();
 	load(current());
 }
 
 export function show(i: number) {
-	wx.activeIdx = i;
+	weather.activeIdx = i;
 	save();
-	if (!wx.readings[current().id]) load(current());
+	if (!weather.readings[current().id]) load(current());
 }
 
 export function closeTab(i: number) {
-	if (wx.places.length === 1) return; // the last city stays: an empty panel says nothing
-	wx.places = wx.places.filter((_, j) => j !== i);
-	if (wx.activeIdx >= wx.places.length) wx.activeIdx = wx.places.length - 1;
-	else if (i < wx.activeIdx) wx.activeIdx--;
+	if (weather.places.length === 1) return; // the last city stays: an empty panel says nothing
+	weather.places = weather.places.filter((_, j) => j !== i);
+	if (weather.activeIdx >= weather.places.length) weather.activeIdx = weather.places.length - 1;
+	else if (i < weather.activeIdx) weather.activeIdx--;
 	save();
 	load(current());
 }
@@ -136,25 +136,25 @@ export function closeTab(i: number) {
 // along: what you're reading is a place, not a slot number, so the index is re-found by id
 // after the move rather than left pointing at whatever slid into the old position.
 export function reorder(from: number, to: number) {
-	const n = wx.places.length;
+	const n = weather.places.length;
 	if (from === to || from < 0 || to < 0 || from >= n || to >= n) return;
-	const activeId = wx.places[wx.activeIdx]?.id;
-	const places = [...wx.places];
+	const activeId = weather.places[weather.activeIdx]?.id;
+	const places = [...weather.places];
 	const [moved] = places.splice(from, 1);
 	places.splice(to, 0, moved);
-	wx.places = places;
+	weather.places = places;
 	const idx = places.findIndex((p) => p.id === activeId);
-	if (idx >= 0) wx.activeIdx = idx;
+	if (idx >= 0) weather.activeIdx = idx;
 	save();
 }
 
 export function openSearch(mode: 'replace' | 'add') {
-	wx.searchMode = mode;
-	wx.searchOpen = true;
+	weather.searchMode = mode;
+	weather.searchOpen = true;
 }
 
 export function setUnit(u: 'F' | 'C') {
-	wx.unit = u;
+	weather.unit = u;
 	try {
 		localStorage.setItem(UNIT_KEY, u);
 	} catch {
@@ -169,12 +169,12 @@ export function restore() {
 		if (saved) {
 			const v = JSON.parse(saved) as { places?: Place[]; activeIdx?: number };
 			if (Array.isArray(v.places) && v.places.length) {
-				wx.places = v.places.filter((p) => typeof p?.lat === 'number');
-				wx.activeIdx = Math.min(Math.max(v.activeIdx ?? 0, 0), wx.places.length - 1);
+				weather.places = v.places.filter((p) => typeof p?.lat === 'number');
+				weather.activeIdx = Math.min(Math.max(v.activeIdx ?? 0, 0), weather.places.length - 1);
 			}
 		}
 		const u = localStorage.getItem(UNIT_KEY);
-		if (u === 'C' || u === 'F') wx.unit = u;
+		if (u === 'C' || u === 'F') weather.unit = u;
 	} catch {
 		/* storage unavailable or malformed — the default city stands */
 	}

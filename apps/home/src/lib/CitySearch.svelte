@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { SEARCH_SVG } from '$lib/icons';
-	import { wx, choose, type Place } from '$lib/weather-state.svelte';
+	import { weather, choose, type Place } from '$lib/weather-state.svelte';
 
 	// The Weather panel's search, drawn in the panel's HEADER (on the Back row) rather than its body.
 	//
@@ -20,7 +20,7 @@
 	// Opening focuses the field — a search you have to click into isn't open, it's just visible.
 	// Closing clears it, so it never reopens holding the last query's stale results.
 	$effect(() => {
-		if (wx.searchOpen) {
+		if (weather.searchOpen) {
 			inputEl?.focus();
 		} else {
 			query = '';
@@ -61,7 +61,7 @@
 		if (e.key === 'Escape') {
 			// Swallowed: Escape closes the search, never the panel behind it.
 			e.stopPropagation();
-			wx.searchOpen = false;
+			weather.searchOpen = false;
 			return;
 		}
 		if (!hits.length) return;
@@ -81,18 +81,18 @@
 	function onFocusOut(e: FocusEvent) {
 		const next = e.relatedTarget as Node | null;
 		if (next && rootEl?.contains(next)) return;
-		wx.searchOpen = false;
+		weather.searchOpen = false;
 	}
 </script>
 
-<div class="cs" class:open={wx.searchOpen} bind:this={rootEl} onfocusout={onFocusOut}>
+<div class="cs" class:open={weather.searchOpen} bind:this={rootEl} onfocusout={onFocusOut}>
 	<button
 		type="button"
 		class="cs-icon"
-		aria-label={wx.searchOpen ? 'Close search' : 'Search a city'}
-		title={wx.searchOpen ? 'Close' : 'Search a city'}
-		aria-expanded={wx.searchOpen}
-		onclick={() => (wx.searchOpen = !wx.searchOpen)}
+		aria-label={weather.searchOpen ? 'Close search' : 'Search a city'}
+		title={weather.searchOpen ? 'Close' : 'Search a city'}
+		aria-expanded={weather.searchOpen}
+		onclick={() => (weather.searchOpen = !weather.searchOpen)}
 	>
 		{@html SEARCH_SVG}
 	</button>
@@ -100,20 +100,20 @@
 		bind:this={inputEl}
 		type="search"
 		class="cs-input"
-		placeholder={wx.searchMode === 'add' ? 'Add a US city…' : 'Search a US city…'}
+		placeholder={weather.searchMode === 'add' ? 'Add a US city…' : 'Search a US city…'}
 		autocomplete="off"
 		spellcheck="false"
 		role="combobox"
 		aria-expanded={hits.length > 0}
 		aria-controls="cs-results"
-		aria-label={wx.searchMode === 'add' ? 'Add a US city' : 'Search a US city'}
-		tabindex={wx.searchOpen ? 0 : -1}
+		aria-label={weather.searchMode === 'add' ? 'Add a US city' : 'Search a US city'}
+		tabindex={weather.searchOpen ? 0 : -1}
 		value={query}
 		oninput={(e) => onQuery(e.currentTarget.value)}
 		onkeydown={onKey}
 	/>
 
-	{#if wx.searchOpen && hits.length}
+	{#if weather.searchOpen && hits.length}
 		<ul class="cs-results" id="cs-results" role="listbox">
 			{#each hits as h, i}
 				<li>
@@ -139,7 +139,7 @@
 				</li>
 			{/each}
 		</ul>
-	{:else if wx.searchOpen && query.trim().length >= 2 && !searching}
+	{:else if weather.searchOpen && query.trim().length >= 2 && !searching}
 		<p class="cs-none">
 			No US city by that name — the National Weather Service only knows the United States.
 		</p>

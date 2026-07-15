@@ -13,7 +13,7 @@
 		WIND_SVG,
 		PLUS_SVG
 	} from '$lib/icons';
-	import { wx, current, load, show, closeTab, openSearch, setUnit, restore, reorder, weatherKind } from '$lib/weather-state.svelte';
+	import { weather, current, load, show, closeTab, openSearch, setUnit, restore, reorder, weatherKind } from '$lib/weather-state.svelte';
 	import { flip } from 'svelte/animate';
 
 	// Current conditions from the National Weather Service, for any US city.
@@ -26,9 +26,9 @@
 	// and its territories, full stop. It's free and keyless in exchange, and the city search is
 	// filtered to match, so it never offers a place the app can't then report on.
 	const place = $derived(current());
-	const now = $derived(wx.readings[place.id] ?? null);
+	const now = $derived(weather.readings[place.id] ?? null);
 	// Named `phase`, not `state`: a local called `state` shadows the $state rune.
-	const phase = $derived(wx.status[place.id] ?? 'loading');
+	const phase = $derived(weather.status[place.id] ?? 'loading');
 
 	onMount(restore);
 
@@ -121,7 +121,7 @@
 		// there's another tab to trade places with.
 		const t = e.target as Element;
 		const tab = t.closest?.('.wx-tab');
-		if (tab && !t.closest('.wx-tab-x') && wx.places.length > 1) {
+		if (tab && !t.closest('.wx-tab-x') && weather.places.length > 1) {
 			const idx = Array.prototype.indexOf.call(el.querySelectorAll('.wx-tab'), tab);
 			const rect = (tab as HTMLElement).getBoundingClientRect();
 			const pid = e.pointerId;
@@ -224,7 +224,7 @@
 
 	// Re-measure whenever the cities change (a tab added or closed changes what's hidden).
 	$effect(() => {
-		wx.places.length;
+		weather.places.length;
 		requestAnimationFrame(measureTabs);
 	});
 
@@ -266,8 +266,8 @@
 		}
 	}
 
-	const temp = $derived(wx.unit === 'F' ? now?.tempF : now?.tempC);
-	const feels = $derived(wx.unit === 'F' ? now?.feelsF : now?.feelsC);
+	const temp = $derived(weather.unit === 'F' ? now?.tempF : now?.tempC);
+	const feels = $derived(weather.unit === 'F' ? now?.feelsF : now?.feelsC);
 	// "Feels like" is worth the line only when it disagrees with the reading — NWS sends a heat index
 	// or wind chill whenever either applies, and within a degree it's just the temperature again.
 	const feelsDiffers = $derived(
@@ -293,7 +293,7 @@
 	// owns that moment.
 	let glidedIdx = -1;
 	$effect(() => {
-		const i = wx.activeIdx;
+		const i = weather.activeIdx;
 		const strip = tabsEl;
 		if (!strip) return;
 		const first = glidedIdx === -1;
@@ -349,10 +349,10 @@
 	>
 		<!-- Keyed by the place, so a reorder MOVES a tab rather than rewriting every label in
 		     place — that's what animate:flip animates. -->
-		{#each wx.places as p, i (p.id)}
+		{#each weather.places as p, i (p.id)}
 			<div
 				class="wx-tab"
-				class:on={i === wx.activeIdx}
+				class:on={i === weather.activeIdx}
 				class:carried={lift === i}
 				style="--n:{i}"
 				animate:flip={{ duration: flipMs }}
@@ -361,12 +361,12 @@
 					type="button"
 					class="wx-tab-name"
 					role="tab"
-					aria-selected={i === wx.activeIdx}
+					aria-selected={i === weather.activeIdx}
 					onclick={() => show(i)}
 				>
 					{p.name}{#if p.state}<span class="wx-tab-state">{p.state}</span>{/if}
 				</button>
-				{#if wx.places.length > 1}
+				{#if weather.places.length > 1}
 					<button
 						type="button"
 						class="wx-tab-x"
@@ -380,7 +380,7 @@
 	<button
 		type="button"
 		class="wx-add"
-		style="--n:{wx.places.length}"
+		style="--n:{weather.places.length}"
 		aria-label="Add another city"
 		title="Add another city"
 		onclick={() => openSearch('add')}>{@html PLUS_SVG}</button
@@ -392,10 +392,10 @@
 	     pass through to the strip, which owns the whole gesture. Portaled to <body>: see the
 	     note on placeGhost — inside the panel it clipped against the body scroller and
 	     disappeared under the masthead. -->
-	{#if lift !== null && wx.places[lift]}
+	{#if lift !== null && weather.places[lift]}
 		<div use:portal class="wx-ghost" aria-hidden="true" style="left:{ghostX}px; top:{ghostY}px; width:{ghostW}px">
 			<span class="wx-tab-name">
-				{wx.places[lift].name}{#if wx.places[lift].state}<span class="wx-tab-state">{wx.places[lift].state}</span>{/if}
+				{weather.places[lift].name}{#if weather.places[lift].state}<span class="wx-tab-state">{weather.places[lift].state}</span>{/if}
 			</span>
 		</div>
 	{/if}
@@ -423,14 +423,14 @@
 			<div class="wx-read">
 				{#if typeof temp === 'number'}
 					<p class="wx-temp">
-						{Math.round(temp)}<span class="wx-unit">°{wx.unit}</span>
+						{Math.round(temp)}<span class="wx-unit">°{weather.unit}</span>
 					</p>
 				{:else}
 					<p class="wx-temp wx-temp-none">—</p>
 				{/if}
 				<p class="wx-cond">{now.conditions || 'No conditions reported'}</p>
 				{#if feelsDiffers}
-					<p class="wx-feels">Feels like {Math.round(feels as number)}°{wx.unit}</p>
+					<p class="wx-feels">Feels like {Math.round(feels as number)}°{weather.unit}</p>
 				{/if}
 			</div>
 			<div class="wx-side">
@@ -439,9 +439,9 @@
 						<button
 							type="button"
 							class="seg"
-							class:on={wx.unit === u}
+							class:on={weather.unit === u}
 							role="radio"
-							aria-checked={wx.unit === u}
+							aria-checked={weather.unit === u}
 							onclick={() => setUnit(u as 'F' | 'C')}>°{u}</button
 						>
 					{/each}

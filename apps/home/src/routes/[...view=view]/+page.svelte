@@ -33,7 +33,7 @@
 	import cloudFar from '$lib/assets/cloud-far.webp';
 	import cloudNear from '$lib/assets/cloud-near.webp';
 	import {
-		wx,
+		weather,
 		weatherKind,
 		current as wxCurrent,
 		load as wxLoad,
@@ -892,7 +892,7 @@
 	// as every other decor: nothing while a panel covers the viewport, nothing over a
 	// photograph, and none of it BUILT unless its condition is actually up.
 	const wxReading = $derived(
-		view?.code === 'WTHR' ? wx.readings[wx.places[wx.activeIdx]?.id] : undefined
+		view?.code === 'WTHR' ? weather.readings[weather.places[weather.activeIdx]?.id] : undefined
 	);
 	// The stage's own weather dial (the homepage sky console): a hand-picked kind that
 	// dresses the skybox with no panel open. A live reading still wins while Weather is
