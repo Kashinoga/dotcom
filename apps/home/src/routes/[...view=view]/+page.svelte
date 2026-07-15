@@ -2308,6 +2308,26 @@
 	.photo-toggle[aria-expanded='true'] {
 		background: var(--ink);
 	}
+	/* Bubble: the camera disc joins the aero family — the frosted face (it floats over a
+	   photograph; the frost does the legibility work), hairline, family gloss, and the
+	   LIT stack while its flyout is open — open is a selected state. Flat keeps its ink
+	   disc above. */
+	:global(html[data-ui='bubble']) .photo-toggle {
+		background: var(--aero-face);
+		color: var(--ink);
+		border: 1px solid var(--line-edge);
+		-webkit-backdrop-filter: blur(8px);
+		backdrop-filter: blur(8px);
+		box-shadow: var(--aero-gloss), var(--aero-drop);
+	}
+	:global(html[data-ui='bubble']) .photo-toggle:hover {
+		background: color-mix(in srgb, var(--ink) 12%, transparent);
+	}
+	:global(html[data-ui='bubble']) .photo-toggle[aria-expanded='true'] {
+		background: var(--aero-face);
+		border-color: color-mix(in srgb, var(--ink) 22%, transparent);
+		box-shadow: var(--aero-lit);
+	}
 	.photo-toggle:focus-visible {
 		outline: var(--focus-ring);
 		outline-offset: 2px;
@@ -2333,7 +2353,8 @@
 		border: 1px solid var(--line);
 		border-radius: 12px;
 	}
-	:global(html[data-ui='bubble']) .sky-pop {
+	:global(html[data-ui='bubble']) .sky-pop,
+	:global(html[data-ui='bubble']) .photo-pick {
 		/* The sheen is safe at card size now that it's a fixed-distance edge kiss (see
 		   --panel-sheen) — the same material as the panels, worn at any height. */
 		background: var(--panel-sheen), var(--panel-fill);
@@ -2544,7 +2565,8 @@
 		border: 1px solid var(--line);
 		border-radius: 12px;
 	}
-	:global(html[data-ui='bubble']) .sky-pop {
+	:global(html[data-ui='bubble']) .sky-pop,
+	:global(html[data-ui='bubble']) .photo-pick {
 		/* The sheen is safe at card size now that it's a fixed-distance edge kiss (see
 		   --panel-sheen) — the same material as the panels, worn at any height. */
 		background: var(--panel-sheen), var(--panel-fill);
@@ -4030,9 +4052,9 @@
 			inset 0 1px 0 rgba(255, 255, 255, 0.65),
 			inset 0 8px 12px -8px rgba(255, 255, 255, 0.75),
 			inset 0 0 0 1px rgba(255, 255, 255, 0.3),
-			0 0 0 3px color-mix(in srgb, var(--ink) 8%, transparent),
-			0 2px 5px rgba(8, 10, 14, 0.09),
-			0 9px 22px rgba(8, 10, 14, 0.12);
+			0 0 0 3px color-mix(in srgb, var(--ink) 6%, transparent),
+			0 1px 3px rgba(8, 10, 14, 0.06),
+			0 6px 16px rgba(8, 10, 14, 0.08);
 	}
 	/* Pressed: sink the gloss inward for a tactile squash. */
 	:global(html[data-ui='bubble'] .seg:active:not(:disabled)),
