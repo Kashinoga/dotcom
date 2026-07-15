@@ -2654,6 +2654,23 @@
 		color: var(--ink);
 		border-color: var(--line-strong);
 	}
+	/* Bubble: the photo's close joins the aero family — the family pill with the drag
+	   ghost's frosted recipe, since it floats over an arbitrary photograph and the frost
+	   does the legibility work the solid face was doing. Tiny surface, static backdrop:
+	   the blur rasterises once. */
+	:global(html[data-ui='bubble']) .pc-close {
+		border-radius: 999px;
+		border-width: 1px;
+		color: var(--ink);
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		-webkit-backdrop-filter: blur(8px);
+		backdrop-filter: blur(8px);
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.55),
+			inset 0 7px 10px -8px rgba(255, 255, 255, 0.55),
+			0 1px 1px rgba(8, 10, 14, 0.04),
+			0 3px 8px rgba(8, 10, 14, 0.06);
+	}
 	.pc-close:focus-visible {
 		outline: var(--focus-ring);
 		outline-offset: 2px;
