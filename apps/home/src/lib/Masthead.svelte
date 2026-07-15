@@ -257,9 +257,22 @@
 		gap: 0.35rem 0.6rem;
 	}
 	/* Current section — the masthead persists while a panel is open, so the active
-	   destination stays highlighted in the nav. */
+	   destination stays highlighted in the nav. Flat says it in accent text; Bubble says
+	   it the way the Weather units do — with LIGHT (the lit .seg.on stack: brighter rim,
+	   inner hairline, soft halo), the text staying ink. */
 	.menu-btn.active {
 		color: var(--orange);
+	}
+	:global(html[data-ui='bubble']) .menu-btn.active {
+		color: var(--ink);
+		border-color: color-mix(in srgb, var(--ink) 22%, transparent);
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.6),
+			inset 0 8px 12px -8px rgba(255, 255, 255, 0.65),
+			inset 0 0 0 1px rgba(255, 255, 255, 0.25),
+			0 0 0 3px color-mix(in srgb, var(--ink) 7%, transparent),
+			0 2px 5px rgba(8, 10, 14, 0.11),
+			0 6px 16px rgba(8, 10, 14, 0.13);
 	}
 	.menu-btn:focus-visible {
 		outline: var(--focus-ring);
