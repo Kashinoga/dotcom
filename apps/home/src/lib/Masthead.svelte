@@ -55,7 +55,9 @@
 			style="--n:{i}">{word.text}</span
 		>{' '}{/each}</p>
 	<!-- Primary nav: the top-level stations as a horizontal menu bar below the wordmark. Each
-	     link is the station's real URL; the active destination highlights while its panel is open. -->
+	     link is the station's real URL; the active destination highlights while its panel is open.
+	     On really small viewports the row turns into a COLUMN (see the media query below) —
+	     four pills don't fit a ~375px line, and stacked they read as the site's outline. -->
 	<nav class="menubar" aria-label="Destinations">
 		<ul>
 			{#each menuNodes as code, i}
@@ -276,6 +278,18 @@
 		.menubar li {
 			animation: rise 0.5s ease backwards;
 			animation-delay: calc(0.95s + var(--n, 0) * 0.07s);
+		}
+	}
+
+	/* ── Really small viewports (an iPhone SE): the nav stacks ──────────────────────
+	   Four pills don't fit a ~375px line and wrapped unevenly; as a COLUMN they read
+	   cleanly, like the site's outline. Left-aligned so each pill hugs its name rather
+	   than stretching to one width. */
+	@media (max-width: 400px) {
+		.menubar ul {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.5rem;
 		}
 	}
 </style>
