@@ -13,6 +13,7 @@
 	import CitySearch from '$lib/CitySearch.svelte';
 	import {
 		CLOUD_SVG,
+		REFRESH_SVG,
 		ARROW_LEFT_SVG,
 		AIRPLANE_SVG,
 		PRESENTATION_SVG,
@@ -31,7 +32,13 @@
 	import faviconAtfc from '$lib/assets/favicon-atfc.svg';
 	import cloudFar from '$lib/assets/cloud-far.webp';
 	import cloudNear from '$lib/assets/cloud-near.webp';
-	import { wx, weatherKind, type WeatherKind } from '$lib/weather-state.svelte';
+	import {
+		wx,
+		weatherKind,
+		current as wxCurrent,
+		load as wxLoad,
+		type WeatherKind
+	} from '$lib/weather-state.svelte';
 	import faviconPres from '$lib/assets/favicon-pres.svg';
 	import faviconWeather from '$lib/assets/favicon-weather.svg';
 	import { airports, accent, connections, portDescriptions, HUB } from '$lib/network';
@@ -1804,7 +1811,19 @@
 								     it belongs with the panel's own controls. It's a disc that GROWS into a field —
 								     see CitySearch — and it shares the app's cities with the body through
 								     $lib/weather, since neither half can own state the other needs. -->
-								<CitySearch />
+								<!-- …clustered with refresh-now at its left, the same corner ATFC keeps.
+								     The reading lives in $lib/weather-state, so the header (the page's) can
+								     drive it exactly the way the search does. -->
+								<div class="head-actions">
+									<button
+										type="button"
+										class="icon-btn"
+										onclick={() => wxLoad(wxCurrent())}
+										aria-label="Refresh now"
+										title="Refresh now">{@html REFRESH_SVG}</button
+									>
+									<CitySearch />
+								</div>
 							{/if}
 						</div>
 						<div class="title-row">
@@ -3000,6 +3019,12 @@
 	}
 	.head-row .back {
 		margin-bottom: 0;
+	}
+	/* The panel's own actions, clustered at the right end of the Back row. */
+	.head-actions {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 	}
 
 	/* Icon-circle back control (shared .icon-btn); only its placement is set here. The gap

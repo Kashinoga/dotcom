@@ -11,7 +11,6 @@
 		CLOUD_SNOW_SVG,
 		FOG_SVG,
 		WIND_SVG,
-		REFRESH_SVG,
 		PLUS_SVG
 	} from '$lib/icons';
 	import { wx, current, load, show, closeTab, openSearch, setUnit, restore, reorder, weatherKind } from '$lib/weather-state.svelte';
@@ -447,13 +446,6 @@
 						>
 					{/each}
 				</div>
-				<button
-					type="button"
-					class="icon-btn"
-					onclick={() => load(place)}
-					aria-label="Refresh now"
-					title="Refresh now">{@html REFRESH_SVG}</button
-				>
 			</div>
 		</div>
 
