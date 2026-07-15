@@ -1623,14 +1623,15 @@
 			}}
 		>
 			{#if skyConsoleOpen}
-				<div class="sky-pop" transition:fade={{ duration: 150 }}>
+				<div class="sky-pop" in:fly={{ y: 10, duration: 220 }} out:fade={{ duration: 120 }}>
 					<div class="sky-group" role="group" aria-labelledby="sky-lab-time">
 						<span class="sky-lab" id="sky-lab-time">Time of Day</span>
 						<div class="sky-row">
-				{#each [['auto', 'Auto'], ['dawn', 'Dawn'], ['morning', 'Morning'], ['noon', 'Noon'], ['dusk', 'Dusk'], ['night', 'Night']] as [id, label] (id)}
+				{#each [['auto', 'Auto'], ['dawn', 'Dawn'], ['morning', 'Morning'], ['noon', 'Noon'], ['dusk', 'Dusk'], ['night', 'Night']] as [id, label], i (id)}
 					<button
 						type="button"
 						class="chip sky-chip"
+						style="--n:{i}"
 						class:on={skyMode === id}
 						aria-pressed={skyMode === id}
 						onclick={() => setSkyMode(id as SkyMode)}>{label}</button
@@ -1644,10 +1645,11 @@
 				<!-- Clear is a CHOICE, not the absence of one: it empties the sky (see
 				     cloudsVisible), where no selection keeps the ambient drift. Clicking the
 				     active chip again deselects back to ambient. -->
-				{#each [['clear', 'Clear'], ['cloudy', 'Clouds'], ['rain', 'Rain'], ['snow', 'Snow'], ['fog', 'Fog'], ['storm', 'Storm']] as [id, label] (label)}
+				{#each [['clear', 'Clear'], ['cloudy', 'Clouds'], ['rain', 'Rain'], ['snow', 'Snow'], ['fog', 'Fog'], ['storm', 'Storm']] as [id, label], i (label)}
 					<button
 						type="button"
 						class="chip sky-chip"
+						style="--n:{i}"
 						class:on={stageWx === id}
 						aria-pressed={stageWx === id}
 						onclick={() => setStageWx(stageWx === id ? null : (id as WeatherKind))}>{label}</button
@@ -2428,6 +2430,10 @@
 		inset: 0;
 		overflow: hidden;
 		pointer-events: none;
+		/* Density changes EASE rather than snap: the overcast thickening, the per-phase
+		   values below, and the hand-off when a Weather reading lands mid-entrance all
+		   move this one opacity — un-eased it jerked right as the panel was arriving. */
+		transition: opacity 0.7s ease;
 	}
 	/* The tile keeps the ARTWORK's aspect (the strips are 1536×384 — exactly 4:1), sized
 	   off the layer's height: auto 100%. It used to be 50% of the strip — a tile as wide
@@ -2532,6 +2538,32 @@
 		display: flex;
 		gap: 0.3rem;
 		flex-wrap: wrap;
+	}
+	/* The popout grows OUT of the disc beneath it, so the entrance ripples bottom-to-top:
+	   the Weather row (nearest the button) deals in first, Time of Day follows above,
+	   each row's label and chips on the tight button beat. Replays every open — the {#if}
+	   remounts the card. */
+	@media (prefers-reduced-motion: no-preference) {
+		.sky-pop .sky-lab,
+		.sky-pop .sky-chip {
+			animation: sky-pop-in 0.3s ease backwards;
+			animation-delay: calc(var(--rb, 0s) + (var(--n, 0) + 1) * 0.03s);
+		}
+		.sky-pop .sky-lab {
+			--n: 0;
+		}
+		.sky-group:last-child {
+			--rb: 0s; /* Weather Feature — the bottom row leads */
+		}
+		.sky-group:first-child {
+			--rb: 0.22s; /* Time of Day arrives above it */
+		}
+	}
+	@keyframes sky-pop-in {
+		from {
+			opacity: 0;
+			transform: translateY(7px);
+		}
 	}
 	.sky-toggle {
 		align-self: flex-start;
