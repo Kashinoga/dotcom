@@ -874,6 +874,20 @@
 		background: var(--ink);
 		color: var(--paper);
 	}
+	/* Clear-pills light mode (see the page's scheme-dark note): the units thin to glass
+	   like the rest of the family; the SELECTED unit keeps full ink — it's the one held
+	   down. Scoped here because the component's own rules out-specify the page's. */
+	:global(html[data-ui='bubble']:not(.scheme-dark)) .wx-unit-toggle .seg {
+		background: rgba(255, 255, 255, 0.16);
+		color: var(--ink);
+		border: 1px solid color-mix(in srgb, var(--ink) 16%, transparent);
+	}
+	:global(html[data-ui='bubble']:not(.scheme-dark)) .wx-unit-toggle .seg:hover,
+	:global(html[data-ui='bubble']:not(.scheme-dark)) .wx-unit-toggle .seg.on {
+		background: var(--ink);
+		color: var(--paper);
+		border-color: transparent;
+	}
 
 	.wx-stats {
 		display: flex;

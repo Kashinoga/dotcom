@@ -3832,12 +3832,12 @@
 		   it's the universal button interaction at the bottom of this file, shared by both UI
 		   styles. Bubble only adds its material: the pill radius and the gloss. */
 	}
-	/* ── White on white ── In LIGHT mode the bubble family wears a PAPER face: clean
-	   white pills floating on the light sky (the old paper-72 material, back by request),
-	   ink text, hover firming the face toward solid. Scoped by the scheme stamp
-	   (html.scheme-dark, kept by app.html + an effect), so dark mode keeps its own
-	   untouched rules. Selected states keep their existing ink/accent treatments — full
-	   contrast against the paper face. */
+	/* ── Clear pills all day ── In LIGHT mode the bubble family wears the CLEAR glass the
+	   dark scheme gets from its tokens: a barely-there face the sky reads through, a soft
+	   hairline, the shared white gloss doing the rim — not paper, not ink. Scoped by the
+	   scheme stamp (html.scheme-dark, kept by app.html + an effect), so dark mode keeps
+	   its own untouched rules. Selected states keep their existing ink/accent treatments.
+	   (.manual is NOT here: it wears a knockout *-circle glyph — see the disc rule.) */
 	:global(html[data-ui='bubble']:not(.scheme-dark) .seg:not(.on)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .sky-opt:not(.on)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .chip:not(.on)),
@@ -3846,14 +3846,13 @@
 	:global(html[data-ui='bubble']:not(.scheme-dark) .swatch-btn),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .field:not(.on)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .field-select),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .manual),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .app-card),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .menu-btn),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .edit-enter),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .wx-add) {
-		background: color-mix(in srgb, var(--paper) 72%, transparent);
+		background: rgba(255, 255, 255, 0.16);
 		color: var(--ink);
-		border-color: color-mix(in srgb, var(--ink) 12%, transparent);
+		border-color: color-mix(in srgb, var(--ink) 16%, transparent);
 	}
 	:global(html[data-ui='bubble']:not(.scheme-dark) .seg:not(.on):hover:not(:disabled)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .sky-opt:not(.on):hover:not(:disabled)),
@@ -3863,15 +3862,35 @@
 	:global(html[data-ui='bubble']:not(.scheme-dark) .swatch-btn:hover:not(:disabled)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .field:not(.on):hover:not(:disabled)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .field-select:hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .manual:hover:not(:disabled)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .app-card:hover:not(:disabled)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .menu-btn:hover:not(:disabled)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .edit-enter:hover:not(:disabled)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .wx-add:hover:not(:disabled)) {
-		background: color-mix(in srgb, var(--paper) 90%, transparent);
+		background: rgba(255, 255, 255, 0.36);
 		color: var(--ink);
-		border-color: color-mix(in srgb, var(--ink) 18%, transparent);
+		border-color: color-mix(in srgb, var(--ink) 24%, transparent);
 	}
+	/* The knockout DISCS (Back, Refresh, the search disc, every *-circle glyph): the
+	   dark scheme's frosty translucent disc, mirrored — the disc thins from 62% ink to
+	   glass, and the knocked-out glyph stays the bright backdrop shining through. */
+	:global(html[data-ui='bubble']:not(.scheme-dark) .icon-btn),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .manual) {
+		color: color-mix(in srgb, var(--ink) 30%, transparent);
+	}
+	:global(html[data-ui='bubble']:not(.scheme-dark) .icon-btn:hover:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .icon-btn:active:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .manual:hover:not(:disabled)) {
+		color: color-mix(in srgb, var(--ink) 48%, transparent);
+	}
+	/* The search disc is a div wearing the same clothes. */
+	:global(html[data-ui='bubble']:not(.scheme-dark) .cs:not(.open)) {
+		background: color-mix(in srgb, var(--ink) 26%, transparent);
+		color: var(--paper);
+	}
+	:global(html[data-ui='bubble']:not(.scheme-dark) .cs:not(.open):hover) {
+		background: color-mix(in srgb, var(--ink) 42%, transparent);
+	}
+
 	/* Two-line settings segments stay softly rounded rather than full pill. */
 	:global(html[data-ui='bubble'] .seg) {
 		border-radius: 16px;
