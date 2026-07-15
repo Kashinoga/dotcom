@@ -108,10 +108,16 @@
 	   map beneath reads as diffuse colour — never a legible shape — and saturate so that
 	   transmitted colour stays lively rather than washing out grey. */
 	--panel-blur: blur(18px) saturate(1.3);
+	/* MODERN AERO: the gloss is an EDGE KISS at a fixed distance, not a proportional
+	 * wash. It used to fade over 20% of element height — a whisper across a viewport
+	 * panel, but a thick Vista wash across anything short (the sky console's card).
+	 * Fixed stops give every surface the same physical light: bright at the lip, gone
+	 * by 48px, whatever the element's size. */
 	--panel-sheen: linear-gradient(
 		180deg,
-		light-dark(rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.1)) 0%,
-		transparent 20%
+		light-dark(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.1)) 0px,
+		light-dark(rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03)) 14px,
+		transparent 48px
 	);
 	--panel-edge: light-dark(rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.1));
 	/* (--panel-rim, a Fresnel bevel, and --panel-drop, a cast shadow, lived here. Both went
