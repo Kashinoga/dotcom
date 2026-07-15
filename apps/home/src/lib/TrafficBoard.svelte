@@ -847,6 +847,10 @@
 	// from its reason to the real route does so immediately (start 0) rather than
 	// waiting out the row's cascade delay, so the reason visibly flaps INTO the route.
 	let booted = $state(false);
+	// Has the body scrolled? Drives the header's scroll shadow — the inset line of shade
+	// that says "rows have gone under". Same-value assignments are free, so the raw
+	// scroll listener costs nothing at rest.
+	let bodyScrolled = $state(false);
 	// Split-flap start delay. Live/initial rows cascade top-to-bottom (i × ROW_STEP).
 	// An ENTERING row flaps only AFTER its open motion (turn + OPEN_MS), so the flap
 	// and the open never run together. A LEAVING row's cells are frozen; its reason
@@ -1241,7 +1245,12 @@
 	<!-- `booting` (= not yet booted) gates the body's one-time entrance: the summary, the table
 	     headers, the row rules, and the legend animate in on the first fill, then the flag clears
 	     on the next poll so a live update never re-runs the assembly. -->
-	<div class="tfc-body" class:booting={!booted}>
+	<div
+		class="tfc-body"
+		class:booting={!booted}
+		class:scrolled={bodyScrolled}
+		onscroll={(e) => (bodyScrolled = e.currentTarget.scrollTop > 2)}
+	>
 		<!-- Live-data activity meter, covering the whole wait so there's feedback BEFORE and
 		     DURING, not just after. Two phases share one bar (so it never disappears between
 		     them): while the board is first loading a field, the ADS-B fetch is in flight and
@@ -1555,10 +1564,17 @@
 		/* Safari repaints exposed strips as the board scrolls; without containment each
 		   strip's invalidation walks the whole table. contain lets it stop at the box. */
 		contain: layout style;
+		/* The scroll shadow's canvas: inset shadows on a scroller pin to the BOX, not the
+		   content, so the shade sits exactly under the stay-put header once rows have
+		   passed beneath it (.scrolled below). */
+		transition: box-shadow 0.25s ease;
 		display: flex;
 		flex-direction: column;
 		gap: 0.7rem;
 		padding: clamp(1.25rem, 3vw, 1.75rem) clamp(1.5rem, 4vw, 2.75rem) 2rem;
+	}
+	.tfc-body.scrolled {
+		box-shadow: inset 0 14px 12px -12px light-dark(rgba(8, 10, 14, 0.3), rgba(0, 0, 0, 0.6));
 	}
 	/* The body's children keep their natural height and OVERFLOW the box — that's what makes
 	   the body scroll. Left shrinkable, flex would squeeze the table into the box instead and
