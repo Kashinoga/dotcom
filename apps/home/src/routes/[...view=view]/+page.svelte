@@ -527,6 +527,12 @@
 	// (and its 47 endless animations) only to throw it away the moment the picture landed. Choosing
 	// Photo is the decision; nothing underneath it should ever be built.
 	const photoSky = $derived(skyMode === 'photo');
+	// Mirror the scheme onto <html> for CSS that styles the schemes differently beyond
+	// light-dark() — the night-face bubble buttons. app.html stamps the same class
+	// pre-paint; this keeps it true afterwards.
+	$effect(() => {
+		document.documentElement.classList.toggle('scheme-dark', darkScheme);
+	});
 
 	// Stars ride along with dark mode, not the sky: they show on a solid black background, a
 	// manual/OS dark theme, and the dusk/night skies alike.
@@ -2303,6 +2309,13 @@
 		-webkit-backdrop-filter: var(--panel-blur);
 		backdrop-filter: var(--panel-blur);
 		border-color: var(--panel-edge);
+		/* The family's rim light, on the card itself: the sheen fades out by 20% height
+		   and the dark-scheme hairline is 10% white — against a night sky the TOP edge
+		   simply vanished. The inset rim is how every bubble control draws its top edge;
+		   the drop lifts the card off the sky it's cut from. */
+		box-shadow:
+			inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.24)),
+			0 8px 24px rgba(8, 10, 14, 0.22);
 	}
 	.photo-pick-head {
 		margin: 0.15rem 0 0.4rem;
@@ -2490,6 +2503,13 @@
 		-webkit-backdrop-filter: var(--panel-blur);
 		backdrop-filter: var(--panel-blur);
 		border-color: var(--panel-edge);
+		/* The family's rim light, on the card itself: the sheen fades out by 20% height
+		   and the dark-scheme hairline is 10% white — against a night sky the TOP edge
+		   simply vanished. The inset rim is how every bubble control draws its top edge;
+		   the drop lifts the card off the sky it's cut from. */
+		box-shadow:
+			inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.24)),
+			0 8px 24px rgba(8, 10, 14, 0.22);
 	}
 	.sky-group {
 		display: flex;
@@ -3812,6 +3832,57 @@
 		   it's the universal button interaction at the bottom of this file, shared by both UI
 		   styles. Bubble only adds its material: the pill radius and the gloss. */
 	}
+	/* ── Night pills all day ── In LIGHT mode the bubble family wears the dark scheme's
+	   face: deep translucent pills with paper text, the look the night sky gets for free
+	   from its tokens. Scoped by the scheme stamp (html.scheme-dark, kept by app.html +
+	   an effect), so the real dark mode keeps its own untouched rules. Selected chips
+	   invert — a paper pill with ink text, same as they read at night. Controls whose
+	   "on" is load-bearing colour (.field.on's accent) are excluded from the base face.
+	   The selects' chevron is #888 in the bitmap — legible on either face. */
+	:global(html[data-ui='bubble']:not(.scheme-dark) .seg:not(.on)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .sky-opt:not(.on)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .chip:not(.on)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .tb),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .mini),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .swatch-btn),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .field:not(.on)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .field-select),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .manual),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .app-card),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .menu-btn),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .edit-enter),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .wx-add) {
+		background: rgba(15, 18, 25, 0.62);
+		color: #f2f2ee;
+		border-color: rgba(255, 255, 255, 0.14);
+	}
+	:global(html[data-ui='bubble']:not(.scheme-dark) .seg:not(.on):hover:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .sky-opt:not(.on):hover:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .chip:not(.on):hover:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .tb:hover:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .mini:hover:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .swatch-btn:hover:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .field:not(.on):hover:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .field-select:hover:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .manual:hover:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .app-card:hover:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .menu-btn:hover:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .edit-enter:hover:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .wx-add:hover:not(:disabled)) {
+		background: rgba(32, 37, 48, 0.72);
+		color: #ffffff;
+		border-color: rgba(255, 255, 255, 0.2);
+	}
+	/* Selected: the inversion the night gives — paper pill, ink text. */
+	:global(html[data-ui='bubble']:not(.scheme-dark) .seg.on),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .sky-opt.on),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .sky-chip.on),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .sky-chip.on:hover) {
+		background: rgba(255, 255, 255, 0.94);
+		color: #0a0a0a;
+		border-color: transparent;
+	}
+
 	/* Two-line settings segments stay softly rounded rather than full pill. */
 	:global(html[data-ui='bubble'] .seg) {
 		border-radius: 16px;

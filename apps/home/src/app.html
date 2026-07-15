@@ -53,6 +53,17 @@
 										? 'noon'
 										: 'dusk';
 				}
+				// The active SCHEME, stamped for CSS that styles light and dark differently
+				// beyond what light-dark() tokens can express (the bubble buttons wear the
+				// night face in light mode — see the bubble section's scheme-dark rules).
+				// MUST match the page's darkScheme derived: an opted-into sky wins (dusk and
+				// night are the dark phases); otherwise the display mode, with 'system'
+				// asking the OS.
+				var ph = document.documentElement.dataset.sky;
+				var schemeDark = ph
+					? ph === 'dusk' || ph === 'night'
+					: t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+				if (schemeDark) document.documentElement.classList.add('scheme-dark');
 			} catch (e) {}
 		</script>
 		%sveltekit.head%
