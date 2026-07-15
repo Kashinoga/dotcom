@@ -1574,7 +1574,8 @@
 		padding: clamp(1.25rem, 3vw, 1.75rem) clamp(1.5rem, 4vw, 2.75rem) 2rem;
 	}
 	.tfc-body.scrolled {
-		box-shadow: inset 0 14px 12px -12px light-dark(rgba(8, 10, 14, 0.3), rgba(0, 0, 0, 0.6));
+		/* Modern Aero: a breath of shade, not a drawn band — long blur, light hand. */
+		box-shadow: inset 0 26px 22px -22px light-dark(rgba(8, 10, 14, 0.15), rgba(0, 0, 0, 0.35));
 	}
 	/* The body's children keep their natural height and OVERFLOW the box — that's what makes
 	   the body scroll. Left shrinkable, flex would squeeze the table into the box instead and
