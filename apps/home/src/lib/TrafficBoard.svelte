@@ -6,10 +6,10 @@
 	import SplitFlap from '$lib/SplitFlap.svelte';
 	import {
 		EXTERNAL_SVG,
-		BACK_CIRCLE_SVG,
-		REFRESH_CIRCLE_SVG,
-		FULLSCREEN_CIRCLE_SVG,
-		EXIT_FULLSCREEN_CIRCLE_SVG
+		ARROW_LEFT_SVG,
+		REFRESH_SVG,
+		MAXIMIZE_SVG,
+		MINIMIZE_SVG
 	} from '$lib/icons';
 	import { AIRPORTS, DEFAULT_FIELD, fieldByIata, type Airport } from '$lib/fields';
 	import { RANGES, DEFAULT_RANGE, INTERVALS, DEFAULT_POLL_MS } from '$lib/scope';
@@ -1102,7 +1102,7 @@
 	<!-- Keep {@html} flush with the tags: surrounding whitespace becomes an in-flow text
 	     node, which would give this inline-block a line box and pull its baseline up off
 	     its bottom edge (see .manual). -->
-	<button type="button" class="manual icon-btn" aria-label="Refresh now" title="Refresh now" onclick={manualRefresh}>{@html REFRESH_CIRCLE_SVG}</button>
+	<button type="button" class="manual icon-btn" aria-label="Refresh now" title="Refresh now" onclick={manualRefresh}>{@html REFRESH_SVG}</button>
 {/snippet}
 {#snippet accentDot()}
 	<!-- Decorative, nonfunctional: the app's accent colour as a station-sign bullet beside
@@ -1157,7 +1157,7 @@
 					aria-label="Back to route map"
 					title="Route map"
 				>
-					{@html BACK_CIRCLE_SVG}
+					{@html ARROW_LEFT_SVG}
 				</button>
 			{/if}
 			<div class="ident">
@@ -1207,12 +1207,12 @@
 						aria-label="Collapse panel"
 						title="Collapse"
 					>
-						{@html EXIT_FULLSCREEN_CIRCLE_SVG}
+						{@html MINIMIZE_SVG}
 					</button>
 				{/if}
 			</div>
 		{:else}
-			{#if onback}<button type="button" class="icon-btn back" style="--bn:0" onclick={onback} aria-label="Back to route map" title="Route map">{@html BACK_CIRCLE_SVG}</button>{/if}
+			{#if onback}<button type="button" class="icon-btn back" style="--bn:0" onclick={onback} aria-label="Back to route map" title="Route map">{@html ARROW_LEFT_SVG}</button>{/if}
 			<div class="title-row">
 				<h2 class="dest">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
 				<!-- Decorative accent dot beside the title (station-sign bullet). -->
@@ -1231,7 +1231,7 @@
 						aria-label={expanded ? 'Collapse panel' : 'Expand panel to fill'}
 						title={expanded ? 'Collapse' : 'Expand to fill'}
 					>
-						{@html expanded ? EXIT_FULLSCREEN_CIRCLE_SVG : FULLSCREEN_CIRCLE_SVG}
+						{@html expanded ? MINIMIZE_SVG : MAXIMIZE_SVG}
 					</button>
 				{/if}
 			</div>

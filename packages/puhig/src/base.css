@@ -180,30 +180,33 @@ body {
 	width: 32px;
 	height: 32px;
 	padding: 0;
-	color: color-mix(in srgb, var(--ink) 62%, transparent);
-	background: none;
-	border: 0;
+	/* A family PILL, not an ink disc: the face on the button, the glyph in ink — the
+	 * chips' material worn at disc size. (The *-circle glyphs, whose disc was CONTENT,
+	 * are retired from these buttons — plain glyphs sit on the face instead.) */
+	color: var(--ink);
+	background: color-mix(in srgb, var(--ink) 5%, transparent);
+	border: 1px solid var(--line-edge);
 	border-radius: 999px;
 	cursor: pointer;
-	transition: color 0.15s ease, transform 0.15s ease;
+	transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
 }
 .icon-btn:hover {
-	color: var(--ink);
+	background: color-mix(in srgb, var(--ink) 12%, transparent);
 }
-/* The app's universal press (a flat inset flood + a squash, see +page.svelte) still applies; this
- * just brings the disc itself up to full ink while it's held, since there's no fill to darken. */
+/* The app's universal press (a flat inset flood + a squash, see +page.svelte) still applies. */
 .icon-btn:active:not(:disabled) {
-	color: var(--ink);
+	background: color-mix(in srgb, var(--ink) 16%, transparent);
 }
 .icon-btn:focus-visible {
 	outline: var(--focus-ring);
 	outline-offset: 2px;
 }
-/* The glyph fills the button, because the glyph IS the button — see above. */
+/* Plain glyphs sit INSIDE the pill now (they used to fill it, when the glyph WAS the
+ * button). */
 .icon-btn svg {
 	display: block;
-	width: 32px;
-	height: 32px;
+	width: 18px;
+	height: 18px;
 }
 
 /* Panel chrome entrance — the horizontal counterpart to the content column's `rise`. A

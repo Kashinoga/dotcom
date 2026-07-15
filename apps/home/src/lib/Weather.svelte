@@ -11,7 +11,7 @@
 		CLOUD_SNOW_SVG,
 		FOG_SVG,
 		WIND_SVG,
-		REFRESH_CIRCLE_SVG,
+		REFRESH_SVG,
 		PLUS_SVG
 	} from '$lib/icons';
 	import { wx, current, load, show, closeTab, openSearch, setUnit, restore, reorder, weatherKind } from '$lib/weather-state.svelte';
@@ -452,7 +452,7 @@
 					class="icon-btn"
 					onclick={() => load(place)}
 					aria-label="Refresh now"
-					title="Refresh now">{@html REFRESH_CIRCLE_SVG}</button
+					title="Refresh now">{@html REFRESH_SVG}</button
 				>
 			</div>
 		</div>
@@ -863,30 +863,31 @@
 		font: inherit;
 		font-size: 0.8rem;
 		font-weight: 700;
-		color: var(--paper);
-		background: color-mix(in srgb, var(--ink) 62%, transparent);
-		border: 0;
+		color: var(--ink);
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		border: 1px solid var(--line-edge);
 		border-radius: 999px;
 		cursor: pointer;
 	}
-	.wx-unit-toggle .seg:hover,
-	.wx-unit-toggle .seg.on {
+	.wx-unit-toggle .seg:hover {
+		background: color-mix(in srgb, var(--ink) 12%, transparent);
+	}
+	/* Selected says "on" the Settings way — the page's lit .seg.on treatment (halo,
+	   double rim) reaches these once nothing here overrides the face; the glass stays,
+	   the light does the talking. Flat keeps ink. */
+	:global(html:not([data-ui='bubble'])) .wx-unit-toggle .seg.on {
 		background: var(--ink);
 		color: var(--paper);
 	}
-	/* Clear-pills light mode (see the page's scheme-dark note): the units thin to glass
-	   like the rest of the family; the SELECTED unit keeps full ink — it's the one held
-	   down. Scoped here because the component's own rules out-specify the page's. */
+	/* Clear-pills light mode (see the page's scheme-dark note): the face brightens to the
+	   family's glass. Scoped here because the component's own rules out-specify the
+	   page's. */
 	:global(html[data-ui='bubble']:not(.scheme-dark)) .wx-unit-toggle .seg {
 		background: rgba(255, 255, 255, 0.16);
-		color: var(--ink);
-		border: 1px solid color-mix(in srgb, var(--ink) 16%, transparent);
+		border-color: color-mix(in srgb, var(--ink) 16%, transparent);
 	}
-	:global(html[data-ui='bubble']:not(.scheme-dark)) .wx-unit-toggle .seg:hover,
-	:global(html[data-ui='bubble']:not(.scheme-dark)) .wx-unit-toggle .seg.on {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: transparent;
+	:global(html[data-ui='bubble']:not(.scheme-dark)) .wx-unit-toggle .seg:hover {
+		background: rgba(255, 255, 255, 0.36);
 	}
 
 	.wx-stats {

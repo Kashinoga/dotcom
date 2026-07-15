@@ -158,8 +158,9 @@
 		width: 32px;
 		height: 32px;
 		border-radius: 999px;
-		background: color-mix(in srgb, var(--ink) 62%, transparent);
-		color: var(--paper);
+		/* The family pill, worn closed (the glyph is a plain icon, so the face is safe). */
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		color: var(--ink);
 		border: 1px solid transparent;
 		overflow: visible;
 		transition:
@@ -175,7 +176,7 @@
 		border-color: var(--line-strong);
 	}
 	.cs:not(.open):hover {
-		background: var(--ink);
+		background: color-mix(in srgb, var(--ink) 12%, transparent);
 	}
 	/* The icon is the button while closed, and the field's ornament (still clickable, to close) once
 	   open. It never moves: it's the anchor the width grows away from. */

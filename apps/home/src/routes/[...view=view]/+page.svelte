@@ -13,7 +13,7 @@
 	import CitySearch from '$lib/CitySearch.svelte';
 	import {
 		CLOUD_SVG,
-		BACK_CIRCLE_SVG,
+		ARROW_LEFT_SVG,
 		AIRPLANE_SVG,
 		PRESENTATION_SVG,
 		CAMERA_SVG,
@@ -1787,7 +1787,7 @@
 								class="icon-btn back"
 								onclick={goBack}
 								aria-label={ownPushes > 0 ? 'Back' : 'Back to home'}
-								title={ownPushes > 0 ? 'Back' : 'Home'}>{@html BACK_CIRCLE_SVG}</button
+								title={ownPushes > 0 ? 'Back' : 'Home'}>{@html ARROW_LEFT_SVG}</button
 							>
 							{#if v.code === 'WTHR'}
 								<!-- Weather's search lives up here, on the Back row: it acts on the whole panel, so
@@ -2131,7 +2131,7 @@
 			aria-label="Reopen {airports[last].title}"
 			title="Reopen {airports[last].title}"
 			onclick={() => board(last)}
-		>{@html BACK_CIRCLE_SVG}</button>
+		>{@html ARROW_LEFT_SVG}</button>
 	{/if}
 
 	{#if dev && editMode}
@@ -2576,17 +2576,13 @@
 		padding: 0.22rem 0.6rem;
 		font-size: 0.78rem;
 	}
-	.sky-chip.on {
-		color: var(--paper);
-		background: color-mix(in srgb, var(--ink) 88%, transparent);
-		border-color: transparent;
-	}
-	/* Hovering the SELECTED chip: .chip:hover's pale wash (0,2,1) out-specifies .on
-	   (0,2,0) and left paper text on a pale bubble — restate the ink face, a shade
-	   deeper so the hover still reads as a response. */
-	.sky-chip.on:hover {
+	/* FLAT keeps the ink-filled selection; Bubble says "on" with the Settings segments'
+	   LIGHT (the lit lists in the bubble section — sky chips ride those). */
+	:global(html:not([data-ui='bubble'])) .sky-chip.on,
+	:global(html:not([data-ui='bubble'])) .sky-chip.on:hover {
 		color: var(--paper);
 		background: var(--ink);
+		border-color: transparent;
 	}
 	/* On phones the console would sit under the thumb and over the reopen bubble — the
 	   Settings panel already owns these controls there. */
@@ -3849,7 +3845,10 @@
 	:global(html[data-ui='bubble']:not(.scheme-dark) .app-card),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .menu-btn),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .edit-enter),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .wx-add) {
+	:global(html[data-ui='bubble']:not(.scheme-dark) .wx-add),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .icon-btn),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .manual),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .cs:not(.open)) {
 		background: rgba(255, 255, 255, 0.16);
 		color: var(--ink);
 		border-color: color-mix(in srgb, var(--ink) 16%, transparent);
@@ -3865,32 +3864,14 @@
 	:global(html[data-ui='bubble']:not(.scheme-dark) .app-card:hover:not(:disabled)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .menu-btn:hover:not(:disabled)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .edit-enter:hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .wx-add:hover:not(:disabled)) {
+	:global(html[data-ui='bubble']:not(.scheme-dark) .wx-add:hover:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .icon-btn:hover:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .manual:hover:not(:disabled)),
+	:global(html[data-ui='bubble']:not(.scheme-dark) .cs:not(.open):hover) {
 		background: rgba(255, 255, 255, 0.36);
 		color: var(--ink);
 		border-color: color-mix(in srgb, var(--ink) 24%, transparent);
 	}
-	/* The knockout DISCS (Back, Refresh, the search disc, every *-circle glyph): the
-	   dark scheme's frosty translucent disc, mirrored — the disc thins from 62% ink to
-	   glass, and the knocked-out glyph stays the bright backdrop shining through. */
-	:global(html[data-ui='bubble']:not(.scheme-dark) .icon-btn),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .manual) {
-		color: color-mix(in srgb, var(--ink) 30%, transparent);
-	}
-	:global(html[data-ui='bubble']:not(.scheme-dark) .icon-btn:hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .icon-btn:active:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .manual:hover:not(:disabled)) {
-		color: color-mix(in srgb, var(--ink) 48%, transparent);
-	}
-	/* The search disc is a div wearing the same clothes. */
-	:global(html[data-ui='bubble']:not(.scheme-dark) .cs:not(.open)) {
-		background: color-mix(in srgb, var(--ink) 26%, transparent);
-		color: var(--paper);
-	}
-	:global(html[data-ui='bubble']:not(.scheme-dark) .cs:not(.open):hover) {
-		background: color-mix(in srgb, var(--ink) 42%, transparent);
-	}
-
 	/* Two-line settings segments stay softly rounded rather than full pill. */
 	:global(html[data-ui='bubble'] .seg) {
 		border-radius: 16px;
@@ -3952,11 +3933,13 @@
 	   Flat read as a hard black frame here, so Bubble overrides it back to a hairline and
 	   says "on" three other ways: a brighter convex sheen, an inner white hairline just
 	   inside the edge (the glassy double rim), and a soft halo where the frame used to be. */
-	:global(html[data-ui='bubble'] .seg.on) {
+	:global(html[data-ui='bubble'] .seg.on),
+	:global(html[data-ui='bubble'] .sky-chip.on) {
 		border-color: color-mix(in srgb, var(--ink) 22%, transparent);
 	}
 	:global(html[data-ui='bubble'] .seg.on),
 	:global(html[data-ui='bubble'] .sky-opt.on),
+	:global(html[data-ui='bubble'] .sky-chip.on),
 	:global(html[data-ui='bubble'] .field.on) {
 		/* No gradient here either (see the sheen note above) — selected reads through its
 		   own denser fill plus LIGHT at the edges: a brighter rim and top glow, the inner
@@ -3998,6 +3981,7 @@
 	   lifted, so an active pill inflates like the rest without losing its "on". */
 	:global(html[data-ui='bubble'] .seg.on:hover:not(:disabled)),
 	:global(html[data-ui='bubble'] .sky-opt.on:hover:not(:disabled)),
+	:global(html[data-ui='bubble'] .sky-chip.on:hover:not(:disabled)),
 	:global(html[data-ui='bubble'] .field.on:hover:not(:disabled)) {
 		box-shadow:
 			inset 0 1px 0 rgba(255, 255, 255, 0.65),
@@ -4033,40 +4017,14 @@
 	   the universal interaction block, so Bubble and Flat move identically and only differ in
 	   material. */
 
-	/* ── Disc controls (Back / Refresh / Expand / the search disc) ── These wear reicon's
-	   *-circle glyphs: the disc IS the icon, painted as svg CONTENT — and inset shadows
-	   paint below content, so the gloss the depth rule gives every other control never
-	   reaches these. Overlay the same rim light + top glow ABOVE the disc instead, on an
-	   ::after clipped to the same circle. Safe to position: every .icon-btn placement rule
-	   is flex margins, none set position. The search control (.cs) is a div wearing the
-	   identical 32px disc, so it joins the family here — overlay only while it's the disc,
-	   never over the opened search field. */
-	:global(html[data-ui='bubble'] .icon-btn) {
-		position: relative;
-	}
-	:global(html[data-ui='bubble'] .icon-btn)::after,
-	:global(html[data-ui='bubble'] .cs:not(.open))::after {
-		content: '';
-		position: absolute; /* .cs is already position: relative for its results list */
-		inset: 0;
-		border-radius: 999px;
-		pointer-events: none;
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.4),
-			inset 0 7px 10px -8px rgba(255, 255, 255, 0.45);
-	}
-	/* Hover: the disc fills to full ink (base .icon-btn / .cs rules), so brighten the
-	   gloss with it — same move as every other bubble control's hover. */
-	:global(html[data-ui='bubble'] .icon-btn:hover:not(:disabled))::after,
-	:global(html[data-ui='bubble'] .cs:not(.open):hover)::after {
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.6),
-			inset 0 7px 10px -8px rgba(255, 255, 255, 0.6);
-	}
-	/* The search disc is a div, not a button, so the depth rule's airy drops never reached
-	   it — hand it the same pair (the overlay above already carries the insets). */
+	/* The one-time disc-glyph gloss overlays are gone: the discs are family PILLS now
+	   (face on the button, plain glyph on top — see base.css .icon-btn), so the depth
+	   rule's own insets reach them like every other control. The search div still needs
+	   the airy drops the depth rule gives buttons. */
 	:global(html[data-ui='bubble'] .cs:not(.open)) {
 		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.55),
+			inset 0 7px 10px -8px rgba(255, 255, 255, 0.55),
 			0 1px 1px rgba(8, 10, 14, 0.04),
 			0 3px 8px rgba(8, 10, 14, 0.06);
 	}

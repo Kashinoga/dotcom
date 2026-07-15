@@ -2,7 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import {
-		BACK_CIRCLE_SVG,
+		ARROW_LEFT_SVG,
 		PRESENTATION_SVG,
 		FILE_PLUS_SVG,
 		FOLDER_OPEN_SVG,
@@ -778,7 +778,7 @@
 	<!-- Panel chrome + toolbar -->
 	<header class="pb-head">
 		<button class="icon-btn" onclick={handleBack} aria-label="Back to route map" title="Route map"
-			>{@html BACK_CIRCLE_SVG}</button
+			>{@html ARROW_LEFT_SVG}</button
 		>
 		<!-- No brand mark here: the presentation glyph is the tab's favicon while this panel is
 		     open, which is where an app's mark belongs. Beta rides at the far right, after the

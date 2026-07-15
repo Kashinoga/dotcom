@@ -11,6 +11,11 @@ export const MINIMIZE_SVG =
 // reicon "arrow-left2" (Filled) — the panel back control. The set is used at its FILLED weight
 // throughout, so this is the solid caret, not the hairline chevron it used to be. The optical
 // nudge the chevron needed is gone with it: the caret's mass sits on its own centre.
+// A true left ARROW (shaft + head, rounded caps — in-set style), for the pill-faced
+// back controls; BACK_SVG below is the chevron-triangle, kept for whoever wants it.
+export const ARROW_LEFT_SVG =
+	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 11H7.83l4.88-4.88c.39-.39.39-1.03 0-1.42-.39-.39-1.02-.39-1.41 0l-6.59 6.59c-.39.39-.39 1.02 0 1.41l6.59 6.59c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41L7.83 13H19c.55 0 1-.45 1-1s-.45-1-1-1z"/></svg>';
+
 export const BACK_SVG =
 	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.16485 11.6296L14.7953 5.1999C15.2091 4.79869 16 5.04189 16 5.5703L16 18.4297C16 18.9581 15.2091 19.2013 14.7953 18.8001L8.16485 12.3704C7.94505 12.1573 7.94505 11.8427 8.16485 11.6296Z" fill="currentColor"/></svg>';
 
@@ -72,6 +77,12 @@ export const DRAG_SVG =
 // reicon "arrow-left-circle" — the panel Back control.
 export const BACK_CIRCLE_SVG =
 	'<svg viewBox="0.25 0.25 23.5 23.5" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M0.25 12C0.25 5.51065 5.51065 0.25 12 0.25C18.4893 0.25 23.75 5.51065 23.75 12C23.75 18.4893 18.4893 23.75 12 23.75C5.51065 23.75 0.25 18.4893 0.25 12ZM11.5303 7.46967C11.8232 7.76256 11.8232 8.23744 11.5303 8.53033L8.81066 11.25H17C17.4142 11.25 17.75 11.5858 17.75 12C17.75 12.4142 17.4142 12.75 17 12.75H8.81066L11.5303 15.4697C11.8232 15.7626 11.8232 16.2374 11.5303 16.5303C11.2374 16.8232 10.7626 16.8232 10.4697 16.5303L6.46967 12.5303C6.32902 12.3897 6.25 12.1989 6.25 12C6.25 11.8011 6.32902 11.6103 6.46967 11.4697L10.4697 7.46967C10.7626 7.17678 11.2374 7.17678 11.5303 7.46967Z" fill="currentColor"/></svg>';
+// A plain refresh (filled, rounded — in-set style): the circular arrow without the
+// disc, for the pill-faced controls (the *-circle forms keep the disc as CONTENT and
+// can't sit on a face).
+export const REFRESH_SVG =
+	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 5.5V2.85c0-.45-.54-.67-.85-.35L7.85 5.79c-.2.2-.2.52 0 .71l3.3 3.3c.31.31.85.09.85-.36V6.5c3.03 0 5.5 2.47 5.5 5.5s-2.47 5.5-5.5 5.5S6.5 15.03 6.5 12c0-.55-.45-1-1-1s-1 .45-1 1c0 4.14 3.36 7.5 7.5 7.5s7.5-3.36 7.5-7.5S16.14 5.5 12 5.5z"/></svg>';
+
 // reicon "refresh-circle" — the board’s refresh-now control.
 export const REFRESH_CIRCLE_SVG =
 	'<svg viewBox="2 2 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12ZM5.46056 11.0833C5.83331 7.79988 8.62404 5.25 12.0096 5.25C14.148 5.25 16.0489 6.26793 17.2521 7.84246C17.5036 8.17158 17.4406 8.64227 17.1115 8.89376C16.7824 9.14526 16.3117 9.08233 16.0602 8.7532C15.1289 7.53445 13.6613 6.75 12.0096 6.75C9.45213 6.75 7.33639 8.63219 6.9733 11.0833H7.33652C7.63996 11.0833 7.9135 11.2662 8.02953 11.5466C8.14556 11.8269 8.0812 12.1496 7.86649 12.364L6.69823 13.5307C6.40542 13.8231 5.9311 13.8231 5.63829 13.5307L4.47003 12.364C4.25532 12.1496 4.19097 11.8269 4.30699 11.5466C4.42302 11.2662 4.69656 11.0833 5 11.0833H5.46056ZM18.3617 10.4693C18.0689 10.1769 17.5946 10.1769 17.3018 10.4693L16.1335 11.636C15.9188 11.8504 15.8545 12.1731 15.9705 12.4534C16.0865 12.7338 16.3601 12.9167 16.6635 12.9167H17.0267C16.6636 15.3678 14.5479 17.25 11.9905 17.25C10.3464 17.25 8.88484 16.4729 7.9529 15.2638C7.70002 14.9358 7.22908 14.8748 6.90101 15.1277C6.57295 15.3806 6.512 15.8515 6.76487 16.1796C7.96886 17.7416 9.86205 18.75 11.9905 18.75C15.376 18.75 18.1667 16.2001 18.5395 12.9167H19C19.3035 12.9167 19.577 12.7338 19.693 12.4534C19.8091 12.1731 19.7447 11.8504 19.53 11.636L18.3617 10.4693Z" fill="currentColor"/></svg>';
