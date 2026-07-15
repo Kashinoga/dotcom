@@ -175,7 +175,11 @@
 		// rest of the session the moment anyone switched from Photo to a night sky.
 		document.documentElement.toggleAttribute('data-sky-photo', skyMode === 'photo');
 		// The measured veil belongs to a photograph. Any other sky takes the theme's own.
-		if (skyMode !== 'photo') resetVeil();
+		if (skyMode !== 'photo') {
+			resetVeil();
+			delete document.documentElement.dataset.photoGrad;
+			document.documentElement.style.removeProperty('--photo-grad');
+		}
 		// Off and Photo both carry no phase: Off has nothing to paint, and a photograph can't tell the
 		// tokens what time it is. Only the gradients set data-sky.
 		if (skyMode === 'off' || skyMode === 'photo') {
@@ -265,6 +269,7 @@
 		// download — the browser has this exact URL in cache already).
 		document.documentElement.style.setProperty('--photo-url', `url("${p.url}")`);
 		measureVeil(img);
+		paintPhotoGradient(img);
 	}
 
 	// How much glass the panel needs over THIS photograph.
@@ -282,6 +287,44 @@
 	// that the text is at risk, never so thick that the photograph is gone.
 	const VEIL_MIN = 0.28;
 	const VEIL_MAX = 0.9;
+	// The panel's photo backdrop, GENERATED rather than copied. The blurred photo-copy
+	// ::before betrayed itself whenever a resize misaligned its fixed attachment — "the
+	// panel is above the photo, except it's holding a photograph of it". Three coarse
+	// row-averages (top / middle / bottom — the axis a panel spans) become a gradient the
+	// pane paints as its OWN colour; the measured veil above it works unchanged. On a
+	// tainted or failed read, the copy recipe stays as the CSS fallback.
+	function paintPhotoGradient(img: HTMLImageElement) {
+		try {
+			const c = document.createElement('canvas');
+			const ctx = c.getContext('2d', { willReadFrequently: true });
+			if (!ctx || !img.naturalWidth) return;
+			c.width = 4;
+			c.height = 3;
+			ctx.drawImage(img, 0, 0, 4, 3);
+			const { data } = ctx.getImageData(0, 0, 4, 3);
+			const rows: string[] = [];
+			for (let r = 0; r < 3; r++) {
+				let R = 0,
+					G = 0,
+					B = 0;
+				for (let x = 0; x < 4; x++) {
+					const i = (r * 4 + x) * 4;
+					R += data[i];
+					G += data[i + 1];
+					B += data[i + 2];
+				}
+				rows.push(`rgb(${Math.round(R / 4)} ${Math.round(G / 4)} ${Math.round(B / 4)})`);
+			}
+			document.documentElement.style.setProperty(
+				'--photo-grad',
+				`linear-gradient(180deg, ${rows[0]} 0%, ${rows[1]} 50%, ${rows[2]} 100%)`
+			);
+			document.documentElement.dataset.photoGrad = '';
+		} catch {
+			/* tainted canvas or failed decode — the blurred copy stays the fallback */
+		}
+	}
+
 	function measureVeil(img: HTMLImageElement) {
 		try {
 			const c = document.createElement('canvas');
@@ -2933,6 +2976,16 @@
 		/* The blur samples from beyond the panel's box; scaling up hides the soft, empty rim it would
 		   otherwise leave along the edge. */
 		transform: scale(1.06);
+	}
+	/* GENERATED, not copied: once the photo's colours are sampled (paintPhotoGradient),
+	   the pane paints its own gradient instead of a blurred copy of the picture — the
+	   copy's fixed-attachment alignment betrayed itself on every resize. The rule above
+	   stays as the fallback for a photo the canvas can't read. */
+	:global(html[data-sky-photo][data-photo-grad]) .surface-backdrop::before {
+		background-image: var(--photo-grad);
+		background-attachment: scroll;
+		filter: none;
+		transform: none;
 	}
 	:global(html[data-sky-photo]) .surface-backdrop::after {
 		background: var(--panel-glass);
