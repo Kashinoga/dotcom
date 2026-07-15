@@ -2480,6 +2480,17 @@
 	.tag.over {
 		background: color-mix(in srgb, var(--ink) 45%, transparent);
 	}
+	/* Bubble: the direction tags wear the family's aero — the shared rim light and airy
+	   drop over their own semantic fills (the colour IS the message, so it stays), at the
+	   family's full pill. Flat keeps its flat chips. */
+	:global(html[data-ui='bubble']) .tag {
+		border-radius: 999px;
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.45),
+			inset 0 7px 10px -8px rgba(255, 255, 255, 0.4),
+			0 1px 1px rgba(8, 10, 14, 0.06),
+			0 2px 6px rgba(8, 10, 14, 0.1);
+	}
 	/* The direction chip springs in whenever it mounts — which, once the board has booted, is on
 	   a field switch: the table re-keys, the cells flap, and the tags used to just appear beside
 	   them. Staggered down the board by row (--ri). On the first fill and on a live arrival the
