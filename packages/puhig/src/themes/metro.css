@@ -126,6 +126,7 @@
 
 	/* ── Type ────────────────────────────────────────────────────────────────── */
 	--font-body: 'Jost', system-ui, -apple-system, sans-serif;
+	--font-motto: 'Fraunces', 'Iowan Old Style', Georgia, serif; /* the tagline's serif voice */
 }
 
 /* Dark stock for the plain-value (non-light-dark) tokens. Keyed on OS dark only, to

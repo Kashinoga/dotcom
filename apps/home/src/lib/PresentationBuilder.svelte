@@ -1620,6 +1620,10 @@
 		color: var(--sub);
 		border-bottom: 1px solid var(--line);
 		background: var(--panel-head);
+		/* The canvas's shoulders: the bar owns the stage's top corners, so the whole
+		   preview reads as one rounded slab under the clear header (same 14px as
+		   .pb-main's own shoulders). */
+		border-radius: 14px 14px 0 0;
 	}
 	.counter {
 		margin-left: auto;

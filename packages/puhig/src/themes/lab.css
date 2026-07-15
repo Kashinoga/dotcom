@@ -100,7 +100,8 @@
 	--panel-edge: light-dark(rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.1));
 
 	/* ── Type ────────────────────────────────────────────────────────────────── */
-	--font-body: 'Jost', system-ui, -apple-system, sans-serif; /* TODO(lab): Lab's typeface */
+	--font-body: 'Jost', system-ui, -apple-system, sans-serif;
+	--font-motto: 'Fraunces', 'Iowan Old Style', Georgia, serif; /* the tagline's serif voice */ /* TODO(lab): Lab's typeface */
 }
 
 /* Dark stock for the plain-value tokens. OS-dark only, matching Metro. */
