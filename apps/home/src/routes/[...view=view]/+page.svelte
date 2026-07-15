@@ -3832,13 +3832,12 @@
 		   it's the universal button interaction at the bottom of this file, shared by both UI
 		   styles. Bubble only adds its material: the pill radius and the gloss. */
 	}
-	/* ── Night pills all day ── In LIGHT mode the bubble family wears the dark scheme's
-	   face: deep translucent pills with paper text, the look the night sky gets for free
-	   from its tokens. Scoped by the scheme stamp (html.scheme-dark, kept by app.html +
-	   an effect), so the real dark mode keeps its own untouched rules. Selected chips
-	   invert — a paper pill with ink text, same as they read at night. Controls whose
-	   "on" is load-bearing colour (.field.on's accent) are excluded from the base face.
-	   The selects' chevron is #888 in the bitmap — legible on either face. */
+	/* ── White on white ── In LIGHT mode the bubble family wears a PAPER face: clean
+	   white pills floating on the light sky (the old paper-72 material, back by request),
+	   ink text, hover firming the face toward solid. Scoped by the scheme stamp
+	   (html.scheme-dark, kept by app.html + an effect), so dark mode keeps its own
+	   untouched rules. Selected states keep their existing ink/accent treatments — full
+	   contrast against the paper face. */
 	:global(html[data-ui='bubble']:not(.scheme-dark) .seg:not(.on)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .sky-opt:not(.on)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .chip:not(.on)),
@@ -3852,9 +3851,9 @@
 	:global(html[data-ui='bubble']:not(.scheme-dark) .menu-btn),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .edit-enter),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .wx-add) {
-		background: rgba(15, 18, 25, 0.62);
-		color: #f2f2ee;
-		border-color: rgba(255, 255, 255, 0.14);
+		background: color-mix(in srgb, var(--paper) 72%, transparent);
+		color: var(--ink);
+		border-color: color-mix(in srgb, var(--ink) 12%, transparent);
 	}
 	:global(html[data-ui='bubble']:not(.scheme-dark) .seg:not(.on):hover:not(:disabled)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .sky-opt:not(.on):hover:not(:disabled)),
@@ -3869,20 +3868,10 @@
 	:global(html[data-ui='bubble']:not(.scheme-dark) .menu-btn:hover:not(:disabled)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .edit-enter:hover:not(:disabled)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .wx-add:hover:not(:disabled)) {
-		background: rgba(32, 37, 48, 0.72);
-		color: #ffffff;
-		border-color: rgba(255, 255, 255, 0.2);
+		background: color-mix(in srgb, var(--paper) 90%, transparent);
+		color: var(--ink);
+		border-color: color-mix(in srgb, var(--ink) 18%, transparent);
 	}
-	/* Selected: the inversion the night gives — paper pill, ink text. */
-	:global(html[data-ui='bubble']:not(.scheme-dark) .seg.on),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .sky-opt.on),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .sky-chip.on),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .sky-chip.on:hover) {
-		background: rgba(255, 255, 255, 0.94);
-		color: #0a0a0a;
-		border-color: transparent;
-	}
-
 	/* Two-line settings segments stay softly rounded rather than full pill. */
 	:global(html[data-ui='bubble'] .seg) {
 		border-radius: 16px;
