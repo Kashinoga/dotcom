@@ -914,8 +914,18 @@
 	// wxKind !== 'clear': a CLEAR sky (the console's chip, or a live clear reading while
 	// Weather is up) means no clouds at all — 'clear' is weather too, not just the
 	// absence of the wet kinds.
+	// wxCloudy: the kinds that OVERRULE the dark-phase rule below — an ambient dusk or
+	// night belongs to the stars, but asking for clouds (the dial, or a cloudy/wet
+	// reading) should get them at night too, dimmed by the phase rules in the CSS.
+	const wxCloudy = $derived(
+		wxKind === 'cloudy' || wxKind === 'rain' || wxKind === 'storm' || wxKind === 'snow'
+	);
 	const cloudsVisible = $derived(
-		skyMode !== 'off' && skyMode !== 'photo' && !darkScheme && !decorHidden && wxKind !== 'clear'
+		skyMode !== 'off' &&
+			skyMode !== 'photo' &&
+			(!darkScheme || wxCloudy) &&
+			!decorHidden &&
+			wxKind !== 'clear'
 	);
 	const fxOn = $derived(!decorHidden && !photoSky);
 	const fxRain = $derived(fxOn && (wxKind === 'rain' || wxKind === 'storm'));
@@ -2473,6 +2483,21 @@
 	.clouds.overcast {
 		opacity: 1;
 	}
+	/* NIGHT clouds — only ever summoned (see wxCloudy: the ambient dark sky belongs to
+	   the stars), and dimmer for it: white sheets under no sun. These sit after the
+	   overcast rule so the caps win the tie. */
+	:global(html[data-sky='dusk']) .clouds {
+		opacity: 0.5;
+	}
+	:global(html[data-sky='night']) .clouds {
+		opacity: 0.38;
+	}
+	:global(html[data-sky='dusk']) .clouds.overcast {
+		opacity: 0.6;
+	}
+	:global(html[data-sky='night']) .clouds.overcast {
+		opacity: 0.45;
+	}
 
 	/* ── The sky console ── bottom-left (the photo credit's perch — the two never share
 	   a sky). Two rows of small chips; the active one wears full ink. */
@@ -2567,10 +2592,8 @@
 	}
 	.sky-toggle {
 		align-self: flex-start;
-	}
-	.sky-toggle :global(svg) {
-		width: 1.05rem;
-		height: 1.05rem;
+		/* Size comes wholly from .icon-btn — the same 32px disc and 18px glyph as the
+		   panel's Back and Refresh. */
 	}
 	.sky-chip {
 		padding: 0.22rem 0.6rem;
