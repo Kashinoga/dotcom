@@ -844,27 +844,21 @@
 	// falling drop under the glass kept Safari re-rasterising the blur forever). Clipped,
 	// the panel stands over a static gradient and the blur rasterises ONCE. Applied the
 	// moment the view opens, so even the panel's entrance slides over clean sky.
-	// !panelLeaving: a panel→panel swap slides the sheet off for a beat, and a clip with
-	// no panel over it read as a hole cut out of the sky — the clip lifts while the stage
-	// is bare and glides back in with the arriving sheet (the transition rides the
-	// clipped state, so the lift itself is instant, behind the departing panel).
-	const decorClipped = $derived(!!view && !isMobile && !panelExpanded && !panelLeaving);
-	// The clip's glide belongs to the panel's ARRIVAL alone. Its inset tracks 100vw, so a
-	// standing transition made every window resize ANIMATE the cutoff chasing the panel —
-	// the clouds visibly cleared their clip after the sash had settled. The glide class
-	// exists only for the arrival beat; at all other times (resizes included) the clip
-	// moves in lockstep with layout.
-	let clipGliding = $state(false);
-	let clipGlideTimer = 0;
+	// The clip engages a beat AFTER the panel lands — instantly, hidden behind the
+	// settled glass. It used to lead (gliding in while the panel was still flying), and
+	// the two eased on different curves: the clip cut clouds where the panel wasn't yet,
+	// a visible sliver of bare sky at the seam. The entrance accepts its 380ms of live
+	// blur — every slide already does; stillness at REST is what the clip is for. The
+	// lift stays instant (behind a departing panel there's nothing to see), which also
+	// covers panel→panel swaps and window resizes: with no transition anywhere, the clip
+	// always moves in lockstep with layout.
+	let decorClipped = $state(false);
+	let clipTimer = 0;
 	$effect(() => {
-		if (decorClipped) {
-			clipGliding = true;
-			clearTimeout(clipGlideTimer);
-			clipGlideTimer = window.setTimeout(() => (clipGliding = false), 420);
-		} else {
-			clearTimeout(clipGlideTimer);
-			clipGliding = false;
-		}
+		const want = !!view && !isMobile && !panelExpanded && !panelLeaving;
+		clearTimeout(clipTimer);
+		if (want) clipTimer = window.setTimeout(() => (decorClipped = true), 430);
+		else decorClipped = false;
 	});
 	let decorHidden = $state(false);
 	let decorTimer = 0;
@@ -1504,7 +1498,7 @@
 {/snippet}
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="stage" class:photo={photoSky} class:clip-decor={decorClipped} class:clip-glide={clipGliding} onclick={onStageClick}>
+<div class="stage" class:photo={photoSky} class:clip-decor={decorClipped} onclick={onStageClick}>
 	{#if photoSky && photo}
 		<!-- Bing's photo of the day. Two layers, not one: the picture, and a veil over it. The panels
 		     are opaque so they're fine, but the masthead and nav sit straight on the sky — over a
@@ -1623,7 +1617,7 @@
 			}}
 		>
 			{#if skyConsoleOpen}
-				<div class="sky-pop" in:fly={{ y: 10, duration: 220 }} out:fade={{ duration: 120 }}>
+				<div class="sky-pop" in:fly={{ y: 10, duration: 180 }} out:fade={{ duration: 120 }}>
 					<div class="sky-group" role="group" aria-labelledby="sky-lab-time">
 						<span class="sky-lab" id="sky-lab-time">Time of Day</span>
 						<div class="sky-row">
@@ -2394,30 +2388,6 @@
 	.stage.clip-decor .fx-flash {
 		clip-path: inset(0 clamp(340px, calc(100vw - 620px), 640px) 0 0);
 	}
-	/* The clip edge GLIDES IN, in step with the panel's opening slide (same 380ms, same
-	   curve) — snapping it in read as the sky being cut with scissors. On CLOSE it's the
-	   old instant un-clip: the transition lives on the CLIPPED state only, so dropping
-	   the class falls back to the base rule below — no transition — and the returning
-	   decor pops behind the departing panel, which covers it (that already felt right).
-	   The resting inset(0) is load-bearing: a transition needs a same-type start value. */
-	@media (prefers-reduced-motion: no-preference) {
-		.stage.clip-decor.clip-glide .clouds,
-		.stage.clip-decor.clip-glide .stars,
-		.stage.clip-decor.clip-glide .fx-rain,
-		.stage.clip-decor.clip-glide .fx-snow,
-		.stage.clip-decor.clip-glide .fx-fog,
-		.stage.clip-decor.clip-glide .fx-flash {
-			transition: clip-path 380ms cubic-bezier(0.6, 0, 0.3, 1);
-		}
-	}
-	.clouds,
-	.stars,
-	.fx-rain,
-	.fx-snow,
-	.fx-fog,
-	.fx-flash {
-		clip-path: inset(0 0 0 0);
-	}
 	/* ── Daylit clouds ── Two baked, tileable strips over the sky gradient. Each strip is
 	   200% wide with the tile sized to exactly HALF of it (background-size: 50% 100%), so
 	   the drift's translate3d(-50%) lands precisely one tile later and the loop is
@@ -2540,23 +2510,33 @@
 		flex-wrap: wrap;
 	}
 	/* The popout grows OUT of the disc beneath it, so the entrance ripples bottom-to-top:
-	   the Weather row (nearest the button) deals in first, Time of Day follows above,
-	   each row's label and chips on the tight button beat. Replays every open — the {#if}
-	   remounts the card. */
+	   the Weather row (nearest the button) first, Time of Day above it. Within a row the
+	   HEADER speaks first — its own move, a slide in from the left like a caption being
+	   set down — and its chips deal in beneath it a beat later, rising. Replays every
+	   open — the {#if} remounts the card. */
 	@media (prefers-reduced-motion: no-preference) {
-		.sky-pop .sky-lab,
+		.sky-pop .sky-lab {
+			animation: sky-lab-in 0.25s ease backwards;
+			animation-delay: var(--rb, 0s);
+		}
 		.sky-pop .sky-chip {
 			animation: sky-pop-in 0.3s ease backwards;
-			animation-delay: calc(var(--rb, 0s) + (var(--n, 0) + 1) * 0.03s);
+			animation-delay: calc(var(--rb, 0s) + 0.12s + var(--n, 0) * 0.03s);
 		}
-		.sky-pop .sky-lab {
-			--n: 0;
-		}
+		/* Both rows wait out the card's own 180ms rise — the bottom row used to start at
+		   0s, mid-flight, and its entrance was swallowed while the top row (starting
+		   later, on a settled card) read cleanly. */
 		.sky-group:last-child {
-			--rb: 0s; /* Weather Feature — the bottom row leads */
+			--rb: 0.16s; /* Weather Feature — the bottom row leads, on a settled card */
 		}
 		.sky-group:first-child {
-			--rb: 0.22s; /* Time of Day arrives above it */
+			--rb: 0.42s; /* Time of Day arrives above it */
+		}
+	}
+	@keyframes sky-lab-in {
+		from {
+			opacity: 0;
+			transform: translateX(-6px);
 		}
 	}
 	@keyframes sky-pop-in {
