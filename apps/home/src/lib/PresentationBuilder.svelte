@@ -1349,6 +1349,13 @@
 		display: grid;
 		grid-template-columns: 250px 1fr 300px;
 		min-height: 0;
+		/* With the header gone clear, the editor reads as its own slab sitting on the
+		   glass — so it gets a slab's shoulders: the top corners round off, and the
+		   hairline frame follows them. overflow clips the columns' fills to the curve
+		   (their scrolling lives in .col-body, untouched). */
+		border-top: 1px solid var(--line);
+		border-radius: 14px 14px 0 0;
+		overflow: hidden;
 	}
 	.pb-col {
 		display: flex;
