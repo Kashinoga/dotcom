@@ -1610,6 +1610,13 @@
 	.pb-center {
 		background: var(--page);
 		position: relative;
+		/* The canvas is a SLAB — the whole column floats as a rounded card on the glass,
+		   with the inset giving the curve room to read (flush corners just notched into
+		   the column's own --page fill, invisibly). Everything inside clips to it. */
+		margin: 0.9rem;
+		border: 1px solid var(--line);
+		border-radius: 14px;
+		overflow: hidden;
 	}
 	.preview-bar {
 		display: flex;
@@ -1620,10 +1627,7 @@
 		color: var(--sub);
 		border-bottom: 1px solid var(--line);
 		background: var(--panel-head);
-		/* The canvas's shoulders: the bar owns the stage's top corners, so the whole
-		   preview reads as one rounded slab under the clear header (same 14px as
-		   .pb-main's own shoulders). */
-		border-radius: 14px 14px 0 0;
+		/* No radius of its own: the .pb-center slab clips the whole canvas to its curve. */
 	}
 	.counter {
 		margin-left: auto;
