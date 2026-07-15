@@ -14,31 +14,30 @@
 	// thing you orient by — look below it and the sphere keeps going, ghosted, through the
 	// earth to the nadir directly beneath your feet.
 
+	import { fade } from 'svelte/transition';
 	import SplitFlap from '$lib/SplitFlap.svelte';
-	import { ARROW_LEFT_SVG, MAXIMIZE_SVG, MINIMIZE_SVG, PIN_SVG } from '$lib/icons';
+	import { ARROW_LEFT_SVG, PIN_SVG } from '$lib/icons';
 
 	type Place = { name: string; lat: number; lon: number };
 
 	// The map owns its whole panel interior, like the Traffic board: the page hands it the
-	// chrome a child can't reach — title, back, expanded, and the toggle. (No Connections
-	// rail here, deliberately: the stage is the app, and a footer under an infinite sky
-	// read as clutter. Back and the Apps cards cover the navigation.)
+	// chrome a child can't reach — title and back. It's always full-viewport, like the
+	// Presentation Builder: forced expanded on open (applyView), with no collapse toggle.
+	// (No Connections rail here, deliberately: the stage is the app, and a footer under an
+	// infinite sky read as clutter. Back and the Apps cards cover the navigation.)
 	let {
 		accent = '#f06030', // the station's colour — the title dot, and North on the map
 		title = '',
-		expanded = false,
-		onback,
-		onToggleExpand
+		onback
 	}: {
 		accent?: string;
 		title?: string;
-		expanded?: boolean;
 		onback?: () => void;
-		onToggleExpand?: () => void;
 	} = $props();
 
-	// Is the viewport wide enough for the beside-the-title super bar? (Expanded fills the
-	// viewport, so viewport width ≈ panel width — the Traffic board's same test.)
+	// Is the viewport wide enough for the beside-the-title super bar? (The panel fills the
+	// viewport, so viewport width ≈ panel width — the Traffic board's same test.) Narrower
+	// than this, the header falls back to a stacked title-and-search arrangement.
 	let wide = $state(false);
 	$effect(() => {
 		const mq = window.matchMedia('(min-width: 900px)');
@@ -47,7 +46,7 @@
 		mq.addEventListener('change', onMq);
 		return () => mq.removeEventListener('change', onMq);
 	});
-	const showBar = $derived(expanded && wide);
+	const showBar = $derived(wide);
 
 	// GeoJSON coordinates are [RA°, Dec°] with RA in −180…180 (d3-celestial's convention).
 	type LineFeature = { id: string; geometry: { coordinates: [number, number][][] } };
@@ -122,16 +121,24 @@
 	let timer = 0;
 	let seq = 0; // a slow response must not overwrite a newer query's results
 	const COORD_RE = /^\s*([-+]?\d{1,2}(?:\.\d+)?)\s*,\s*([-+]?\d{1,3}(?:\.\d+)?)\s*$/;
+	// "41.59°N 93.63°W" — names typed coordinates, and captions the current centre (a city
+	// name says roughly where you are; this says exactly).
+	const fmtCoords = (lat: number, lon: number) => {
+		const fmt = (n: number, pos: string, neg: string) =>
+			`${Math.abs(n).toFixed(2)}°${n < 0 ? neg : pos}`;
+		return `${fmt(lat, 'N', 'S')} ${fmt(lon, 'E', 'W')}`;
+	};
 	const asCoords = (v: string): Place | null => {
 		const m = COORD_RE.exec(v);
 		if (!m) return null;
 		const lat = +m[1];
 		const lon = +m[2];
 		if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
-		const fmt = (n: number, pos: string, neg: string) =>
-			`${Math.abs(n).toFixed(2)}°${n < 0 ? neg : pos}`;
-		return { name: `${fmt(lat, 'N', 'S')} ${fmt(lon, 'E', 'W')}`, lat, lon };
+		return { name: fmtCoords(lat, lon), lat, lon };
 	};
+	const coordText = $derived(fmtCoords(place.lat, place.lon));
+	// A place NAMED by its coordinates would caption itself twice.
+	const showCoords = $derived(place.name !== coordText);
 
 	function onQuery(v: string) {
 		query = v;
@@ -299,34 +306,56 @@
 	let viewAlt = $state(50); // …head comfortably tilted back
 	let fov = $state(75);
 	let dragging = $state(false);
-	let lastX = 0;
-	let lastY = 0;
+	// Every touch on the sky, by pointer id. One finger turns your head; two pinch the
+	// field of view (their midpoint still turns, so a pinch that drifts also pans — the
+	// sky stays pinned under the fingers instead of jumping when the second one lands).
+	const pointers = new Map<number, { x: number; y: number }>();
+	const clampFov = (f: number) => Math.max(FOV_MIN, Math.min(FOV_MAX, f));
+	const pinch = () => {
+		const [a, b] = [...pointers.values()];
+		return { mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, d: Math.hypot(a.x - b.x, a.y - b.y) };
+	};
 	// Degrees per dragged pixel, matched to what's on screen so a drag feels like grabbing
 	// the sky: the visible field divided by the visible pixels.
 	const degPerPx = () => fov / Math.max(1, Math.min(vw, vh));
+	// Dragging moves the SKY with the pointer: pull it right and you turn to face what
+	// was on your left; pull it down and your gaze climbs.
+	function look(dx: number, dy: number) {
+		const k = degPerPx();
+		viewAz = (((viewAz - dx * k) % 360) + 360) % 360;
+		viewAlt = Math.max(-PITCH_LIM, Math.min(PITCH_LIM, viewAlt + dy * k));
+	}
 	function onPointerDown(e: PointerEvent) {
+		pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
 		dragging = true;
-		lastX = e.clientX;
-		lastY = e.clientY;
 		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 	}
 	function onPointerMove(e: PointerEvent) {
-		if (!dragging) return;
-		const k = degPerPx();
-		// Dragging moves the SKY with the pointer: pull it right and you turn to face what
-		// was on your left; pull it down and your gaze climbs.
-		viewAz = (((viewAz - (e.clientX - lastX) * k) % 360) + 360) % 360;
-		viewAlt = Math.max(-PITCH_LIM, Math.min(PITCH_LIM, viewAlt + (e.clientY - lastY) * k));
-		lastX = e.clientX;
-		lastY = e.clientY;
+		const p = pointers.get(e.pointerId);
+		if (!p) return;
+		if (pointers.size >= 2) {
+			// Pinch: spreading fingers narrows the field (magnifies), closing widens it —
+			// measured against where the fingers just were, so it composes with the pan.
+			const before = pinch();
+			p.x = e.clientX;
+			p.y = e.clientY;
+			const after = pinch();
+			if (before.d > 20 && after.d > 20) fov = clampFov((fov * before.d) / after.d);
+			look(after.mx - before.mx, after.my - before.my);
+		} else {
+			look(e.clientX - p.x, e.clientY - p.y);
+			p.x = e.clientX;
+			p.y = e.clientY;
+		}
 	}
-	function onPointerUp() {
-		dragging = false;
+	function onPointerUp(e: PointerEvent) {
+		pointers.delete(e.pointerId);
+		dragging = pointers.size > 0;
 	}
 	function onWheel(e: WheelEvent) {
 		e.preventDefault(); // the wheel zooms the sky, never scrolls the panel under it
 		const factor = e.deltaY < 0 ? 1 / 1.12 : 1.12;
-		fov = Math.max(FOV_MIN, Math.min(FOV_MAX, fov * factor));
+		fov = clampFov(fov * factor);
 	}
 
 	// What the caption reports, computed during the same pass that draws.
@@ -385,11 +414,19 @@
 
 		// The night, floor to ceiling. Always night, whatever the site theme: it is a
 		// picture of the night sky, the way the Weather panel's photo is a picture. The
-		// wash leans with your gaze — brighter toward the zenith end of the view.
+		// wash leans with your gaze — brighter toward the zenith end of the view — and it
+		// leans CONTINUOUSLY: a hard flip at 0° read as the sky snapping while panning
+		// across the horizon.
 		const g = ctx.createLinearGradient(0, 0, 0, vh);
 		const upness = viewAlt / 90; // 1 looking straight up, −1 straight down
-		g.addColorStop(0, upness >= 0 ? '#111830' : '#0a0f1f');
-		g.addColorStop(1, upness >= 0 ? '#070b16' : '#04070f');
+		const t = (upness + 1) / 2; // 0 at the nadir, 1 at the zenith
+		const mix = (down: string, up: string) => {
+			const ch = (h: string, i: number) => parseInt(h.slice(i, i + 2), 16);
+			const c = (i: number) => Math.round(ch(down, i) + (ch(up, i) - ch(down, i)) * t);
+			return `rgb(${c(1)},${c(3)},${c(5)})`;
+		};
+		g.addColorStop(0, mix('#0a0f1f', '#111830'));
+		g.addColorStop(1, mix('#04070f', '#070b16'));
 		ctx.fillStyle = g;
 		ctx.fillRect(0, 0, vw, vh);
 
@@ -538,8 +575,10 @@
 
 {#snippet locationField()}
 	<!-- Weather's morph, worn here: closed it's a 32px pin disc; open it's the field, grown
-	     sideways from the same spot (see CitySearch for the two-shapes-one-element notes). -->
-	<div class="sm-cs" class:open={searchOpen} bind:this={searchEl} onfocusout={onSearchFocusOut}>
+	     sideways from the same spot (see CitySearch for the two-shapes-one-element notes).
+	     It wears the `cs` class so the page's bubble rules dress it exactly like every other
+	     disc — the same resting face and hairline the Back button gets. -->
+	<div class="sm-cs cs" class:open={searchOpen} bind:this={searchEl} onfocusout={onSearchFocusOut}>
 		<button
 			type="button"
 			class="sm-cs-icon"
@@ -592,12 +631,11 @@
 	</div>
 {/snippet}
 
-<div class="sm" class:expanded class:bar-mode={showBar} style:--accent={accent}>
+<div class="sm" class:bar-mode={showBar} style:--accent={accent}>
 	<header class="sm-head" class:bar={showBar}>
 		{#if showBar}
-			<!-- Expanded: ONE super bar, the Traffic board's shape. Global app controls cap the
-			     far edges — back left, collapse right — framing identity, the location control,
-			     and a glanceable summary in between. -->
+			<!-- Wide: ONE super bar, the Traffic board's shape. Back caps the left edge, framing
+			     identity, the location control, and a glanceable summary. -->
 			{#if onback}
 				<button
 					type="button"
@@ -622,7 +660,10 @@
 				<dl class="deck-summary" aria-label="Sky summary">
 					<div class="stat stat-place">
 						<dt>Over</dt>
-						<dd>{place.name}</dd>
+						<dd>
+							{place.name}
+							{#if showCoords}<span class="stat-coords">{coordText}</span>{/if}
+						</dd>
 					</div>
 					<div class="stat">
 						<dt>Sky</dt>
@@ -638,65 +679,49 @@
 					</div>
 				</dl>
 			</div>
-			<div class="corner corner-bar">
-				{#if onToggleExpand}
+		{:else}
+			<!-- Narrow: the location disc rides the Back row's far right — it acts on the whole
+			     panel, so it belongs with the panel's own controls (the Weather header's same
+			     arrangement). -->
+			<div class="head-row">
+				{#if onback}
 					<button
 						type="button"
-						class="icon-btn nav-edge"
-						onclick={onToggleExpand}
-						aria-label="Collapse panel"
-						title="Collapse"
+						class="icon-btn back"
+						onclick={onback}
+						aria-label="Back to route map"
+						title="Route map"
 					>
-						{@html MINIMIZE_SVG}
+						{@html ARROW_LEFT_SVG}
 					</button>
 				{/if}
+				{@render locationField()}
 			</div>
-		{:else}
-			{#if onback}
-				<button
-					type="button"
-					class="icon-btn back"
-					onclick={onback}
-					aria-label="Back to route map"
-					title="Route map"
-				>
-					{@html ARROW_LEFT_SVG}
-				</button>
-			{/if}
 			<div class="title-row">
 				<h2 class="dest">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
 				<div class="head-refresh">{@render accentDot()}</div>
 			</div>
-			<div class="corner corner-compact">
-				{#if onToggleExpand}
-					<button
-						type="button"
-						class="icon-btn expand-compact"
-						onclick={onToggleExpand}
-						aria-label={expanded ? 'Collapse panel' : 'Expand panel to fill'}
-						title={expanded ? 'Collapse' : 'Expand to fill'}
-					>
-						{@html expanded ? MINIMIZE_SVG : MAXIMIZE_SVG}
-					</button>
-				{/if}
-			</div>
 		{/if}
 	</header>
 
-	{#if !showBar}
-		<div class="sm-where">
-			<p class="sm-place">
-				Skies over <strong>{place.name}</strong>
-				<span class="sm-time">· {timeText}</span>
-			</p>
-			{@render locationField()}
-		</div>
-	{/if}
-
 	<!-- The sky is the panel's own background: edge to edge, no frame, no footer. In bar
-	     mode it sits absolutely under the floating bar; compact, it takes every pixel below
-	     the search row. -->
+	     mode it sits absolutely under the floating bar; on narrow viewports, it takes every
+	     pixel below the header. -->
 	<div class="sm-stage" bind:this={wrap}>
+		{#if !showBar && stars}
+			<!-- The caption lives ON the sky, top left — where/when/exactly-where, written in
+			     night ink whatever the site theme (the canvas beneath is always night). It
+			     doesn't catch the pointer: the whole stage is for dragging. It waits for the
+			     sky itself (gated on the data, fading in with the first drawn frame): a
+			     caption over "Charting the sky…" would describe a picture that isn't there. -->
+			<div class="sm-where" in:fade={{ duration: 400 }}>
+				<p class="sm-place">
+					Skies over <strong>{place.name}</strong>
+					<span class="sm-time">· {timeText}</span>
+					{#if showCoords}<span class="sm-coords">{coordText}</span>{/if}
+				</p>
+			</div>
+		{/if}
 		{#if loadError}
 			<p class="sm-note">The sky data didn’t load. It’s still up there — try a refresh.</p>
 		{:else if !stars}
@@ -710,7 +735,7 @@
 			onpointerup={onPointerUp}
 			onpointercancel={onPointerUp}
 			onwheel={onWheel}
-			aria-label="Standing under the sky at {place.name} right now: {visibleStars} naked-eye stars above the horizon. Drag to look around — below the bright horizon line lies the sky beneath your feet — and scroll to zoom."
+			aria-label="Standing under the sky at {place.name} right now: {visibleStars} naked-eye stars above the horizon. Drag to look around — below the bright horizon line lies the sky beneath your feet — and scroll or pinch to zoom."
 		></canvas>
 	</div>
 </div>
@@ -723,7 +748,7 @@
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		position: relative; /* anchors the compact expand toggle */
+		position: relative;
 	}
 	.sm-head {
 		flex: none;
@@ -749,10 +774,17 @@
 		--line-strong: rgba(255, 255, 255, 0.34);
 		--aero-face: rgba(255, 255, 255, 0.07);
 	}
-	/* Panel chrome, matched to the generic .surface-head (this map just renders it itself). */
-	.back {
-		align-self: flex-start;
+	/* Panel chrome, matched to the generic .surface-head (this map just renders it itself).
+	   Back caps the left of the row, the location disc the right. */
+	.head-row {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 0.75rem;
 		margin-bottom: clamp(1.5rem, 4vw, 2.5rem);
+	}
+	.head-row .sm-cs {
+		margin-left: auto; /* right-caps the row even when Back is absent */
 	}
 	.dest {
 		margin: 0;
@@ -785,28 +817,7 @@
 		border-radius: 999px;
 		background: var(--accent);
 	}
-	/* Top-right corner: the expand/collapse toggle. */
-	.corner {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-	.corner-compact {
-		position: absolute;
-		top: calc(clamp(1.5rem, 4vw, 2.5rem) + 2px);
-		right: clamp(1.5rem, 4vw, 2.75rem);
-		z-index: 3;
-	}
-	.corner-bar {
-		margin-left: auto; /* the deck (flex:1) pushes this to the far-right cap */
-	}
-	@media (max-width: 960px) {
-		.expand-compact {
-			display: none; /* phone bottom-sheet is already full width */
-		}
-	}
-
-	/* ── Expanded: one super bar (the board's shape) ──────────────────────────── */
+	/* ── Wide: one super bar (the board's shape) ──────────────────────────────── */
 	.sm-head.bar {
 		--bar-inset: clamp(0.7rem, 1.3vw, 1rem);
 		display: flex;
@@ -899,33 +910,50 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
+	/* The exact centre, captioned under the name — for whoever needs WHERE, precisely. */
+	.stat-coords {
+		display: block;
+		font-size: 0.72rem;
+		font-weight: 600;
+		color: var(--sub);
+	}
 
-	/* The compact place/search row — it carries the panel's horizontal inset itself now
-	   (there's no padded body any more; the stage below runs edge to edge). */
+	/* The narrow-viewport caption, laid ON the sky at the stage's top left. It wears fixed
+	   night ink, not the theme tokens — the canvas beneath is always night — with a soft
+	   drop so it stays legible over stars. pointer-events off: the stage is for dragging,
+	   and the caption is a reading, not a control. */
 	.sm-where {
-		display: flex;
-		flex-wrap: wrap;
-		/* Centred, not baseline: the location control is a DISC now, and a disc's synthesized
-		   baseline (its bottom edge) would ride it high against the place line. */
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem 1rem;
-		padding: clamp(1rem, 2vw, 1.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(0.85rem, 1.5vw, 1.25rem);
+		position: absolute;
+		z-index: 1;
+		top: clamp(0.85rem, 2vw, 1.25rem);
+		left: clamp(1.5rem, 4vw, 2.75rem);
+		pointer-events: none;
+		text-shadow: 0 1px 3px rgba(4, 7, 15, 0.85);
 	}
 	.sm-place {
 		margin: 0;
 		font-size: 1.05rem;
+		color: #f2f2ee;
 	}
 	.sm-place strong {
 		font-weight: 700;
 	}
-	.sm-time {
-		color: var(--sub);
+	.sm-time,
+	.sm-coords {
+		color: #9aa4bd;
 	}
-	/* One element, two shapes — CitySearch's exact morph, restated locally (the page's
-	   bubble rules dress `.cs`, and can't know this component's classes). Closed it's a
-	   32px pin disc wearing the family face; open it's the field of the same height, the
-	   pin staying put as the anchor the width grows away from. */
+	/* The exact centre on its own line under the place, the super bar's same stack. */
+	.sm-coords {
+		display: block;
+		font-size: 0.9rem;
+		font-variant-numeric: tabular-nums;
+	}
+	/* One element, two shapes — CitySearch's exact morph. The MATERIAL comes from the page:
+	   the element wears the `cs` class, so the page's bubble rules (gloss, the light-scheme
+	   clear-pill face, the open field's family clothes) reach it directly, keeping it
+	   pixel-identical to the Back disc beside it. Only the morph mechanics and the Flat
+	   resting look live here. Closed it's a 32px pin disc; open it's the field of the same
+	   height, the pin staying put as the anchor the width grows away from. */
 	.sm-cs {
 		position: relative;
 		display: flex;
@@ -934,9 +962,11 @@
 		width: 32px;
 		height: 32px;
 		border-radius: 999px;
+		/* The Back button's exact resting clothes (base.css .icon-btn): the family face
+		   under a line-edge hairline — the two discs share a row, so they share a look. */
 		background: var(--aero-face);
 		color: var(--ink);
-		border: 1px solid transparent;
+		border: 1px solid var(--line-edge);
 		overflow: visible;
 		transition:
 			width 0.24s cubic-bezier(0.4, 0, 0.2, 1),
@@ -953,18 +983,6 @@
 	}
 	.sm-cs:not(.open):hover {
 		background: color-mix(in srgb, var(--ink) 12%, transparent);
-	}
-	/* Bubble: the disc carries the family gloss; OPEN, the field joins the family too — the
-	   ink-mix face and 1px line-edge in place of the drawn outline (the page gives `.cs`
-	   these same clothes; Flat keeps the plain looks above). */
-	:global(html[data-ui='bubble']) .sm-cs:not(.open) {
-		box-shadow: var(--aero-gloss), var(--aero-drop);
-		will-change: transform;
-	}
-	:global(html[data-ui='bubble']) .sm-cs.open {
-		background: var(--aero-face);
-		border-color: var(--line-edge);
-		box-shadow: var(--aero-gloss), var(--aero-drop);
 	}
 	.sm-cs-icon {
 		flex: none;
@@ -1060,9 +1078,9 @@
 		color: var(--sub);
 		white-space: nowrap;
 	}
-	/* Full bleed, truly: no frame, no radius, no footer. Compact, the stage takes every
-	   pixel below the search row; in bar mode it fills the whole panel and the bar floats
-	   on top of it. */
+	/* Full bleed, truly: no frame, no radius, no footer. On narrow viewports the stage takes
+	   every pixel below the search row; in bar mode it fills the whole panel and the bar
+	   floats on top of it. */
 	.sm-stage {
 		position: relative;
 		flex: 1 1 auto;

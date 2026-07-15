@@ -1324,13 +1324,13 @@
 			syncUrl(nv, NO_PARAMS);
 		}
 		// Only the Air Traffic board, the Star Map, and the Presentation Builder are designed to
-		// fill the viewport. PRES forces the full layout on open (its compact form is a fallback);
-		// every other panel is compact-only, so clear any lingering expand intent (e.g. from a
-		// previous ATFC visit) — that keeps panelExpanded true to what's shown, so the panel
-		// renders AND slides out at the right width. ATFC and STAR keep whatever the user last
-		// toggled.
-		if (nv.code === 'PRES') panelExpanded = true;
-		else if (nv.code !== 'ATFC' && nv.code !== 'STAR') panelExpanded = false;
+		// fill the viewport. PRES and STAR force the full layout on open (their compact forms are
+		// fallbacks); every other panel is compact-only, so clear any lingering expand intent
+		// (e.g. from a previous ATFC visit) — that keeps panelExpanded true to what's shown, so
+		// the panel renders AND slides out at the right width. Only ATFC keeps whatever the user
+		// last toggled.
+		if (nv.code === 'PRES' || nv.code === 'STAR') panelExpanded = true;
+		else if (nv.code !== 'ATFC') panelExpanded = false;
 	}
 	// Reuse the open panel across destinations: slide the whole panel out, swap its
 	// content off-screen, then slide it back in. A fresh open (no panel yet) or
@@ -1806,9 +1806,9 @@
 			     WebKit rasterises the backdrop blur once instead of re-blurring every scroll
 			     frame - the fix for Safari big-surface backdrop-filter cost. -->
 			<div class="surface-backdrop" aria-hidden="true"></div>
-			<!-- No generic expand toggle: only the Air Traffic board and Presentation Builder are
-			     designed to fill the viewport, and each renders its own control (ATFC toggles;
-			     PRES is always full). Every other panel is compact-only. -->
+			<!-- No generic expand toggle: only the Air Traffic board, the Star Map, and the
+			     Presentation Builder are designed to fill the viewport (ATFC renders its own
+			     toggle; PRES and STAR are always full). Every other panel is compact-only. -->
 
 			<!-- The panel is reused across destinations: on navigation the whole panel
 			     slides out, swaps to the new node's content while off-screen, then
@@ -1852,16 +1852,11 @@
 						     forced expanded on open (applyView), with no collapse toggle. -->
 						<PresentationBuilder accent={accent[v.code]} title={port.title} onback={goBack} />
 					{:else if v.code === 'STAR'}
-						<!-- The Star Map owns its interior the same way: compact it's an ordinary
-						     panel; expanded it re-lays its header as the board's super bar, with the
-						     location control and a sky summary riding beside the title. -->
-						<StarMap
-							accent={accent[v.code]}
-							title={port.title}
-							expanded={panelExpanded}
-							onback={goBack}
-							onToggleExpand={toggleExpand}
-						/>
+						<!-- The Star Map owns its interior the same way, and — like the Builder —
+						     it's always full-viewport: forced expanded on open (applyView), with no
+						     collapse toggle. Its header is the board's super bar, with the location
+						     control and a sky summary riding beside the title. -->
+						<StarMap accent={accent[v.code]} title={port.title} onback={goBack} />
 					{:else}
 					<div class="surface-head">
 						<div class="head-row">
@@ -3091,8 +3086,18 @@
 			border-left: none;
 			border-radius: 0;
 		}
-		.surface.leaving {
+		/* Both spellings, because the desktop .surface.expanded.leaving (translateX) outranks
+		   a plain .surface.leaving here — without the second selector an EXPANDED panel
+		   (Star Map, the Builder) slid off to the right while every other sheet went down. */
+		.surface.leaving,
+		.surface.expanded.leaving {
 			transform: translateY(100%);
+		}
+		/* The sheet arrives from and leaves through the BOTTOM, so every board's Back arrow
+		   points the way the panel will go: down. One rule for all of them — each Back
+		   button says what it is in its aria-label. */
+		:global(button[aria-label^='Back'] svg) {
+			transform: rotate(-90deg);
 		}
 	}
 	.surface-head {
