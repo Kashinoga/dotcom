@@ -8,11 +8,14 @@
 	// and the dome below projects altitude/azimuth onto a circle. The only network the app
 	// ever touches is the same city geocoder the Weather panel uses, and only while typing.
 	//
-	// The dome is drawn looking UP: north at the top, EAST ON THE LEFT — mirrored from a
-	// ground map, the way every planisphere is printed, because you hold it overhead.
+	// YOU are the camera, standing inside the celestial sphere: the view looks out from the
+	// centre, the way the sky actually looks. Drag turns your head (azimuth and altitude),
+	// the wheel narrows or widens your field of view, and the bright horizon line is the
+	// thing you orient by — look below it and the sphere keeps going, ghosted, through the
+	// earth to the nadir directly beneath your feet.
 
 	import SplitFlap from '$lib/SplitFlap.svelte';
-	import { ARROW_LEFT_SVG, MAXIMIZE_SVG, MINIMIZE_SVG } from '$lib/icons';
+	import { ARROW_LEFT_SVG, MAXIMIZE_SVG, MINIMIZE_SVG, PIN_SVG } from '$lib/icons';
 
 	type Place = { name: string; lat: number; lon: number };
 
@@ -88,6 +91,30 @@
 	// A single input takes EITHER a city name OR "lat, lon". Typed coordinates are a
 	// complete answer on their own — no list to pick from — so they apply on Enter;
 	// anything else debounces into the same /api/places geocoder Weather searches with.
+	//
+	// The control is Weather's morph (see CitySearch): one element, two shapes — a pin
+	// DISC that grows sideways into the field, and shrinks back when it closes. The pin,
+	// not the magnifying glass: this field sets WHERE.
+	let searchOpen = $state(false);
+	let inputEl = $state<HTMLInputElement | undefined>(undefined);
+	let searchEl = $state<HTMLElement | undefined>(undefined);
+	// Opening focuses the field — a search you have to click into isn't open, it's just
+	// visible. Closing clears it, so it never reopens holding stale results.
+	$effect(() => {
+		if (searchOpen) {
+			inputEl?.focus();
+		} else {
+			query = '';
+			hits = [];
+		}
+	});
+	// Clicking away closes it — but not a click INSIDE it, which would shut the thing
+	// mid-search (CitySearch's same guard).
+	function onSearchFocusOut(e: FocusEvent) {
+		const next = e.relatedTarget as Node | null;
+		if (next && searchEl?.contains(next)) return;
+		searchOpen = false;
+	}
 	let query = $state('');
 	let hits = $state<(Place & { id: string; state: string })[]>([]);
 	let searching = $state(false);
@@ -130,14 +157,12 @@
 	}
 	function choose(p: Place & { state?: string }) {
 		setPlace({ name: p.state ? `${p.name}, ${p.state}` : p.name, lat: p.lat, lon: p.lon });
-		query = '';
-		hits = [];
+		searchOpen = false; // an answer closes the field; the disc waits for the next trip
 	}
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
-			e.stopPropagation(); // clears the field, never closes the panel behind it
-			query = '';
-			hits = [];
+			e.stopPropagation(); // closes the search, never the panel behind it
+			searchOpen = false;
 			return;
 		}
 		if (e.key === 'Enter') {
@@ -145,7 +170,7 @@
 			const c = asCoords(query);
 			if (c) {
 				setPlace(c);
-				query = '';
+				searchOpen = false;
 			} else if (hits.length) choose(hits[active]);
 			return;
 		}
@@ -246,10 +271,9 @@
 	}
 
 	// ─── The stage ──────────────────────────────────────────────────────────────
-	// Full-bleed: the canvas fills its box, and the sky fills the canvas — no circular
-	// letterbox. The view opens ZOOMED IN on the zenith; drag pans across the sky, the
-	// wheel zooms, and the horizon ring (with the ground beyond it) is simply somewhere
-	// out there to pan to.
+	// Full-bleed: the canvas fills its box, and the view fills the canvas — a first-person
+	// camera at the sphere's centre. Drag turns your head; the wheel changes the field of
+	// view.
 	let wrap = $state<HTMLDivElement | undefined>(undefined);
 	let canvas = $state<HTMLCanvasElement | undefined>(undefined);
 	let vw = $state(0);
@@ -264,22 +288,22 @@
 		return () => ro.disconnect();
 	});
 
-	// The view: zoom is the horizon radius as a multiple of the fit-the-box radius, and
-	// pan is the zenith's offset from the canvas centre, in CSS pixels.
-	const ZOOM_MIN = 0.55; // the whole disc, horizon to horizon, with a little air
-	const ZOOM_MAX = 4;
-	let zoom = $state(1.6);
-	let panX = $state(0);
-	let panY = $state(0);
-	// Pan can't strand the sky: the zenith stays within one horizon-radius of centre.
-	const clampPan = () => {
-		const lim = (Math.min(vw, vh) / 2) * zoom;
-		panX = Math.max(-lim, Math.min(lim, panX));
-		panY = Math.max(-lim, Math.min(lim, panY));
-	};
+	// The camera: where you're looking (azimuth from north through east, altitude), and
+	// how wide your eyes are open. Pitch stops shy of straight up/down — at ±90° "which
+	// way is up on screen" stops meaning anything (the same gimbal squeeze every
+	// first-person camera ducks).
+	const FOV_MIN = 25; // zoomed in
+	const FOV_MAX = 120; // zoomed out — stereographic stays honest this wide
+	const PITCH_LIM = 89;
+	let viewAz = $state(0); // start facing north…
+	let viewAlt = $state(50); // …head comfortably tilted back
+	let fov = $state(75);
 	let dragging = $state(false);
 	let lastX = 0;
 	let lastY = 0;
+	// Degrees per dragged pixel, matched to what's on screen so a drag feels like grabbing
+	// the sky: the visible field divided by the visible pixels.
+	const degPerPx = () => fov / Math.max(1, Math.min(vw, vh));
 	function onPointerDown(e: PointerEvent) {
 		dragging = true;
 		lastX = e.clientX;
@@ -288,25 +312,21 @@
 	}
 	function onPointerMove(e: PointerEvent) {
 		if (!dragging) return;
-		panX += e.clientX - lastX;
-		panY += e.clientY - lastY;
+		const k = degPerPx();
+		// Dragging moves the SKY with the pointer: pull it right and you turn to face what
+		// was on your left; pull it down and your gaze climbs.
+		viewAz = (((viewAz - (e.clientX - lastX) * k) % 360) + 360) % 360;
+		viewAlt = Math.max(-PITCH_LIM, Math.min(PITCH_LIM, viewAlt + (e.clientY - lastY) * k));
 		lastX = e.clientX;
 		lastY = e.clientY;
-		clampPan();
 	}
 	function onPointerUp() {
 		dragging = false;
 	}
 	function onWheel(e: WheelEvent) {
 		e.preventDefault(); // the wheel zooms the sky, never scrolls the panel under it
-		const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-		const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom * factor));
-		// Pan is proportional to the horizon radius, so scaling it with the zoom keeps
-		// whatever is at the canvas centre AT the centre while the sky breathes around it.
-		panX *= next / zoom;
-		panY *= next / zoom;
-		zoom = next;
-		clampPan();
+		const factor = e.deltaY < 0 ? 1 / 1.12 : 1.12;
+		fov = Math.max(FOV_MIN, Math.min(FOV_MAX, fov * factor));
 	}
 
 	// What the caption reports, computed during the same pass that draws.
@@ -326,118 +346,167 @@
 		if (!ctx) return;
 		ctx.scale(dpr, dpr);
 
-		// The zenith sits at the canvas centre plus the pan; the horizon radius is the
-		// fit-the-box radius times the zoom.
-		const cx = vw / 2 + panX;
-		const cy = vh / 2 + panY;
-		const R = (Math.min(vw, vh) / 2) * zoom;
-		// Looking up: r grows away from the zenith, east lands on the LEFT.
-		const project = (alt: number, az: number): [number, number] => {
-			const r = ((90 - alt) / 90) * R;
-			return [cx - r * Math.sin(az * RAD), cy - r * Math.cos(az * RAD)];
+		// ── The camera ── You stand at the sphere's centre. World frame is (North, East,
+		// Up); the camera basis comes from where you're looking, with no roll — "up on
+		// screen" always leans toward the zenith. The projection is STEREOGRAPHIC about
+		// the view direction: like a perspective lens but honest out to very wide fields,
+		// so FOV_MAX doesn't smear the corners the way a straight gnomonic would.
+		const cx = vw / 2;
+		const cy = vh / 2;
+		const a0 = viewAlt * RAD;
+		const z0 = viewAz * RAD;
+		const F = [Math.cos(a0) * Math.cos(z0), Math.cos(a0) * Math.sin(z0), Math.sin(a0)]; // forward
+		// right = Up × F, normalised (never degenerate: pitch is clamped shy of ±90°).
+		const rl = Math.hypot(F[1], F[0]);
+		const Rt = [-F[1] / rl, F[0] / rl, 0];
+		// camera-up completes the frame: U = F × right.
+		const Up = [
+			F[1] * Rt[2] - F[2] * Rt[1],
+			F[2] * Rt[0] - F[0] * Rt[2],
+			F[0] * Rt[1] - F[1] * Rt[0]
+		];
+		// Screen scale: half the box spans half the field of view.
+		const S = Math.min(vw, vh) / 2 / (2 * Math.tan((fov / 4) * RAD));
+		// Project a sky direction. Returns null when it's too far behind you to draw
+		// (stereographic sends the antipode to infinity — cut well before that).
+		const project = (alt: number, az: number): [number, number] | null => {
+			const a = alt * RAD;
+			const z = az * RAD;
+			const P = [Math.cos(a) * Math.cos(z), Math.cos(a) * Math.sin(z), Math.sin(a)];
+			const zc = P[0] * F[0] + P[1] * F[1] + P[2] * F[2];
+			if (zc < -0.75) return null;
+			const k = (2 * S) / (1 + zc);
+			const xc = P[0] * Rt[0] + P[1] * Rt[1] + P[2] * Rt[2];
+			const yc = P[0] * Up[0] + P[1] * Up[1] + P[2] * Up[2];
+			return [cx + k * xc, cy - k * yc];
+		};
+		const onScreen = (p: [number, number]) =>
+			p[0] > -80 && p[0] < vw + 80 && p[1] > -80 && p[1] < vh + 80;
+
+		// The night, floor to ceiling. Always night, whatever the site theme: it is a
+		// picture of the night sky, the way the Weather panel's photo is a picture. The
+		// wash leans with your gaze — brighter toward the zenith end of the view.
+		const g = ctx.createLinearGradient(0, 0, 0, vh);
+		const upness = viewAlt / 90; // 1 looking straight up, −1 straight down
+		g.addColorStop(0, upness >= 0 ? '#111830' : '#0a0f1f');
+		g.addColorStop(1, upness >= 0 ? '#070b16' : '#04070f');
+		ctx.fillStyle = g;
+		ctx.fillRect(0, 0, vw, vh);
+
+		// A polyline along a constant-altitude circle, projected — the horizon and the
+		// altitude ladder. Sampled finely enough that the curve is smooth at any FOV;
+		// broken wherever a stretch leaves the projection.
+		const altRing = (alt: number) => {
+			ctx.beginPath();
+			let pen = false;
+			for (let az = 0; az <= 360; az += 2) {
+				const p = project(alt, az);
+				if (!p || !onScreen(p)) {
+					pen = false;
+					continue;
+				}
+				if (pen) ctx.lineTo(p[0], p[1]);
+				else ctx.moveTo(p[0], p[1]);
+				pen = true;
+			}
+			ctx.stroke();
 		};
 
-		// The ground first — everything beyond the horizon ring — then the bowl of night
-		// over it, clipped to the ring. Always night, whatever the site theme: it is a
-		// picture of the night sky, the way the Weather panel's photo is a picture.
-		ctx.fillStyle = '#04060c';
-		ctx.fillRect(0, 0, vw, vh);
-		const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
-		g.addColorStop(0, '#131a30');
-		g.addColorStop(0.7, '#0b1122');
-		g.addColorStop(1, '#060a16');
-		ctx.beginPath();
-		ctx.arc(cx, cy, R, 0, Math.PI * 2);
-		ctx.fillStyle = g;
-		ctx.fill();
-
-		// Everything on the sky clips to the horizon.
-		ctx.save();
-		ctx.beginPath();
-		ctx.arc(cx, cy, R, 0, Math.PI * 2);
-		ctx.clip();
-
-		// Altitude rings at 30° and 60°, and the zenith — the ladder your eye climbs.
-		ctx.strokeStyle = 'rgba(150,170,220,0.12)';
+		// The altitude ladder, above the horizon and below it.
 		ctx.lineWidth = 1;
-		for (const alt of [30, 60]) {
-			ctx.beginPath();
-			ctx.arc(cx, cy, ((90 - alt) / 90) * R, 0, Math.PI * 2);
-			ctx.stroke();
+		for (const alt of [60, 30, -30, -60]) {
+			ctx.strokeStyle = alt > 0 ? 'rgba(150,170,220,0.12)' : 'rgba(150,170,220,0.06)';
+			altRing(alt);
 		}
-		ctx.fillStyle = 'rgba(150,170,220,0.35)';
-		ctx.beginPath();
-		ctx.arc(cx, cy, 1.5, 0, Math.PI * 2);
-		ctx.fill();
+		// Zenith and nadir, so straight-up and straight-down have a landmark.
+		for (const [alt, style] of [
+			[90, 'rgba(150,170,220,0.4)'],
+			[-90, 'rgba(150,170,220,0.2)']
+		] as const) {
+			const p = project(alt, 0);
+			if (p && onScreen(p)) {
+				ctx.fillStyle = style;
+				ctx.beginPath();
+				ctx.arc(p[0], p[1], 2, 0, Math.PI * 2);
+				ctx.fill();
+			}
+		}
 
-		// Constellation figures. Each leg is checked on its own: a leg dives below the
-		// horizon (or wraps oddly past the projection's edge), only that leg goes.
-		ctx.strokeStyle = 'rgba(140,165,235,0.35)';
-		ctx.lineWidth = 1;
-		ctx.beginPath();
+		// Constellation figures — whichever legs are in view, above the horizon at full
+		// presence, below it ghosted (judged at the leg's midpoint; at leg lengths a hard
+		// split is invisible).
+		const above = new Path2D();
+		const under = new Path2D();
+		const maxLeg = Math.min(vw, vh) * 1.5; // a leg past the seam projects absurdly long
 		for (const f of lines) {
 			for (const seg of f.geometry.coordinates) {
 				for (let i = 1; i < seg.length; i++) {
 					const [a1, z1] = altAz(seg[i - 1][0], seg[i - 1][1], lat, lst);
 					const [a2, z2] = altAz(seg[i][0], seg[i][1], lat, lst);
-					if (a1 < -6 && a2 < -6) continue;
 					const p1 = project(a1, z1);
 					const p2 = project(a2, z2);
-					if (Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) > R * 0.9) continue;
-					ctx.moveTo(p1[0], p1[1]);
-					ctx.lineTo(p2[0], p2[1]);
+					if (!p1 || !p2 || (!onScreen(p1) && !onScreen(p2))) continue;
+					if (Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) > maxLeg) continue;
+					const path = (a1 + a2) / 2 >= 0 ? above : under;
+					path.moveTo(p1[0], p1[1]);
+					path.lineTo(p2[0], p2[1]);
 				}
 			}
 		}
-		ctx.stroke();
+		ctx.lineWidth = 1;
+		ctx.strokeStyle = 'rgba(140,165,235,0.35)';
+		ctx.stroke(above);
+		ctx.strokeStyle = 'rgba(140,165,235,0.13)';
+		ctx.stroke(under);
 
-		// The stars, brightest largest. Size carries magnitude; the tint carries B−V.
-		// The scale follows the zoom (zooming in genuinely enlarges the sky) but is capped:
-		// at deep zoom a star should read as a bright point, not a golf ball.
+		// The stars, brightest largest. Size carries magnitude; the tint carries B−V; the
+		// scale follows the zoom (narrowing your view genuinely enlarges the sky) but is
+		// capped: zoomed right in, a star should read as a bright point, not a golf ball.
+		// Below the horizon they ghost — visible enough to chase, dim enough that up
+		// stays up. `visibleStars` still counts what's genuinely risen, view or no view.
 		let count = 0;
-		const scale = Math.min(2.2, R / 320);
+		const scale = Math.min(2.2, Math.max(0.7, S / 420));
 		for (const s of stars) {
 			const [ra, dec] = s.geometry.coordinates;
 			const [alt, az] = altAz(ra, dec, lat, lst);
-			if (alt < -0.5) continue;
-			count++;
-			const [x, y] = project(alt, az);
+			if (alt >= -0.5) count++;
+			const p = project(alt, az);
+			if (!p || !onScreen(p)) continue;
 			const r = Math.max(0.6, 2.9 - 0.46 * s.properties.mag) * scale;
 			ctx.beginPath();
-			ctx.arc(x, y, r, 0, Math.PI * 2);
+			ctx.arc(p[0], p[1], r, 0, Math.PI * 2);
 			ctx.fillStyle = starTint(s.properties.bv);
-			ctx.globalAlpha = Math.max(0.35, Math.min(1, 1.15 - s.properties.mag * 0.13));
+			const a = Math.max(0.35, Math.min(1, 1.15 - s.properties.mag * 0.13));
+			ctx.globalAlpha = alt >= 0 ? a : a * 0.3;
 			ctx.fill();
 		}
 		ctx.globalAlpha = 1;
 
-		// Constellation names, once their centre is comfortably up. Rank sizes them the way
-		// the dataset intends: the household names first.
+		// Constellation names, above the horizon and (ghosted) below it. The band within
+		// ±8° of the horizon stays clear — a name straddling the bright line reads as
+		// neither up nor down. Rank sizes them the way the dataset intends.
 		ctx.textAlign = 'center';
 		ctx.textBaseline = 'middle';
-		ctx.fillStyle = 'rgba(190,205,245,0.5)';
 		for (const f of names) {
 			const [ra, dec] = f.geometry.coordinates;
 			const [alt, az] = altAz(ra, dec, lat, lst);
-			if (alt < 12) continue;
+			if (alt > -8 && alt < 8) continue;
+			const p = project(alt, az);
+			if (!p || !onScreen(p)) continue;
+			ctx.fillStyle = alt >= 0 ? 'rgba(190,205,245,0.5)' : 'rgba(190,205,245,0.18)';
 			const rank = +f.properties.rank || 3;
 			const px = (rank === 1 ? 13 : rank === 2 ? 11 : 9.5) * Math.max(scale, 0.85);
 			ctx.font = `600 ${px}px Jost, system-ui, sans-serif`;
-			const [x, y] = project(alt, az);
-			ctx.fillText(f.properties.name, x, y);
+			ctx.fillText(f.properties.name, p[0], p[1]);
 		}
-		ctx.restore();
 
-		// The horizon ring and the cardinals — the edge of the sky, wherever you've panned
-		// it. The letters sit just INSIDE the ring now (there's no letterbox margin to hold
-		// them outside), so they arrive with the horizon when you pan out to it.
-		ctx.beginPath();
-		ctx.arc(cx, cy, R, 0, Math.PI * 2);
+		// The horizon — the line you orient by, drawn last and brightest. Everything above
+		// it is up; everything below is through the earth. The cardinals stand ON it.
 		ctx.strokeStyle = 'rgba(150,170,220,0.45)';
 		ctx.lineWidth = 1.5;
-		ctx.stroke();
+		altRing(0);
 		ctx.textAlign = 'center';
-		ctx.textBaseline = 'middle';
+		ctx.textBaseline = 'bottom';
 		ctx.font = `700 ${Math.max(12, Math.min(20, 13 * scale))}px Jost, system-ui, sans-serif`;
 		for (const [label, az] of [
 			['N', 0],
@@ -445,9 +514,10 @@
 			['S', 180],
 			['W', 270]
 		] as const) {
-			const r = R - 16;
+			const p = project(2, az); // a step above the line, standing on it
+			if (!p || !onScreen(p)) continue;
 			ctx.fillStyle = label === 'N' ? accent : 'rgba(150,170,220,0.8)';
-			ctx.fillText(label, cx - r * Math.sin(az * RAD), cy - r * Math.cos(az * RAD));
+			ctx.fillText(label, p[0], p[1]);
 		}
 
 		visibleStars = count;
@@ -467,25 +537,47 @@
 {/snippet}
 
 {#snippet locationField()}
-	<div class="sm-search" role="search">
+	<!-- Weather's morph, worn here: closed it's a 32px pin disc; open it's the field, grown
+	     sideways from the same spot (see CitySearch for the two-shapes-one-element notes). -->
+	<div class="sm-cs" class:open={searchOpen} bind:this={searchEl} onfocusout={onSearchFocusOut}>
+		<button
+			type="button"
+			class="sm-cs-icon"
+			aria-label={searchOpen ? 'Close location search' : 'Set location'}
+			title={searchOpen ? 'Close' : 'Set location'}
+			aria-expanded={searchOpen}
+			onclick={() => (searchOpen = !searchOpen)}
+		>
+			{@html PIN_SVG}
+		</button>
 		<input
-			class="sm-input"
-			type="text"
+			bind:this={inputEl}
+			type="search"
+			class="sm-cs-input"
 			placeholder="City, or lat, lon"
+			autocomplete="off"
+			spellcheck="false"
+			role="combobox"
+			aria-expanded={hits.length > 0}
+			aria-controls="sm-cs-results"
 			aria-label="Set location: a city name, or latitude, longitude"
+			tabindex={searchOpen ? 0 : -1}
 			value={query}
 			oninput={(e) => onQuery(e.currentTarget.value)}
 			onkeydown={onKey}
 		/>
-		{#if hits.length}
-			<ul class="sm-hits" role="listbox">
+		{#if searchOpen && hits.length}
+			<ul class="sm-hits" id="sm-cs-results" role="listbox">
 				{#each hits as h, i (h.id)}
 					<li>
+						<!-- pointerdown swallowed so the input never blurs — CitySearch's Safari/
+						     Firefox lesson: a blur here unmounts the list before its click lands. -->
 						<button
 							type="button"
 							role="option"
 							aria-selected={i === active}
 							class:active={i === active}
+							onpointerdown={(e) => e.preventDefault()}
 							onclick={() => choose(h)}
 							onmouseenter={() => (active = i)}
 						>
@@ -494,7 +586,7 @@
 					</li>
 				{/each}
 			</ul>
-		{:else if searching}
+		{:else if searchOpen && searching}
 			<p class="sm-searching">Searching…</p>
 		{/if}
 	</div>
@@ -618,7 +710,7 @@
 			onpointerup={onPointerUp}
 			onpointercancel={onPointerUp}
 			onwheel={onWheel}
-			aria-label="The night sky over {place.name} right now: {visibleStars} naked-eye stars and the constellations above the horizon, north at the top, east on the left. Drag to pan, scroll to zoom."
+			aria-label="Standing under the sky at {place.name} right now: {visibleStars} naked-eye stars above the horizon. Drag to look around — below the bright horizon line lies the sky beneath your feet — and scroll to zoom."
 		></canvas>
 	</div>
 </div>
@@ -813,7 +905,9 @@
 	.sm-where {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: baseline;
+		/* Centred, not baseline: the location control is a DISC now, and a disc's synthesized
+		   baseline (its bottom edge) would ride it high against the place line. */
+		align-items: center;
 		justify-content: space-between;
 		gap: 0.5rem 1rem;
 		padding: clamp(1rem, 2vw, 1.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(0.85rem, 1.5vw, 1.25rem);
@@ -828,44 +922,105 @@
 	.sm-time {
 		color: var(--sub);
 	}
-	.sm-search {
+	/* One element, two shapes — CitySearch's exact morph, restated locally (the page's
+	   bubble rules dress `.cs`, and can't know this component's classes). Closed it's a
+	   32px pin disc wearing the family face; open it's the field of the same height, the
+	   pin staying put as the anchor the width grows away from. */
+	.sm-cs {
 		position: relative;
-		flex: 1 1 14rem;
-		max-width: 18rem;
-	}
-	.sm-input {
-		width: 100%;
-		padding: 0.45rem 0.85rem;
-		font: inherit;
-		font-size: 0.9rem;
-		color: var(--ink);
-		background: color-mix(in srgb, var(--ink) 4%, transparent);
-		border: 1px solid var(--line-edge);
+		display: flex;
+		align-items: center;
+		flex: none;
+		width: 32px;
+		height: 32px;
 		border-radius: 999px;
-	}
-	.sm-input:focus-visible {
-		outline: var(--focus-ring);
-		outline-offset: 2px;
-	}
-	.sm-input::placeholder {
-		color: var(--sub);
-	}
-	/* Bubble: the field joins the family — the ink-mix face with the shared rim-light gloss
-	   (restated locally, like Weather's controls: the page's depth list can't know about
-	   this component's classes). Flat keeps the plain outline above. */
-	:global(html[data-ui='bubble']) .sm-input {
 		background: var(--aero-face);
+		color: var(--ink);
+		border: 1px solid transparent;
+		overflow: visible;
+		transition:
+			width 0.24s cubic-bezier(0.4, 0, 0.2, 1),
+			background 0.2s ease,
+			color 0.2s ease,
+			border-color 0.2s ease,
+			box-shadow 0.2s ease;
+	}
+	.sm-cs.open {
+		width: min(20rem, 55vw);
+		background: none;
+		color: var(--ink);
+		border-color: var(--line-strong);
+	}
+	.sm-cs:not(.open):hover {
+		background: color-mix(in srgb, var(--ink) 12%, transparent);
+	}
+	/* Bubble: the disc carries the family gloss; OPEN, the field joins the family too — the
+	   ink-mix face and 1px line-edge in place of the drawn outline (the page gives `.cs`
+	   these same clothes; Flat keeps the plain looks above). */
+	:global(html[data-ui='bubble']) .sm-cs:not(.open) {
+		box-shadow: var(--aero-gloss), var(--aero-drop);
+		will-change: transform;
+	}
+	:global(html[data-ui='bubble']) .sm-cs.open {
+		background: var(--aero-face);
+		border-color: var(--line-edge);
 		box-shadow: var(--aero-gloss), var(--aero-drop);
 	}
+	.sm-cs-icon {
+		flex: none;
+		display: grid;
+		place-items: center;
+		width: 30px;
+		height: 30px;
+		padding: 0;
+		color: inherit;
+		background: none;
+		border: 0;
+		border-radius: 999px;
+		cursor: pointer;
+	}
+	.sm-cs-icon :global(svg) {
+		display: block;
+		width: 1.05rem;
+		height: 1.05rem;
+	}
+	.sm-cs-input {
+		flex: 1 1 auto;
+		min-width: 0;
+		width: 0;
+		height: 100%;
+		padding: 0;
+		font: inherit;
+		font-size: 0.95rem;
+		color: var(--ink);
+		background: none;
+		border: 0;
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.18s ease;
+	}
+	.sm-cs.open .sm-cs-input {
+		padding: 0 0.85rem 0 0.15rem;
+		opacity: 1;
+		pointer-events: auto;
+	}
+	.sm-cs-input:focus-visible {
+		outline: none; /* the field's own border is the focus affordance */
+	}
+	.sm-cs-input::placeholder {
+		color: var(--sub);
+	}
+	/* The results hang under the field, aligned to its right edge (the disc end). */
 	.sm-hits {
 		position: absolute;
 		z-index: 5;
-		top: calc(100% + 0.35rem);
-		left: 0;
+		top: calc(100% + 0.4rem);
 		right: 0;
+		width: min(20rem, 55vw);
 		margin: 0;
 		padding: 0.3rem;
 		list-style: none;
+		text-align: left;
 		background: var(--panel-fill-solid, var(--paper));
 		border: 1px solid var(--line-edge);
 		border-radius: 12px;
@@ -897,10 +1052,13 @@
 	}
 	.sm-searching {
 		position: absolute;
-		top: calc(100% + 0.35rem);
+		z-index: 5;
+		top: calc(100% + 0.4rem);
+		right: 0;
 		margin: 0;
 		font-size: 0.85rem;
 		color: var(--sub);
+		white-space: nowrap;
 	}
 	/* Full bleed, truly: no frame, no radius, no footer. Compact, the stage takes every
 	   pixel below the search row; in bar mode it fills the whole panel and the bar floats
