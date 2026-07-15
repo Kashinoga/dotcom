@@ -2315,7 +2315,11 @@
 		border-radius: 12px;
 	}
 	:global(html[data-ui='bubble']) .sky-pop {
-		background: var(--panel-sheen), var(--panel-fill);
+		/* No sheen: it fades over 20% of ELEMENT height, and on a card this short that's
+		   a thick Aero wash across the top (the panels wear it across 20% of a whole
+		   viewport, where it reads as a whisper). The rim-light inset below draws the top
+		   edge; the fill and frost carry the material. */
+		background: var(--panel-fill);
 		-webkit-backdrop-filter: var(--panel-blur);
 		backdrop-filter: var(--panel-blur);
 		border-color: var(--panel-edge);
@@ -2524,7 +2528,11 @@
 		border-radius: 12px;
 	}
 	:global(html[data-ui='bubble']) .sky-pop {
-		background: var(--panel-sheen), var(--panel-fill);
+		/* No sheen: it fades over 20% of ELEMENT height, and on a card this short that's
+		   a thick Aero wash across the top (the panels wear it across 20% of a whole
+		   viewport, where it reads as a whisper). The rim-light inset below draws the top
+		   edge; the fill and frost carry the material. */
+		background: var(--panel-fill);
 		-webkit-backdrop-filter: var(--panel-blur);
 		backdrop-filter: var(--panel-blur);
 		border-color: var(--panel-edge);
