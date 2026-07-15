@@ -1637,6 +1637,11 @@
 		width: 100%;
 		border: 0;
 		background: var(--page);
+		/* Matches the slab's inner curve (14px − 1px border): WebKit's rounded overflow
+		   clip antialiases composited children imperfectly, and the frame's own page
+		   leaked a white arc outside the bottom corners. A child that curves itself
+		   leaves the clip nothing to shave. */
+		border-radius: 0 0 13px 13px;
 	}
 	/* A freshly displayed template gives the preview PANE its own entrance — the slide's own
 	   animations stay disabled in the editor (so text is editable at rest), so this fades and
