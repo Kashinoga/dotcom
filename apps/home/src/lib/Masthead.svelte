@@ -177,14 +177,12 @@
 		   box edge by ~0.05em. Both scale with the wordmark. The small positive top keeps
 		   the tagline clear of the wordmark's descenders. (Coefficients are optical.) */
 		margin: calc(var(--wordmark) * 0.05) 0 0 calc(var(--wordmark) * 0.05);
-		/* The motto speaks in a different voice: Fraunces italic, white against the sky —
-		   a soft ink breath behind it keeps it legible on the pale phases (and reads as
-		   embossing on a solid background). */
+		/* The motto speaks in a different voice: Fraunces italic, white against the sky.
+		   No shadow — the letterforms stand on their own. */
 		font-family: var(--font-motto);
 		font-style: italic;
 		font-size: clamp(1rem, 2.3vw, 1.25rem);
 		color: #ffffff;
-		text-shadow: 0 1px 10px light-dark(rgba(24, 32, 48, 0.5), rgba(0, 0, 0, 0.45));
 	}
 	/* Emphasis word ("Different") — italic, carrying the accent of the phrase. */
 	.tw.em {
