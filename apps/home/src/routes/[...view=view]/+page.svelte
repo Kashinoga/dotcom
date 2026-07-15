@@ -10,6 +10,7 @@
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
 	import PresentationBuilder from '$lib/PresentationBuilder.svelte';
 	import Weather from '$lib/Weather.svelte';
+	import StarMap from '$lib/StarMap.svelte';
 	import CitySearch from '$lib/CitySearch.svelte';
 	import {
 		CLOUD_SVG,
@@ -25,7 +26,8 @@
 		GRID_SVG,
 		GEAR_SVG,
 		EXTERNAL_SVG,
-		CLOUD_SUN_SVG
+		CLOUD_SUN_SVG,
+		STARS_SVG
 	} from '$lib/icons';
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
@@ -41,6 +43,7 @@
 	} from '$lib/weather-state.svelte';
 	import faviconPres from '$lib/assets/favicon-pres.svg';
 	import faviconWeather from '$lib/assets/favicon-weather.svg';
+	import faviconStar from '$lib/assets/favicon-star.svg';
 	import { airports, accent, connections, portDescriptions, HUB } from '$lib/network';
 	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
 	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
@@ -686,11 +689,16 @@
 	};
 	// The apps the Apps panel shows as CARDS in its body — so they must not also appear as chips in
 	// its Related rail. Everywhere else the rail is unchanged, and the hub stays in it either way.
-	const APP_CARDS = ['ATFC', 'PRES', 'WTHR'];
+	// Alphabetical by TITLE: the cards' order is presentation, not hierarchy, so a new
+	// app files itself in rather than landing wherever it was added.
+	const APP_CARDS = ['ATFC', 'PRES', 'WTHR', 'STAR'].sort((a, b) =>
+		airports[a].title.localeCompare(airports[b].title)
+	);
 	const APP_ICONS: Record<string, string> = {
 		ATFC: AIRPLANE_SVG,
 		PRES: PRESENTATION_SVG,
-		WTHR: CLOUD_SUN_SVG
+		WTHR: CLOUD_SUN_SVG,
+		STAR: STARS_SVG
 	};
 	// A mark per destination, worn by its chip in the Related rail. It replaced a plain accent dot:
 	// the dot named the LINE a stop sits on and nothing about the stop itself. The mark says what the
@@ -1281,9 +1289,11 @@
 				? faviconPres
 				: view?.kind === 'port' && view.code === 'WTHR'
 					? faviconWeather
-					: dev
-						? faviconDev
-						: faviconSite
+					: view?.kind === 'port' && view.code === 'STAR'
+						? faviconStar
+						: dev
+							? faviconDev
+							: faviconSite
 	);
 	const headTitle = $derived(
 		selectedField ? `Air Traffic · ${selectedField.name} — ${SITE}` : viewTitle(view)
@@ -1313,13 +1323,14 @@
 			refresh = null;
 			syncUrl(nv, NO_PARAMS);
 		}
-		// Only the Air Traffic board and the Presentation Builder are designed to fill the viewport.
-		// PRES forces the full layout on open (its compact form is a fallback); every other panel is
-		// compact-only, so clear any lingering expand intent (e.g. from a previous ATFC visit) —
-		// that keeps panelExpanded true to what's shown, so the panel renders AND slides out at the
-		// right width. ATFC keeps whatever the user last toggled.
+		// Only the Air Traffic board, the Star Map, and the Presentation Builder are designed to
+		// fill the viewport. PRES forces the full layout on open (its compact form is a fallback);
+		// every other panel is compact-only, so clear any lingering expand intent (e.g. from a
+		// previous ATFC visit) — that keeps panelExpanded true to what's shown, so the panel
+		// renders AND slides out at the right width. ATFC and STAR keep whatever the user last
+		// toggled.
 		if (nv.code === 'PRES') panelExpanded = true;
-		else if (nv.code !== 'ATFC') panelExpanded = false;
+		else if (nv.code !== 'ATFC' && nv.code !== 'STAR') panelExpanded = false;
 	}
 	// Reuse the open panel across destinations: slide the whole panel out, swap its
 	// content off-screen, then slide it back in. A fresh open (no panel yet) or
@@ -1840,6 +1851,17 @@
 						     three-column editor), like the Traffic board. It's always full-viewport —
 						     forced expanded on open (applyView), with no collapse toggle. -->
 						<PresentationBuilder accent={accent[v.code]} title={port.title} onback={goBack} />
+					{:else if v.code === 'STAR'}
+						<!-- The Star Map owns its interior the same way: compact it's an ordinary
+						     panel; expanded it re-lays its header as the board's super bar, with the
+						     location control and a sky summary riding beside the title. -->
+						<StarMap
+							accent={accent[v.code]}
+							title={port.title}
+							expanded={panelExpanded}
+							onback={goBack}
+							onToggleExpand={toggleExpand}
+						/>
 					{:else}
 					<div class="surface-head">
 						<div class="head-row">
@@ -2933,12 +2955,17 @@
 		   until the text is safely legible. See --panel-veil / measureVeil. */
 		background: var(--panel-glass);
 	}
-	/* Bubble keeps its own material: frosted acrylic — a sheen over a translucent tint, with a real
-	   backdrop blur. Flat's glass is a flat wash with no live filter; Bubble's is glass you can tell
-	   is glass. (This rule went missing for a moment when the glass landed, and Bubble quietly lost
-	   its blur — the `glass` suite caught it.) */
+	/* Bubble keeps its own material: frosted acrylic — a translucent tint with a real backdrop
+	   blur. Flat's glass is a flat wash with no live filter; Bubble's is glass you can tell is
+	   glass. (This rule went missing for a moment when the glass landed, and Bubble quietly lost
+	   its blur — the `glass` suite caught it.)
+	   NO --panel-sheen here, deliberately: the edge-kiss gloss says "here is this surface's lip",
+	   and a full-height panel HAS no lip — its top edge is the viewport's. The light read as a
+	   stray glow pinned to the top of the screen. The aero feel stays in the blur, the tint, and
+	   the family gloss every control wears; the sheen still belongs to the CARDS, whose lips are
+	   real. */
 	:global(html[data-ui='bubble']) .surface-backdrop {
-		background: var(--panel-sheen), var(--panel-fill);
+		background: var(--panel-fill);
 		-webkit-backdrop-filter: var(--panel-blur);
 		backdrop-filter: var(--panel-blur);
 	}
@@ -3029,9 +3056,9 @@
 		/* --panel-fill is a COLOUR, and a colour is only legal in a shorthand's LAST layer —
 		   raw in the middle it invalidates the whole declaration (silently: the blur lines
 		   below still applied, leaving a see-through pane). The gradient wrapper makes it a
-		   layer image. */
+		   layer image. (No --panel-sheen here either — same reasoning as the compact rule:
+		   a full-viewport surface has no lip for an edge kiss to light.) */
 		background:
-			var(--panel-sheen),
 			linear-gradient(var(--panel-fill), var(--panel-fill)),
 			var(--sky, light-dark(#ffffff, #000000));
 		-webkit-backdrop-filter: none;
@@ -3904,11 +3931,22 @@
 	   reads through it, as it does everywhere else — with the border thinned to the same
 	   1px line-edge the rest of the family draws. They used to keep a special paper-72
 	   face here, and it was the odd one out once the app settled on the symmetric ink mix.
-	   Note .sky-opt.on still wins with its ink border (0,3,0 scoped beats this 0,2,1),
-	   which is right — there it matches the ink fill. */
+	   (.sky-opt.on used to keep Flat's solid ink pill past this rule; it wears the seg's
+	   selected material now — see the selected rules below.) */
 	:global(html[data-ui='bubble'] .seg),
 	:global(html[data-ui='bubble'] .sky-opt) {
 		border-width: 1px;
+	}
+	/* The Settings action pill (Enter Edit Mode) joins the family too. Its base look is a
+	   solid ink pill — paper text on an ink fill — and the light scheme's clear-pills list
+	   below already re-dresses it as glass, but DARK kept the base fill: a stark white
+	   button in a column of glass. One rule for both schemes: the family face, ink text,
+	   the family hairline. (The ghost variants — Reset, Clear — sit at 0,3,0 scoped and
+	   keep their own transparent look past this 0,2,1.) */
+	:global(html[data-ui='bubble'] .edit-enter) {
+		color: var(--ink);
+		background: var(--aero-face);
+		border-color: var(--line-edge);
 	}
 
 	/* NO sheen gradient — deliberately. There used to be a white-to-transparent wash here,
@@ -4059,6 +4097,17 @@
 	   inside the edge (the glassy double rim), and a soft halo where the frame used to be. */
 	:global(html[data-ui='bubble'] .seg.on),
 	:global(html[data-ui='bubble'] .sky-chip.on) {
+		border-color: color-mix(in srgb, var(--ink) 22%, transparent);
+	}
+	/* The sky chips' selected state (Skybox Theme, Starry Night) joins that language too.
+	   Flat's solid ink pill — inverted text on an ink fill — read as a hard opaque block
+	   in a row of glass, the one control still saying "on" with paint instead of light.
+	   Bubble re-dresses it in the seg's exact selected material: the denser ink-mix face,
+	   ink text, the 22% hairline — and lets the aero-lit stack below do the saying.
+	   (0,3,1 — beats the scoped base .sky-opt.on at 0,3,0.) */
+	:global(html[data-ui='bubble'] .sky-opt.on) {
+		color: var(--ink);
+		background: var(--line);
 		border-color: color-mix(in srgb, var(--ink) 22%, transparent);
 	}
 	:global(html[data-ui='bubble'] .seg.on),

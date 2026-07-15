@@ -30,7 +30,9 @@ for (const ui of ['flat','bubble']) {
     // Bubble frosts what's behind it with a backdrop-filter; Flat never does.
     const bd = await p.locator('.surface-backdrop').evaluate(e=>{const s=getComputedStyle(e);return {bg:s.backgroundColor,bi:s.backgroundImage.slice(0,30)}});
     if (ui==='flat') ok(`flat: ${path} backdrop is glass (translucent, no live filter)`, /rgba|\/ 0?\.\d+\)/.test(bd.bg) && bd.bi==='none', JSON.stringify(bd));
-    else ok(`bubble: ${path} backdrop translucent + sheen`, bd.bg.startsWith('rgba') && bd.bi!=='none', JSON.stringify(bd));
+    // No sheen on the PANEL any more (a full-height surface has no lip for the edge kiss to
+    // light — see the .surface-backdrop bubble rule); what still separates Bubble is the blur.
+    else ok(`bubble: ${path} backdrop translucent, no sheen`, bd.bg.startsWith('rgba') && bd.bi==='none', JSON.stringify(bd));
   }
   // PB toolbar buttons
   await p.goto(B+'/apps/presentation-builder',{waitUntil:'networkidle'});
