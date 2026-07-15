@@ -159,7 +159,7 @@
 		height: 32px;
 		border-radius: 999px;
 		/* The family pill, worn closed (the glyph is a plain icon, so the face is safe). */
-		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		background: var(--aero-face);
 		color: var(--ink);
 		border: 1px solid transparent;
 		overflow: visible;

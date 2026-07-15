@@ -879,7 +879,7 @@
 		const covered = backdropHidden;
 		clearTimeout(decorTimer);
 		// Cover on DESKTOP is immediate: the expanded arrival holds back (the zoom's first
-		// half is a hold — see zoomTransform) while the skybox visibly bows out first, on an
+		// half is a hold — see arriveTransform) while the skybox visibly bows out first, on an
 		// open stage. Mobile keeps the delay (the sheet slides over the decor; hiding early
 		// would pop a void behind it). Reveal waits out the promotion's full round trip.
 		decorTimer = window.setTimeout(() => (decorHidden = covered), covered ? (isMobile ? 380 : 0) : 720);
@@ -995,7 +995,7 @@
 			flip(); // resized while off-stage — the blur never sees it happen
 			panelLeaving = false;
 			holdContentForArrival(); // expanded: the surface lands empty, content follows
-			requestAnimationFrame(playOpenBounce);
+			requestAnimationFrame(playOpenLanding);
 		}, PANEL_SLIDE);
 	}
 	// "The background appears from the back, then the elements start their entrances":
@@ -1013,7 +1013,7 @@
 		arriveTimer = window.setTimeout(() => {
 			contentHeld = false;
 			arriveRev++;
-		}, ZOOM_MS + 40);
+		}, ARRIVE_MS + 40);
 	}
 	// The panel element, for the slide transition.
 	let panelEl = $state<HTMLElement | undefined>(undefined);
@@ -1046,7 +1046,7 @@
 	// and a subtler swell got lost against them.
 	//
 	// One transform for BOTH entrances — the mount (in:panelIn) and the panel→panel return
-	// leg (playOpenBounce), so the two are one gesture.
+	// leg (playOpenLanding), so the two are one gesture.
 	function openTransform(t: number, x: number, y: number) {
 		const slide = 1 - cubicOut(t);
 		// The swell rides only the landing tail (t 0.5→1), peaking mid-tail and closing
@@ -1063,17 +1063,17 @@
 	// (see decorHidden) — then the board simply FADES IN through the second. No scale, no
 	// travel: the promoted app appears in place, opacity being the cheapest thing any
 	// compositor can animate.
-	const ZOOM_MS = 760;
-	const zoomT = (t: number) => Math.max(0, (t - 0.5) / 0.5); // 0 through the hold, then 0→1
-	const fadeInAt = (t: number) => Math.min(1, zoomT(t) / 0.75);
+	const ARRIVE_MS = 760;
+	const arriveT = (t: number) => Math.max(0, (t - 0.5) / 0.5); // 0 through the hold, then 0→1
+	const fadeInAt = (t: number) => Math.min(1, arriveT(t) / 0.75);
 	function panelIn(
 		node: HTMLElement,
-		p: { x?: number; y?: number; duration?: number; zoom?: boolean }
+		p: { x?: number; y?: number; duration?: number; arrive?: boolean }
 	) {
 		const { x = 0, y = 0, duration = 380 } = p;
-		if (p.zoom)
+		if (p.arrive)
 			return {
-				duration: p.duration ?? ZOOM_MS,
+				duration: p.duration ?? ARRIVE_MS,
 				css: (t: number) => `opacity: ${fadeInAt(t)};`
 			};
 		return {
@@ -1085,12 +1085,12 @@
 	// A panel→panel move never unmounts the panel (its content swaps off-screen), so
 	// in:panelIn can't fire — the return leg replays the same landing by hand, over the
 	// .leaving class's plain transition (WAAPI wins while it runs, and both settle at rest).
-	function playOpenBounce() {
+	function playOpenLanding() {
 		if (!panelEl || reduce) return;
 		if (!isMobile && panelExpanded) {
-			// The promoted board fades in in place — the WAAPI twin of panelIn's zoom mode.
+			// The promoted board fades in in place — the WAAPI twin of panelIn's arrive mode.
 			const frames = Array.from({ length: 49 }, (_, i) => ({ opacity: String(fadeInAt(i / 48)) }));
-			panelEl.animate(frames, { duration: ZOOM_MS, easing: 'linear' });
+			panelEl.animate(frames, { duration: ARRIVE_MS, easing: 'linear' });
 			return;
 		}
 		const x = isMobile ? 0 : panelExpanded ? vw : 680;
@@ -1290,8 +1290,8 @@
 				panelLeaving = false;
 				holdContentForArrival(); // no-op unless this arrival is expanded (PRES)
 				// After the class flip lands in the DOM: replay the open landing (see
-				// playOpenBounce — the panel never unmounted, so in:panelIn won't).
-				requestAnimationFrame(playOpenBounce);
+				// playOpenLanding — the panel never unmounted, so in:panelIn won't).
+				requestAnimationFrame(playOpenLanding);
 			}, PANEL_SLIDE);
 		} else {
 			const wasOpen = !!view;
@@ -1742,7 +1742,7 @@
 			in:panelIn|global={isMobile
 				? { y: 900, duration: 380 }
 				: panelExpanded
-					? { zoom: true }
+					? { arrive: true }
 					: { x: 680, duration: 380 }}
 			out:fly|global={isMobile
 				? { y: 900, opacity: 1, duration: 380 }
@@ -1810,7 +1810,7 @@
 								<!-- Weather's search lives up here, on the Back row: it acts on the whole panel, so
 								     it belongs with the panel's own controls. It's a disc that GROWS into a field —
 								     see CitySearch — and it shares the app's cities with the body through
-								     $lib/weather, since neither half can own state the other needs. -->
+								     $lib/weather-state, since neither half can own state the other needs. -->
 								<!-- …clustered with refresh-now at its left, the same corner ATFC keeps.
 								     The reading lives in $lib/weather-state, so the header (the page's) can
 								     drive it exactly the way the search does. -->
@@ -3218,7 +3218,7 @@
 	}
 	.editable:focus {
 		outline: var(--focus-ring);
-		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		background: var(--aero-face);
 	}
 	.mail-edit {
 		font-weight: 600;
@@ -3589,7 +3589,7 @@
 		text-decoration: none;
 		/* The chips' exact fill (not 3%): the cards wear the same material as every other
 		   control — an ink mix, so it flips with the scheme on its own. */
-		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		background: var(--aero-face);
 		transition: border-color 0.15s ease, background 0.15s ease;
 		/* The cards ride the universal button spring, but at card size the standard 5%
 		   pop is a 30px lurch — soften both amounts; the spring itself is shared. */
@@ -3670,7 +3670,7 @@
 		font: inherit;
 		font-size: 0.9rem;
 		color: var(--ink);
-		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		background: var(--aero-face);
 		border: 1px solid var(--line-edge);
 		border-radius: 999px;
 		cursor: pointer;
@@ -3866,11 +3866,7 @@
 	:global(html[data-ui='bubble'] .app-card),
 	:global(html[data-ui='bubble'] .menu-btn) {
 		border-radius: 999px;
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.55),
-			inset 0 7px 10px -8px rgba(255, 255, 255, 0.55),
-			0 1px 1px rgba(8, 10, 14, 0.04),
-			0 3px 8px rgba(8, 10, 14, 0.06);
+		box-shadow: var(--aero-gloss), var(--aero-drop);
 		/* Stay on a compositor layer. At 100% zoom (dpr exactly 1) the 1px rim light sits
 		   on a device-pixel boundary, and the hover spring's layer promotion re-rasterized
 		   the button — the rim visibly snapped ("flashed") at hover start and end. At 110%+
@@ -3998,13 +3994,7 @@
 		   own denser fill plus LIGHT at the edges: a brighter rim and top glow, the inner
 		   hairline just inside the edge (the glassy double rim), and the soft halo where
 		   Flat's ink frame would be. */
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.6),
-			inset 0 8px 12px -8px rgba(255, 255, 255, 0.65),
-			inset 0 0 0 1px rgba(255, 255, 255, 0.25),
-			0 0 0 3px color-mix(in srgb, var(--ink) 7%, transparent),
-			0 2px 5px rgba(8, 10, 14, 0.11),
-			0 6px 16px rgba(8, 10, 14, 0.13);
+		box-shadow: var(--aero-lit);
 	}
 
 	/* Hover: brighten the gloss and lift the drop so the button reads as inflating toward
@@ -4075,24 +4065,16 @@
 	   rule's own insets reach them like every other control. The search div still needs
 	   the airy drops the depth rule gives buttons. */
 	:global(html[data-ui='bubble'] .cs:not(.open)) {
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.55),
-			inset 0 7px 10px -8px rgba(255, 255, 255, 0.55),
-			0 1px 1px rgba(8, 10, 14, 0.04),
-			0 3px 8px rgba(8, 10, 14, 0.06);
+		box-shadow: var(--aero-gloss), var(--aero-drop);
 	}
 	/* OPEN, the field joins the family too: the chips' ink-mix face and 1px line-edge in
 	   place of its bare glass + drawn outline (Flat keeps that look), with the depth
 	   rule's full set carried directly — no ::after needed here, the face is a plain
 	   background, not svg content like the disc's glyph. */
 	:global(html[data-ui='bubble'] .cs.open) {
-		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		background: var(--aero-face);
 		border-color: var(--line-edge);
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.55),
-			inset 0 7px 10px -8px rgba(255, 255, 255, 0.55),
-			0 1px 1px rgba(8, 10, 14, 0.04),
-			0 3px 8px rgba(8, 10, 14, 0.06);
+		box-shadow: var(--aero-gloss), var(--aero-drop);
 	}
 
 </style>

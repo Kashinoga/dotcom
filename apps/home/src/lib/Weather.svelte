@@ -73,7 +73,7 @@
 	// a press that moves is the scroll, a press that HOLDS (280ms, still) lifts the tab, and
 	// from there movement reorders instead of scrolling. Crossing a neighbour's midpoint swaps
 	// the tabs (the FLIP on the strip slides them around the carried one); the drop is already
-	// saved, because reorder() persists per swap like every other mutation in $lib/weather.
+	// saved, because reorder() persists per swap like every other mutation in $lib/weather-state.
 	let lift = $state<number | null>(null); // index of the tab being carried
 	let holdTimer = 0;
 	let pressX = 0;
@@ -642,14 +642,13 @@
 	:global(html[data-ui='bubble']) .wx-ghost {
 		border-radius: 999px;
 		border-color: var(--line-edge);
-		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		background: var(--aero-face);
 		-webkit-backdrop-filter: blur(8px);
 		backdrop-filter: blur(8px);
 		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.55),
-			inset 0 7px 10px -8px rgba(255, 255, 255, 0.55),
+			var(--aero-gloss),
 			0 1px 2px rgba(8, 10, 14, 0.1),
-			0 6px 18px rgba(8, 10, 14, 0.18);
+			0 6px 18px rgba(8, 10, 14, 0.18); /* the family gloss over a carried thing's lift */
 	}
 	.wx-tabs.fade-end {
 		mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), transparent 100%);
@@ -744,12 +743,8 @@
 	   gloss over airy drops (restated locally, like the ghost's rules: the depth list in
 	   the page can't know about this component's classes). Flat keeps the bare outline. */
 	:global(html[data-ui='bubble']) .wx-add {
-		background: color-mix(in srgb, var(--ink) 5%, transparent);
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.55),
-			inset 0 7px 10px -8px rgba(255, 255, 255, 0.55),
-			0 1px 1px rgba(8, 10, 14, 0.04),
-			0 3px 8px rgba(8, 10, 14, 0.06);
+		background: var(--aero-face);
+		box-shadow: var(--aero-gloss), var(--aero-drop);
 		will-change: transform;
 		transition:
 			transform 0.3s var(--btn-spring),
@@ -856,7 +851,7 @@
 		font-size: 0.8rem;
 		font-weight: 700;
 		color: var(--ink);
-		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		background: var(--aero-face);
 		border: 1px solid var(--line-edge);
 		border-radius: 999px;
 		cursor: pointer;

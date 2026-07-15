@@ -34,6 +34,23 @@
 	 * and divider lines stay consistent (and re-theme in one place). They read the
 	 * active theme's --ink at use time, so they follow whatever theme is applied. */
 	--focus-ring: 2px solid var(--ink); /* :focus-visible outline (paired with a 2px offset) */
+
+	/* ── Aero material ── The bubble family's ONE material, published as tokens so every
+	 * surface wears the same light instead of restating it. Face + gloss + drop is the
+	 * resting look; lit is how SELECTED says "on" (light, never a drawn frame). Values
+	 * read the active theme's --ink at use time, like everything else here. */
+	--aero-face: color-mix(in srgb, var(--ink) 5%, transparent); /* the glass face */
+	--aero-gloss:
+		inset 0 1px 0 rgba(255, 255, 255, 0.55),
+		inset 0 7px 10px -8px rgba(255, 255, 255, 0.55); /* rim light + top glow */
+	--aero-drop: 0 1px 1px rgba(8, 10, 14, 0.04), 0 3px 8px rgba(8, 10, 14, 0.06); /* air, not ink */
+	--aero-lit:
+		inset 0 1px 0 rgba(255, 255, 255, 0.6),
+		inset 0 8px 12px -8px rgba(255, 255, 255, 0.65),
+		inset 0 0 0 1px rgba(255, 255, 255, 0.25),
+		0 0 0 3px color-mix(in srgb, var(--ink) 7%, transparent),
+		0 2px 5px rgba(8, 10, 14, 0.11),
+		0 6px 16px rgba(8, 10, 14, 0.13); /* selected: brighter rim, double hairline, halo */
 	/* The neutral edge ramp. Every border in the app is one of these three, so a control's edge is
 	 * changed in one place rather than in each component.
 	 *
@@ -193,7 +210,7 @@ body {
 	 * chips' material worn at disc size. (The *-circle glyphs, whose disc was CONTENT,
 	 * are retired from these buttons — plain glyphs sit on the face instead.) */
 	color: var(--ink);
-	background: color-mix(in srgb, var(--ink) 5%, transparent);
+	background: var(--aero-face);
 	border: 1px solid var(--line-edge);
 	border-radius: 999px;
 	cursor: pointer;

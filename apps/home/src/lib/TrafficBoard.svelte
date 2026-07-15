@@ -1993,7 +1993,7 @@
 	}
 	.editable:focus {
 		outline: var(--focus-ring);
-		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		background: var(--aero-face);
 	}
 	/* The compact panel's controls, at every width: Airport, Range and Refresh on ONE row, each a
 	   labelled column with its dropdown below. (The field is a <select> here — the pills only
@@ -2662,14 +2662,10 @@
 		border-radius: 999px;
 		border-width: 1px;
 		color: var(--ink);
-		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		background: var(--aero-face);
 		-webkit-backdrop-filter: blur(8px);
 		backdrop-filter: blur(8px);
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.55),
-			inset 0 7px 10px -8px rgba(255, 255, 255, 0.55),
-			0 1px 1px rgba(8, 10, 14, 0.04),
-			0 3px 8px rgba(8, 10, 14, 0.06);
+		box-shadow: var(--aero-gloss), var(--aero-drop);
 	}
 	.pc-close:focus-visible {
 		outline: var(--focus-ring);

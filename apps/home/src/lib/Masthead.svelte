@@ -43,9 +43,9 @@
 		<!-- Decorative station-sign bullets beside the wordmark, like the route icons beside a
 		     station name on a transit sign. Nonfunctional; they unfurl left→right on load. -->
 		<div class="theme">
-			<span class="theme-dot" aria-hidden="true" style="--n:0; --dot:#e6b93c"></span>
-			<span class="theme-dot" aria-hidden="true" style="--n:1; --dot:#29b0a1"></span>
-			<span class="theme-dot" aria-hidden="true" style="--n:2; --dot:#e05a4e"></span>
+			<span class="brand-dot" aria-hidden="true" style="--n:0; --dot:#e6b93c"></span>
+			<span class="brand-dot" aria-hidden="true" style="--n:1; --dot:#29b0a1"></span>
+			<span class="brand-dot" aria-hidden="true" style="--n:2; --dot:#e05a4e"></span>
 		</div>
 	</div>
 	<p class="tagline">{#each taglineWords as word, i}<span
@@ -104,14 +104,14 @@
 	   the rest roll out from behind it, each a beat later. Same effect on open/close
 	   (this transition) and on page load (the keyframe below). Longhand so only
 	   opacity/transform get the stagger delay — hover stays instant. */
-	.masthead .theme-dot {
+	.masthead .brand-dot {
 		transition-property: color, background, border-color, opacity, transform;
 		transition-duration: 0.15s, 0.15s, 0.15s, 0.4s, 0.4s;
 		transition-timing-function: ease, ease, ease, ease, var(--spring);
 		transition-delay: 0s, 0s, 0s, calc(var(--n, 0) * 0.07s), calc(var(--n, 0) * 0.07s);
 	}
 	@media (prefers-reduced-motion: no-preference) {
-		.theme-dot {
+		.brand-dot {
 			animation: dot-roll 0.45s var(--spring) backwards;
 			animation-delay: calc(0.5s + var(--n, 0) * 0.07s);
 		}
@@ -156,7 +156,7 @@
 		display: inline-block;
 		font-size: 0;
 	}
-	.theme-dot {
+	.brand-dot {
 		/* Start offset for the roll-out: each circle begins stacked on the leftmost
 		   one (one circle-width + gap per index), then unfurls to the right. */
 		--roll: calc(var(--n, 0) * -2.23rem);
@@ -168,7 +168,7 @@
 		background: var(--dot);
 		border-radius: 999px;
 	}
-	.theme-dot + .theme-dot {
+	.brand-dot + .brand-dot {
 		margin-left: 0.35rem;
 	}
 	.tagline {
@@ -264,13 +264,7 @@
 	:global(html[data-ui='bubble']) .menu-btn.active {
 		color: var(--ink);
 		border-color: color-mix(in srgb, var(--ink) 22%, transparent);
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.6),
-			inset 0 8px 12px -8px rgba(255, 255, 255, 0.65),
-			inset 0 0 0 1px rgba(255, 255, 255, 0.25),
-			0 0 0 3px color-mix(in srgb, var(--ink) 7%, transparent),
-			0 2px 5px rgba(8, 10, 14, 0.11),
-			0 6px 16px rgba(8, 10, 14, 0.13);
+		box-shadow: var(--aero-lit);
 	}
 	.menu-btn:focus-visible {
 		outline: var(--focus-ring);
