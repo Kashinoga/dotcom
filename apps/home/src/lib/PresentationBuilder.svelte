@@ -1181,6 +1181,13 @@
 	   nested inside the columns) are in the universal hover/press list, and a held transform
 	   would outrank and freeze their scale(). Lifting the fill on end hands them back untouched. */
 	@media (prefers-reduced-motion: no-preference) {
+		/* E-ATFC's staging, worn here too: the Builder is always full-page, so its body
+		   waits out the WHOLE chrome ripple (rungs to --bn 7 land ≈0.8s in) before the
+		   columns deal in — chrome first, then, finally, the workspace. Same move as
+		   .tfc.expanded's deepened --enter-layer. */
+		.pb {
+			--enter-layer: 0.85s;
+		}
 		/* Layer 1 — the header toolbar, left to right. */
 		.pb-head .icon-btn,
 		.pb-tools .tb,
