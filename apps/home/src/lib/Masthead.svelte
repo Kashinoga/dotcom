@@ -241,9 +241,15 @@
 	/* Bubble: the nav joins the button family — the chips' material at nav scale (ink-mix
 	   fill, 1px line-edge, pill corners; the gloss and spring ride in from the page's
 	   shared bubble rules, which list .menu-btn). Flat keeps the typographic nav above:
-	   plain names, hover by opacity. */
+	   plain names, hover by opacity. A FIXED 42px height (the phone discs' size), not
+	   padding-derived: the clamped font made the pills shorter exactly where fingers do
+	   the pressing; width stays the name's own. */
 	:global(html[data-ui='bubble']) .menu-btn {
-		padding: 0.5rem 1rem;
+		display: inline-flex;
+		align-items: center;
+		box-sizing: border-box;
+		height: 42px;
+		padding: 0 1rem;
 		background: color-mix(in srgb, var(--ink) 5%, transparent);
 		border: 1px solid var(--line-edge);
 		border-radius: 999px;

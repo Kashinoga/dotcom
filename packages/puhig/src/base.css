@@ -235,6 +235,20 @@ body {
 	width: 18px;
 	height: 18px;
 }
+/* On the phone (the app's isMobile line, 960px) the disc grows to a 42px touch target,
+ * the glyph riding along at the same proportion. Controls that wear this size by hand
+ * (the search discs, the camera disc, the refresh dial, the unit toggle) restate it in
+ * their own phone rules — keep them in step. */
+@media (max-width: 960px) {
+	.icon-btn {
+		width: 42px;
+		height: 42px;
+	}
+	.icon-btn svg {
+		width: 24px;
+		height: 24px;
+	}
+}
 
 /* Panel chrome entrance — the horizontal counterpart to the content column's `rise`. A
  * panel's controls (Back, the field pills, Range, Refresh, the refresh dial, Expand) are

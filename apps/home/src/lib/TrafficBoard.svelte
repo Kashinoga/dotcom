@@ -1297,18 +1297,20 @@
 				     row wrapped to several lines even on desktop, and one dropdown lets Airport,
 				     Range and Refresh sit on a single row. The pills live on in the expanded super
 				     bar, where there's width to lay them out. -->
+				<!-- The compact rows take CONSECUTIVE rungs (1, 2, 3): there are no field pills
+				     here to ripple past, and keeping the bar's 12/13 left an eleven-beat hole
+				     after the dropdown — Airport landed alone, then Range and Refresh arrived a
+				     visible beat later, reading as a separate entrance rather than one flow. -->
 				<div class="fields ranges" style="--bn:1">
 					<span class="range-label">Airport</span>
 					{@render fieldSelect()}
 				</div>
 
-				<!-- --bn continues the ripple past the field pills (which self-index 1…11), so the
-				     compact rows populate top-to-bottom after the pills settle, select inheriting it. -->
-				<div class="fields ranges" style="--bn:12">
+				<div class="fields ranges" style="--bn:2">
 					<span class="range-label">Range</span>{@render rangeButtons()}
 				</div>
 
-				<div class="fields ranges" style="--bn:13">
+				<div class="fields ranges" style="--bn:3">
 					<span class="range-label">Refresh</span>{@render refreshButtons()}
 				</div>
 			</div>
@@ -2086,6 +2088,13 @@
 	.field-select:hover {
 		border-color: var(--line-strong);
 	}
+	/* Phone: keep step with the 42px control family (see puhig base.css .icon-btn). */
+	@media (max-width: 960px) {
+		.field-select {
+			box-sizing: border-box;
+			height: 42px;
+		}
+	}
 	.field-select:focus-visible {
 		outline: var(--focus-ring);
 		outline-offset: 2px;
@@ -2151,6 +2160,15 @@
 		width: 32px;
 		height: 32px;
 		transform: rotate(-90deg);
+	}
+	/* Phone: the dial keeps step with .icon-btn's 42px touch target (see puhig base.css);
+	   the ring is viewBox geometry, so it scales with its box. */
+	@media (max-width: 960px) {
+		.refresh,
+		.ring {
+			width: 42px;
+			height: 42px;
+		}
 	}
 	.ring-track {
 		fill: none;

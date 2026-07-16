@@ -575,6 +575,12 @@
 		align-items: center;
 		gap: 0.15rem;
 		min-width: 0;
+		/* The tabs are the panel's SECOND HEADER LINE, not body copy: take back most of the
+		   body's top padding (keep in step with .surface-body's clamp) so they sit close
+		   under "Weather", and pull left by the first tab's own text inset so the city's
+		   letterforms align with the title's left edge. */
+		margin-top: calc(0.4rem - clamp(1.5rem, 4vw, 2.25rem));
+		margin-left: -0.55rem;
 	}
 	.wx-tabs {
 		display: flex;
@@ -825,14 +831,14 @@
 		margin-left: auto;
 		display: flex;
 		align-items: center;
-		/* One gap for the whole row: °F, °C and the refresh disc are three circles of the
-		   same size, and they only read as one set if the space between each pair matches
-		   (0.6rem here against the toggle's 0.25rem put visible extra air right of °C). */
-		gap: 0.25rem;
+		/* One gap for the whole row — and it's the PANEL HEADER's 0.5rem (.head-actions,
+		   where Refresh and Search sit): the two rows of discs stack in the same corner,
+		   and a different beat here knocked their columns out of vertical alignment. */
+		gap: 0.5rem;
 	}
 	.wx-unit-toggle {
 		display: flex;
-		gap: 0.25rem;
+		gap: 0.5rem;
 	}
 	/* The °F/°C pair wear the refresh disc's exact clothes (the .photo-toggle recipe: the
 	   *-circle discs composed in page stock) — an ink disc with the glyph in paper, not an
@@ -858,6 +864,14 @@
 	}
 	.wx-unit-toggle .seg:hover {
 		background: color-mix(in srgb, var(--ink) 12%, transparent);
+	}
+	/* Phone: keep step with .icon-btn's 42px touch target (see puhig base.css). */
+	@media (max-width: 960px) {
+		.wx-unit-toggle .seg {
+			width: 42px;
+			height: 42px;
+			font-size: 0.9rem;
+		}
 	}
 	/* Selected says "on" the Settings way — the page's lit .seg.on treatment (halo,
 	   double rim) reaches these once nothing here overrides the face; the glass stays,

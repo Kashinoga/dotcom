@@ -2397,6 +2397,17 @@
 		height: 1.15rem;
 		display: block;
 	}
+	/* Phone: keep step with .icon-btn's 42px touch target (see puhig base.css). */
+	@media (max-width: 960px) {
+		.photo-toggle {
+			width: 42px;
+			height: 42px;
+		}
+		.photo-toggle :global(svg) {
+			width: 1.5rem;
+			height: 1.5rem;
+		}
+	}
 	/* The flyout. Opaque, like the panels — it sits on a photograph, so it can't be a tint. */
 	.photo-pick {
 		margin-bottom: 0.5rem;
@@ -2494,8 +2505,10 @@
 		overflow: hidden;
 	}
 	@media (max-width: 960px) {
-		/* On a phone the sky is a sliver above the sheet — don't spend it on a credit line. */
-		.photo-credit {
+		/* On a phone the sky is a sliver above the sheet — don't spend it on a credit LINE,
+		   but keep the camera disc: Photo mode should still offer its picker. The linked
+		   attribution still travels with every entry inside the picker itself. */
+		.photo-credit .photo-link {
 			display: none;
 		}
 	}
@@ -3759,7 +3772,7 @@
 		.icon-btn.reopen {
 			top: auto;
 			right: auto;
-			left: calc(50% - 16px);
+			left: calc(50% - 21px); /* half the 42px phone disc */
 			bottom: clamp(0.9rem, 4vw, 1.5rem);
 		}
 		/* reicon has no arrow-up-circle; the back disc turned a quarter IS one (the disc
@@ -3782,6 +3795,15 @@
 		border-radius: 999px;
 		cursor: pointer;
 		text-decoration: none;
+	}
+	/* Phone: the Related chips keep step with the 42px control family — height fixed,
+	   width still the name's own. */
+	@media (max-width: 960px) {
+		.chip {
+			box-sizing: border-box;
+			height: 42px;
+			padding: 0 0.85rem;
+		}
 	}
 	.chip:hover {
 		background: var(--line);

@@ -198,6 +198,22 @@
 		width: 1.05rem;
 		height: 1.05rem;
 	}
+	/* Phone: the disc keeps step with .icon-btn's 42px touch target (see puhig base.css);
+	   open, only the height grows — the field width is its own story. */
+	@media (max-width: 960px) {
+		.cs {
+			width: 42px;
+			height: 42px;
+		}
+		.cs-icon {
+			width: 40px;
+			height: 40px;
+		}
+		.cs-icon :global(svg) {
+			width: 1.35rem;
+			height: 1.35rem;
+		}
+	}
 	.cs-input {
 		flex: 1 1 auto;
 		min-width: 0;
