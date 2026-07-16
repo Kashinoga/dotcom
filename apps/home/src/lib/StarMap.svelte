@@ -14,9 +14,16 @@
 	// thing you orient by — look below it and the sphere keeps going, ghosted, through the
 	// earth to the nadir directly beneath your feet.
 
-	import { fade } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 	import SplitFlap from '$lib/SplitFlap.svelte';
-	import { ARROW_LEFT_SVG, PIN_SVG } from '$lib/icons';
+	import {
+		ARROW_LEFT_SVG,
+		CLOSE_SVG,
+		EXTERNAL_SVG,
+		MAXIMIZE_SVG,
+		MINIMIZE_SVG,
+		PIN_SVG
+	} from '$lib/icons';
 
 	type Place = { name: string; lat: number; lon: number };
 
@@ -220,6 +227,87 @@
 		};
 	});
 
+	// ─── The constellations' stories ────────────────────────────────────────────
+	// Tap a constellation's NAME and a card tells you about it: Wikipedia's lead image,
+	// its opening lines, and a link out to the full article — the site's usual sourcing
+	// (freely licensed, credited, fetched responsibly: one summary per tap, cached for
+	// the session). The dataset's names are the Latin ones; many are ambiguous titles on
+	// Wikipedia (Orion, Leo, Cancer…), so "{name} (constellation)" is asked first and the
+	// bare name is the fallback for the unambiguous rest (Boötes, Cassiopeia…).
+	type WikiCard = {
+		title: string;
+		extract: string;
+		thumb?: string;
+		thumbBig?: string; // the article's original lead image, for the expanded card
+		url?: string;
+	};
+	const WIKI_TITLE: Record<string, string> = {
+		// The dataset splits Serpens into its two halves; Wikipedia keeps one article.
+		'Serpens Caput': 'Serpens',
+		'Serpens Cauda': 'Serpens'
+	};
+	let picked = $state<string | null>(null);
+	let card = $state<WikiCard | null>(null);
+	let cardLoading = $state(false);
+	let cardError = $state(false);
+	const cardCache = new Map<string, WikiCard>();
+	async function wikiSummary(title: string): Promise<WikiCard | null> {
+		const r = await fetch(
+			`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
+		);
+		if (!r.ok) return null;
+		const d = await r.json();
+		if (d.type === 'disambiguation' || !d.extract) return null;
+		return {
+			// Wikipedia's disambiguator is the URL's problem, not the card's: "Draco", not
+			// "Draco (constellation)" — everything on this panel is a constellation.
+			title: String(d.title).replace(/ \(constellation\)$/, ''),
+			extract: d.extract,
+			thumb: d.thumbnail?.source,
+			thumbBig: d.originalimage?.source,
+			url: d.content_urls?.desktop?.page
+		};
+	}
+	let storyWide = $state(false); // the card's expanded, more-of-the-article form
+	function openStory(name: string) {
+		picked = name;
+		storyWide = false; // every story opens at card size; growing it is a choice
+		cardError = false;
+		const hit = cardCache.get(name);
+		if (hit) {
+			card = hit;
+			return;
+		}
+		card = null;
+		cardLoading = true;
+		const base = WIKI_TITLE[name] ?? name;
+		(async () => (await wikiSummary(`${base} (constellation)`)) ?? (await wikiSummary(base)))()
+			.then((d) => {
+				if (!d) throw new Error('no summary');
+				cardCache.set(name, d);
+				if (picked === name) card = d; // a slow answer must not fill a newer tap's card
+			})
+			.catch(() => {
+				if (picked === name) cardError = true;
+			})
+			.finally(() => {
+				if (picked === name) cardLoading = false;
+			});
+	}
+	// Escape closes the card, never the panel behind it — captured on window so it wins
+	// over the page's own panel-closing Escape.
+	$effect(() => {
+		if (!picked) return;
+		const onEsc = (e: KeyboardEvent) => {
+			if (e.key === 'Escape') {
+				e.stopPropagation();
+				picked = null;
+			}
+		};
+		window.addEventListener('keydown', onEsc, true);
+		return () => window.removeEventListener('keydown', onEsc, true);
+	});
+
 	// ─── The clock ──────────────────────────────────────────────────────────────
 	// The sky turns 0.25° a minute — a half-minute tick keeps the dome honest without
 	// ever being seen to move.
@@ -325,15 +413,43 @@
 		viewAz = (((viewAz - dx * k) % 360) + 360) % 360;
 		viewAlt = Math.max(-PITCH_LIM, Math.min(PITCH_LIM, viewAlt + dy * k));
 	}
+	// A TAP — a press that never travelled and never became a pinch — picks the
+	// constellation name under it (see openStory); a tap on empty sky puts the card away.
+	// The draw pass records each painted name's box in canvas CSS pixels.
+	let labelHits: { name: string; x: number; y: number; w: number; h: number }[] = [];
+	let tapOk = false;
+	let tapX = 0;
+	let tapY = 0;
+	// Canvas-local coordinates from client ones (offsetX lies for synthetic events, and
+	// the canvas fills its stage, so one rect subtraction is the whole mapping).
+	const hitName = (e: PointerEvent): string | null => {
+		const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		const x = e.clientX - r.left;
+		const y = e.clientY - r.top;
+		for (const b of labelHits) {
+			if (x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h) return b.name;
+		}
+		return null;
+	};
+	let overName = $state(false); // hovering a name (desktop): the cursor says "clickable"
 	function onPointerDown(e: PointerEvent) {
+		tapOk = pointers.size === 0; // only a FIRST finger can begin a tap
 		pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+		if (tapOk) {
+			tapX = e.clientX;
+			tapY = e.clientY;
+		}
 		dragging = true;
 		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
 	}
 	function onPointerMove(e: PointerEvent) {
 		const p = pointers.get(e.pointerId);
-		if (!p) return;
+		if (!p) {
+			overName = hitName(e) !== null;
+			return;
+		}
 		if (pointers.size >= 2) {
+			tapOk = false; // it became a pinch
 			// Pinch: spreading fingers narrows the field (magnifies), closing widens it —
 			// measured against where the fingers just were, so it composes with the pan.
 			const before = pinch();
@@ -343,6 +459,7 @@
 			if (before.d > 20 && after.d > 20) fov = clampFov((fov * before.d) / after.d);
 			look(after.mx - before.mx, after.my - before.my);
 		} else {
+			if (Math.hypot(e.clientX - tapX, e.clientY - tapY) > 6) tapOk = false; // it became a drag
 			look(e.clientX - p.x, e.clientY - p.y);
 			p.x = e.clientX;
 			p.y = e.clientY;
@@ -351,6 +468,13 @@
 	function onPointerUp(e: PointerEvent) {
 		pointers.delete(e.pointerId);
 		dragging = pointers.size > 0;
+		// pointercancel routes here too, but a cancelled press is not a tap.
+		if (e.type === 'pointerup' && tapOk && pointers.size === 0) {
+			const name = hitName(e);
+			if (name) openStory(name);
+			else picked = null;
+		}
+		if (pointers.size === 0) tapOk = false;
 	}
 	function onWheel(e: WheelEvent) {
 		e.preventDefault(); // the wheel zooms the sky, never scrolls the panel under it
@@ -521,9 +645,11 @@
 
 		// Constellation names, above the horizon and (ghosted) below it. The band within
 		// ±8° of the horizon stays clear — a name straddling the bright line reads as
-		// neither up nor down. Rank sizes them the way the dataset intends.
+		// neither up nor down. Rank sizes them the way the dataset intends. Each painted
+		// name records its box (padded to a fingertip) — that's what a tap hits.
 		ctx.textAlign = 'center';
 		ctx.textBaseline = 'middle';
+		labelHits = [];
 		for (const f of names) {
 			const [ra, dec] = f.geometry.coordinates;
 			const [alt, az] = altAz(ra, dec, lat, lst);
@@ -535,6 +661,14 @@
 			const px = (rank === 1 ? 13 : rank === 2 ? 11 : 9.5) * Math.max(scale, 0.85);
 			ctx.font = `600 ${px}px Jost, system-ui, sans-serif`;
 			ctx.fillText(f.properties.name, p[0], p[1]);
+			const w = ctx.measureText(f.properties.name).width;
+			labelHits.push({
+				name: f.properties.name,
+				x: p[0] - w / 2 - 8,
+				y: p[1] - px / 2 - 8,
+				w: w + 16,
+				h: px + 16
+			});
 		}
 
 		// The horizon — the line you orient by, drawn last and brightest. Everything above
@@ -735,14 +869,61 @@
 		{/if}
 		<canvas
 			bind:this={canvas}
-			class:dragging
+			class:point={overName}
 			onpointerdown={onPointerDown}
 			onpointermove={onPointerMove}
 			onpointerup={onPointerUp}
 			onpointercancel={onPointerUp}
 			onwheel={onWheel}
-			aria-label="Standing under the sky at {place.name} right now: {visibleStars} naked-eye stars above the horizon. Drag to look around — below the bright horizon line lies the sky beneath your feet — and scroll or pinch to zoom."
+			aria-label="Standing under the sky at {place.name} right now: {visibleStars} naked-eye stars above the horizon. Drag to look around — below the bright horizon line lies the sky beneath your feet — scroll or pinch to zoom, and tap a constellation's name to read about it."
 		></canvas>
+
+		{#if picked}
+			<!-- The constellation's story: Wikipedia's lead image and opening lines, and the
+			     way out to the full article. It closes on ×, Escape, or a tap on empty sky. -->
+			<!-- Each element rises in on its own beat, BOTTOM FIRST (--n counts up from the
+			     link): the card pops up from the panel's bottom edge, so its content lands
+			     the way the card travels — nearest the origin, soonest. The expand disc
+			     grows the card into a reading panel: the article's ORIGINAL lead image at
+			     full card width and the excerpt unclamped, the full-article link staying. -->
+			<aside
+				class="sm-story"
+				class:wide={storyWide}
+				transition:fly={{ y: 10, duration: 180 }}
+				aria-label="{picked} — from Wikipedia"
+			>
+				<div class="sm-story-head" style="--n:2">
+					<h3>{card?.title ?? picked}</h3>
+					<div class="sm-story-acts">
+						<button
+							type="button"
+							class="icon-btn"
+							aria-label={storyWide ? 'Shrink the card' : 'Read more here'}
+							title={storyWide ? 'Shrink' : 'Read more here'}
+							onclick={() => (storyWide = !storyWide)}
+						>{@html storyWide ? MINIMIZE_SVG : MAXIMIZE_SVG}</button>
+						<button type="button" class="icon-btn" aria-label="Close" onclick={() => (picked = null)}>{@html CLOSE_SVG}</button>
+					</div>
+				</div>
+				{#if cardLoading}
+					<p class="sm-story-note" style="--n:1">Looking it up…</p>
+				{:else if cardError}
+					<p class="sm-story-note" style="--n:1">Wikipedia didn’t answer — try again in a moment.</p>
+				{:else if card}
+					<div class="sm-story-body" style="--n:1">
+						{#if card.thumb}
+							<img src={storyWide ? (card.thumbBig ?? card.thumb) : card.thumb} alt={card.title} loading="lazy" />
+						{/if}
+						<p class="sm-story-extract">{card.extract}</p>
+					</div>
+					{#if card.url}
+						<a class="sm-story-link" style="--n:0" href={card.url} target="_blank" rel="noreferrer noopener">
+							Read the full article on Wikipedia<span class="sm-story-ext">{@html EXTERNAL_SVG}</span>
+						</a>
+					{/if}
+				{/if}
+			</aside>
+		{/if}
 	</div>
 </div>
 
@@ -1150,11 +1331,147 @@
 		display: block;
 		width: 100%;
 		height: 100%;
-		cursor: grab;
+		/* The regular arrow, not a grab hand: the whole surface pans, so a special cursor
+		   marks nothing out. The exception is a constellation's NAME — the one thing here
+		   you can actually click — which gets the pointer. */
+		cursor: default;
 		touch-action: none; /* the finger pans the SKY, not the page */
 	}
-	.sm-stage canvas.dragging {
-		cursor: grabbing;
+	.sm-stage canvas.point {
+		cursor: pointer;
+	}
+	/* The constellation's story card — night ink on a frosted night pane, in the stage's
+	   bottom-RIGHT pocket (the brand's own corner; the card covers the signature while it
+	   speaks). Its discs are ordinary .icon-btns, so they measure what every panel control
+	   measures — 32px, 42px under a thumb. */
+	.sm-story {
+		position: absolute;
+		z-index: 2;
+		right: var(--head-inset);
+		bottom: var(--head-inset);
+		width: min(24rem, calc(100% - 2 * var(--head-inset)));
+		max-height: calc(100% - var(--head-h) - 2 * var(--head-inset));
+		overflow-y: auto;
+		padding: 0.85rem 1rem;
+		color: #f2f2ee;
+		background: rgba(8, 12, 24, 0.92);
+		border: 1px solid rgba(255, 255, 255, 0.14);
+		border-radius: 14px;
+		-webkit-backdrop-filter: blur(8px);
+		backdrop-filter: blur(8px);
+		box-shadow: 0 8px 24px rgba(4, 7, 15, 0.5);
+		/* Expanding MORPHS: the card is right-anchored, so a width transition slides its
+		   left edge out while the image's own transition (below) grows it in place — the
+		   text reflows around it every frame, riding into its resting place. */
+		transition: width 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+	/* Expanded: a reading panel — wider, capped under the floating disc row, scrolling if
+	   the lead outruns it. */
+	.sm-story.wide {
+		width: min(34rem, calc(100% - 2 * var(--head-inset)));
+	}
+	.sm-story-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+	}
+	.sm-story-head h3 {
+		margin: 0;
+		font-size: 1.05rem;
+		font-weight: 700;
+	}
+	.sm-story-acts {
+		flex: none;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+	/* A wrapping row, not a mode switch: compact, the 84px image sits beside the text;
+	   wide, the image's max-width transition grows it across the card and the text WRAPS
+	   under it — one continuous reflow instead of a flex-direction snap (which nothing
+	   could animate). max-width and height are both fixed lengths, so they interpolate. */
+	.sm-story-body {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		margin-top: 0.6rem;
+	}
+	.sm-story-body img {
+		flex: none;
+		width: 100%;
+		max-width: 84px;
+		height: 84px;
+		object-fit: cover;
+		border-radius: 8px;
+		border: 1px solid rgba(255, 255, 255, 0.12);
+		transition:
+			max-width 0.32s cubic-bezier(0.4, 0, 0.2, 1),
+			height 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+	.sm-story.wide .sm-story-body img {
+		max-width: 32rem;
+		height: 300px;
+	}
+	.sm-story-extract {
+		flex: 1;
+		min-width: 12rem;
+		margin: 0;
+		font-size: 0.85rem;
+		line-height: 1.5;
+		color: #c9d2e8;
+		/* The opening lines, not the whole lead — the link below is the way to the rest. */
+		display: -webkit-box;
+		-webkit-line-clamp: 5;
+		line-clamp: 5;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+	.sm-story.wide .sm-story-extract {
+		display: block;
+		-webkit-line-clamp: none;
+		line-clamp: none;
+		overflow: visible;
+		font-size: 0.95rem;
+	}
+	/* Entrance: each element rises in bottom-first (--n set in the markup) — the card
+	   pops up from the bottom edge, and its content lands the way the card travels. */
+	@media (prefers-reduced-motion: no-preference) {
+		.sm-story > * {
+			animation: rise 0.4s ease backwards;
+			animation-delay: calc(var(--n, 0) * 0.06s);
+		}
+	}
+	.sm-story-note {
+		margin: 0.6rem 0 0;
+		font-size: 0.85rem;
+		color: #9aa4bd;
+	}
+	.sm-story-link {
+		display: block;
+		margin-top: 0.6rem;
+		/* Right-aligned whole: the way OUT sits at the card's far corner, past the text. */
+		text-align: right;
+		font-size: 0.85rem;
+		font-weight: 600;
+		color: #a9c0ff;
+		text-decoration: none;
+	}
+	.sm-story-link:hover {
+		text-decoration: underline;
+	}
+	/* The outbound mark rides the link's last word (the photo credit's same arrangement). */
+	.sm-story-ext {
+		display: inline-block;
+		vertical-align: -0.1em;
+		width: 0.85em;
+		height: 0.85em;
+		margin-left: 0.3em;
+	}
+	.sm-story-ext :global(svg) {
+		display: block;
+		width: 100%;
+		height: 100%;
 	}
 	.sm-note {
 		position: absolute;
