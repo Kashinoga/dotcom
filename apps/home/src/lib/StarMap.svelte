@@ -682,7 +682,8 @@
 		{:else}
 			<!-- Narrow: the location disc rides the Back row's far right — it acts on the whole
 			     panel, so it belongs with the panel's own controls (the Weather header's same
-			     arrangement). -->
+			     arrangement). No title line here: the name signs the map itself, bottom right
+			     (see .sm-brand on the stage), so the header stays one slim row of controls. -->
 			<div class="head-row">
 				{#if onback}
 					<button
@@ -697,17 +698,22 @@
 				{/if}
 				{@render locationField()}
 			</div>
-			<div class="title-row">
-				<h2 class="dest">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
-				<div class="head-refresh">{@render accentDot()}</div>
-			</div>
 		{/if}
 	</header>
 
-	<!-- The sky is the panel's own background: edge to edge, no frame, no footer. In bar
-	     mode it sits absolutely under the floating bar; on narrow viewports, it takes every
-	     pixel below the header. -->
+	<!-- The sky is the panel's own background: edge to edge, no frame, no footer, filling
+	     the WHOLE panel in both layouts — the super bar's frosted strip and the narrow
+	     layout's transparent disc row both float over it. -->
 	<div class="sm-stage" bind:this={wrap}>
+		{#if !showBar}
+			<!-- Narrow, the app SIGNS its own picture: the name rides the sky's bottom-right
+			     corner at caption size — the whole viewport is the map, so the title belongs
+			     on it, not on a header line spending vertical room over it. -->
+			<h2 class="sm-brand">
+				{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}
+				{@render accentDot()}
+			</h2>
+		{/if}
 		{#if !showBar && stars}
 			<!-- The caption lives ON the sky, top left — where/when/exactly-where, written in
 			     night ink whatever the site theme (the canvas beneath is always night). It
@@ -749,11 +755,27 @@
 		flex-direction: column;
 		height: 100%;
 		position: relative;
+		/* The narrow header is one row of 42px discs wearing an EVEN inset all round —
+		   shared as tokens so the caption below knows where the header ends. */
+		--head-inset: clamp(0.85rem, 2.5vw, 1.25rem);
+		--head-h: calc(42px + 2 * var(--head-inset));
 	}
 	.sm-head {
 		flex: none;
-		/* Same stay-put glass header as every panel: the BODY owns the scroll. */
-		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(0.85rem, 1.5vw, 1.25rem);
+		/* TRANSPARENT, floating over the sky (the stage fills the whole panel behind it):
+		   the map is the background, and the bar is just its two controls. Even padding —
+		   with no title line left, the discs sit in a uniform pocket. The strip itself
+		   passes the pointer through, so the sky stays draggable between the discs; the
+		   controls opt back in below. */
+		position: relative;
+		z-index: 1;
+		padding: var(--head-inset);
+	}
+	.sm-head:not(.bar) {
+		pointer-events: none;
+	}
+	.sm-head:not(.bar) .head-row > * {
+		pointer-events: auto;
 	}
 	/* Bar mode: the sky IS the panel background, and the bar floats over it — its own
 	   frosted strip, so the chrome stays legible over a starfield. The canvas is always
@@ -767,7 +789,10 @@
 		backdrop-filter: blur(10px) saturate(1.2);
 		border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 	}
-	.sm.bar-mode {
+	/* The canvas is ALWAYS night and now underlies the chrome in BOTH layouts, so the
+	   whole subtree wears night ink in both schemes: the tokens are re-declared here,
+	   and every control inside re-reads them. */
+	.sm {
 		--ink: #f2f2ee;
 		--sub: #9aa4bd;
 		--line-edge: rgba(255, 255, 255, 0.16);
@@ -775,13 +800,14 @@
 		--aero-face: rgba(255, 255, 255, 0.07);
 	}
 	/* Panel chrome, matched to the generic .surface-head (this map just renders it itself).
-	   Back caps the left of the row, the location disc the right. */
+	   Back caps the left of the row, the location disc the right. No bottom margin: this
+	   is the narrow header's ONLY row now (the title signs the map instead), so the
+	   header's own padding is the separation. */
 	.head-row {
 		display: flex;
 		align-items: flex-start;
 		justify-content: space-between;
 		gap: 0.75rem;
-		margin-bottom: clamp(1.5rem, 4vw, 2.5rem);
 	}
 	.head-row .sm-cs {
 		margin-left: auto; /* right-caps the row even when Back is absent */
@@ -794,15 +820,6 @@
 		line-height: 1;
 		color: var(--ink);
 		white-space: nowrap;
-	}
-	.title-row {
-		display: flex;
-		align-items: baseline;
-		gap: 0.5rem clamp(0.85rem, 2vw, 1.5rem);
-		flex-wrap: wrap;
-	}
-	.title-row .dest {
-		flex: none;
 	}
 	/* The accent bullet beside the title — inline-block so its baseline is its bottom edge
 	   (the board's same Firefox-baseline note). */
@@ -918,6 +935,31 @@
 		color: var(--sub);
 	}
 
+	/* The narrow layout's signature, bottom right ON the sky: the app's name at caption
+	   size with its accent bullet — the header gave up its title line for map room. Same
+	   night-ink treatment as the caption. */
+	.sm-brand {
+		position: absolute;
+		z-index: 1;
+		right: var(--head-inset);
+		bottom: var(--head-inset);
+		display: flex;
+		align-items: center;
+		gap: 0.45rem;
+		margin: 0;
+		font-size: 1.15rem;
+		font-weight: 700;
+		letter-spacing: -0.02em;
+		line-height: 1;
+		color: #f2f2ee;
+		pointer-events: none;
+		text-shadow: 0 1px 3px rgba(4, 7, 15, 0.85);
+	}
+	.sm-brand .accent-dot {
+		width: 14px;
+		height: 14px;
+	}
+
 	/* The narrow-viewport caption, laid ON the sky at the stage's top left. It wears fixed
 	   night ink, not the theme tokens — the canvas beneath is always night — with a soft
 	   drop so it stays legible over stars. pointer-events off: the stage is for dragging,
@@ -925,8 +967,10 @@
 	.sm-where {
 		position: absolute;
 		z-index: 1;
-		top: clamp(0.85rem, 2vw, 1.25rem);
-		left: clamp(1.5rem, 4vw, 2.75rem);
+		/* The stage now starts at the panel's very top, so "top left" means "just under
+		   the floating disc row" — its height is shared as --head-h. */
+		top: calc(var(--head-h) + 0.3rem);
+		left: var(--head-inset);
 		pointer-events: none;
 		text-shadow: 0 1px 3px rgba(4, 7, 15, 0.85);
 	}
@@ -1001,6 +1045,22 @@
 		display: block;
 		width: 1.05rem;
 		height: 1.05rem;
+	}
+	/* Phone: keep step with .icon-btn's 42px touch target (see puhig base.css) — the pin
+	   shares a row with Back, so they share a size. */
+	@media (max-width: 960px) {
+		.sm-cs {
+			width: 42px;
+			height: 42px;
+		}
+		.sm-cs-icon {
+			width: 40px;
+			height: 40px;
+		}
+		.sm-cs-icon :global(svg) {
+			width: 1.35rem;
+			height: 1.35rem;
+		}
 	}
 	.sm-cs-input {
 		flex: 1 1 auto;
@@ -1078,16 +1138,10 @@
 		color: var(--sub);
 		white-space: nowrap;
 	}
-	/* Full bleed, truly: no frame, no radius, no footer. On narrow viewports the stage takes
-	   every pixel below the search row; in bar mode it fills the whole panel and the bar
-	   floats on top of it. */
+	/* Full bleed, truly: no frame, no radius, no footer. The stage fills the WHOLE panel
+	   in both layouts — the sky is the background the chrome floats on (the super bar's
+	   frosted strip, the narrow layout's transparent disc row). */
 	.sm-stage {
-		position: relative;
-		flex: 1 1 auto;
-		min-height: 0;
-		width: 100%;
-	}
-	.bar-mode .sm-stage {
 		position: absolute;
 		inset: 0;
 		z-index: 0;
