@@ -787,7 +787,9 @@
 			</div>
 			<div class="deck">
 				<div class="deck-controls">
-					<div class="ctl">
+					<!-- --bn 1: the label and the disc ride the ripple together, one rung behind
+					     Back (the summary counts on from 2 — see the entrance block). -->
+					<div class="ctl" style="--bn:1">
 						<span class="ctl-label">Location</span>{@render locationField()}
 					</div>
 				</div>
@@ -865,10 +867,13 @@
 		{#if loadError}
 			<p class="sm-note">The sky data didn’t load. It’s still up there — try a refresh.</p>
 		{:else if !stars}
-			<p class="sm-note">Charting the sky…</p>
+			<p class="sm-note" out:fade={{ duration: 250 }}>Charting the sky…</p>
 		{/if}
+		<!-- The sky FADES up once its data is here (class:ready) — a fully-drawn first
+		     frame popping in read as a glitch, not an arrival. -->
 		<canvas
 			bind:this={canvas}
+			class:ready={!!stars}
 			class:point={overName}
 			onpointerdown={onPointerDown}
 			onpointermove={onPointerMove}
@@ -1015,6 +1020,10 @@
 		border-radius: 999px;
 		background: var(--accent);
 	}
+	/* Bubble: the aero family's rim light and drop — see the masthead's brand dots. */
+	:global(html[data-ui='bubble']) .accent-dot {
+		box-shadow: var(--aero-gloss), var(--aero-drop);
+	}
 	/* ── Wide: one super bar (the board's shape) ──────────────────────────────── */
 	.sm-head.bar {
 		--bar-inset: clamp(0.7rem, 1.3vw, 1rem);
@@ -1141,6 +1150,51 @@
 		height: 14px;
 	}
 
+	/* Chrome entrance — the boards' shared ripple (btn-in, from puhig): Back leads, the
+	   location control follows, and the bar's summary readout deals in label-then-value
+	   behind them. The header remounts on every open (the panel keys its content), so
+	   the ripple replays like the other apps'. `backwards` is mandatory: these are all
+	   in the universal hover/press list (see TrafficBoard's same note). */
+	@media (prefers-reduced-motion: no-preference) {
+		.sm-head .icon-btn,
+		.sm-head .sm-cs,
+		.sm-head .ctl-label,
+		.sm-head .deck-summary dt,
+		.sm-head .deck-summary dd {
+			animation: btn-in 0.42s var(--spring) backwards;
+			animation-delay: calc(var(--enter-lead) + var(--bn, 0) * var(--btn-enter-step));
+		}
+		/* Narrow: Back (0) then the pin disc across the row. */
+		.head-row .sm-cs {
+			--bn: 1;
+		}
+		/* The bar's summary deals in label-then-value, past the location control (1). */
+		.deck-summary .stat:nth-child(1) dt {
+			--bn: 2;
+		}
+		.deck-summary .stat:nth-child(1) dd {
+			--bn: 3;
+		}
+		.deck-summary .stat:nth-child(2) dt {
+			--bn: 4;
+		}
+		.deck-summary .stat:nth-child(2) dd {
+			--bn: 5;
+		}
+		.deck-summary .stat:nth-child(3) dt {
+			--bn: 6;
+		}
+		.deck-summary .stat:nth-child(3) dd {
+			--bn: 7;
+		}
+		.deck-summary .stat:nth-child(4) dt {
+			--bn: 8;
+		}
+		.deck-summary .stat:nth-child(4) dd {
+			--bn: 9;
+		}
+	}
+
 	/* The narrow-viewport caption, laid ON the sky at the stage's top left. It wears fixed
 	   night ink, not the theme tokens — the canvas beneath is always night — with a soft
 	   drop so it stays legible over stars. pointer-events off: the stage is for dragging,
@@ -1226,6 +1280,10 @@
 		display: block;
 		width: 1.05rem;
 		height: 1.05rem;
+		/* Optical centring, not geometric: the pin is a TEARDROP — bulb high, tip low —
+		   so dead-centre reads high in the disc. A 1px drop rests its visual mass (the
+		   bulb) on the disc's centre. */
+		transform: translateY(1px);
 	}
 	/* Phone: keep step with .icon-btn's 42px touch target (see puhig base.css) — the pin
 	   shares a row with Back, so they share a size. */
@@ -1331,11 +1389,17 @@
 		display: block;
 		width: 100%;
 		height: 100%;
+		/* Hidden until the data lands, then a slow fade up — see class:ready. */
+		opacity: 0;
+		transition: opacity 0.7s ease;
 		/* The regular arrow, not a grab hand: the whole surface pans, so a special cursor
 		   marks nothing out. The exception is a constellation's NAME — the one thing here
 		   you can actually click — which gets the pointer. */
 		cursor: default;
 		touch-action: none; /* the finger pans the SKY, not the page */
+	}
+	.sm-stage canvas.ready {
+		opacity: 1;
 	}
 	.sm-stage canvas.point {
 		cursor: pointer;
