@@ -1646,6 +1646,10 @@
 		border-radius: 999px;
 		background: var(--accent);
 	}
+	/* Bubble: the aero family's rim light and drop — see the masthead's brand dots. */
+	:global(html[data-ui='bubble']) .accent-dot {
+		box-shadow: var(--aero-gloss), var(--aero-drop);
+	}
 	@media (prefers-reduced-motion: no-preference) {
 		/* Roll + fade in on mount, matching the homepage masthead dots (same easing, duration,
 		   and delay) — it slides in from the left with a little bounce as the title flips. */

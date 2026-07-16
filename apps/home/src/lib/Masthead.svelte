@@ -14,13 +14,18 @@
 	// `covered` — a panel is filling the viewport over this masthead. It fades out entirely:
 	// blurred glass over a photo reads as texture, but blurred TEXT reads as something wrong
 	// with your eyes. (Also drops it from the tab order while it can't be seen.)
+	// `navTucked` — something else (the sky console's popout, on a phone) needs the nav's
+	// air for a moment: the menu fades out and returns on its own, the rest of the
+	// masthead staying put.
 	let {
 		activeCode = null,
 		covered = false,
+		navTucked = false,
 		onNavigate
 	}: {
 		activeCode?: string | null;
 		covered?: boolean;
+		navTucked?: boolean;
 		onNavigate: (code: string, e: MouseEvent) => void;
 	} = $props();
 
@@ -58,7 +63,7 @@
 	     link is the station's real URL; the active destination highlights while its panel is open.
 	     On really small viewports the row turns into a COLUMN (see the media query below) —
 	     four pills don't fit a ~375px line, and stacked they read as the site's outline. -->
-	<nav class="menubar" aria-label="Destinations">
+	<nav class="menubar" class:tucked={navTucked} aria-label="Destinations">
 		<ul>
 			{#each menuNodes as code, i}
 				<li style="--n:{i}">
@@ -173,6 +178,11 @@
 	.brand-dot + .brand-dot {
 		margin-left: 0.35rem;
 	}
+	/* Bubble: the dots join the aero family — the same rim light and airy drop every
+	   disc wears, so the brand bullets read as moulded glass, not flat paint. */
+	:global(html[data-ui='bubble']) .brand-dot {
+		box-shadow: var(--aero-gloss), var(--aero-drop);
+	}
 	.tagline {
 		/* Sit just below the wordmark (top) and indent to the "K"'s optical left edge — the
 		   SplitFlap centres each glyph in its cell, so the "K" is inset from the wordmark's
@@ -190,7 +200,11 @@
 	.tw.em {
 		font-style: italic;
 	}
+	/* The landing word ("Together") answers in the SITE'S voice — Jost, upright, bold —
+	   against the motto's Fraunces italic: the two words differ, together. */
 	.tw.strong {
+		font-family: var(--font-body);
+		font-style: normal;
 		font-weight: 700;
 	}
 	@media (prefers-reduced-motion: no-preference) {
@@ -209,6 +223,15 @@
 	   indent so the whole header column aligns. */
 	.menubar {
 		margin: clamp(1.1rem, 2.6vw, 1.9rem) 0 0 calc(var(--wordmark) * 0.05);
+		transition: opacity 0.25s ease;
+	}
+	/* Tucked (the sky console's popout has the floor): fade out, leave the tab order,
+	   come straight back on dismiss — the .covered treatment, nav-only. */
+	.menubar.tucked {
+		opacity: 0;
+		visibility: hidden;
+		pointer-events: none;
+		transition: opacity 0.25s ease, visibility 0s 0.25s;
 	}
 	.menubar ul {
 		list-style: none;

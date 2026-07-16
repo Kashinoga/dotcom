@@ -677,7 +677,7 @@
 		// Apps — the hub for the little live apps.
 		APP: [
 			{ p: 'A collection of apps that I’ve built for personal use, shared with you.' },
-			{ quote: 'There’s an app for that?' }
+			{ quote: 'Making data fun to use.' }
 		],
 		// About / intro — dotcom-2 About card K 201.
 		ABT: [
@@ -901,29 +901,13 @@
 	// cover has settled — instantly then, since it's behind the panel with nothing to
 	// see. The reveal waits the same beat: the collapse animates over a bare sky, and
 	// the decor fades back in after.
-	// With a COMPACT panel open the decor stays — but CLIPPED to the uncovered stage.
-	// Through the glass's 18px of frost a cloud was never legible anyway, and WebKit
-	// re-filters the panel's whole backdrop every frame anything moves beneath it (the
-	// measured ring-arc lesson in TrafficBoard, but continuous: a drifting cloud or a
-	// falling drop under the glass kept Safari re-rasterising the blur forever). Clipped,
-	// the panel stands over a static gradient and the blur rasterises ONCE. Applied the
-	// moment the view opens, so even the panel's entrance slides over clean sky.
-	// The clip engages a beat AFTER the panel lands — instantly, hidden behind the
-	// settled glass. It used to lead (gliding in while the panel was still flying), and
-	// the two eased on different curves: the clip cut clouds where the panel wasn't yet,
-	// a visible sliver of bare sky at the seam. The entrance accepts its 380ms of live
-	// blur — every slide already does; stillness at REST is what the clip is for. The
-	// lift stays instant (behind a departing panel there's nothing to see), which also
-	// covers panel→panel swaps and window resizes: with no transition anywhere, the clip
-	// always moves in lockstep with layout.
-	let decorClipped = $state(false);
-	let clipTimer = 0;
-	$effect(() => {
-		const want = !!view && !isMobile && !panelExpanded && !panelLeaving;
-		clearTimeout(clipTimer);
-		if (want) clipTimer = window.setTimeout(() => (decorClipped = true), 430);
-		else decorClipped = false;
-	});
+	// With a COMPACT panel open the decor simply STAYS, live behind the translucent
+	// glass — clouds drift, rain falls, and the panel is a pane you're looking through.
+	// (A clip-then-cover machine used to freeze the covered strip so Safari's backdrop
+	// blur could rasterise once; every way of hiding its hand-off showed a seam — a
+	// racing clip edge, a snapping face, a straight outline on close — and the honest
+	// glass was chosen over the optimisation. If Safari's blur cost ever bites, this is
+	// where that trade was made.)
 	let decorHidden = $state(false);
 	let decorTimer = 0;
 	$effect(() => {
@@ -1575,7 +1559,7 @@
 {/snippet}
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="stage" class:photo={photoSky} class:clip-decor={decorClipped} onclick={onStageClick}>
+<div class="stage" class:photo={photoSky} onclick={onStageClick}>
 	{#if photoSky && photo}
 		<!-- Bing's photo of the day. Two layers, not one: the picture, and a veil over it. The panels
 		     are opaque so they're fine, but the masthead and nav sit straight on the sky — over a
@@ -1682,19 +1666,28 @@
 	     offers, minus Off/Photo — those belong to Settings); bottom row hand-picks the
 	     stage's weather. Chips, like everything else here. -->
 	{#if !view && skyMode !== 'off' && skyMode !== 'photo' && !decorHidden}
+		<!-- Clicks are stopped on the POP and the TOGGLE, not the container: the container's
+		     box is as wide as the open pop, and swallowing clicks there meant the empty run
+		     beside the toggle couldn't dismiss (the stage's own click handler is the
+		     anywhere-off-the-card close). -->
 		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 		<div
 			class="sky-console"
 			transition:fade={{ duration: 300 }}
 			role="group"
 			aria-label="Sky controls"
-			onclick={(e) => e.stopPropagation()}
 			onkeydown={(e) => {
 				if (e.key === 'Escape') skyConsoleOpen = false;
 			}}
 		>
 			{#if skyConsoleOpen}
-				<div class="sky-pop" in:fly={{ y: 10, duration: 180 }} out:fade={{ duration: 120 }}>
+				<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
+				<div
+					class="sky-pop"
+					in:fly={{ y: 10, duration: 180 }}
+					out:fade={{ duration: 120 }}
+					onclick={(e) => e.stopPropagation()}
+				>
 					<div class="sky-group" role="group" aria-labelledby="sky-lab-time">
 						<span class="sky-lab" id="sky-lab-time">Time of Day</span>
 						<div class="sky-row">
@@ -1739,7 +1732,10 @@
 				aria-expanded={skyConsoleOpen}
 				aria-label="Sky controls"
 				title={`Sky · ${skyMode === 'auto' ? `auto (${skyPhase})` : skyMode}${stageWx ? ` · ${stageWx}` : ''}`}
-				onclick={() => (skyConsoleOpen = !skyConsoleOpen)}
+				onclick={(e) => {
+					e.stopPropagation(); // or the stage's dismiss undoes the open on the way up
+					skyConsoleOpen = !skyConsoleOpen;
+				}}
 			>
 				{@html CLOUD_SVG}
 			</button>
@@ -1775,6 +1771,8 @@
 			<div class="fog-veil"></div>
 			<div class="fog-band fog-a" style="background-image: url({cloudFar})"></div>
 			<div class="fog-band fog-b" style="background-image: url({cloudFar})"></div>
+			<div class="fog-band fog-c" style="background-image: url({cloudFar})"></div>
+			<div class="fog-band fog-d" style="background-image: url({cloudFar})"></div>
 		</div>
 	{/if}
 	{#if fxFlash}
@@ -1784,7 +1782,14 @@
 	<!-- Persistent masthead (wordmark + tagline + station nav) — its own component so a
 	     homepage-chrome tweak stays out of this catch-all page. It reports which destination
 	     was clicked; the page keeps the modifier-aware click + camera handling. -->
-	<Masthead {activeCode} covered={backdropHidden} onNavigate={(code, e) => onNodeClick(e, () => board(code))} />
+	<!-- navTucked: on a phone the open sky console and the stacked nav want the same air —
+	     the nav steps aside while the console speaks (it comes right back on dismiss). -->
+	<Masthead
+		{activeCode}
+		covered={backdropHidden}
+		navTucked={skyConsoleOpen && isMobile}
+		onNavigate={(code, e) => onNodeClick(e, () => board(code))}
+	/>
 
 	{#if view}
 		{@const v = view}
@@ -2308,8 +2313,9 @@
 	   left, out of the way of the panel; hidden whenever a panel covers the sky anyway. */
 	.photo-credit {
 		position: absolute;
-		left: clamp(1rem, 4vw, 2rem);
-		bottom: clamp(0.75rem, 3vh, 1.25rem);
+		/* The masthead's inset on both axes — see .sky-console. */
+		left: clamp(1.5rem, 5vw, 3.5rem);
+		bottom: clamp(1.5rem, 5vw, 3.5rem);
 		z-index: 3;
 		max-width: min(46ch, 60vw);
 		font-size: 0.72rem;
@@ -2513,19 +2519,6 @@
 		}
 	}
 
-	/* A compact panel over the stage: every decor layer stops at the panel's left edge
-	   (see decorClipped). clip-path, NOT a narrowed right edge — the cloud strips size
-	   their tiles off their container's width, so shrinking the box inward-squeezed the
-	   clouds; a clip leaves layout alone and just stops the paint. The 640px must stay
-	   in step with .surface's width. */
-	.stage.clip-decor .clouds,
-	.stage.clip-decor .stars,
-	.stage.clip-decor .fx-rain,
-	.stage.clip-decor .fx-snow,
-	.stage.clip-decor .fx-fog,
-	.stage.clip-decor .fx-flash {
-		clip-path: inset(0 clamp(340px, calc(100vw - 620px), 640px) 0 0);
-	}
 	/* ── Daylit clouds ── Two baked, tileable strips over the sky gradient. Each strip is
 	   200% wide with the tile sized to exactly HALF of it (background-size: 50% 100%), so
 	   the drift's translate3d(-50%) lands precisely one tile later and the loop is
@@ -2618,8 +2611,12 @@
 	   a sky). Two rows of small chips; the active one wears full ink. */
 	.sky-console {
 		position: absolute;
-		left: clamp(1rem, 4vw, 2rem);
-		bottom: clamp(0.75rem, 3vh, 1.25rem);
+		/* The MASTHEAD's inset, exactly, on BOTH axes: the wordmark tops the column and
+		   this disc closes it, so they hang on one plumb line, one frame-width off every
+		   edge. (The photo credit, which takes this corner in Photo mode, wears the same;
+		   so does the reopen bubble's right edge.) */
+		left: clamp(1.5rem, 5vw, 3.5rem);
+		bottom: clamp(1.5rem, 5vw, 3.5rem);
 		z-index: 3;
 		display: flex;
 		flex-direction: column;
@@ -2725,11 +2722,31 @@
 		background: var(--ink);
 		border-color: transparent;
 	}
-	/* On phones the console would sit under the thumb and over the reopen bubble — the
-	   Settings panel already owns these controls there. */
+	/* The console shows on phones too (it used to hide there, dodging the reopen bubble —
+	   which has since moved to bottom-CENTRE, leaving this corner free): the sky is the
+	   homepage's one act, and its dials belong wherever the sky is. The chips take the
+	   42px phone height from the shared .chip rule, and the rows wrap.
+
+	   Open, the phone popout wears the Star Map story card's exact clothes — a
+	   full-width frosted night pane with the night-ink tokens re-declared for its chips
+	   (the masthead nav tucks away, so the card takes the room it's been given). The
+	   html-anchored selector outranks the bubble panel-material rule above. */
 	@media (max-width: 960px) {
-		.sky-console {
-			display: none;
+		:global(html) .sky-console .sky-pop {
+			--ink: #f2f2ee;
+			--sub: #9aa4bd;
+			--line-edge: rgba(255, 255, 255, 0.16);
+			--aero-face: rgba(255, 255, 255, 0.07);
+			width: calc(100vw - 2 * clamp(1.5rem, 5vw, 3.5rem));
+			padding: 0.85rem 1rem;
+			gap: 0.75rem;
+			color: var(--ink);
+			background: rgba(8, 12, 24, 0.92);
+			border: 1px solid rgba(255, 255, 255, 0.14);
+			border-radius: 14px;
+			-webkit-backdrop-filter: blur(8px);
+			backdrop-filter: blur(8px);
+			box-shadow: 0 8px 24px rgba(4, 7, 15, 0.5);
 		}
 	}
 
@@ -2774,12 +2791,22 @@
 			transform: translate3d(var(--drift), 108vh, 0);
 		}
 	}
-	/* Fog: the far cloud strip at bank scale — same drift keyframes as the clouds, one
-	   band rolling against the other; the veil flattens contrast the way real fog does. */
+	/* Fog: the far cloud strip at bank scale — same drift keyframes as the clouds, three
+	   bands rolling against each other; the veil flattens contrast the way real fog does.
+	   The bands are three DISTINCT DEPTH PLANES, not one texture thrice: each has its own
+	   height (background-size ties the tile's wavelength to it, so each rolls at its own
+	   scale), its own blur (soft far, defined near — one uniform blur read as a flat
+	   low-res smear), its own weight, and its own speed (nearest fastest: parallax).
+	   Static filters, rasterised once; only transform animates. */
 	.fog-veil {
 		position: absolute;
 		inset: 0;
-		background: light-dark(rgba(233, 238, 245, 0.55), rgba(24, 30, 42, 0.5));
+		/* Graded, not flat: fog pools — denser at the ground, thinner up high. */
+		background: linear-gradient(
+			to top,
+			light-dark(rgba(233, 238, 245, 0.78), rgba(24, 30, 42, 0.72)),
+			light-dark(rgba(233, 238, 245, 0.42), rgba(24, 30, 42, 0.38))
+		);
 	}
 	.fog-band {
 		position: absolute;
@@ -2788,17 +2815,39 @@
 		width: calc(100% + var(--ch) * 4);
 		background-repeat: repeat-x;
 		background-size: auto 100%;
-		opacity: 0.75;
 		will-change: transform;
 	}
+	/* Four planes, INTERLEAVED: the baked strip carries transparent margins inside its
+	   tile, so bands laid end to end left clear horizontal stripes between their cloud
+	   belts. These overlap by half their height — each band's belt sits over its
+	   neighbours' margins — and the last is BOTTOM-ANCHORED, so the sky console's row is
+	   always inside the fog whatever the viewport's height. */
+	/* Farthest: a soft, faint ceiling across the whole sky. */
 	.fog-a {
-		--ch: 60vh;
-		top: -5vh;
+		--ch: 90vh;
+		top: -20vh;
+		opacity: 0.55;
+		filter: blur(22px);
 	}
 	.fog-b {
-		--ch: 65vh;
+		--ch: 75vh;
+		top: 5vh;
+		opacity: 0.7;
+		filter: blur(14px);
+	}
+	.fog-c {
+		--ch: 60vh;
 		top: 35vh;
-		opacity: 0.6;
+		opacity: 0.85;
+		filter: blur(8px);
+	}
+	/* Nearest: low, dense, defined enough to keep real texture in the picture. */
+	.fog-d {
+		--ch: 55vh;
+		top: auto;
+		bottom: -15vh;
+		opacity: 0.95;
+		filter: blur(5px);
 	}
 	/* Lightning: one full-stage white layer, dark the vast majority of a long cycle with a
 	   double blink near the middle — opacity only, and rare. */
@@ -2807,11 +2856,18 @@
 		opacity: 0;
 	}
 	@media (prefers-reduced-motion: no-preference) {
+		/* Depth-ordered speeds: the near bank rolls past while the ceiling barely moves. */
 		.fog-a {
-			animation: cloud-drift 340s linear infinite;
+			animation: cloud-drift 380s linear infinite;
 		}
 		.fog-b {
-			animation: cloud-drift 220s linear infinite reverse;
+			animation: cloud-drift 260s linear infinite reverse;
+		}
+		.fog-c {
+			animation: cloud-drift 180s linear infinite;
+		}
+		.fog-d {
+			animation: cloud-drift 120s linear infinite reverse;
 		}
 		.fx-flash {
 			animation: fx-flash 9s linear infinite;
@@ -3185,6 +3241,10 @@
 		width: 30px;
 		height: 30px;
 		border-radius: 999px;
+	}
+	/* Bubble: the aero family's rim light and drop — see the masthead's brand dots. */
+	:global(html[data-ui='bubble']) .accent-dot {
+		box-shadow: var(--aero-gloss), var(--aero-drop);
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		/* Rolls in from the left with a little bounce as the title flips — same easing,
@@ -3762,7 +3822,7 @@
 	   sitting in-flow at the stage's left edge. */
 	.icon-btn.reopen {
 		position: fixed;
-		right: clamp(0.75rem, 2vw, 1.5rem);
+		right: clamp(1.5rem, 5vw, 3.5rem); /* the masthead's inset — see .sky-console */
 		top: calc(50% - 16px);
 		z-index: 40;
 	}
@@ -3773,7 +3833,9 @@
 			top: auto;
 			right: auto;
 			left: calc(50% - 21px); /* half the 42px phone disc */
-			bottom: clamp(0.9rem, 4vw, 1.5rem);
+			/* The sky console's exact bottom (its own clamp, not a near-miss): the two
+			   discs share the stage's bottom edge, so they share a baseline. */
+			bottom: clamp(1.5rem, 5vw, 3.5rem);
 		}
 		/* reicon has no arrow-up-circle; the back disc turned a quarter IS one (the disc
 		   is symmetric). Rotated on the svg, not the button — the hover pop owns the

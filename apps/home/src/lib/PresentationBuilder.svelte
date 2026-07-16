@@ -1115,6 +1115,10 @@
 		background: var(--pb-accent);
 		flex-shrink: 0;
 	}
+	/* Bubble: the aero family's rim light and drop — see the masthead's brand dots. */
+	:global(html[data-ui='bubble']) .accent-dot {
+		box-shadow: var(--aero-gloss), var(--aero-drop);
+	}
 	@media (prefers-reduced-motion: no-preference) {
 		.accent-dot {
 			animation: dot-in 0.45s var(--spring) 0.25s backwards;
