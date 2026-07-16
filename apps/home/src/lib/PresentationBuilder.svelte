@@ -1269,6 +1269,9 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4rem;
+		/* The app's 42px control family — height fixed, width the label's own. */
+		box-sizing: border-box;
+		height: 42px;
 		font: inherit;
 		font-size: 0.8rem;
 		font-weight: 600;
@@ -1276,7 +1279,7 @@
 		background: color-mix(in srgb, var(--ink) 5%, transparent);
 		border: 1.5px solid var(--line-edge);
 		border-radius: 999px;
-		padding: 0.4rem 0.85rem;
+		padding: 0 0.85rem;
 		cursor: pointer;
 	}
 	.tb :global(svg) {
@@ -1294,10 +1297,9 @@
 		border-color: var(--line-strong);
 		background: color-mix(in srgb, var(--ink) 5%, transparent);
 	}
-	:global(html[data-ui='bubble']) .tb:hover:not(:disabled) {
-		-webkit-backdrop-filter: blur(10px) saturate(1.5);
-		backdrop-filter: blur(10px) saturate(1.5);
-	}
+	/* (Bubble used to deepen the frost on hover — blur 6→10 — but backdrop-filter never
+	   transitions, so the blur SNAPPED in and out. The frost holds still; the family's
+	   gloss brighten and the spring do the hover talking.) */
 	.tb:focus-visible {
 		outline: var(--focus-ring);
 		outline-offset: 2px;
@@ -1321,12 +1323,16 @@
 	.chip {
 		display: inline-grid;
 		place-items: center;
+		/* Icon-only member of the 42px family (add/duplicate/delete slide). */
+		box-sizing: border-box;
+		width: 42px;
+		height: 42px;
 		font: inherit;
 		color: var(--sub);
 		background: color-mix(in srgb, var(--ink) 5%, transparent);
 		border: 1.5px solid var(--line-edge);
 		border-radius: 8px;
-		padding: 0.32rem;
+		padding: 0;
 		cursor: pointer;
 	}
 	.chip :global(svg) {
@@ -2056,10 +2062,6 @@
 			top: 0;
 			z-index: 2;
 			background: var(--panel-head);
-		}
-		/* Roomier tap targets for the toolbar and the swatch/mini controls on touch. */
-		.tb {
-			padding: 0.5rem 0.9rem;
 		}
 		.insert-grid {
 			grid-template-columns: 1fr 1fr;

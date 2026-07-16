@@ -147,7 +147,7 @@
 </div>
 
 <style>
-	/* One element, two shapes. Closed it's a 32px disc, matching every other panel control; open it
+	/* One element, two shapes. Closed it's a 42px disc, matching every other panel control; open it
 	   is a field of the same height, grown leftward from where the disc was (the row lays it out from
 	   the right, so widening pushes its own left edge out and the icon never moves). */
 	.cs {
@@ -155,19 +155,40 @@
 		display: flex;
 		align-items: center;
 		flex: none;
-		width: 32px;
-		height: 32px;
+		width: 42px;
+		height: 42px;
 		border-radius: 999px;
 		/* The family pill, worn closed (the glyph is a plain icon, so the face is safe). */
 		background: var(--aero-face);
 		color: var(--ink);
 		border: 1px solid transparent;
 		overflow: visible;
+		/* The morph SPRINGS: the field grows on the app's one overshoot curve (puhig's
+		   --spring), landing a touch past its width and settling back — and transform rides
+		   the button spring so the closed disc pops and squashes like its .icon-btn kin
+		   (it can't join the universal lists in +page: their :not(.open) state would drop
+		   this width transition on close, snapping the field shut). */
 		transition:
-			width 0.24s cubic-bezier(0.4, 0, 0.2, 1),
+			width 0.38s var(--spring),
+			transform 0.3s var(--btn-spring),
 			background 0.2s ease,
 			color 0.2s ease,
 			border-color 0.2s ease;
+		/* Pinned to a compositor layer like the universal button family (+page), so the
+		   hover pop's promotion doesn't re-rasterize the disc mid-interaction. */
+		will-change: transform;
+	}
+	/* The closed disc's pop and squash — the universal button amounts, stated locally
+	   (see the transition note above). Hover/press on the inner icon button reaches the
+	   disc: :hover and :active both match ancestors of the target. */
+	@media (prefers-reduced-motion: no-preference) {
+		.cs:not(.open):hover {
+			transform: scale(var(--btn-hover-scale));
+		}
+		.cs:not(.open):active {
+			transform: scale(var(--btn-press-scale));
+			transition-duration: 0.1s;
+		}
 	}
 	.cs.open {
 		width: min(20rem, 55vw);
@@ -184,8 +205,8 @@
 		flex: none;
 		display: grid;
 		place-items: center;
-		width: 30px;
-		height: 30px;
+		width: 40px;
+		height: 40px;
 		padding: 0;
 		color: inherit;
 		background: none;
@@ -195,24 +216,8 @@
 	}
 	.cs-icon :global(svg) {
 		display: block;
-		width: 1.05rem;
-		height: 1.05rem;
-	}
-	/* Phone: the disc keeps step with .icon-btn's 42px touch target (see puhig base.css);
-	   open, only the height grows — the field width is its own story. */
-	@media (max-width: 960px) {
-		.cs {
-			width: 42px;
-			height: 42px;
-		}
-		.cs-icon {
-			width: 40px;
-			height: 40px;
-		}
-		.cs-icon :global(svg) {
-			width: 1.35rem;
-			height: 1.35rem;
-		}
+		width: 1.35rem;
+		height: 1.35rem;
 	}
 	.cs-input {
 		flex: 1 1 auto;

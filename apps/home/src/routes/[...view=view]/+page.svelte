@@ -1682,20 +1682,21 @@
 		>
 			{#if skyConsoleOpen}
 				<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
+				<!-- The card and its contents move like the Star Map's constellation card: the
+				     card flies 10px/180ms BOTH ways, and each group rises in bottom-first
+				     (--n counts up from the group nearest the toggle the card grows out of). -->
 				<div
 					class="sky-pop"
-					in:fly={{ y: 10, duration: 180 }}
-					out:fade={{ duration: 120 }}
+					transition:fly={{ y: 10, duration: 180 }}
 					onclick={(e) => e.stopPropagation()}
 				>
-					<div class="sky-group" role="group" aria-labelledby="sky-lab-time">
+					<div class="sky-group" role="group" aria-labelledby="sky-lab-time" style="--n:1">
 						<span class="sky-lab" id="sky-lab-time">Time of Day</span>
 						<div class="sky-row">
-				{#each [['auto', 'Auto'], ['dawn', 'Dawn'], ['morning', 'Morning'], ['noon', 'Noon'], ['dusk', 'Dusk'], ['night', 'Night']] as [id, label], i (id)}
+				{#each [['auto', 'Auto'], ['dawn', 'Dawn'], ['morning', 'Morning'], ['noon', 'Noon'], ['dusk', 'Dusk'], ['night', 'Night']] as [id, label] (id)}
 					<button
 						type="button"
 						class="chip sky-chip"
-						style="--n:{i}"
 						class:on={skyMode === id}
 						aria-pressed={skyMode === id}
 						onclick={() => setSkyMode(id as SkyMode)}>{label}</button
@@ -1703,17 +1704,16 @@
 					{/each}
 						</div>
 					</div>
-					<div class="sky-group" role="group" aria-labelledby="sky-lab-wx">
+					<div class="sky-group" role="group" aria-labelledby="sky-lab-wx" style="--n:0">
 						<span class="sky-lab" id="sky-lab-wx">Weather Feature</span>
 						<div class="sky-row">
 				<!-- Clear is a CHOICE, not the absence of one: it empties the sky (see
 				     cloudsVisible), where no selection keeps the ambient drift. Clicking the
 				     active chip again deselects back to ambient. -->
-				{#each [['clear', 'Clear'], ['cloudy', 'Clouds'], ['rain', 'Rain'], ['snow', 'Snow'], ['fog', 'Fog'], ['storm', 'Storm']] as [id, label], i (label)}
+				{#each [['clear', 'Clear'], ['cloudy', 'Clouds'], ['rain', 'Rain'], ['snow', 'Snow'], ['fog', 'Fog'], ['storm', 'Storm']] as [id, label] (label)}
 					<button
 						type="button"
 						class="chip sky-chip"
-						style="--n:{i}"
 						class:on={stageWx === id}
 						aria-pressed={stageWx === id}
 						onclick={() => setStageWx(stageWx === id ? null : (id as WeatherKind))}>{label}</button
@@ -2353,13 +2353,13 @@
 	   knocked out of it. reicon has no camera in that family (gallery-circle is the inverse: a ring
 	   around a solid picture), so the disc is composed here instead — an ink fill with the filled
 	   camera punched through it in the page's own stock. Same result, same rules: no ring, no
-	   shadow, the disc IS the button. Same 32px as every panel control — it reads as one of them. */
+	   shadow, the disc IS the button. Same 42px as every panel control — it reads as one of them. */
 	.photo-toggle {
 		flex: none;
 		display: grid;
 		place-items: center;
-		width: 32px;
-		height: 32px;
+		width: 42px;
+		height: 42px;
 		padding: 0;
 		border: 0;
 		border-radius: 999px;
@@ -2390,29 +2390,19 @@
 		background: color-mix(in srgb, var(--ink) 12%, transparent);
 	}
 	:global(html[data-ui='bubble']) .photo-toggle[aria-expanded='true'] {
-		background: var(--aero-face);
+		/* Open is selected — the Settings gray fill, like every selected control (the
+		   resting gloss and drop stay; only the face densifies). */
+		background: var(--line);
 		border-color: color-mix(in srgb, var(--ink) 22%, transparent);
-		box-shadow: var(--aero-lit);
 	}
 	.photo-toggle:focus-visible {
 		outline: var(--focus-ring);
 		outline-offset: 2px;
 	}
 	.photo-toggle :global(svg) {
-		width: 1.15rem;
-		height: 1.15rem;
+		width: 1.5rem;
+		height: 1.5rem;
 		display: block;
-	}
-	/* Phone: keep step with .icon-btn's 42px touch target (see puhig base.css). */
-	@media (max-width: 960px) {
-		.photo-toggle {
-			width: 42px;
-			height: 42px;
-		}
-		.photo-toggle :global(svg) {
-			width: 1.5rem;
-			height: 1.5rem;
-		}
 	}
 	/* The flyout. Opaque, like the panels — it sits on a photograph, so it can't be a tint. */
 	.photo-pick {
@@ -2627,8 +2617,10 @@
 	.sky-pop {
 		display: flex;
 		flex-direction: column;
-		gap: 0.35rem;
-		padding: 0.5rem;
+		/* Air between the groups and around them: the chips shouldn't kiss the card's
+		   chrome — the popout is a small panel, and it breathes like one. */
+		gap: 0.75rem;
+		padding: 0.85rem;
 		/* The panel's own material — Flat's glass here, Bubble's frost below — so the
 		   popout reads as a shard of the same surface the panels are cut from. */
 		background: var(--panel-glass);
@@ -2654,7 +2646,7 @@
 	.sky-group {
 		display: flex;
 		flex-direction: column;
-		gap: 0.3rem;
+		gap: 0.4rem;
 	}
 	/* The caption, in the same small-caps voice as the stats' dt labels. */
 	.sky-lab {
@@ -2665,52 +2657,32 @@
 		color: var(--sub);
 	}
 	.sky-row {
-		display: flex;
-		gap: 0.3rem;
-		flex-wrap: wrap;
+		/* Three chips per row — a fixed grid, not a wrap: six choices always read as two
+		   even rows of three, the chips sharing one width instead of each its name's own. */
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 0.5rem;
 	}
-	/* The popout grows OUT of the disc beneath it, so the entrance ripples bottom-to-top:
-	   the Weather row (nearest the button) first, Time of Day above it. Within a row the
-	   HEADER speaks first — its own move, a slide in from the left like a caption being
-	   set down — and its chips deal in beneath it a beat later, rising. Replays every
-	   open — the {#if} remounts the card. */
+	/* Entrance: the Star Map constellation card's exact language (see .sm-story) — the
+	   card itself flies 10px/180ms both ways (the transition directive in the markup),
+	   and each GROUP rises in bottom-first, --n counting up from the group nearest the
+	   toggle the card grows out of. Replays every open — the {#if} remounts the card. */
 	@media (prefers-reduced-motion: no-preference) {
-		.sky-pop .sky-lab {
-			animation: sky-lab-in 0.25s ease backwards;
-			animation-delay: var(--rb, 0s);
-		}
-		.sky-pop .sky-chip {
-			animation: sky-pop-in 0.3s ease backwards;
-			animation-delay: calc(var(--rb, 0s) + 0.12s + var(--n, 0) * 0.03s);
-		}
-		/* Both rows wait out the card's own 180ms rise — the bottom row used to start at
-		   0s, mid-flight, and its entrance was swallowed while the top row (starting
-		   later, on a settled card) read cleanly. */
-		.sky-group:last-child {
-			--rb: 0.16s; /* Weather Feature — the bottom row leads, on a settled card */
-		}
-		.sky-group:first-child {
-			--rb: 0.42s; /* Time of Day arrives above it */
-		}
-	}
-	@keyframes sky-lab-in {
-		from {
-			opacity: 0;
-			transform: translateX(-6px);
-		}
-	}
-	@keyframes sky-pop-in {
-		from {
-			opacity: 0;
-			transform: translateY(7px);
+		.sky-pop > .sky-group {
+			animation: rise 0.4s ease backwards;
+			animation-delay: calc(var(--n, 0) * 0.06s);
 		}
 	}
 	.sky-toggle {
 		align-self: flex-start;
-		/* Size comes wholly from .icon-btn — the same 32px disc and 18px glyph as the
+		/* Size comes wholly from .icon-btn — the same 42px disc and 24px glyph as the
 		   panel's Back and Refresh. */
 	}
 	.sky-chip {
+		/* Grid-stretched to a shared column width (see .sky-row), so the label centres in
+		   the pill rather than hugging its left edge. */
+		justify-content: center;
+		text-align: center;
 		padding: 0.22rem 0.6rem;
 		font-size: 0.78rem;
 	}
@@ -2725,7 +2697,7 @@
 	/* The console shows on phones too (it used to hide there, dodging the reopen bubble —
 	   which has since moved to bottom-CENTRE, leaving this corner free): the sky is the
 	   homepage's one act, and its dials belong wherever the sky is. The chips take the
-	   42px phone height from the shared .chip rule, and the rows wrap.
+	   42px height from the shared .chip rule, and the rows wrap.
 
 	   Open, the phone popout wears the Star Map story card's exact clothes — a
 	   full-width frosted night pane with the night-ink tokens re-declared for its chips
@@ -3281,7 +3253,9 @@
 		flex: 1;
 		min-height: 0;
 		overflow-y: auto;
-		padding: clamp(1.5rem, 4vw, 2.25rem) clamp(1.5rem, 4vw, 2.75rem) 3rem;
+		/* NO top padding: spacing flows top-down — the header's bottom padding is the gap
+		   between masthead and content, and the body doesn't restate it (.tfc-body agrees). */
+		padding: 0 clamp(1.5rem, 4vw, 2.75rem) 3rem;
 		display: flex;
 		flex-direction: column;
 		gap: 1.05rem;
@@ -3515,7 +3489,9 @@
 		font-size: 0.9rem;
 		text-align: center;
 		color: var(--paper);
-		background: color-mix(in srgb, var(--ink) 92%, transparent);
+		/* Mixed with PAPER, not transparent — the toast floats over page content, and at
+		   92% alpha the text beneath read through it (same fix as the board's .tip). */
+		background: color-mix(in srgb, var(--ink) 92%, var(--paper));
 		border-radius: 12px;
 	}
 
@@ -3794,6 +3770,12 @@
 		color: var(--card-accent);
 		background: color-mix(in srgb, var(--card-accent) 12%, transparent);
 	}
+	/* Bubble: the squircle joins the aero family — the same rim light and airy drop the
+	   brand dots wear. The GLYPH stays reicon-flat; the material does the aero (that's
+	   the deal everywhere: a flat icon pack, moulded by the surface it sits on). */
+	:global(html[data-ui='bubble']) .app-ico {
+		box-shadow: var(--aero-gloss), var(--aero-drop);
+	}
 	.app-ico :global(svg) {
 		width: 1.4rem;
 		height: 1.4rem;
@@ -3823,7 +3805,7 @@
 	.icon-btn.reopen {
 		position: fixed;
 		right: clamp(1.5rem, 5vw, 3.5rem); /* the masthead's inset — see .sky-console */
-		top: calc(50% - 16px);
+		top: calc(50% - 21px); /* half the 42px disc */
 		z-index: 40;
 	}
 	/* On the phone the panel is a bottom sheet, so its bubble waits where the sheet comes
@@ -3832,7 +3814,7 @@
 		.icon-btn.reopen {
 			top: auto;
 			right: auto;
-			left: calc(50% - 21px); /* half the 42px phone disc */
+			left: calc(50% - 21px); /* half the 42px disc */
 			/* The sky console's exact bottom (its own clamp, not a near-miss): the two
 			   discs share the stage's bottom edge, so they share a baseline. */
 			bottom: clamp(1.5rem, 5vw, 3.5rem);
@@ -3848,7 +3830,10 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
-		padding: 0.4rem 0.75rem;
+		/* The 42px control family — height fixed, width still the name's own. */
+		box-sizing: border-box;
+		height: 42px;
+		padding: 0 0.85rem;
 		font: inherit;
 		font-size: 0.9rem;
 		color: var(--ink);
@@ -3857,15 +3842,6 @@
 		border-radius: 999px;
 		cursor: pointer;
 		text-decoration: none;
-	}
-	/* Phone: the Related chips keep step with the 42px control family — height fixed,
-	   width still the name's own. */
-	@media (max-width: 960px) {
-		.chip {
-			box-sizing: border-box;
-			height: 42px;
-			padding: 0 0.85rem;
-		}
 	}
 	.chip:hover {
 		background: var(--line);
@@ -3927,6 +3903,22 @@
 			box-shadow 0.28s var(--btn-soft),
 			opacity 0.18s var(--btn-soft),
 			color 0.15s ease;
+		/* Stay on a compositor layer from FIRST PAINT, in both UI styles. The hover pop is
+		   a transform, and a transform promotes: without the pin, promotion happens at
+		   hover start and the button re-rasterizes mid-interaction — at 100% zoom (dpr
+		   exactly 1) a 1px border or hairline rim sits on a device-pixel boundary and
+		   visibly snaps ("flashes") at hover start and end. Pinning makes the rest and
+		   in-motion renders identical. (This used to live only under the bubble key, on the
+		   theory that Flat had no shadows to snap — but Flat's 1px/1.5px BORDERS snap the
+		   same way.) Small controls, one small layer each; the exception is below. */
+		will-change: transform;
+	}
+	/* .type-btn is deliberately UNPINNED: it sits in EVERY table row, so the pin put one
+	   compositor layer per row inside the board's scroller — and Safari scrolling a
+	   layer-per-row table was the jank, far worse than the hover snap the pin bought.
+	   The chips take the 100%-zoom flash; the scroll takes the win. */
+	:global(html:root .type-btn) {
+		will-change: auto;
 	}
 	/* The 30px header icon circles sit flush at the top of a sticky header inside a clipping
 	   scroller. Anchoring their scale to the TOP edge means the pop grows only downward, into
@@ -4069,16 +4061,10 @@
 	:global(html[data-ui='bubble'] .menu-btn) {
 		border-radius: 999px;
 		box-shadow: var(--aero-gloss), var(--aero-drop);
-		/* Stay on a compositor layer. At 100% zoom (dpr exactly 1) the 1px rim light sits
-		   on a device-pixel boundary, and the hover spring's layer promotion re-rasterized
-		   the button — the rim visibly snapped ("flashed") at hover start and end. At 110%+
-		   the rim is already antialiased across pixels, so the artifact only showed at 100%.
-		   Pre-promoting makes the rest and in-motion renders identical. Bubble-only cost:
-		   these are small controls, and Flat has no shadows for a promotion to snap. */
-		will-change: transform;
 		/* Motion (transition, transform-origin, hover pop, press squash) is NOT set here —
 		   it's the universal button interaction at the bottom of this file, shared by both UI
-		   styles. Bubble only adds its material: the pill radius and the gloss. */
+		   styles, and the compositor-layer pin (will-change) lives there too now. Bubble only
+		   adds its material: the pill radius and the gloss. */
 	}
 	/* ── Clear pills all day ── In LIGHT mode the bubble family wears the CLEAR glass the
 	   dark scheme gets from its tokens: a barely-there face the sky reads through, a soft
@@ -4140,6 +4126,9 @@
 			box-shadow 0.28s var(--btn-soft),
 			opacity 0.18s var(--btn-soft),
 			color 0.15s ease;
+		/* Pinned like the universal family (the nav isn't in those lists — Flat's nav is
+		   typographic and doesn't spring), so its rim doesn't snap at hover start. */
+		will-change: transform;
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		:global(html[data-ui='bubble'] .menu-btn:hover) {
@@ -4151,22 +4140,9 @@
 		}
 	}
 
-	/* Pre-promote the SPRING buttons the depth rule doesn't dress (they keep their own
-	   faces: the camera disc, the edit bar, the board key, the photo card's close). They
-	   still scale on hover, so without a resting layer they'd re-rasterize at hover start
-	   and their edges snap at 100% zoom — the same flash the superbar's controls had
-	   before the depth rule pinned them (see will-change above).
-
-	   .type-btn is deliberately NOT here any more: it sits in EVERY table row, so the pin
-	   put one compositor layer per row inside the board's scroller — and Safari scrolling
-	   a layer-per-row table was the jank, far worse than the hover snap the pin bought.
-	   The chips take the 100%-zoom flash; the scroll takes the win. */
-	:global(html[data-ui='bubble'] .photo-toggle),
-	:global(html[data-ui='bubble'] .edit-btn),
-	:global(html[data-ui='bubble'] .legend-btn),
-	:global(html[data-ui='bubble'] .pc-close) {
-		will-change: transform;
-	}
+	/* (The bubble-only pre-promotion lists that lived here folded into the universal
+	   interaction block — every springing control is pinned there, in both UI styles,
+	   with .type-btn as the one documented exception.) */
 	/* The Apps cards join the family: the same material as everything above (fill + hairline,
 	   all gloss from the shared edge-hugging insets — no gradient, see the sheen note), at the
 	   card's own soft corners rather than the pill. The hover is the FAMILY's — gloss
@@ -4180,34 +4156,20 @@
 		border-radius: 14px;
 	}
 
-	/* Selected: shown with LIGHT, never a drawn outline. The ink border .seg.on carries in
-	   Flat read as a hard black frame here, so Bubble overrides it back to a hairline and
-	   says "on" three other ways: a brighter convex sheen, an inner white hairline just
-	   inside the edge (the glassy double rim), and a soft halo where the frame used to be. */
+	/* Selected: the Settings GRAY FILL (the segs' denser var(--line) face), one voice for
+	   every selected control. It used to be light — the aero-lit ring/halo stack — but the
+	   ring read as barely-on next to an unselected sibling; the denser face tells the two
+	   apart at a glance, so the lit stack is retired (the token survives in puhig, unworn).
+	   The ink border .seg.on carries in Flat still reads as a hard black frame here, so
+	   Bubble keeps the softer 22% hairline over it. (.field.on takes none of this: its
+	   accent fill was always its own saying.)
+	   (0,3,1 — beats the scoped base rules at 0,3,0.) */
 	:global(html[data-ui='bubble'] .seg.on),
+	:global(html[data-ui='bubble'] .sky-opt.on),
 	:global(html[data-ui='bubble'] .sky-chip.on) {
-		border-color: color-mix(in srgb, var(--ink) 22%, transparent);
-	}
-	/* The sky chips' selected state (Skybox Theme, Starry Night) joins that language too.
-	   Flat's solid ink pill — inverted text on an ink fill — read as a hard opaque block
-	   in a row of glass, the one control still saying "on" with paint instead of light.
-	   Bubble re-dresses it in the seg's exact selected material: the denser ink-mix face,
-	   ink text, the 22% hairline — and lets the aero-lit stack below do the saying.
-	   (0,3,1 — beats the scoped base .sky-opt.on at 0,3,0.) */
-	:global(html[data-ui='bubble'] .sky-opt.on) {
 		color: var(--ink);
 		background: var(--line);
 		border-color: color-mix(in srgb, var(--ink) 22%, transparent);
-	}
-	:global(html[data-ui='bubble'] .seg.on),
-	:global(html[data-ui='bubble'] .sky-opt.on),
-	:global(html[data-ui='bubble'] .sky-chip.on),
-	:global(html[data-ui='bubble'] .field.on) {
-		/* No gradient here either (see the sheen note above) — selected reads through its
-		   own denser fill plus LIGHT at the edges: a brighter rim and top glow, the inner
-		   hairline just inside the edge (the glassy double rim), and the soft halo where
-		   Flat's ink frame would be. */
-		box-shadow: var(--aero-lit);
 	}
 
 	/* Hover: brighten the gloss and lift the drop so the button reads as inflating toward
@@ -4231,22 +4193,12 @@
 			0 2px 5px rgba(8, 10, 14, 0.07),
 			0 9px 22px rgba(8, 10, 14, 0.1);
 	}
-	/* Hovering a SELECTED control: the plain hover rule above out-specifies the selected
-	   rule and would strip its halo and inner rim for the duration — so restate the full
-	   selected stack here (0,5,1 beats hover's 0,4,1) with the rim brightened and the drop
-	   lifted, so an active pill inflates like the rest without losing its "on". */
-	:global(html[data-ui='bubble'] .seg.on:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .sky-opt.on:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .sky-chip.on:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .field.on:hover:not(:disabled)) {
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.65),
-			inset 0 8px 12px -8px rgba(255, 255, 255, 0.75),
-			inset 0 0 0 1px rgba(255, 255, 255, 0.3),
-			0 0 0 3px color-mix(in srgb, var(--ink) 6%, transparent),
-			0 1px 3px rgba(8, 10, 14, 0.06),
-			0 6px 16px rgba(8, 10, 14, 0.08);
-	}
+	/* (A selected control used to restate a lit-hover stack here so the plain hover rule
+	   wouldn't strip its halo — retired with the halo itself: selected is a GRAY FILL now
+	   (see the selected rules above), which hover's box-shadow never touches. Structurally
+	   that also un-snapped hovering an .on control: the 6-shadow lit stack couldn't
+	   interpolate with the 4-shadow resting one — mismatched inset order — so the shadow
+	   popped instead of riding the 0.28s transition.) */
 	/* Pressed: sink the gloss inward for a tactile squash. */
 	:global(html[data-ui='bubble'] .seg:active:not(:disabled)),
 	:global(html[data-ui='bubble'] .sky-opt:active:not(:disabled)),

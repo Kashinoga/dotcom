@@ -575,11 +575,11 @@
 		align-items: center;
 		gap: 0.15rem;
 		min-width: 0;
-		/* The tabs are the panel's SECOND HEADER LINE, not body copy: take back most of the
-		   body's top padding (keep in step with .surface-body's clamp) so they sit close
-		   under "Weather", and pull left by the first tab's own text inset so the city's
+		/* The tabs are the panel's SECOND HEADER LINE, not body copy: a small beat under
+		   "Weather" (the body has NO top padding of its own now — spacing flows top-down
+		   from the header), and pull left by the first tab's own text inset so the city's
 		   letterforms align with the title's left edge. */
-		margin-top: calc(0.4rem - clamp(1.5rem, 4vw, 2.25rem));
+		margin-top: 0.4rem;
 		margin-left: -0.55rem;
 	}
 	.wx-tabs {
@@ -842,19 +842,19 @@
 	}
 	/* The °F/°C pair wear the refresh disc's exact clothes (the .photo-toggle recipe: the
 	   *-circle discs composed in page stock) — an ink disc with the glyph in paper, not an
-	   outline pill sitting beside a filled circle. 32px both ways, same as the disc; sized
+	   outline pill sitting beside a filled circle. 42px both ways, same as the disc; sized
 	   from padding, °F and °C came out different widths. Rest is the disc's 62% ink; hover
 	   and the SELECTED unit go full ink — the unit you're on is the one held down.
 	   Compound selector so the fill also beats Bubble's generic .seg paper face (0,2,1). */
 	.wx-unit-toggle .seg {
 		box-sizing: border-box;
-		width: 32px;
-		height: 32px;
+		width: 42px;
+		height: 42px;
 		display: grid;
 		place-items: center;
 		padding: 0;
 		font: inherit;
-		font-size: 0.8rem;
+		font-size: 0.9rem;
 		font-weight: 700;
 		color: var(--ink);
 		background: var(--aero-face);
@@ -865,29 +865,22 @@
 	.wx-unit-toggle .seg:hover {
 		background: color-mix(in srgb, var(--ink) 12%, transparent);
 	}
-	/* Phone: keep step with .icon-btn's 42px touch target (see puhig base.css). */
-	@media (max-width: 960px) {
-		.wx-unit-toggle .seg {
-			width: 42px;
-			height: 42px;
-			font-size: 0.9rem;
-		}
-	}
-	/* Selected says "on" the Settings way — the page's lit .seg.on treatment (halo,
-	   double rim) reaches these once nothing here overrides the face; the glass stays,
-	   the light does the talking. Flat keeps ink. */
+	/* Selected says "on" the Settings way — the page's gray-fill .seg.on treatment (the
+	   denser var(--line) face) reaches these once nothing here overrides the face.
+	   Flat keeps ink. */
 	:global(html:not([data-ui='bubble'])) .wx-unit-toggle .seg.on {
 		background: var(--ink);
 		color: var(--paper);
 	}
 	/* Clear-pills light mode (see the page's scheme-dark note): the face brightens to the
 	   family's glass. Scoped here because the component's own rules out-specify the
-	   page's. */
-	:global(html[data-ui='bubble']:not(.scheme-dark)) .wx-unit-toggle .seg {
+	   page's. :not(.on) like the page's own clear-pill list — the selected unit keeps its
+	   gray fill (that fill IS the on-state now; unguarded, this rule painted over it). */
+	:global(html[data-ui='bubble']:not(.scheme-dark)) .wx-unit-toggle .seg:not(.on) {
 		background: rgba(255, 255, 255, 0.16);
 		border-color: color-mix(in srgb, var(--ink) 16%, transparent);
 	}
-	:global(html[data-ui='bubble']:not(.scheme-dark)) .wx-unit-toggle .seg:hover {
+	:global(html[data-ui='bubble']:not(.scheme-dark)) .wx-unit-toggle .seg:not(.on):hover {
 		background: rgba(255, 255, 255, 0.36);
 	}
 

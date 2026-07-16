@@ -287,15 +287,15 @@
 	}
 	/* Current section — the masthead persists while a panel is open, so the active
 	   destination stays highlighted in the nav. Flat says it in accent text; Bubble says
-	   it the way the Weather units do — with LIGHT (the lit .seg.on stack: brighter rim,
-	   inner hairline, soft halo), the text staying ink. */
+	   it the way every selected control does — the Settings GRAY FILL (the denser
+	   var(--line) face; the lit ring it used to wear read as barely-on), text staying ink. */
 	.menu-btn.active {
 		color: var(--orange);
 	}
 	:global(html[data-ui='bubble']) .menu-btn.active {
 		color: var(--ink);
+		background: var(--line);
 		border-color: color-mix(in srgb, var(--ink) 22%, transparent);
-		box-shadow: var(--aero-lit);
 	}
 	.menu-btn:focus-visible {
 		outline: var(--focus-ring);

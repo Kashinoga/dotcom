@@ -70,7 +70,7 @@ const geom = (page) =>
 	const { ctx, page } = await openCard({ w: 390, h: 844 });
 	const g = await geom(page);
 	ok('phone: card is stacked', g.stacked);
-	ok('phone: button is a 36px touch target', g.w === 36 && g.h === 36, `${g.w}×${g.h}`);
+	ok('phone: button is a 42px touch target', g.w === 42 && g.h === 42, `${g.w}×${g.h}`);
 	ok('phone: clears the card corner radius (>=12px)', g.fromCardTop >= 12 && g.fromCardRight >= 12, `top ${g.fromCardTop} right ${g.fromCardRight}`);
 	ok('phone: button sits over the photo', g.overImage);
 	ok('phone: inset inside the image, not straddling its corner', g.fromImgTop >= 4 && g.fromImgRight >= 4, `imgTop ${g.fromImgTop} imgRight ${g.fromImgRight}`);
@@ -93,7 +93,7 @@ const geom = (page) =>
 	const { ctx, page } = await openCard({ w: 1500, h: 950 });
 	const g = await geom(page);
 	ok('desktop: card is side-by-side', !g.stacked);
-	ok('desktop: button is 32px', g.w === 32 && g.h === 32, `${g.w}×${g.h}`);
+	ok('desktop: button is 42px (the one control size at every width)', g.w === 42 && g.h === 42, `${g.w}×${g.h}`);
 	ok('desktop: clears the card corner radius (>=8px)', g.fromCardTop >= 8 && g.fromCardRight >= 8, `top ${g.fromCardTop} right ${g.fromCardRight}`);
 	ok('desktop: info text reserves room for the button', parseFloat(g.infoPadRight) >= 40, g.infoPadRight);
 

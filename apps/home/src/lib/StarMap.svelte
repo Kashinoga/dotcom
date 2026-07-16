@@ -708,7 +708,7 @@
 {/snippet}
 
 {#snippet locationField()}
-	<!-- Weather's morph, worn here: closed it's a 32px pin disc; open it's the field, grown
+	<!-- Weather's morph, worn here: closed it's a 42px pin disc; open it's the field, grown
 	     sideways from the same spot (see CitySearch for the two-shapes-one-element notes).
 	     It wears the `cs` class so the page's bubble rules dress it exactly like every other
 	     disc — the same resting face and hairline the Back button gets. -->
@@ -787,10 +787,12 @@
 			</div>
 			<div class="deck">
 				<div class="deck-controls">
-					<!-- --bn 1: the label and the disc ride the ripple together, one rung behind
-					     Back (the summary counts on from 2 — see the entrance block). -->
+					<!-- --bn 1: the disc rides the ripple one rung behind Back (the summary counts
+					     on from 2 — see the entrance block). No text label: the pin glyph and the
+					     "Over" stat beside it say what the disc is; the control keeps its
+					     accessible name. -->
 					<div class="ctl" style="--bn:1">
-						<span class="ctl-label">Location</span>{@render locationField()}
+						{@render locationField()}
 					</div>
 				</div>
 				<dl class="deck-summary" aria-label="Sky summary">
@@ -1075,14 +1077,6 @@
 		flex-wrap: wrap;
 		gap: 0.4rem 0.6rem;
 	}
-	.ctl-label {
-		flex: none;
-		font-size: 0.72rem;
-		font-weight: 700;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: var(--sub);
-	}
 	.deck-summary {
 		flex: none;
 		display: flex;
@@ -1158,7 +1152,6 @@
 	@media (prefers-reduced-motion: no-preference) {
 		.sm-head .icon-btn,
 		.sm-head .sm-cs,
-		.sm-head .ctl-label,
 		.sm-head .deck-summary dt,
 		.sm-head .deck-summary dd {
 			animation: btn-in 0.42s var(--spring) backwards;
@@ -1231,15 +1224,15 @@
 	   the element wears the `cs` class, so the page's bubble rules (gloss, the light-scheme
 	   clear-pill face, the open field's family clothes) reach it directly, keeping it
 	   pixel-identical to the Back disc beside it. Only the morph mechanics and the Flat
-	   resting look live here. Closed it's a 32px pin disc; open it's the field of the same
+	   resting look live here. Closed it's a 42px pin disc; open it's the field of the same
 	   height, the pin staying put as the anchor the width grows away from. */
 	.sm-cs {
 		position: relative;
 		display: flex;
 		align-items: center;
 		flex: none;
-		width: 32px;
-		height: 32px;
+		width: 42px;
+		height: 42px;
 		border-radius: 999px;
 		/* The Back button's exact resting clothes (base.css .icon-btn): the family face
 		   under a line-edge hairline — the two discs share a row, so they share a look. */
@@ -1247,12 +1240,28 @@
 		color: var(--ink);
 		border: 1px solid var(--line-edge);
 		overflow: visible;
+		/* The morph SPRINGS — CitySearch's exact motion (see its transition note): the
+		   field overshoots its width on puhig's --spring, and transform rides the button
+		   spring so the closed pin disc pops and squashes with the family. */
 		transition:
-			width 0.24s cubic-bezier(0.4, 0, 0.2, 1),
+			width 0.38s var(--spring),
+			transform 0.3s var(--btn-spring),
 			background 0.2s ease,
 			color 0.2s ease,
 			border-color 0.2s ease,
 			box-shadow 0.2s ease;
+		/* Pinned to a compositor layer like the universal button family (+page), so the
+		   hover pop's promotion doesn't re-rasterize the disc mid-interaction. */
+		will-change: transform;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.sm-cs:not(.open):hover {
+			transform: scale(var(--btn-hover-scale));
+		}
+		.sm-cs:not(.open):active {
+			transform: scale(var(--btn-press-scale));
+			transition-duration: 0.1s;
+		}
 	}
 	.sm-cs.open {
 		width: min(20rem, 55vw);
@@ -1267,8 +1276,8 @@
 		flex: none;
 		display: grid;
 		place-items: center;
-		width: 30px;
-		height: 30px;
+		width: 40px;
+		height: 40px;
 		padding: 0;
 		color: inherit;
 		background: none;
@@ -1278,28 +1287,12 @@
 	}
 	.sm-cs-icon :global(svg) {
 		display: block;
-		width: 1.05rem;
-		height: 1.05rem;
+		width: 1.35rem;
+		height: 1.35rem;
 		/* Optical centring, not geometric: the pin is a TEARDROP — bulb high, tip low —
 		   so dead-centre reads high in the disc. A 1px drop rests its visual mass (the
 		   bulb) on the disc's centre. */
 		transform: translateY(1px);
-	}
-	/* Phone: keep step with .icon-btn's 42px touch target (see puhig base.css) — the pin
-	   shares a row with Back, so they share a size. */
-	@media (max-width: 960px) {
-		.sm-cs {
-			width: 42px;
-			height: 42px;
-		}
-		.sm-cs-icon {
-			width: 40px;
-			height: 40px;
-		}
-		.sm-cs-icon :global(svg) {
-			width: 1.35rem;
-			height: 1.35rem;
-		}
 	}
 	.sm-cs-input {
 		flex: 1 1 auto;
@@ -1407,7 +1400,7 @@
 	/* The constellation's story card — night ink on a frosted night pane, in the stage's
 	   bottom-RIGHT pocket (the brand's own corner; the card covers the signature while it
 	   speaks). Its discs are ordinary .icon-btns, so they measure what every panel control
-	   measures — 32px, 42px under a thumb. */
+	   measures — 42px at every width. */
 	.sm-story {
 		position: absolute;
 		z-index: 2;

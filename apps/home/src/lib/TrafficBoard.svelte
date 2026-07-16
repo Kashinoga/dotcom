@@ -1573,7 +1573,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.7rem;
-		padding: clamp(1.25rem, 3vw, 1.75rem) clamp(1.5rem, 4vw, 2.75rem) 2rem;
+		/* NO top padding: spacing flows top-down — the header's bottom padding already
+		   provides the breath between the masthead and the rows (.surface-body agrees). */
+		padding: 0 clamp(1.5rem, 4vw, 2.75rem) 2rem;
 	}
 	.tfc-body.scrolled {
 		/* Modern Aero: a breath of shade, not a drawn band — long blur, light hand. */
@@ -1896,13 +1898,8 @@
 		gap: var(--bar-inset);
 		padding: var(--bar-inset);
 	}
-	/* With no rule under the bar, the body's old top gap had nothing to hold itself off, and the
-	   table read as adrift from the header. Halve it: the bar's own bottom inset already separates
-	   them, and the table's first row is a header of its own. (Compact keeps the roomier value — its
-	   header is a full-height title block, not a strip.) */
-	.expanded .tfc-body {
-		padding-top: clamp(0.6rem, 1.2vw, 0.9rem);
-	}
+	/* (The expanded body used to halve its top gap here; the base .tfc-body now carries
+	   that tight top at every size, so there's nothing left to override.) */
 	/* Global-control end caps — matched to the parent's expand button so back/expand
 	   read as one set framing the bar (shared styling in the .icon-circle group above). */
 	.nav-edge {
@@ -2044,7 +2041,11 @@
 		color: var(--sub);
 	}
 	.field {
-		padding: 0.35rem 0.6rem;
+		/* Text pill in the 42px control family: height fixed like the Related chips',
+		   width still the label's own (a native button centres its text vertically). */
+		box-sizing: border-box;
+		height: 42px;
+		padding: 0 0.6rem;
 		font: inherit;
 		font-weight: 500;
 		font-size: 0.85rem;
@@ -2073,7 +2074,9 @@
 	.field-select {
 		appearance: none;
 		-webkit-appearance: none;
-		padding: 0.35rem 1.7rem 0.35rem 0.6rem;
+		box-sizing: border-box;
+		height: 42px; /* the 42px control family (see puhig base.css .icon-btn) */
+		padding: 0 1.7rem 0 0.6rem;
 		font: inherit;
 		font-weight: 500;
 		font-size: 0.85rem;
@@ -2091,13 +2094,6 @@
 	}
 	.field-select:hover {
 		border-color: var(--line-strong);
-	}
-	/* Phone: keep step with the 42px control family (see puhig base.css .icon-btn). */
-	@media (max-width: 960px) {
-		.field-select {
-			box-sizing: border-box;
-			height: 42px;
-		}
 	}
 	.field-select:focus-visible {
 		outline: var(--focus-ring);
@@ -2132,8 +2128,8 @@
 		position: relative;
 		display: inline-grid;
 		place-items: center;
-		width: 32px;
-		height: 32px;
+		width: 42px;
+		height: 42px;
 		flex: none;
 		padding: 0;
 		background: none;
@@ -2160,19 +2156,12 @@
 	.manual:active {
 		transform: rotate(-90deg);
 	}
+	/* The dial keeps step with .icon-btn's 42px size (see puhig base.css); the ring is
+	   viewBox geometry, so it scales with its box. */
 	.ring {
-		width: 32px;
-		height: 32px;
+		width: 42px;
+		height: 42px;
 		transform: rotate(-90deg);
-	}
-	/* Phone: the dial keeps step with .icon-btn's 42px touch target (see puhig base.css);
-	   the ring is viewBox geometry, so it scales with its box. */
-	@media (max-width: 960px) {
-		.refresh,
-		.ring {
-			width: 42px;
-			height: 42px;
-		}
 	}
 	.ring-track {
 		fill: none;
@@ -2231,13 +2220,18 @@
 		z-index: 5;
 		width: max-content;
 		max-width: 220px;
+		/* Its own wrapping, always: hosts pass down white-space (the table's nowrap reached
+		   the refresh dial's tip), and an unwrappable line overruns the 220px box — text
+		   past the background's edge. */
+		white-space: normal;
 		padding: 0.5rem 0.7rem;
 		font-size: 0.78rem;
 		line-height: 1.45;
 		color: var(--paper);
-		/* Reads above the board by inverting — near-solid ink on a light panel — the same
-		   device the site's .edit-toast uses. No drop shadow. */
-		background: color-mix(in srgb, var(--ink) 92%, transparent);
+		/* Reads above the board by inverting — near-ink on a light panel — the same device
+		   the site's .edit-toast uses. No drop shadow. Mixed with PAPER, not transparent:
+		   the tip floats over live table text, and at 92% alpha the rows read through it. */
+		background: color-mix(in srgb, var(--ink) 92%, var(--paper));
 		border-radius: 8px;
 		opacity: 0;
 		transform: translateY(-3px);
@@ -2601,8 +2595,8 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.15rem;
-		/* Clears the close button (0.6rem inset + 32px) so text never runs under it. */
-		padding-right: 2.6rem;
+		/* Clears the close button (0.6rem inset + 42px) so text never runs under it. */
+		padding-right: 3.3rem;
 	}
 	.pc-title {
 		margin: 0;
@@ -2660,8 +2654,8 @@
 		z-index: 1;
 		display: grid;
 		place-items: center;
-		width: 32px;
-		height: 32px;
+		width: 42px;
+		height: 42px;
 		padding: 0;
 		line-height: 1;
 		font-size: 1.15rem;
@@ -2702,13 +2696,11 @@
 			max-width: none;
 		}
 		/* Stacked, the photo runs the full width and the close button lands on it. Inset it
-		   far enough to sit clear of the image's own 8px corner instead of straddling it,
-		   and give it a phone-sized target. */
+		   far enough to sit clear of the image's own 8px corner instead of straddling it
+		   (the size is the family's 42px at every width). */
 		.pc-close {
 			top: 1rem;
 			right: 1rem;
-			width: 36px;
-			height: 36px;
 		}
 		/* The info column is below the photo now — nothing to reserve space for. */
 		.pc-info {

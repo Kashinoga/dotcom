@@ -50,8 +50,10 @@
 		inset 0 0 0 1px rgba(255, 255, 255, 0.25),
 		0 0 0 3px color-mix(in srgb, var(--ink) 5%, transparent),
 		0 1px 3px rgba(8, 10, 14, 0.07),
-		0 4px 12px rgba(8, 10, 14, 0.08); /* selected: brighter rim, double hairline, a QUIET halo
-		   (softened for Modern Aero — the light does the saying, the shadow just seats it) */
+		0 4px 12px rgba(8, 10, 14, 0.08); /* selected-by-light, currently UNWORN: the app's
+		   selected states say "on" with the Settings gray fill (see +page's selected rules) —
+		   the ring read as barely-on next to an unselected sibling. Kept for a surface that
+		   might want light over fill again. */
 	/* The neutral edge ramp. Every border in the app is one of these three, so a control's edge is
 	 * changed in one place rather than in each component.
 	 *
@@ -204,8 +206,8 @@ body {
 	display: inline-grid;
 	place-items: center;
 	box-sizing: border-box;
-	width: 32px;
-	height: 32px;
+	width: 42px;
+	height: 42px;
 	padding: 0;
 	/* A family PILL, not an ink disc: the face on the button, the glyph in ink — the
 	 * chips' material worn at disc size. (The *-circle glyphs, whose disc was CONTENT,
@@ -232,23 +234,13 @@ body {
  * button). */
 .icon-btn svg {
 	display: block;
-	width: 18px;
-	height: 18px;
+	width: 24px;
+	height: 24px;
 }
-/* On the phone (the app's isMobile line, 960px) the disc grows to a 42px touch target,
- * the glyph riding along at the same proportion. Controls that wear this size by hand
+/* 42px at EVERY width (it began as the phone's touch target; the desktop pass promoted
+ * it — one control size, no breakpoint seam). Controls that wear this size by hand
  * (the search discs, the camera disc, the refresh dial, the unit toggle) restate it in
- * their own phone rules — keep them in step. */
-@media (max-width: 960px) {
-	.icon-btn {
-		width: 42px;
-		height: 42px;
-	}
-	.icon-btn svg {
-		width: 24px;
-		height: 24px;
-	}
-}
+ * their own rules — keep them in step. */
 
 /* Panel chrome entrance — the horizontal counterpart to the content column's `rise`. A
  * panel's controls (Back, the field pills, Range, Refresh, the refresh dial, Expand) are
