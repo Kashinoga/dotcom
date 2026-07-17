@@ -851,6 +851,14 @@
 	// that says "rows have gone under". Same-value assignments are free, so the raw
 	// scroll listener costs nothing at rest.
 	let bodyScrolled = $state(false);
+	// Phone header tuck: past real scroll depth the compact header folds to ONE toolbar
+	// row — Back, the title at bar scale, and the refresh cap, all shrunk to toolbar
+	// proportion — handing the old header's height to the rows (see the max-width media
+	// block). Hysteresis, not one threshold: collapsing frees ~4rem of body height, so on
+	// a barely-overflowing board a single trigger point would clamp the scroll back under
+	// itself and the header would flap open and shut. Collapse deep (64), reopen only
+	// near the top (8) — the states can't chase each other.
+	let headCollapsed = $state(false);
 	// Split-flap start delay. Live/initial rows cascade top-to-bottom (i × ROW_STEP).
 	// An ENTERING row flaps only AFTER its open motion (turn + OPEN_MS), so the flap
 	// and the open never run together. A LEAVING row's cells are frozen; its reason
@@ -1145,7 +1153,10 @@
 	</button>
 {/snippet}
 
-<div class="tfc" class:expanded style:--accent={accent}>
+<!-- head-collapsed only ever pairs with the COMPACT header: between 900 and 960px an
+     expanded board shows the deck (showDeck), whose super bar is already one row —
+     gating here keeps the class honest instead of leaning on its selectors missing. -->
+<div class="tfc" class:expanded class:head-collapsed={headCollapsed && !showDeck} style:--accent={accent}>
 	<header class="tfc-head" class:bar={showDeck}>
 		{#if showDeck}
 			<!-- Expanded: ONE super bar. The far edges are global app controls — back at the
@@ -1249,7 +1260,11 @@
 		class="tfc-body"
 		class:booting={!booted}
 		class:scrolled={bodyScrolled}
-		onscroll={(e) => (bodyScrolled = e.currentTarget.scrollTop > 2)}
+		onscroll={(e) => {
+			const y = e.currentTarget.scrollTop;
+			bodyScrolled = y > 2;
+			headCollapsed = headCollapsed ? y > 8 : y > 64;
+		}}
 	>
 		<!-- Live-data activity meter, covering the whole wait so there's feedback BEFORE and
 		     DURING, not just after. Two phases share one bar (so it never disappears between
@@ -1529,6 +1544,105 @@
 	@media (max-width: 960px) {
 		.expand-compact {
 			display: none; /* phone bottom-sheet is already full width */
+		}
+		/* Scrolled deep, the phone header folds to ONE toolbar row: the caps shrink to 32px,
+		   the title drops to bar scale and glides up beside Back, and the freed ~4rem goes
+		   to the rows below. Everything stays tappable — the bar keeps Back and the refresh
+		   cap, just at toolbar proportion. Scroll back near the top and the full header
+		   returns; `head-collapsed` (set with hysteresis in the body's onscroll) is the
+		   switch, so the two states can't chase each other on a barely-overflowing board.
+
+		   The fold is built ENTIRELY from animatable properties — no display or position
+		   swaps — so the whole header travels as one motion (transitions in the gate
+		   below): Back's row closes under the title via margin collapse, and the title's
+		   left padding slides it clear of the cap it now shares the row with. */
+		.back {
+			/* Block-level, so its row is exactly the disc: an inline-level cap rides a text
+			   line box whose strut leaves descender slack below, and the -32px margin
+			   collapse would come up those few px short. */
+			display: grid;
+		}
+		.head-collapsed .tfc-head {
+			padding-block: 0.4rem; /* bar-tight; side insets stay put so the bar keeps the column */
+		}
+		.head-collapsed .back {
+			/* Close the cap's own row: -32px cancels its (shrunken) height, so the title
+			   row beneath rises to share it. */
+			margin-bottom: -32px;
+		}
+		.head-collapsed .tfc-head .icon-btn {
+			/* Toolbar-size caps — the 42px disc scaled to sit inside the tight bar. */
+			width: 32px;
+			height: 32px;
+		}
+		.head-collapsed .tfc-head .icon-btn svg {
+			width: 18px;
+			height: 18px;
+		}
+		.head-collapsed .corner-compact {
+			/* Ride the bar: same top inset as its padding, so the shrunken cap sits level
+			   with Back across the row. */
+			top: 0.4rem;
+		}
+		.head-collapsed .title-row {
+			/* Left: clear the Back cap now sharing the row. Block: 4px each side brings the
+			   24px text to exactly cap height (32px), so the bar's padding reads even above
+			   and below the caps. And at bar scale the wordmark gap reads as a hole — pull
+			   the station bullet in. */
+			padding-block: 4px;
+			padding-left: calc(32px + 0.6rem);
+			column-gap: 0.4rem;
+		}
+		.head-collapsed .dest {
+			/* Bar scale — sized to the toolbar strip, not wordmark scale. */
+			font-size: 1.5rem;
+		}
+		.head-collapsed .accent-dot {
+			/* The station bullet keeps riding the baseline, at bar proportion. */
+			width: 14px;
+			height: 14px;
+		}
+	}
+	/* The tuck MOVES (the title gliding into the bar, Back's row closing under it), so its
+	   transitions live behind the motion gate; with a preference set, the fold snaps. The
+	   .icon-btn transition restates base.css's color/background/transform run: a
+	   transition list replaces, not merges, and the caps must keep their hover/press feel
+	   while growing. */
+	@media (prefers-reduced-motion: no-preference) and (max-width: 960px) {
+		.tfc-head {
+			transition: padding 0.28s ease;
+		}
+		.tfc-head .icon-btn {
+			transition:
+				color 0.15s ease,
+				background 0.15s ease,
+				transform 0.15s ease,
+				width 0.28s ease,
+				height 0.28s ease;
+		}
+		.tfc-head .icon-btn svg {
+			transition: width 0.28s ease, height 0.28s ease;
+		}
+		.back {
+			transition:
+				color 0.15s ease,
+				background 0.15s ease,
+				transform 0.15s ease,
+				width 0.28s ease,
+				height 0.28s ease,
+				margin-bottom 0.28s ease;
+		}
+		.corner-compact {
+			transition: top 0.28s ease;
+		}
+		.title-row {
+			transition: padding 0.28s ease, column-gap 0.28s ease;
+		}
+		.dest {
+			transition: font-size 0.28s ease;
+		}
+		.accent-dot {
+			transition: width 0.28s ease, height 0.28s ease;
 		}
 	}
 	/* Top-right corner: the live refresh control paired with the expand/collapse toggle. */
