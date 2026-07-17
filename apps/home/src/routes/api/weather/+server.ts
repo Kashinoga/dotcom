@@ -94,6 +94,43 @@ async function fetchHours(forecastHourlyUrl: string | undefined) {
 	}
 }
 
+/** The days ahead, from the 12-hour-period forecast (~7 days): day and night periods
+ *  folded into calendar days — hi from the day period, lo from the night that starts
+ *  that evening, the label from the day's prose (night's when a day arrives half spent
+ *  and has no daytime period left). `t` slices the period's startTime, which carries
+ *  the LOCATION's offset, so it is the location's calendar date, not the server's.
+ *  [] on any trouble — the days are a garnish, same bargain as the hours. */
+async function fetchDays(forecastUrl: string | undefined) {
+	if (!forecastUrl) return [];
+	try {
+		const fc = await get(forecastUrl);
+		const periods: any[] = fc?.properties?.periods ?? [];
+		type Day = { t: string; hiF: number | null; loF: number | null; label: string; pop: number };
+		const days = new Map<string, Day>();
+		for (const p of periods) {
+			const date = typeof p.startTime === 'string' ? p.startTime.slice(0, 10) : '';
+			if (!date) continue;
+			let d = days.get(date);
+			if (!d) {
+				d = { t: date, hiF: null, loF: null, label: '', pop: 0 };
+				days.set(date, d);
+			}
+			const temp = typeof p.temperature === 'number' ? p.temperature : null;
+			if (p.isDaytime) {
+				d.hiF = temp;
+				d.label = (p.shortForecast as string) ?? d.label;
+			} else {
+				d.loF = temp;
+				if (!d.label) d.label = (p.shortForecast as string) ?? '';
+			}
+			d.pop = Math.max(d.pop, num(p.probabilityOfPrecipitation) ?? 0);
+		}
+		return [...days.values()];
+	} catch {
+		return [];
+	}
+}
+
 // Cache per rounded lat/lon. Module scope = per Worker isolate.
 //
 // The TTL is derived from the OBSERVATION, not from a clock we picked. A station reports roughly
@@ -142,11 +179,13 @@ export const GET: RequestHandler = async ({ url }) => {
 		const first = stations?.features?.[0]?.properties;
 		if (!first?.stationIdentifier) throw new Error('no station');
 
-		// 3. that station's latest reading — and, alongside it, the next hours' forecast
-		// (the /points response already named the URL; the two upstreams are independent).
-		const [obs, hours] = await Promise.all([
+		// 3. that station's latest reading — and, alongside it, the next hours' and the
+		// days-ahead forecasts (the /points response already named both URLs; the three
+		// upstreams are independent).
+		const [obs, hours, days] = await Promise.all([
 			get(`${NWS}/stations/${first.stationIdentifier}/observations/latest`),
-			fetchHours(point?.properties?.forecastHourly)
+			fetchHours(point?.properties?.forecastHourly),
+			fetchDays(point?.properties?.forecast)
 		]);
 		const p = obs?.properties ?? {};
 		const tempC = num(p.temperature);
@@ -170,7 +209,8 @@ export const GET: RequestHandler = async ({ url }) => {
 			humidity: num(p.relativeHumidity),
 			windMph: windK === null ? null : kmh2mph(windK),
 			windDir: num(p.windDirection),
-			hours
+			hours,
+			days
 		};
 		if (body.tempC === null && !body.conditions) throw new Error('empty observation');
 

@@ -307,6 +307,37 @@
 	// display unit converts at the last moment, same as the big number.
 	const toUnit = (f: number) => (weather.unit === 'F' ? f : ((f - 32) * 5) / 9);
 	const hourLabel = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: 'numeric' });
+	// ── The days ahead ── Tomorrow leads, the rest by name; NWS's daily forecast runs
+	// about a week. Today drops out — the big number and the hours rail already tell it —
+	// so the first row is genuinely tomorrow. "Today" is the LOCATION's calendar date
+	// (the first forecast hour carries its offset), not this browser's clock.
+	const days = $derived.by(() => {
+		const all = now?.days ?? [];
+		const today = now?.hours?.[0]?.t?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
+		return all.filter((d) => d.t > today && (d.hiF !== null || d.loF !== null));
+	});
+	const dayLabel = (t: string, i: number) =>
+		i === 0 ? 'Tomorrow' : new Date(t + 'T12:00:00').toLocaleDateString([], { weekday: 'long' });
+	// Each row carries a RANGE BAR — the day's lo→hi span, placed on one shared scale
+	// (the week's coldest to warmest), so a mild day reads as a short bar sitting where
+	// it belongs against its neighbours, the way a column of days should compare.
+	const weekSpan = $derived.by(() => {
+		const temps = days.flatMap((d) => [d.hiF, d.loF]).filter((n): n is number => n !== null);
+		if (temps.length < 2) return null;
+		const min = Math.min(...temps);
+		return { min, span: Math.max(Math.max(...temps) - min, 1) };
+	});
+	// Temperature wears its colour — each bar a gradient from its lo's colour to its
+	// hi's, so a big swing visibly crosses the spectrum. The walk is PIECEWISE, not
+	// linear: freezing and below holds blue, the mild band walks blue→green→yellow,
+	// and everything past 70°F lives in yellow→amber→ember — a straight walk parked
+	// the whole summer in greens.
+	const tempHue = (f: number) => {
+		if (f <= 32) return 220;
+		if (f <= 70) return 220 - ((f - 32) / 38) * 150; // → 70 (yellow-green) at 70°F
+		return 70 - (Math.min(f - 70, 30) / 30) * 55; // → 15 (ember) at 100°F+
+	};
+	const tempColor = (f: number) => `hsl(${tempHue(f)} 72% 55%)`;
 	// Wheel-over-the-rail scrolls it sideways (the city strip's move): most mice only have
 	// a vertical wheel, and the rail is the only thing under the pointer that scrolls.
 	function hoursWheel(e: WheelEvent) {
@@ -531,6 +562,36 @@
 			</div>
 		{/if}
 
+		<!-- The days ahead: Tomorrow, then the rest of the week the way NWS tells it — the
+		     day's drawn mark, rain odds once they're worth planning around, and hi/lo. A
+		     LIST, not a rail: a week is a reading, not a glance, and rows keep the
+		     temperatures in columns the eye can run down. -->
+		{#if days.length}
+			<div class="wx-days" role="list" aria-label="The days ahead">
+				{#each days as d, i (d.t)}
+					<div class="wx-day" role="listitem">
+						<span class="wxd-name">{dayLabel(d.t, i)}</span>
+						<span class="wxd-mark" aria-hidden="true" title={d.label}>{@html conditionIcon(d.label, false)}</span>
+						<span class="wxd-pop">{d.pop >= 15 ? `${d.pop}%` : ''}</span>
+						<span class="wxd-range" aria-hidden="true">
+							{#if weekSpan && d.hiF !== null && d.loF !== null}
+								<span
+									class="wxd-range-fill"
+									style:left="{((d.loF - weekSpan.min) / weekSpan.span) * 100}%"
+									style:width="{(Math.max(d.hiF - d.loF, 1) / weekSpan.span) * 100}%"
+									style:background="linear-gradient(90deg, {tempColor(d.loF)}, {tempColor(d.hiF)})"
+								></span>
+							{/if}
+						</span>
+						<span class="wxd-temps">
+							<span class="wxd-hi">{d.hiF === null ? '—' : `${Math.round(toUnit(d.hiF))}°`}</span>
+							<span class="wxd-lo">{d.loF === null ? '—' : `${Math.round(toUnit(d.loF))}°`}</span>
+						</span>
+					</div>
+				{/each}
+			</div>
+		{/if}
+
 		<p class="wx-source">
 			{now.place || place.name} · {now.station.name || now.station.id} · National Weather Service
 		</p>
@@ -577,6 +638,7 @@
 		.wx-now,
 		.wx-stats,
 		.wx-hours,
+		.wx-days,
 		.wx-source {
 			animation: settle 0.45s ease backwards;
 		}
@@ -590,8 +652,11 @@
 		.wx-hours {
 			animation-delay: 0.25s;
 		}
-		.wx-source {
+		.wx-days {
 			animation-delay: 0.32s;
+		}
+		.wx-source {
+			animation-delay: 0.39s;
 		}
 	}
 	@keyframes tab-in {
@@ -972,6 +1037,74 @@
 		margin: 0.15rem 0 0;
 		font-weight: 600;
 		font-variant-numeric: tabular-nums;
+	}
+
+	/* The days ahead — rows under the same thin rule the stats wear, temperatures in
+	   columns at the right (hi leading, lo in the sub ink). */
+	.wx-days {
+		display: flex;
+		flex-direction: column;
+		gap: 0.55rem;
+		padding-top: 1.1rem;
+		border-top: 1px solid var(--line);
+	}
+	.wx-day {
+		display: grid;
+		grid-template-columns: 6.2rem 1.6rem 2.6rem 1fr auto;
+		align-items: center;
+		gap: 0.6rem;
+	}
+	/* The lo→hi span on the week's shared scale — a track in the hairline ink, the day's
+	   own reach in temperature colour. (No overflow clip: the fill is bounded by
+	   construction, and clipping would shave the aero drop below.) */
+	.wxd-range {
+		position: relative;
+		height: 6px;
+		border-radius: 999px;
+		background: var(--line);
+	}
+	.wxd-range-fill {
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		border-radius: 999px;
+	}
+	/* Bubble: the bars join the aero family — the glass face for the track, and the fill
+	   wearing the same rim light and airy drop the brand dots do. Gloss lives in the
+	   edge-hugging insets, never a wash over the temperature gradient; Flat keeps the
+	   bars ink-flat. */
+	:global(html[data-ui='bubble']) .wxd-range {
+		background: var(--aero-face);
+	}
+	:global(html[data-ui='bubble']) .wxd-range-fill {
+		box-shadow: var(--aero-gloss), var(--aero-drop);
+	}
+	.wxd-name {
+		font-weight: 600;
+	}
+	.wxd-mark :global(svg) {
+		width: 20px;
+		height: 20px;
+		display: block;
+		color: var(--ink);
+	}
+	.wxd-pop {
+		font-size: 0.72rem;
+		color: var(--sub);
+		font-variant-numeric: tabular-nums;
+	}
+	.wxd-temps {
+		justify-self: end;
+		display: flex;
+		gap: 0.7rem;
+		font-variant-numeric: tabular-nums;
+	}
+	.wxd-hi {
+		font-weight: 700;
+	}
+	.wxd-lo {
+		font-weight: 600;
+		color: var(--sub);
 	}
 
 	.wx-msg,

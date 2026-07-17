@@ -20,6 +20,17 @@ export type Hour = {
 	night: boolean;
 };
 
+// One day ahead, folded by /api/weather from NWS's 12-hour periods: the location's
+// calendar date, the daytime high, the overnight low, the day's prose for the mark,
+// and the worse of the two periods' precipitation odds.
+export type Day = {
+	t: string;
+	hiF: number | null;
+	loF: number | null;
+	label: string;
+	pop: number;
+};
+
 export type Now = {
 	place: string;
 	station: { id: string; name: string };
@@ -33,8 +44,9 @@ export type Now = {
 	humidity: number | null;
 	windMph: number | null;
 	windDir: number | null;
-	// Absent on readings cached by an older server build; the panel just drops the rail.
+	// Absent on readings cached by an older server build; the panel just drops the rails.
 	hours?: Hour[];
+	days?: Day[];
 };
 
 // Somewhere to start, so a first visit says something rather than showing an empty panel.

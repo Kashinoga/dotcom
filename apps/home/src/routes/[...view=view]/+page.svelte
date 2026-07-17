@@ -3359,8 +3359,13 @@
 		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(0.4rem, 0.75vw, 0.65rem);
 	}
 	/* The header's control row: Back at the left, a panel's own action (Weather's search) at the
-	   right. It replaces the bare Back button, so the gap below it is the one Back used to set. */
+	   right. It replaces the bare Back button, so the gap below it is the one Back used to set.
+	   Positioned and raised: the city search's results drop DOWN from this row across the title
+	   below it, and the title row — later in the DOM — otherwise paints over the list (the
+	   hits' own z-index can't reach; it's scoped inside this row's stacking). */
 	.head-row {
+		position: relative;
+		z-index: 3;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
