@@ -2077,13 +2077,12 @@
 		width: fit-content;
 		max-width: min(90%, 420px);
 		text-align: center;
-		/* A SOLID white bubble with near-black ink, in both schemes: the toast floats
-		   over whatever's below — usually the slide's own light canvas — and a translucent
-		   face went white-on-white there in dark mode. Opaque paper reads everywhere,
-		   and in dark it's the site's .edit-toast inversion move. */
-		background: #fbfbf9;
+		/* The aero family pill, worn EXACTLY as the buttons and chips wear it: the same
+		   face, edge and ink (see .tb / .chip), with Bubble's gloss, drop and frost below.
+		   Not a bespoke card — a toast is just one more control-sized thing on the glass. */
+		background: var(--aero-face);
 		border: 1px solid var(--line-edge);
-		color: #16181d;
+		color: var(--ink);
 		padding: 0.55rem 1.1rem;
 		border-radius: 999px;
 		font-size: 0.85rem;
@@ -2092,9 +2091,12 @@
 		z-index: 40;
 	}
 	:global(html[data-ui='bubble']) .toast {
-		/* The family gloss + drop (the masthead dots' pair). No frost: the face is
-		   opaque now, so there's no backdrop to blur. */
+		/* The family gloss + drop, and the buttons' own frost recipe (blur 6, saturate
+		   1.3) — the toast floats free of the masked rails, so it can afford the blur
+		   they had to give up. */
 		box-shadow: var(--aero-gloss), var(--aero-drop);
+		-webkit-backdrop-filter: blur(6px) saturate(1.3);
+		backdrop-filter: blur(6px) saturate(1.3);
 	}
 	.toast.ok {
 		border-color: #00761b;
