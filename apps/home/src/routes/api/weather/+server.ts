@@ -33,6 +33,67 @@ const c2f = (c: number) => (c * 9) / 5 + 32;
 const kmh2mph = (k: number) => k * 0.621371;
 const num = (r: Reading | undefined | null) => (typeof r?.value === 'number' ? r.value : null);
 
+// Feels-like for a FORECAST hour, from the standard NWS formulas: the Rothfusz heat index
+// when it's hot, the wind-chill regression when it's cold and blowing, the plain temperature
+// between. NWS's own apparentTemperature series says the same thing, but it lives in the raw
+// gridpoint endpoint — a few hundred KB of every series they compute — while the hourly
+// forecast already carries the three inputs. Computing here trades one large fetch for
+// arithmetic the agency itself published.
+function apparentF(tF: number, rh: number | null, windMph: number | null): number {
+	if (tF >= 80 && rh !== null) {
+		return (
+			-42.379 +
+			2.04901523 * tF +
+			10.14333127 * rh -
+			0.22475541 * tF * rh -
+			0.00683783 * tF * tF -
+			0.05481717 * rh * rh +
+			0.00122874 * tF * tF * rh +
+			0.00085282 * tF * rh * rh -
+			0.00000199 * tF * tF * rh * rh
+		);
+	}
+	if (tF <= 50 && windMph !== null && windMph > 3) {
+		const v = Math.pow(windMph, 0.16);
+		return 35.74 + 0.6215 * tF - 35.75 * v + 0.4275 * tF * v;
+	}
+	return tF;
+}
+
+// One rail's worth. NWS sends ~156 periods; the panel is a glance, not a planner.
+const HOURS = 12;
+
+/** The next hours, shaped for the panel's rail. [] on any trouble — hours are a garnish,
+ *  and their fetch failing must never take the current conditions down with it. */
+async function fetchHours(forecastHourlyUrl: string | undefined) {
+	if (!forecastHourlyUrl) return [];
+	try {
+		const fc = await get(forecastHourlyUrl);
+		const periods: any[] = fc?.properties?.periods ?? [];
+		const now = Date.now();
+		return periods
+			.filter((p) => Date.parse(p.endTime) > now) // the period we're inside counts; spent ones don't
+			.slice(0, HOURS)
+			.map((p) => {
+				const tempF = typeof p.temperature === 'number' ? p.temperature : null;
+				// windSpeed arrives as prose ("5 mph"); the leading number is the value.
+				const windMph = Number.parseFloat(p.windSpeed) || null;
+				const rh = num(p.relativeHumidity);
+				return {
+					t: p.startTime as string,
+					tempF,
+					feelsF: tempF === null ? null : apparentF(tempF, rh, windMph),
+					pop: num(p.probabilityOfPrecipitation) ?? 0,
+					windMph,
+					label: (p.shortForecast as string) ?? '',
+					night: p.isDaytime === false
+				};
+			});
+	} catch {
+		return [];
+	}
+}
+
 // Cache per rounded lat/lon. Module scope = per Worker isolate.
 //
 // The TTL is derived from the OBSERVATION, not from a clock we picked. A station reports roughly
@@ -81,8 +142,12 @@ export const GET: RequestHandler = async ({ url }) => {
 		const first = stations?.features?.[0]?.properties;
 		if (!first?.stationIdentifier) throw new Error('no station');
 
-		// 3. that station's latest reading
-		const obs = await get(`${NWS}/stations/${first.stationIdentifier}/observations/latest`);
+		// 3. that station's latest reading — and, alongside it, the next hours' forecast
+		// (the /points response already named the URL; the two upstreams are independent).
+		const [obs, hours] = await Promise.all([
+			get(`${NWS}/stations/${first.stationIdentifier}/observations/latest`),
+			fetchHours(point?.properties?.forecastHourly)
+		]);
 		const p = obs?.properties ?? {};
 		const tempC = num(p.temperature);
 		const feelsC = num(p.heatIndex) ?? num(p.windChill); // NWS reports whichever applies, if either
@@ -104,7 +169,8 @@ export const GET: RequestHandler = async ({ url }) => {
 			feelsF: feelsC === null ? null : c2f(feelsC),
 			humidity: num(p.relativeHumidity),
 			windMph: windK === null ? null : kmh2mph(windK),
-			windDir: num(p.windDirection)
+			windDir: num(p.windDirection),
+			hours
 		};
 		if (body.tempC === null && !body.conditions) throw new Error('empty observation');
 

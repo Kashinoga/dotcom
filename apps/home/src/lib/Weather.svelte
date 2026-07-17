@@ -278,6 +278,46 @@
 	const clock = (iso: string) =>
 		new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 
+	// ── "Is it nice out?" ── an honest verdict from what the sky is doing plus what it
+	// feels like. Precedence: active precipitation speaks first (a lovely temperature in a
+	// thunderstorm is not lovely), then heat, then imminent rain, then cold; only the quiet
+	// middle earns "lovely". Bands are °F internally regardless of the display unit.
+	const verdict = $derived.by(() => {
+		if (!now) return '';
+		const f = now.feelsF ?? now.tempF;
+		if (f === null) return '';
+		const kind = weatherKind(now.conditions || '');
+		const wind = now.windMph ?? 0;
+		const pop = now.hours?.[0]?.pop ?? 0;
+		if (kind === 'storm') return 'Storming — not the hour for a walk';
+		if (kind === 'snow') return f <= 20 ? 'Snow on real cold — bundle hard' : 'Snowing — boots and layers';
+		if (kind === 'rain') return 'Raining — take a shell';
+		if (f >= 103) return 'Dangerous heat — stay in the cool';
+		if (f >= 92) return 'Hot out — shade and water';
+		if (f >= 84) return 'Warm, on the sticky side';
+		if (pop >= 55) return 'Dry for now, but rain is coming';
+		if (f >= 62) return wind >= 20 ? 'Nice out, if blustery' : 'Lovely out';
+		if (f >= 48) return wind >= 20 ? 'Brisk wind — layer up' : 'Cool — light-jacket weather';
+		if (f >= 33) return 'Cold — coat weather';
+		if (f >= 16) return 'Freezing — bundle up';
+		return 'Bitter cold — keep it brief';
+	});
+
+	// ── The next hours ── helpers for the rail. Temps arrive in °F from the proxy; the
+	// display unit converts at the last moment, same as the big number.
+	const toUnit = (f: number) => (weather.unit === 'F' ? f : ((f - 32) * 5) / 9);
+	const hourLabel = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: 'numeric' });
+	// Wheel-over-the-rail scrolls it sideways (the city strip's move): most mice only have
+	// a vertical wheel, and the rail is the only thing under the pointer that scrolls.
+	function hoursWheel(e: WheelEvent) {
+		const el = e.currentTarget as HTMLElement;
+		if (el.scrollWidth <= el.clientWidth) return;
+		const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+		if (!delta) return;
+		e.preventDefault();
+		el.scrollLeft += delta;
+	}
+
 	const reduceMotion =
 		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 	// When the shown city changes, glide its tab fully into view — picking one half-hidden
@@ -432,6 +472,9 @@
 				{#if feelsDiffers}
 					<p class="wx-feels">Feels like {Math.round(feels as number)}°{weather.unit}</p>
 				{/if}
+				{#if verdict}
+					<p class="wx-verdict">{verdict}</p>
+				{/if}
 			</div>
 			<div class="wx-side">
 				<div class="segmented wx-unit-toggle" role="radiogroup" aria-label="Units">
@@ -475,6 +518,30 @@
 				</div>
 			{/if}
 		</dl>
+
+		<!-- The next hours, as a glance rail: hour, drawn mark, temperature — with the
+		     feels-like beneath whenever it meaningfully disagrees, and rain odds once
+		     they're worth carrying an umbrella over. Absent hours (an older cached
+		     reading, or the forecast upstream sulking) just drop the rail. -->
+		{#if now.hours?.length}
+			<div class="wx-hours" role="list" aria-label="The next hours" onwheel={hoursWheel}>
+				{#each now.hours as h, i (h.t)}
+					<div class="wx-hour" role="listitem" style="--n:{i}">
+						<span class="wxh-time">{hourLabel(h.t)}</span>
+						<span class="wxh-mark" aria-hidden="true">{@html conditionIcon(h.label, h.night)}</span>
+						<span class="wxh-temp">
+							{h.tempF === null ? '—' : `${Math.round(toUnit(h.tempF))}°`}
+						</span>
+						{#if h.feelsF !== null && h.tempF !== null && Math.abs(h.feelsF - h.tempF) >= 3}
+							<span class="wxh-sub">feels {Math.round(toUnit(h.feelsF))}°</span>
+						{/if}
+						{#if h.pop >= 15}
+							<span class="wxh-sub wxh-pop">{h.pop}%</span>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		{/if}
 
 		<p class="wx-source">
 			{now.place || place.name} · {now.station.name || now.station.id} · National Weather Service
@@ -521,6 +588,7 @@
 		.wx-msg,
 		.wx-now,
 		.wx-stats,
+		.wx-hours,
 		.wx-source {
 			animation: settle 0.45s ease backwards;
 		}
@@ -531,8 +599,11 @@
 		.wx-stats {
 			animation-delay: 0.18s;
 		}
+		.wx-hours {
+			animation-delay: 0.25s;
+		}
 		.wx-source {
-			animation-delay: 0.26s;
+			animation-delay: 0.32s;
 		}
 	}
 	@keyframes tab-in {
@@ -826,6 +897,70 @@
 		margin: 0.1rem 0 0;
 		font-size: 0.9rem;
 		color: var(--sub);
+	}
+	/* The verdict speaks in the motto's voice — an editorial aside about the sky, not
+	   another instrument reading, so it takes Fraunces italic like the tagline. */
+	.wx-verdict {
+		margin: 0.35rem 0 0;
+		font-family: var(--font-motto);
+		font-style: italic;
+		font-size: 0.95rem;
+		color: var(--ink);
+	}
+	/* ── The next hours: a glance rail ── cells slide under permanent edge fades (the
+	   dissolving edge is the rail's material — this band scrolls); the scrollbar hides,
+	   the fade is the affordance. No frosted children inside, so the mask composites
+	   cleanly everywhere (see the Builder's rails for the Chromium trap). */
+	.wx-hours {
+		display: flex;
+		gap: 1.15rem;
+		min-width: 0;
+		overflow-x: auto;
+		scrollbar-width: none;
+		padding: 0.1rem 0.3rem;
+		--fade: 2rem;
+		mask-image: linear-gradient(
+			to right,
+			transparent 0,
+			#000 var(--fade),
+			#000 calc(100% - var(--fade)),
+			transparent 100%
+		);
+	}
+	.wx-hours::-webkit-scrollbar {
+		display: none;
+	}
+	.wx-hour {
+		flex: 0 0 auto;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.28rem;
+		min-width: 3.2rem;
+	}
+	.wxh-time {
+		font-size: 0.68rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		color: var(--sub);
+	}
+	.wxh-mark :global(svg) {
+		width: 20px;
+		height: 20px;
+		display: block;
+		color: var(--ink);
+	}
+	.wxh-temp {
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+		color: var(--ink);
+	}
+	.wxh-sub {
+		font-size: 0.68rem;
+		color: var(--sub);
+		font-variant-numeric: tabular-nums;
+		margin-top: -0.15rem;
 	}
 	.wx-side {
 		margin-left: auto;

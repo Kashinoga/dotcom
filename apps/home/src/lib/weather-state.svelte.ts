@@ -7,6 +7,19 @@
 
 export type Place = { id: string; name: string; state: string; lat: number; lon: number };
 
+// One forecast hour, shaped by /api/weather for the panel's rail: the temperature, the
+// feels-like the server computes from NWS's own formulas, precipitation odds, and the
+// short label ("Partly Cloudy") the drawn mark reads from.
+export type Hour = {
+	t: string;
+	tempF: number | null;
+	feelsF: number | null;
+	pop: number;
+	windMph: number | null;
+	label: string;
+	night: boolean;
+};
+
 export type Now = {
 	place: string;
 	station: { id: string; name: string };
@@ -20,6 +33,8 @@ export type Now = {
 	humidity: number | null;
 	windMph: number | null;
 	windDir: number | null;
+	// Absent on readings cached by an older server build; the panel just drops the rail.
+	hours?: Hour[];
 };
 
 // Somewhere to start, so a first visit says something rather than showing an empty panel.
