@@ -2098,11 +2098,16 @@
 		-webkit-backdrop-filter: blur(6px) saturate(1.3);
 		backdrop-filter: blur(6px) saturate(1.3);
 	}
+	/* A droplet of food colouring in the glass, not a painted card: each kind's colour
+	   is MIXED INTO the translucent aero face, so the bubble stays frosted and the tint
+	   reads as suspended in it — green for good (the new = green motif), red for bad. */
 	.toast.ok {
 		border-color: #00761b;
+		background: color-mix(in srgb, #2f9e44 14%, var(--aero-face));
 	}
 	.toast.err {
 		border-color: #c93328;
+		background: color-mix(in srgb, #c93328 12%, var(--aero-face));
 	}
 
 	/* ── Narrow: stack the columns ── */
