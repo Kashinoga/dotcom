@@ -2077,12 +2077,13 @@
 		width: fit-content;
 		max-width: min(90%, 420px);
 		text-align: center;
-		/* The aero family's pill, not a bespoke card: the same face-on-the-glass and 1px
-		   edge every panel control wears (see .icon-btn). Bubble adds the rim light, drop
-		   and frost below; Flat keeps just the face and line, as it does everywhere. */
-		background: var(--aero-face);
+		/* A SOLID white bubble with near-black ink, in both schemes: the toast floats
+		   over whatever's below — usually the slide's own light canvas — and a translucent
+		   face went white-on-white there in dark mode. Opaque paper reads everywhere,
+		   and in dark it's the site's .edit-toast inversion move. */
+		background: #fbfbf9;
 		border: 1px solid var(--line-edge);
-		color: var(--ink);
+		color: #16181d;
 		padding: 0.55rem 1.1rem;
 		border-radius: 999px;
 		font-size: 0.85rem;
@@ -2091,12 +2092,9 @@
 		z-index: 40;
 	}
 	:global(html[data-ui='bubble']) .toast {
-		/* The family gloss + drop (the masthead dots' pair), over a frosted pane — the
-		   toast floats over live slide content, and the blur does the legibility work
-		   it does for every glass surface here. */
+		/* The family gloss + drop (the masthead dots' pair). No frost: the face is
+		   opaque now, so there's no backdrop to blur. */
 		box-shadow: var(--aero-gloss), var(--aero-drop);
-		-webkit-backdrop-filter: blur(8px);
-		backdrop-filter: blur(8px);
 	}
 	.toast.ok {
 		border-color: #00761b;
@@ -2197,6 +2195,16 @@
 				#000 calc(100% - var(--fade)),
 				transparent 100%
 			);
+		}
+		/* Frost breaks the rails' masks in Chromium: a backdrop-filter child composites in
+		   its own layer and escapes the ancestor's mask-image — so the all-frosted toolbar
+		   never faded, and the strip only faded once its frosted + chip left the viewport.
+		   Inside these two masked rails Bubble's buttons go unfrosted; the pill, gloss and
+		   edge stay, and every other chip keeps its frost. */
+		:global(html[data-ui='bubble']) .pb-tools .tb,
+		:global(html[data-ui='bubble']) .add-stn {
+			-webkit-backdrop-filter: none;
+			backdrop-filter: none;
 		}
 		/* Two rows only — strip, then preview. The inspector is position:fixed below, so
 		   the grid never sees it. The slab shoulders go flat: full-width on a phone there
