@@ -11,6 +11,7 @@
 	import PresentationBuilder from '$lib/PresentationBuilder.svelte';
 	import Weather from '$lib/Weather.svelte';
 	import Aita from '$lib/Aita.svelte';
+	import PudIdle from '$lib/PudIdle.svelte';
 	import StarMap from '$lib/StarMap.svelte';
 	import CitySearch from '$lib/CitySearch.svelte';
 	import {
@@ -30,6 +31,7 @@
 		CLOUD_SUN_SVG,
 		STARS_SVG,
 		GAVEL_SVG,
+		GEM_SVG,
 		MAXIMIZE_SVG,
 		MINIMIZE_SVG
 	} from '$lib/icons';
@@ -50,6 +52,7 @@
 	import faviconWeather from '$lib/assets/favicon-weather.svg';
 	import faviconStar from '$lib/assets/favicon-star.svg';
 	import faviconAita from '$lib/assets/favicon-aita.svg';
+	import faviconPud from '$lib/assets/favicon-pud.svg';
 	import { airports, accent, portDescriptions, HUB } from '$lib/network';
 	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
 	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
@@ -710,7 +713,7 @@
 	// The apps the Apps panel shows as CARDS in its body.
 	// Alphabetical by TITLE: the cards' order is presentation, not hierarchy, so a new
 	// app files itself in rather than landing wherever it was added.
-	const APP_CARDS = ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA'].sort((a, b) =>
+	const APP_CARDS = ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA', 'PUD'].sort((a, b) =>
 		airports[a].title.localeCompare(airports[b].title)
 	);
 	const APP_ICONS: Record<string, string> = {
@@ -718,7 +721,8 @@
 		PRES: PRESENTATION_SVG,
 		WTHR: CLOUD_SUN_SVG,
 		STAR: STARS_SVG,
-		AITA: GAVEL_SVG
+		AITA: GAVEL_SVG,
+		PUD: GEM_SVG
 	};
 	// A mark per destination, worn by its chip in the Related rail. It replaced a plain accent dot:
 	// the dot named the LINE a stop sits on and nothing about the stop itself. The mark says what the
@@ -1327,9 +1331,11 @@
 						? faviconStar
 						: view?.kind === 'port' && view.code === 'AITA'
 							? faviconAita
-							: dev
-								? faviconDev
-								: faviconSite
+							: view?.kind === 'port' && view.code === 'PUD'
+								? faviconPud
+								: dev
+									? faviconDev
+									: faviconSite
 	);
 	const headTitle = $derived(
 		selectedField ? `Air Traffic · ${selectedField.name} — ${SITE}` : viewTitle(view)
@@ -2073,6 +2079,10 @@
 							<!-- The Court of Public Opinion makes the same bargain as Weather: a reading
 							     inside the ordinary panel, its chrome the panel's own. -->
 							<Aita />
+						{:else if v.code === 'PUD'}
+							<!-- Intergalactic Park Ranger makes it too: the game lives in the ordinary panel — a clicker
+							     is a thing you visit, not a workspace that takes the viewport. -->
+							<PudIdle />
 						{:else if v.code === 'STG'}
 							{@const editStg = dev && editMode}
 							<div class="stg-group">
@@ -3892,7 +3902,8 @@
 	.seg-lead {
 		margin-top: 1.4rem;
 		padding-top: 1.25rem;
-		border-top: 1px solid var(--line);
+		border-top: 1px solid transparent;
+		border-image: var(--rule-fade) 1;
 	}
 	/* …but not on the first group: the header's own bottom border already draws that line, and a
 	   second one right beneath it reads as a double rule. */

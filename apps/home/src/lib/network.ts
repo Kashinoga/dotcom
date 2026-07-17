@@ -28,7 +28,8 @@ export const airports: Record<string, { title: string }> = {
 	PRES: { title: 'Presentation Builder' },
 	WTHR: { title: 'Weather' },
 	STAR: { title: 'Star Map' },
-	AITA: { title: 'Court of Public Opinion' }
+	AITA: { title: 'Court of Public Opinion' },
+	PUD: { title: 'Intergalactic Park Ranger' }
 };
 
 // The hierarchy — a place's children. This is the ONE structure the site's shape comes from: it
@@ -39,7 +40,7 @@ export const airports: Record<string, { title: string }> = {
 export const children: Record<string, string[]> = {
 	KSH: ['ABT', 'APP', 'STG'],
 	ABT: ['WRK', 'PRJ'],
-	APP: ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA']
+	APP: ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA', 'PUD']
 };
 
 /** A place's parent, inverted from `children`. The hub has none. */
@@ -72,7 +73,8 @@ export const accent: Record<string, string> = {
 	PRES: '#f06030',
 	WTHR: '#f06030',
 	STAR: '#f06030',
-	AITA: '#f06030'
+	AITA: '#f06030',
+	PUD: '#f06030'
 };
 
 // A one-line blurb per place, used as the shared-link preview description and on the Apps cards.
@@ -87,5 +89,6 @@ export const portDescriptions: Record<string, string> = {
 	PRES: 'A visual editor for the route-map slide decks.',
 	WTHR: 'A National Oceanic and Atmospheric Administration data viewer.',
 	STAR: 'The constellations overhead right now, from wherever you are.',
-	AITA: 'An r/AmItheAsshole reader — judge the story first, then unseal the jury.'
+	AITA: 'An r/AmItheAsshole reader — judge the story first, then unseal the jury.',
+	PUD: 'An idle game — ranger the Pocket Universe Division’s parks, gathering Data Shards.'
 };

@@ -91,6 +91,23 @@
 	--line-edge: color-mix(in srgb, var(--ink) 14%, transparent);
 	--line-strong: color-mix(in srgb, var(--ink) 30%, transparent);
 
+	/* A hairline rule whose ENDS fade out — the horizontal counterpart to the super bar's
+	 * separators (whose tops and bottoms fade the same way). --line down its solid middle,
+	 * easing to nothing over the outer sixth at each end, so a content divider stops at the
+	 * air rather than butting a hard edge. Fed to `border-image` on a content section's
+	 * border-top/bottom (the side carries the width; a gradient can't be a plain border):
+	 *     border-top: 1px solid transparent;
+	 *     border-image: var(--rule-fade) 1;
+	 * The `1` slice is what makes the gradient span the edge. Straight rules only — border-
+	 * image forgoes border-radius, which content dividers don't want anyway. */
+	--rule-fade: linear-gradient(
+		to right,
+		transparent,
+		var(--line) 16%,
+		var(--line) 84%,
+		transparent
+	);
+
 	/* The app's one overshoot curve (y > 1, so a move lands past its mark and settles back).
 	 * Everything that springs uses it: the buttons below, the masthead bullets rolling out,
 	 * every panel's accent dot, and the panel interior arriving. It was spelled out as a

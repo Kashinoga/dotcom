@@ -1024,7 +1024,8 @@
 		gap: 0 2rem;
 		margin: 0;
 		padding-top: 1.1rem;
-		border-top: 1px solid var(--line);
+		border-top: 1px solid transparent;
+		border-image: var(--rule-fade) 1;
 	}
 	.wx-stat dt {
 		font-size: 0.7rem;
@@ -1046,7 +1047,8 @@
 		flex-direction: column;
 		gap: 0.55rem;
 		padding-top: 1.1rem;
-		border-top: 1px solid var(--line);
+		border-top: 1px solid transparent;
+		border-image: var(--rule-fade) 1;
 	}
 	.wx-day {
 		display: grid;

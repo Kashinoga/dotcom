@@ -47,6 +47,7 @@
 	let {
 		text,
 		label,
+		from,
 		delay = 150,
 		tick = 50,
 		stagger = 75,
@@ -57,6 +58,12 @@
 		/** Accessible name, when `text` is a visually truncated form of a longer string
 		 *  (the Operator column). Defaults to `text`, so the flaps read as they render. */
 		label?: string;
+		/** The PREVIOUS text this flap is replacing. When given and the same length, cells
+		 *  whose character is unchanged from `from` show at once and never spin — only the
+		 *  positions that actually differ flap. A live counter passes its last value here so
+		 *  only the digits that turned over move (a real Solari board); omit it for a fresh
+		 *  arrival, where every cell should scramble. */
+		from?: string;
 		delay?: number;
 		tick?: number;
 		stagger?: number;
@@ -72,6 +79,14 @@
 	const pools = chars.map((c) =>
 		/[a-z]/.test(c) ? LO : /[A-Z]/.test(c) ? UP : /[0-9]/.test(c) ? NUM : null
 	);
+	// Which cells carry over unchanged from the previous value — same length, same char at
+	// the same slot. Those don't flap; only the rest do. Length change (a comma appears, a
+	// digit is added) means the columns shifted, so nothing is "held" and it all flaps.
+	const held = untrack(() => {
+		const prev = from === undefined ? null : [...from];
+		if (!prev || prev.length !== chars.length) return chars.map(() => false);
+		return chars.map((c, i) => prev[i] === c);
+	});
 	// Per-cell settle time, measured from the moment this instance's flap BEGINS (which
 	// itself is deferred by `start`, the caller's cascade offset). So a board flaps row
 	// by row: each row's cells hold blank until their turn, then flap and settle.
@@ -110,8 +125,8 @@
 		// only re-picks a glyph once its own `tick` interval has passed (keeping the flip
 		// speed), but settles precisely on time regardless of frame cadence.
 		const begin = () => {
-			spinning = pools.map((p) => p !== null);
-			glyphs = chars.map((c, i) => (pools[i] ? rand(pools[i]!) : c));
+			spinning = pools.map((p, i) => p !== null && !held[i]);
+			glyphs = chars.map((c, i) => (pools[i] && !held[i] ? rand(pools[i]!) : c));
 			let elapsed = 0;
 			let sinceShuffle = 0;
 			unsubscribe = flapSubscribe((dt) => {
