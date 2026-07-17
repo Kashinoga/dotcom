@@ -2,6 +2,7 @@
 	import SplitFlap from '$lib/SplitFlap.svelte';
 	import { airports } from '$lib/network';
 	import { viewPath } from '$lib/views';
+	import { HOME_SVG, USER_SVG, GRID_SVG, GEAR_SVG } from '$lib/icons';
 
 	// Persistent homepage masthead: wordmark + tagline + the primary station nav, as a fixed
 	// top bar that stays put while a panel is open. Extracted from the catch-all page so a
@@ -38,8 +39,15 @@
 	];
 
 	// The top-level stations, surfaced as the horizontal nav (hub + tier-1). The deeper stops
-	// stay reachable via each station's onward links. Codes → titles from $lib/network.
-	const menuNodes = ['KSH', 'ABT', 'APP', 'STG'] as const;
+	// stay reachable via each station's onward links. Codes → titles from $lib/network; each
+	// carries its station mark (the Related-rail glyphs) — on a phone the mark IS the button
+	// and the name goes visually-hidden (see the media block).
+	const menuNodes = [
+		{ code: 'KSH', icon: HOME_SVG },
+		{ code: 'ABT', icon: USER_SVG },
+		{ code: 'APP', icon: GRID_SVG },
+		{ code: 'STG', icon: GEAR_SVG }
+	];
 </script>
 
 <header class="masthead" class:covered>
@@ -61,11 +69,11 @@
 		>{' '}{/each}</p>
 	<!-- Primary nav: the top-level stations as a horizontal menu bar below the wordmark. Each
 	     link is the station's real URL; the active destination highlights while its panel is open.
-	     On really small viewports the row turns into a COLUMN (see the media query below) —
-	     four pills don't fit a ~375px line, and stacked they read as the site's outline. -->
+	     On a phone the words hand over to their station marks (see the media query below) —
+	     four worded pills never fit a ~375px line, but four glyphs do, one row. -->
 	<nav class="menubar" class:tucked={navTucked} aria-label="Destinations">
 		<ul>
-			{#each menuNodes as code, i}
+			{#each menuNodes as { code, icon }, i}
 				<li style="--n:{i}">
 					<a
 						class="menu-btn"
@@ -73,7 +81,7 @@
 						href={viewPath({ kind: 'port', code })}
 						data-sveltekit-preload-data="off"
 						onclick={(e) => onNavigate(code, e)}
-					>{airports[code].title}</a>
+					><span class="menu-ico" aria-hidden="true">{@html icon}</span><span class="menu-word">{airports[code].title}</span></a>
 				</li>
 			{/each}
 		</ul>
@@ -301,6 +309,16 @@
 		outline: var(--focus-ring);
 		outline-offset: 3px;
 	}
+	/* The station mark inside each nav button — desktop is typographic, so the mark only
+	   appears on the phone (below); the word carries the button everywhere else. */
+	.menu-ico {
+		display: none;
+	}
+	.menu-ico :global(svg) {
+		width: 20px;
+		height: 20px;
+		display: block;
+	}
 	/* Page-load entrance: the same rise as the tagline, staggered. `backwards` so items
 	   aren't pinned afterward. */
 	@media (prefers-reduced-motion: no-preference) {
@@ -310,15 +328,41 @@
 		}
 	}
 
-	/* ── Really small viewports (an iPhone SE): the nav stacks ──────────────────────
-	   Four pills don't fit a ~375px line and wrapped unevenly; as a COLUMN they read
-	   cleanly, like the site's outline. Left-aligned so each pill hugs its name rather
-	   than stretching to one width. */
-	@media (max-width: 400px) {
+	/* ── Phone: the nav speaks in station marks ─────────────────────────────────────
+	   Four worded pills never fit a ~375px line (they used to stack into a column);
+	   four glyphs do, one row. Each button becomes its mark — home, user, grid, gear —
+	   at the 42px family size, the name going screen-reader-only rather than leaving
+	   the DOM. Bubble's pill turns disc; Flat keeps its bare-ink language, the glyph
+	   standing where the word stood, with the same invisible 42px touch box. */
+	@media (max-width: 560px) {
+		.menu-ico {
+			display: block;
+		}
+		.menu-word {
+			/* Visually gone, still the link's accessible name. */
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+		.menu-btn {
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			box-sizing: border-box;
+			width: 42px;
+			height: 42px;
+		}
+		:global(html[data-ui='bubble']) .menu-btn {
+			padding: 0;
+		}
 		.menubar ul {
-			flex-direction: column;
-			align-items: flex-start;
-			gap: 0.5rem;
+			gap: 0.5rem 0.9rem;
+		}
+		:global(html[data-ui='bubble']) .menubar ul {
+			gap: 0.5rem 0.6rem;
 		}
 	}
 </style>
