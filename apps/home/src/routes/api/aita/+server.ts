@@ -121,13 +121,25 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
 			Verdict,
 			{ n: number; w: number }
 		>;
-		const voted: { v: Verdict; score: number; author: string; body: string }[] = [];
+		const voted: {
+			v: Verdict;
+			score: number;
+			author: string;
+			body: string;
+			created: number | null;
+		}[] = [];
 		for (const c of comments) {
 			const v = verdictOf(c.body);
 			if (!v) continue;
 			tally[v].n += 1;
 			tally[v].w += Math.max(c.score ?? 0, 0); // a downvoted ballot still counts once, but carries no weight
-			voted.push({ v, score: c.score ?? 0, author: c.author ?? '', body: c.body });
+			voted.push({
+				v,
+				score: c.score ?? 0,
+				author: c.author ?? '',
+				body: c.body,
+				created: (c.created_utc as number) ?? null // epoch seconds; the page words it
+			});
 		}
 		// The crowd's verdict is the WEIGHTED winner — reddit's own mechanism (the top
 		// comment decides the flair) approximated from what one page of comments shows.

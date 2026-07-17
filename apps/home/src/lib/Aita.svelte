@@ -29,7 +29,7 @@
 		created?: number | null; // epoch seconds
 		tally?: Tally;
 		crowd?: Verdict | null;
-		top?: { v: Verdict; score: number; author: string; body: string }[];
+		top?: { v: Verdict; score: number; author: string; body: string; created?: number | null }[];
 	};
 
 	// input → read → judge → reveal, one direction, with "Another case" looping back.
@@ -358,7 +358,8 @@
 						{#each kase.top as c, i (i)}
 							<blockquote class="aita-quote">
 								<p class="aita-quote-meta">
-									<b style:color={vMeta(c.v).color}>{c.v}</b> · u/{c.author} · ▲{fmtScore(c.score)}
+									<b style:color={vMeta(c.v).color}>{c.v}</b> · u/{c.author} ·
+									▲{fmtScore(c.score)}{c.created ? ` · ${fmtAge(c.created)}` : ''}
 								</p>
 								<p class="aita-quote-body">{c.body}</p>
 							</blockquote>
