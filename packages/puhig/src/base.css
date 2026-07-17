@@ -269,6 +269,18 @@ body {
 	.csb.csb-on.csb-on {
 		padding: 0.4rem;
 	}
+	/* Folded, the bar earns a bottom edge — said the way the ATFC board already says
+	 * "rows have gone under": the SIBLING scroller wears the board's inset breath of
+	 * shade, pinned to its box right under the stay-put bar (inset on a scroller pins to
+	 * the BOX, not the content). Same values as .tfc-body.scrolled, whose own scoped rule
+	 * keeps outranking this on the board itself. A wearer whose header floats on open
+	 * scenery (the Star Map, if it ever folds) opts out with .csb-flush. */
+	.csb.csb-on + * {
+		box-shadow: inset 0 26px 22px -22px light-dark(rgba(8, 10, 14, 0.15), rgba(0, 0, 0, 0.35));
+	}
+	.csb.csb-on.csb-flush + * {
+		box-shadow: none;
+	}
 	.csb.csb-on .csb-fold {
 		margin-bottom: -32px;
 	}
@@ -302,6 +314,11 @@ body {
 @media (prefers-reduced-motion: no-preference) and (max-width: 960px) {
 	.csb {
 		transition: padding 0.28s ease;
+	}
+	.csb + * {
+		/* The sibling's edge shade breathes in with the fold (ATFC's own scoped
+		 * transition keeps outranking this on the board, same value there). */
+		transition: box-shadow 0.28s ease;
 	}
 	.csb .icon-btn {
 		transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease,
