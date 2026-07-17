@@ -52,6 +52,7 @@
 	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
 	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
 	import { rangeToken, refreshToken, expandedToken } from '$lib/scope';
+	import { popSpring } from '$lib/pop-spring';
 	import type { PageData } from './$types';
 
 	// Airline route-map homepage. The network is deliberately LARGER than the
@@ -1777,12 +1778,14 @@
 		>
 			{#if skyConsoleOpen}
 				<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-				<!-- The card and its contents move like the Star Map's constellation card: the
-				     card flies 10px/180ms BOTH ways, and each group rises in bottom-first
-				     (--n counts up from the group nearest the toggle the card grows out of). -->
+				<!-- The card springs out of its toggle — the nav flyouts' popSpring, mirrored:
+				     this card opens ABOVE its caller, so it starts tucked down toward the disc
+				     and rises, the swell anchored at the disc's corner (left bottom). Each
+				     group still rises in bottom-first (--n counts up from the group nearest
+				     the toggle the card grows out of). -->
 				<div
 					class="sky-pop"
-					transition:fly={{ y: 10, duration: 180 }}
+					transition:popSpring={{ y: 10, origin: 'left bottom' }}
 					onclick={(e) => e.stopPropagation()}
 				>
 					<div class="sky-group" role="group" aria-labelledby="sky-lab-time" style="--n:1">

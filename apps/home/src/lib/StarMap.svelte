@@ -14,7 +14,8 @@
 	// thing you orient by — look below it and the sphere keeps going, ghosted, through the
 	// earth to the nadir directly beneath your feet.
 
-	import { fade, fly } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
+	import { popSpring } from '$lib/pop-spring';
 	import SplitFlap from '$lib/SplitFlap.svelte';
 	import {
 		ARROW_LEFT_SVG,
@@ -897,14 +898,15 @@
 			<!-- The constellation's story: Wikipedia's lead image and opening lines, and the
 			     way out to the full article. It closes on ×, Escape, or a tap on empty sky. -->
 			<!-- Each element rises in on its own beat, BOTTOM FIRST (--n counts up from the
-			     link): the card pops up from the panel's bottom edge, so its content lands
-			     the way the card travels — nearest the origin, soonest. The expand disc
+			     link): the card springs up from the panel's bottom edge (the popout family's
+			     popSpring, anchored at its resting corner — right bottom), so its content
+			     lands the way the card travels — nearest the origin, soonest. The expand disc
 			     grows the card into a reading panel: the article's ORIGINAL lead image at
 			     full card width and the excerpt unclamped, the full-article link staying. -->
 			<aside
 				class="sm-story"
 				class:wide={storyWide}
-				transition:fly={{ y: 10, duration: 180 }}
+				transition:popSpring={{ y: 10, origin: 'right bottom' }}
 				aria-label="{picked} — from Wikipedia"
 			>
 				<div class="sm-story-head" style="--n:2">

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { backOut } from 'svelte/easing';
+	import { popSpring } from '$lib/pop-spring';
 	import SplitFlap from '$lib/SplitFlap.svelte';
 	import { airports } from '$lib/network';
 	import { viewPath } from '$lib/views';
@@ -59,22 +59,9 @@
 		{ code: 'STG', icon: GEAR_SVG }
 	];
 
-	// The flyout's spring: it POPS out of its button — starting 10px UP, tucked toward
-	// the button that called it, then DESCENDING into place while swelling from 94%
-	// anchored top-left (the button's corner), on backOut so both overshoot their rest
-	// and settle — the same bounce the button family springs with. The motion must point
-	// away from the button, downward: an upward arrival read as rising from the bottom
-	// left, from nothing. Played backwards on the way out (Svelte reverses the css ramp)
-	// the card gathers itself, then tucks back up into its button. Opacity rides ahead
-	// of the motion (clamped ×1.8) so the overshoot happens fully drawn, not mid-fade.
-	function popSpring(node: HTMLElement, p: { duration?: number } = {}) {
-		return {
-			duration: p.duration ?? 340,
-			easing: backOut,
-			css: (t: number) =>
-				`transform-origin: left top; transform: translateY(${(1 - t) * -10}px) scale(${0.94 + t * 0.06}); opacity: ${Math.min(1, t * 1.8)};`
-		};
-	}
+	// The flyout springs out of its button — $lib/pop-spring, at its defaults: the card
+	// hangs BELOW its caller, so it starts tucked up toward the button and descends into
+	// place, the swell anchored at the button's corner (left top).
 </script>
 
 <header class="masthead" class:covered>
