@@ -62,3 +62,18 @@ export function resolveRefresh(token: string | null | undefined): number | null 
 	const t = token.trim().toLowerCase();
 	return INTERVALS.find((i) => i.label === t)?.ms ?? null;
 }
+
+/**
+ * The board's size, as the URL sees it: `?expanded=1` is the full-viewport board;
+ * compact is the default and carries no param. In the URL so a shared link is
+ * deterministic — it opens at the size it names for everyone, instead of at
+ * whatever the recipient's own remembered toggle happens to say.
+ */
+export function expandedToken(on: boolean): string | null {
+	return on ? '1' : null;
+}
+
+/** Resolve a `?expanded=` value. Only `1` counts; anything else is the default. */
+export function resolveExpanded(token: string | null | undefined): boolean {
+	return token?.trim() === '1';
+}

@@ -33,6 +33,12 @@ declare global {
 			 */
 			range?: number | null;
 			refresh?: number | null;
+			/**
+			 * The Air Traffic board's size (`?expanded=`): true is the full-viewport
+			 * board, false the compact panel (the default, which carries no param).
+			 * Absent means "whatever `load` resolved".
+			 */
+			expanded?: boolean;
 		}
 		// interface Platform {}
 	}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy, untrack, type Snippet } from 'svelte';
+	import { onMount, onDestroy, untrack } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { flip } from 'svelte/animate';
 	import { cubicOut } from 'svelte/easing';
@@ -9,7 +9,8 @@
 		ARROW_LEFT_SVG,
 		REFRESH_SVG,
 		MAXIMIZE_SVG,
-		MINIMIZE_SVG
+		MINIMIZE_SVG,
+		HOME_SVG
 	} from '$lib/icons';
 	import { AIRPORTS, DEFAULT_FIELD, fieldByIata, type Airport } from '$lib/fields';
 	import { RANGES, DEFAULT_RANGE, INTERVALS, DEFAULT_POLL_MS } from '$lib/scope';
@@ -31,8 +32,8 @@
 		title = '',
 		expanded = false,
 		onback,
+		onhome,
 		onToggleExpand,
-		connections,
 		edit = false,
 		copyText,
 		onCopyEdit,
@@ -48,8 +49,10 @@
 		title?: string;
 		expanded?: boolean;
 		onback?: () => void;
+		// Expanded only: the super bar trades Back for a Home cap (see the bar markup) —
+		// straight to the homepage, since "one step back" is the compact panel's idiom.
+		onhome?: () => void;
 		onToggleExpand?: () => void;
-		connections?: Snippet;
 		// The field this board opens on, as an IATA code, resolved from `?field=` by the
 		// page. Null means the default. `onFieldChange` reports a pick back so the page can
 		// put it in the URL — the board doesn't touch history itself. (Named `initialField`
@@ -847,6 +850,10 @@
 	// from its reason to the real route does so immediately (start 0) rather than
 	// waiting out the row's cascade delay, so the reason visibly flaps INTO the route.
 	let booted = $state(false);
+	// True once the first fill's entrance has played out (a beat past its longest delay
+	// chain). Only job: lift the scroller's boot-time overflow clip — `booted` can't do
+	// it, since that waits for the next poll (up to a minute at the slow intervals).
+	let entranceSettled = $state(false);
 	// Has the body scrolled? Drives the header's scroll shadow — the inset line of shade
 	// that says "rows have gone under". Same-value assignments are free, so the raw
 	// scroll listener costs nothing at rest.
@@ -1010,6 +1017,10 @@
 			}
 		}
 		if (!firstLoad) booted = true; // first fill has cascaded; later flaps are immediate
+		// The first fill's entrance runs ~2.5s worst case (expanded lead + rows + settle);
+		// `entranceSettled` marks its end so the scroller's boot clip (see .scroll) can lift
+		// long before `booted` does — that flag waits for the NEXT poll, up to a minute out.
+		else setTimeout(() => (entranceSettled = true), 3000);
 		tracks = out;
 	}
 
@@ -1049,8 +1060,9 @@
 	{#each AIRPORTS as a, i}
 		<!-- --bn: the pill's place in the chrome's left-to-right entrance ripple. The field row
 		     is the same horizontal run of pills in both the compact panel and the expanded super
-		     bar, so it rides right behind the Back cap (--bn 0) in either — Range/Refresh/Expand
-		     pick up the count past the last pill (see the .tfc-head chrome rule). -->
+		     bar — behind the Back cap (--bn 0) in compact, leading the bar in expanded (whose
+		     caps live at the right end) — Range/Refresh/Home/Collapse pick up the count past
+		     the last pill (see the .tfc-head chrome rule). -->
 		<button
 			type="button"
 			class="field"
@@ -1083,31 +1095,49 @@
 		{/each}
 	</select>
 {/snippet}
-{#snippet rangeButtons()}
+<!-- `grouped`: E-ATFC drops the external captions, so there the control's NAME leads its
+     own menu as a group header. The compact bar keeps its captions in the row, so its
+     options stay bare — the same header there would say everything twice. -->
+{#snippet rangeButtons(grouped = false)}
 	<select
 		class="field-select"
 		aria-label="Radar range (nautical miles)"
 		value={radiusNm}
 		onchange={(e) => setRange(Number(e.currentTarget.value))}
 	>
-		<!-- Unit lives on the group header so it shows once, not repeated per option. -->
-		<optgroup label="NM">
+		<!-- Unit rides in each option so the closed field says it too — "60 nmi", not a bare
+		     number you have to open the menu (where the old optgroup header lived) to place. -->
+		{#if grouped}
+			<optgroup label="Range">
+				{#each RANGES as r}
+					<option value={r}>{r} nmi</option>
+				{/each}
+			</optgroup>
+		{:else}
 			{#each RANGES as r}
-				<option value={r}>{r}</option>
+				<option value={r}>{r} nmi</option>
 			{/each}
-		</optgroup>
+		{/if}
 	</select>
 {/snippet}
-{#snippet refreshButtons()}
+{#snippet refreshButtons(grouped = false)}
 	<select
 		class="field-select"
 		aria-label="Auto-refresh interval"
 		value={pollMs}
 		onchange={(e) => setPollMs(Number(e.currentTarget.value))}
 	>
-		{#each INTERVALS as iv}
-			<option value={iv.ms}>{iv.label}</option>
-		{/each}
+		{#if grouped}
+			<optgroup label="Refresh">
+				{#each INTERVALS as iv}
+					<option value={iv.ms}>{iv.label}</option>
+				{/each}
+			</optgroup>
+		{:else}
+			{#each INTERVALS as iv}
+				<option value={iv.ms}>{iv.label}</option>
+			{/each}
+		{/if}
 	</select>
 {/snippet}
 {#snippet manualButton()}
@@ -1162,40 +1192,28 @@
 	     pin below). -->
 	<header class="tfc-head csb" class:bar={showDeck} class:csb-on={headCollapsed && !showDeck}>
 		{#if showDeck}
-			<!-- Expanded: ONE super bar. The far edges are global app controls — back at the
-			     left cap, collapse at the right — framing the identity, controls, and summary. -->
-			{#if onback}
-				<!-- --bn 0: the left cap leads the chrome's entrance ripple; the field pills
-				     (--bn 1…11), then Range, Refresh, and the right cap fall in behind it. -->
-				<button
-					type="button"
-					class="icon-btn nav-edge"
-					style="--bn:0"
-					onclick={onback}
-					aria-label="Back to route map"
-					title="Route map"
-				>
-					{@html ARROW_LEFT_SVG}
-				</button>
-			{/if}
+			<!-- Expanded: ONE super bar. No Back cap up here — full-viewport has nowhere to
+			     peel back to mid-thought, so the global controls gather at the right end:
+			     Home beside the collapse toggle. The title takes the left edge. -->
 			<div class="ident">
 				<h2 class="dest">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
 				<div class="head-refresh">{@render accentDot()}</div>
 			</div>
 			<div class="deck">
 				<div class="deck-controls">
-					<!-- --bn 1: the "Field" caption rides in with the first pill (the pills self-index
-					     from 1); the pills override it with their own 1…11 to keep the ripple. -->
-					<div class="ctl" role="radiogroup" aria-label="Airport" style="--bn:1">
-						<span class="ctl-label">Field</span>{@render fieldButtons()}
+					<!-- No captions up here: the controls say what they are themselves — the pills
+					     ARE fields, and Range/Refresh name themselves as the first group header in
+					     their own dropdowns (the aria-labels still speak for screen readers). -->
+					<div class="ctl" role="radiogroup" aria-label="Airport">
+						{@render fieldButtons()}
 					</div>
 					<!-- --bn set on the wrapper; the <select> inside inherits it (custom props
 					     cascade), so Range and Refresh land just past the last field pill. -->
 					<div class="ctl" style="--bn:12">
-						<span class="ctl-label">Range</span>{@render rangeButtons()}
+						{@render rangeButtons(true)}
 					</div>
 					<div class="ctl" style="--bn:13">
-						<span class="ctl-label">Refresh</span>{@render refreshButtons()}
+						{@render refreshButtons(true)}
 					</div>
 				</div>
 				<!-- The readout lands just past Refresh; its label/value pairs stagger 14→17 (see the
@@ -1211,16 +1229,29 @@
 					</div>
 				</dl>
 			</div>
-			<!-- Right end-cap: the live refresh control paired with the collapse toggle. --bn on
-			     the wrapper (manual inherits it); the collapse cap takes the last beat, so the
-			     ripple finishes where the eye ends up — at the far right of the bar. -->
+			<!-- Right end-cap: the live refresh control, then the app-level pair — Home and
+			     the collapse toggle. --bn on the wrapper (manual inherits it); Home and the
+			     collapse cap take the last beats, so the ripple finishes where the eye ends
+			     up — at the far right of the bar. -->
 			<div class="corner corner-bar" style="--bn:18">
 				{@render manualButton()}
-				{#if onToggleExpand}
+				{#if onhome}
 					<button
 						type="button"
 						class="icon-btn nav-edge"
 						style="--bn:19"
+						onclick={onhome}
+						aria-label="Close and go home"
+						title="Home"
+					>
+						{@html HOME_SVG}
+					</button>
+				{/if}
+				{#if onToggleExpand}
+					<button
+						type="button"
+						class="icon-btn nav-edge"
+						style="--bn:20"
 						onclick={onToggleExpand}
 						aria-label="Collapse panel"
 						title="Collapse"
@@ -1409,7 +1440,7 @@
 	{:else if status === 'empty'}
 		<p class="msg">No aircraft in range right now. Quiet skies over {sel.iata}.</p>
 	{:else}
-		<div class="scroll" bind:clientWidth={boardW}>
+		<div class="scroll" class:clip-x={!booted && !entranceSettled} bind:clientWidth={boardW}>
 			<table class="board">
 				<thead>
 					<tr>
@@ -1520,11 +1551,6 @@
 			{/if}
 		</p>
 
-		<!-- The Connections nav is authored in +page (the onward snippet), so its .onward markup
-		     carries +page's scope, not this component's — hence the wrapper, which this board CAN
-		     style, to give the area the same rise-in the generic panel's body content gets (the
-		     board renders its own .tfc-body, so it misses the .surface-body entrance). -->
-		<div class="tfc-connections">{@render connections?.()}</div>
 	</div>
 </div>
 
@@ -1736,13 +1762,26 @@
 		.tfc-head .field,
 		.tfc-head .field-select,
 		.tfc-head .manual,
-		.tfc-head .ctl-label,
 		.tfc-head .deck-summary dt,
 		.tfc-head .deck-summary dd,
 		.fields .field-select,
 		.fields .range-label {
 			animation: btn-in 0.42s var(--spring) backwards;
 			animation-delay: calc(var(--enter-lead) + var(--bn, 0) * var(--btn-enter-step));
+		}
+		/* The pipes join the same ripple — each fades in on the beat of the control it
+		   introduces (the ::before reads --bn off its host: 12/13 from the ctl wrappers,
+		   18 from the corner; the title pipe takes the pills' opening beat) — instead of
+		   sitting fully drawn while the bar assembles around them. Opacity, not btn-in:
+		   a sliding separator would read as a fifth control. */
+		.deck::before,
+		.bar .corner-bar::before,
+		.deck-controls .ctl + .ctl::before {
+			animation: fade-in 0.42s ease backwards;
+			animation-delay: calc(var(--enter-lead) + var(--bn, 0) * var(--btn-enter-step));
+		}
+		.deck::before {
+			--bn: 1;
 		}
 		/* The readout deals in label-then-value, In range before Updated — four beats past
 		   Refresh (13), before the right end-cap (18/19). */
@@ -1757,13 +1796,6 @@
 		}
 		.deck-summary .stat:nth-child(2) dd {
 			--bn: 17;
-		}
-		/* The Connections nav closes the board's body — it rises in like any panel's content,
-		   one layer-beat after the header chrome, so the interior reads top (title) to bottom
-		   (onward links) rather than the links sitting there fully drawn on arrival. */
-		.tfc-connections {
-			animation: rise 0.5s ease backwards;
-			animation-delay: calc(var(--enter-lead) + var(--enter-layer));
 		}
 	}
 
@@ -1853,6 +1885,27 @@
 		.booting .key-item:nth-child(3) {
 			--bn: 2;
 		}
+		/* The source note closes the body — it enters with the legend's layer (the slot the
+		   Connections nav held before it), a beat behind the legend's last chip, so the
+		   interior finishes on its sign-off corner. On OPACITY, not rise: it's the body's
+		   last child, and a translate there stretches the scrollable bounds mid-flight —
+		   the scrollbars it summoned reflowed the table into a horizontal-scrollbar flash
+		   (same trap as Weather's tabs; the fade carries the beat without leaving the box). */
+		.booting .src {
+			animation: fade-in 0.5s ease backwards;
+			animation-delay: calc(var(--enter-lead) + var(--enter-layer) + 3 * var(--btn-enter-step));
+		}
+	}
+	/* Shared by the quiet entrances — the source note and the bar's pipes: things that
+	   should appear on their beat without moving (a translate would stretch scrollable
+	   bounds or read as another control). */
+	@keyframes fade-in {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
 	}
 	/* The row rule fades up from nothing to its resting hairline (omitting `to` animates toward
 	   the base border-top-color) — the line drawing itself in ahead of the cells that rise into it. */
@@ -1886,13 +1939,38 @@
 		flex-wrap: wrap;
 		gap: 0.4rem;
 	}
-	.ctl-label {
-		flex: none;
-		font-size: 0.72rem;
-		font-weight: 700;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: var(--sub);
+	/* With the captions gone, a thin pipe parts title | Field | Range | Refresh | caps —
+	   hung in the middle of each gap, full control height, its top and bottom faded so it
+	   reads as a separator and not another stroke in the control family. ONE rhythm
+	   everywhere: every pipe takes 0.75rem a side (the ctl groups' 1.5rem gap, halved), so
+	   .deck and .corner-bar — whose bar gap is the smaller --bar-inset — carry a margin
+	   that tops their gap up to the same 1.5rem before the pipe is hung mid-gap. */
+	.deck,
+	.bar .corner-bar,
+	.deck-controls .ctl + .ctl {
+		position: relative;
+	}
+	.deck,
+	.bar .corner-bar {
+		margin-left: calc(1.5rem - var(--bar-inset));
+	}
+	.deck::before,
+	.bar .corner-bar::before,
+	.deck-controls .ctl + .ctl::before {
+		content: '';
+		position: absolute;
+		left: -0.75rem;
+		top: 0;
+		bottom: 0;
+		width: 1px;
+		transform: translateX(-50%);
+		background: linear-gradient(
+			to bottom,
+			transparent,
+			var(--line-strong) 32%,
+			var(--line-strong) 68%,
+			transparent
+		);
 	}
 	/* Glanceable live stats, right end of the deck. */
 	.deck-summary {
@@ -1904,7 +1982,9 @@
 	.stat {
 		display: flex;
 		flex-direction: column;
-		gap: 0.2rem;
+		/* Nearly none: the label and its value are one reading, and the type sizes
+		   already separate their roles (the Star Map's summary wears the same). */
+		gap: 0.05rem;
 	}
 	.stat dt {
 		font-size: 0.68rem;
@@ -1981,10 +2061,6 @@
 		padding: 0.25rem 1.5rem 0.25rem 0.5rem;
 		font-size: 0.8rem;
 		background-size: 0.75rem;
-	}
-	.bar .ctl-label {
-		font-size: 0.66rem;
-		font-weight: 600;
 	}
 	.bar .deck-summary {
 		gap: 1.1rem;
@@ -2082,10 +2158,14 @@
 		color: var(--sub);
 	}
 	.field {
-		/* Text pill in the 42px control family: height fixed like the Related chips',
-		   width still the label's own (a native button centres its text vertically). */
+		/* Text pill in the 42px control family: height fixed like the Related chips'
+		   (a native button centres its text vertically). Width is normalized, not the
+		   label's own: every label is a 3-letter IATA code, but Jost's letters aren't
+		   equal — JFK ran narrower than DSM — so a shared min-width (roomy enough for
+		   the widest three caps plus padding) makes the row read as one gauge. */
 		box-sizing: border-box;
 		height: 42px;
+		min-width: 3.9em;
 		padding: 0 0.6rem;
 		font: inherit;
 		font-weight: 500;
@@ -2132,6 +2212,20 @@
 		border-radius: 8px;
 		cursor: pointer;
 		transition: border-color 0.15s ease, background-color 0.15s ease;
+	}
+	/* E-ATFC only: the deck's selects are Range and Refresh (Field is pills up here), and
+	   their short tokens read as pills when centered. text-align alone wasn't enough — it
+	   centres within the CONTENT box, and the chevron's extra right padding pushed that box
+	   left of the control's visual centre. SYMMETRIC padding recentres the box — and it's
+	   balanced by splitting the bar's total (0.5 + 1.5rem) evenly, not by mirroring the
+	   larger side, so the control keeps its old footprint instead of growing 1rem wider.
+	   The chevron slides toward the edge to fit inside the slimmer right padding. */
+	.deck-controls .field-select {
+		padding-left: 1rem;
+		padding-right: 1rem;
+		background-position: right 0.25rem center;
+		text-align: center;
+		text-align-last: center;
 	}
 	.field-select:hover {
 		border-color: var(--line-strong);
@@ -2261,10 +2355,12 @@
 		z-index: 5;
 		width: max-content;
 		max-width: 220px;
-		/* Its own wrapping, always: hosts pass down white-space (the table's nowrap reached
-		   the refresh dial's tip), and an unwrappable line overruns the 220px box — text
-		   past the background's edge. */
+		/* Its own wrapping and voice, always: hosts pass down white-space and font-family
+		   (the table's nowrap — and now its mono — reached the refresh dial's tip), and an
+		   unwrappable line overruns the 220px box — text past the background's edge. The
+		   tip is prose, so it keeps the body face whatever it sits inside. */
 		white-space: normal;
+		font-family: var(--font-body);
 		padding: 0.5rem 0.7rem;
 		font-size: 0.78rem;
 		line-height: 1.45;
@@ -2342,11 +2438,29 @@
 	}
 	.scroll {
 		overflow-x: auto;
+		/* The countdown ring (42px) centres over the 3.4em tag column and overhangs the
+		   table's left edge by a couple px — this scroller's clipping shaved its left arc.
+		   Negative margin + equal padding slides the clip window out past the ring while
+		   the content stays exactly where it was. */
+		margin-left: -4px;
+		padding-left: 4px;
+	}
+	/* While the body assembles, the entrance transforms nudge the table's rounded bounds
+	   a px past the scroller, and `auto` answers with a scrollbar that flashes in and
+	   out. Boot is no time to be scrolling a still-dealing table, so clip while the
+	   entrance plays — clip-x lifts on `entranceSettled` (a beat past the last delay),
+	   NOT on `booted`, which waits for the next poll and would trap a narrow viewport's
+	   genuinely-overflowing columns for up to a minute. */
+	.scroll.clip-x {
+		overflow-x: hidden;
 	}
 	.board {
 		width: 100%;
 		border-collapse: collapse;
 		font-size: 0.9rem;
+		/* The whole board speaks the data mono — headers and the direction tags included,
+		   not just the .mono cells — so the table reads as one instrument. */
+		font-family: var(--font-mono);
 	}
 	.board th {
 		text-align: left;
@@ -2753,5 +2867,7 @@
 		font-size: 0.78rem;
 		line-height: 1.5;
 		color: var(--sub);
+		/* Filed at the right edge, like Weather's source line — the sign-off corner. */
+		text-align: right;
 	}
 </style>

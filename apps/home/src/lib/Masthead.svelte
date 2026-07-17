@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+	import { backOut } from 'svelte/easing';
 	import SplitFlap from '$lib/SplitFlap.svelte';
 	import { airports } from '$lib/network';
 	import { viewPath } from '$lib/views';
@@ -15,18 +17,26 @@
 	// `covered` — a panel is filling the viewport over this masthead. It fades out entirely:
 	// blurred glass over a photo reads as texture, but blurred TEXT reads as something wrong
 	// with your eyes. (Also drops it from the tab order while it can't be seen.)
-	// `navTucked` — something else (the sky console's popout, on a phone) needs the nav's
-	// air for a moment: the menu fades out and returns on its own, the rest of the
-	// masthead staying put.
+	// `popCodes`/`popCode`/`navPop` — desktop's nav flyouts: some destinations (Home's
+	// greeting, About's bio) are a reading, not a workspace, so instead of a whole panel
+	// they open as a card under their own nav button (the sky console's popout, at nav
+	// scale). The page owns which codes fly out (`popCodes`), which one is open
+	// (`popCode`), and authors the card's content as a snippet taking the code (so the
+	// copy and its styles stay with the page); this component owns the anchor — the card
+	// hangs off the clicked button's <li>.
 	let {
 		activeCode = null,
 		covered = false,
-		navTucked = false,
+		popCodes = [],
+		popCode = null,
+		navPop,
 		onNavigate
 	}: {
 		activeCode?: string | null;
 		covered?: boolean;
-		navTucked?: boolean;
+		popCodes?: string[];
+		popCode?: string | null;
+		navPop?: Snippet<[string]>;
 		onNavigate: (code: string, e: MouseEvent) => void;
 	} = $props();
 
@@ -48,6 +58,23 @@
 		{ code: 'APP', icon: GRID_SVG },
 		{ code: 'STG', icon: GEAR_SVG }
 	];
+
+	// The flyout's spring: it POPS out of its button — starting 10px UP, tucked toward
+	// the button that called it, then DESCENDING into place while swelling from 94%
+	// anchored top-left (the button's corner), on backOut so both overshoot their rest
+	// and settle — the same bounce the button family springs with. The motion must point
+	// away from the button, downward: an upward arrival read as rising from the bottom
+	// left, from nothing. Played backwards on the way out (Svelte reverses the css ramp)
+	// the card gathers itself, then tucks back up into its button. Opacity rides ahead
+	// of the motion (clamped ×1.8) so the overshoot happens fully drawn, not mid-fade.
+	function popSpring(node: HTMLElement, p: { duration?: number } = {}) {
+		return {
+			duration: p.duration ?? 340,
+			easing: backOut,
+			css: (t: number) =>
+				`transform-origin: left top; transform: translateY(${(1 - t) * -10}px) scale(${0.94 + t * 0.06}); opacity: ${Math.min(1, t * 1.8)};`
+		};
+	}
 </script>
 
 <header class="masthead" class:covered>
@@ -71,17 +98,30 @@
 	     link is the station's real URL; the active destination highlights while its panel is open.
 	     On a phone the words hand over to their station marks (see the media query below) —
 	     four worded pills never fit a ~375px line, but four glyphs do, one row. -->
-	<nav class="menubar" class:tucked={navTucked} aria-label="Destinations">
+	<nav class="menubar" aria-label="Destinations">
 		<ul>
 			{#each menuNodes as { code, icon }, i}
-				<li style="--n:{i}">
+				<li style="--n:{i}" class:has-pop={popCodes.includes(code)}>
 					<a
 						class="menu-btn"
 						class:active={code === activeCode}
 						href={viewPath({ kind: 'port', code })}
 						data-sveltekit-preload-data="off"
+						aria-expanded={popCodes.includes(code) && navPop ? popCode === code : undefined}
 						onclick={(e) => onNavigate(code, e)}
 					><span class="menu-ico" aria-hidden="true">{@html icon}</span><span class="menu-word">{airports[code].title}</span></a>
+					{#if code === popCode && navPop}
+						<!-- The card springs out of its button (see popSpring); clicks inside stay
+						     inside (the stage's anywhere-off dismiss must not see them). -->
+						<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
+						<div
+							class="nav-pop"
+							transition:popSpring
+							onclick={(e) => e.stopPropagation()}
+						>
+							{@render navPop(code)}
+						</div>
+					{/if}
 				</li>
 			{/each}
 		</ul>
@@ -239,14 +279,6 @@
 		margin: clamp(1.1rem, 2.6vw, 1.9rem) 0 0 calc(var(--wordmark) * 0.05);
 		transition: opacity 0.25s ease;
 	}
-	/* Tucked (the sky console's popout has the floor): fade out, leave the tab order,
-	   come straight back on dismiss — the .covered treatment, nav-only. */
-	.menubar.tucked {
-		opacity: 0;
-		visibility: hidden;
-		pointer-events: none;
-		transition: opacity 0.25s ease, visibility 0s 0.25s;
-	}
 	.menubar ul {
 		list-style: none;
 		margin: 0;
@@ -259,6 +291,38 @@
 		display: flex;
 		transition: opacity 0.4s ease, transform 0.45s cubic-bezier(0.34, 1.5, 0.64, 1);
 		transition-delay: calc(var(--n, 0) * 0.05s);
+	}
+	/* A flyout hangs off its own button. */
+	.menubar li.has-pop {
+		position: relative;
+	}
+	/* The card: the sky console popout's material and motion, at nav scale — a "larger
+	   bubble" under the clicked button instead of a whole panel. It hangs at the NAV's
+	   own spacing (1.5rem for Flat's text nav; Bubble tightens below, like the pills do),
+	   so button and card read on the masthead's grid. */
+	.nav-pop {
+		position: absolute;
+		top: calc(100% + 1.5rem);
+		left: 0;
+		z-index: 4;
+		width: max-content;
+		max-width: min(26rem, 80vw);
+		padding: 1.1rem 1.3rem;
+		background: var(--panel-glass);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+	}
+	:global(html[data-ui='bubble']) .nav-pop {
+		top: calc(100% + 0.6rem);
+		/* The panels' own material — sheen, frost, rim light and drop (the sky-pop's
+		   exact dress), so the card reads as a shard of the same surface. */
+		background: var(--panel-sheen), var(--panel-fill);
+		-webkit-backdrop-filter: var(--panel-blur);
+		backdrop-filter: var(--panel-blur);
+		border-color: var(--panel-edge);
+		box-shadow:
+			inset 0 1px 0 light-dark(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.24)),
+			0 8px 24px rgba(8, 10, 14, 0.22);
 	}
 	.menu-btn {
 		font-size: clamp(1.05rem, 2.4vw, 1.35rem);

@@ -20,6 +20,7 @@
 		ARROW_LEFT_SVG,
 		CLOSE_SVG,
 		EXTERNAL_SVG,
+		HOME_SVG,
 		MAXIMIZE_SVG,
 		MINIMIZE_SVG,
 		PIN_SVG
@@ -28,18 +29,22 @@
 	type Place = { name: string; lat: number; lon: number };
 
 	// The map owns its whole panel interior, like the Traffic board: the page hands it the
-	// chrome a child can't reach — title and back. It's always full-viewport, like the
+	// chrome a child can't reach — title, back, home. It's always full-viewport, like the
 	// Presentation Builder: forced expanded on open (applyView), with no collapse toggle.
 	// (No Connections rail here, deliberately: the stage is the app, and a footer under an
-	// infinite sky read as clutter. Back and the Apps cards cover the navigation.)
+	// infinite sky read as clutter. The nav caps and the Apps cards cover the navigation.)
 	let {
 		accent = '#f06030', // the station's colour — the title dot, and North on the map
 		title = '',
-		onback
+		onback,
+		onhome
 	}: {
 		accent?: string;
 		title?: string;
 		onback?: () => void;
+		// The super bar's right-end cap, E-ATFC's arrangement: straight to the homepage —
+		// the narrow layout keeps Back instead.
+		onhome?: () => void;
 	} = $props();
 
 	// Is the viewport wide enough for the beside-the-title super bar? (The panel fills the
@@ -768,33 +773,15 @@
 <div class="sm" class:bar-mode={showBar} style:--accent={accent}>
 	<header class="sm-head" class:bar={showBar}>
 		{#if showBar}
-			<!-- Wide: ONE super bar, the Traffic board's shape. Back caps the left edge, framing
-			     identity, the location control, and a glanceable summary. -->
-			{#if onback}
-				<button
-					type="button"
-					class="icon-btn nav-edge"
-					onclick={onback}
-					aria-label="Back to route map"
-					title="Route map"
-				>
-					{@html ARROW_LEFT_SVG}
-				</button>
-			{/if}
+			<!-- Wide: ONE super bar, the Traffic board's shape — and its arrangement: no Back
+			     cap (full-viewport has nowhere to peel back to mid-thought), the title taking
+			     the left edge, and the global controls gathered at the right end — Home, then
+			     the location disc capping the row. -->
 			<div class="ident">
 				<h2 class="dest">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
 				<div class="head-refresh">{@render accentDot()}</div>
 			</div>
 			<div class="deck">
-				<div class="deck-controls">
-					<!-- --bn 1: the disc rides the ripple one rung behind Back (the summary counts
-					     on from 2 — see the entrance block). No text label: the pin glyph and the
-					     "Over" stat beside it say what the disc is; the control keeps its
-					     accessible name. -->
-					<div class="ctl" style="--bn:1">
-						{@render locationField()}
-					</div>
-				</div>
 				<dl class="deck-summary" aria-label="Sky summary">
 					<div class="stat stat-place">
 						<dt>Over</dt>
@@ -816,6 +803,27 @@
 						<dd>{timeText}</dd>
 					</div>
 				</dl>
+			</div>
+			<!-- Right end-cap, the board's arrangement: the location disc, then Home capping
+			     the row — the app's own control before the global one, like the board's
+			     refresh dial before its caps. --bn 9 on the wrapper (the disc inherits it);
+			     Home takes the last beat, so the ripple finishes at the far right. No text
+			     label on the disc: the pin glyph and the "Over" stat say what it is; the
+			     control keeps its accessible name. -->
+			<div class="corner corner-bar" style="--bn:9">
+				{@render locationField()}
+				{#if onhome}
+					<button
+						type="button"
+						class="icon-btn nav-edge"
+						style="--bn:10"
+						onclick={onhome}
+						aria-label="Close and go home"
+						title="Home"
+					>
+						{@html HOME_SVG}
+					</button>
+				{/if}
 			</div>
 		{:else}
 			<!-- Narrow: the location disc rides the Back row's far right — it acts on the whole
@@ -1063,19 +1071,37 @@
 		gap: 1rem clamp(1.5rem, 3vw, 2.5rem);
 		flex-wrap: wrap;
 	}
-	.deck-controls {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		flex-flow: row wrap;
+	/* The right end-cap group: Home, then the location disc. */
+	.corner {
+		display: inline-flex;
 		align-items: center;
-		gap: 0.5rem 1.5rem;
+		gap: 0.5rem;
 	}
-	.ctl {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: 0.4rem 0.6rem;
+	/* The bar's pipes, the Traffic board's same dress: a thin faded separator after the
+	   title and before the end caps, each hung mid-gap at the ONE rhythm (0.75rem a
+	   side — the boards' 1.5rem group gap, halved). The bar's own gap is the smaller
+	   --bar-inset, so both carry a margin topping it up before the pipe is hung. */
+	.deck,
+	.bar .corner-bar {
+		position: relative;
+		margin-left: calc(1.5rem - var(--bar-inset));
+	}
+	.deck::before,
+	.bar .corner-bar::before {
+		content: '';
+		position: absolute;
+		left: -0.75rem;
+		top: 0;
+		bottom: 0;
+		width: 1px;
+		transform: translateX(-50%);
+		background: linear-gradient(
+			to bottom,
+			transparent,
+			var(--line-strong) 32%,
+			var(--line-strong) 68%,
+			transparent
+		);
 	}
 	.deck-summary {
 		flex: none;
@@ -1086,7 +1112,9 @@
 	.stat {
 		display: flex;
 		flex-direction: column;
-		gap: 0.2rem;
+		/* Nearly none: the label and its value are one reading, and the type sizes
+		   already separate their roles (the board's summary wears the same). */
+		gap: 0.05rem;
 	}
 	.stat dt {
 		font-size: 0.68rem;
@@ -1161,30 +1189,50 @@
 		.head-row .sm-cs {
 			--bn: 1;
 		}
-		/* The bar's summary deals in label-then-value, past the location control (1). */
+		/* The bar's summary deals in label-then-value behind the title (its pipe takes
+		   beat 1); the right end-cap — the disc (9, off the wrapper), then Home (10) —
+		   closes the ripple at the far right. */
 		.deck-summary .stat:nth-child(1) dt {
-			--bn: 2;
+			--bn: 1;
 		}
 		.deck-summary .stat:nth-child(1) dd {
-			--bn: 3;
+			--bn: 2;
 		}
 		.deck-summary .stat:nth-child(2) dt {
-			--bn: 4;
+			--bn: 3;
 		}
 		.deck-summary .stat:nth-child(2) dd {
-			--bn: 5;
+			--bn: 4;
 		}
 		.deck-summary .stat:nth-child(3) dt {
-			--bn: 6;
+			--bn: 5;
 		}
 		.deck-summary .stat:nth-child(3) dd {
-			--bn: 7;
+			--bn: 6;
 		}
 		.deck-summary .stat:nth-child(4) dt {
-			--bn: 8;
+			--bn: 7;
 		}
 		.deck-summary .stat:nth-child(4) dd {
-			--bn: 9;
+			--bn: 8;
+		}
+		/* The pipes join the ripple on the beat of what they introduce (E-ATFC's same
+		   dress) — opacity, not btn-in: a sliding separator would read as a control. */
+		.deck::before,
+		.bar .corner-bar::before {
+			animation: fade-in 0.42s ease backwards;
+			animation-delay: calc(var(--enter-lead) + var(--bn, 0) * var(--btn-enter-step));
+		}
+		.deck::before {
+			--bn: 1;
+		}
+	}
+	@keyframes fade-in {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
 		}
 	}
 

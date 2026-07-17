@@ -48,10 +48,10 @@
 	import faviconWeather from '$lib/assets/favicon-weather.svg';
 	import faviconStar from '$lib/assets/favicon-star.svg';
 	import faviconAita from '$lib/assets/favicon-aita.svg';
-	import { airports, accent, connections, portDescriptions, HUB } from '$lib/network';
+	import { airports, accent, portDescriptions, HUB } from '$lib/network';
 	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
 	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
-	import { rangeToken, refreshToken } from '$lib/scope';
+	import { rangeToken, refreshToken, expandedToken } from '$lib/scope';
 	import type { PageData } from './$types';
 
 	// Airline route-map homepage. The network is deliberately LARGER than the
@@ -667,16 +667,22 @@
 			{ p: 'I hope you enjoy your time here.' },
 			{ quote: 'Take care.' }
 		],
-		// Work — a stop off About, from dotcom-2 About card K 202.
+		// Work — a stop off About, from dotcom-2 About card K 202. It opens on its tagline —
+		// the same line its card and meta description carry (portDescriptions, so the three
+		// can never drift apart).
 		WRK: [
+			{ p: portDescriptions.WRK },
+			{ sub: 'Employment' },
 			{ p: 'I’m a digital infrastructure engineer for U.S. energy companies.' },
 			{ p: 'I was formerly a software engineering consultant for the State of Iowa and other midwestern U.S. companies.' },
+			{ sub: 'Education' },
 			{ p: 'I have a B.S. in Computer Science from Iowa State University, and acquired general education from Drake University.' },
 			{ quote: 'I do love ranch.' }
 		],
-		// Projects — a stop off About, from dotcom-2 About card K 203.
+		// Projects — a stop off About, from dotcom-2 About card K 203. Same deal as Work:
+		// the tagline leads.
 		PRJ: [
-			{ p: 'Things that I have created and currently operate.' },
+			{ p: portDescriptions.PRJ },
 			{ sub: 'Digital Community Services' },
 			{ p: 'Matrix, Nextcloud, and Open WebUI: for a better digital wellbeing.' },
 			{ sub: 'Digital Play Services' },
@@ -698,8 +704,7 @@
 			{ email: 'contact@kashinoga.com' }
 		]
 	};
-	// The apps the Apps panel shows as CARDS in its body — so they must not also appear as chips in
-	// its Related rail. Everywhere else the rail is unchanged, and the hub stays in it either way.
+	// The apps the Apps panel shows as CARDS in its body.
 	// Alphabetical by TITLE: the cards' order is presentation, not hierarchy, so a new
 	// app files itself in rather than landing wherever it was added.
 	const APP_CARDS = ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA'].sort((a, b) =>
@@ -724,12 +729,11 @@
 		STG: GEAR_SVG,
 		...APP_ICONS
 	};
-	// A panel's Related rail: the place above it and the places below it (see $lib/network). The
-	// Apps panel is the exception — its apps are cards in the body, so they'd be listed twice.
-	const relatedTo = (code: string) => {
-		const all = connections(code);
-		return code === 'APP' ? all.filter((c) => !APP_CARDS.includes(c)) : all;
-	};
+	// The panels that lay their onward destinations INTO the body as cards. (The Related
+	// chip rail this replaced is gone everywhere: each panel ends on its own content, and
+	// Back/Home already lead out.) Apps deals its live apps; About fans out to its two
+	// branches.
+	const PANEL_CARDS: Record<string, string[]> = { APP: APP_CARDS, ABT: ['WRK', 'PRJ'] };
 
 	const stub = (t: string): Block[] => [
 		{
@@ -925,11 +929,10 @@
 	$effect(() => {
 		const covered = backdropHidden;
 		clearTimeout(decorTimer);
-		// Cover on DESKTOP is immediate: the expanded arrival holds back (the zoom's first
-		// half is a hold — see arriveTransform) while the skybox visibly bows out first, on an
-		// open stage. Mobile keeps the delay (the sheet slides over the decor; hiding early
-		// would pop a void behind it). Reveal waits out the promotion's full round trip.
-		decorTimer = window.setTimeout(() => (decorHidden = covered), covered ? (isMobile ? 380 : 0) : 720);
+		// Cover waits for the slide to land — the panel travels over the decor (from the
+		// right on desktop, up from the bottom on a phone), and hiding early would pop a
+		// void beside the incoming surface. Reveal waits out the promotion's full round trip.
+		decorTimer = window.setTimeout(() => (decorHidden = covered), covered ? 380 : 720);
 	});
 	const starsVisible = $derived(starsOn && darkScheme && !decorHidden && !photoSky);
 	// ── Weather dressing ── With the Weather panel open, the stage wears the ACTIVE CITY's
@@ -948,6 +951,14 @@
 	// The console folds into ONE chip; the rows live in a popout above it. Closes on
 	// Escape or any stage click (the stage's own click handler runs on empty sky).
 	let skyConsoleOpen = $state(false);
+	// Desktop's nav flyouts: Home's greeting and About's bio open as cards under their
+	// own nav buttons (see the navPop snippet + Masthead's nav-pop) instead of whole
+	// panels — they're readings, not workspaces (About's onward cards ride along in
+	// its card). Same dismissal bargain as the sky console — Escape, any stage click,
+	// or opening a real panel. On a phone both stay panels: there's no room under a
+	// nav of glyph discs for a card.
+	const NAV_POPS = [HUB, 'ABT'];
+	let navPopCode = $state<string | null>(null);
 	// One-shot, page-load only: the sky toggle rises in on the masthead nav's beat (see
 	// .sky-toggle.boot). The flag drops once that entrance has played, because the
 	// console REMOUNTS every time a panel closes — replaying a 1.2s-delayed entrance
@@ -1055,6 +1066,11 @@
 			} catch {
 				/* storage unavailable — keep the in-memory choice */
 			}
+			// Mirror the new size into `?expanded=` in place (a control on the open panel,
+			// not a new place), so copying the address bar always shares the board as seen.
+			// Only the Traffic board's URL carries params; PRES/STAR reach here never (they
+			// have no toggle) but the gate keeps it honest.
+			if (view?.kind === 'port' && view.code === 'ATFC') syncUrl(view, boardParams, true);
 		};
 		if (reduce || isMobile) return flip(); // no choreography — just the new size
 		clearTimeout(expandTimer);
@@ -1066,11 +1082,11 @@
 			requestAnimationFrame(playOpenLanding);
 		}, PANEL_SLIDE);
 	}
-	// "The background appears from the back, then the elements start their entrances":
-	// during an expanded arrival the panel's content is HELD (not mounted at all — the
-	// empty surface is what zooms in), and when the surface lands it mounts fresh under a
-	// bumped key, so every entrance animation plays from zero on a settled stage. Desktop
-	// expanded only; compact panels keep their slide-with-content arrival.
+	// "The surface arrives, then the elements start their entrances": during an expanded
+	// arrival the panel's content is HELD (not mounted at all — the empty surface is what
+	// slides in), and when the surface lands it mounts fresh under a bumped key, so every
+	// entrance animation plays from zero on a settled stage. Desktop expanded only;
+	// compact panels keep their slide-with-content arrival.
 	let contentHeld = $state(false);
 	let arriveRev = $state(0);
 	let arriveTimer = 0;
@@ -1081,7 +1097,7 @@
 		arriveTimer = window.setTimeout(() => {
 			contentHeld = false;
 			arriveRev++;
-		}, ARRIVE_MS + 40);
+		}, 420); // the 380ms slide, plus a breath for it to settle
 	}
 	// The panel element, for the slide transition.
 	let panelEl = $state<HTMLElement | undefined>(undefined);
@@ -1123,27 +1139,13 @@
 		const grow = 1 + (reduce ? 0 : 0.04) * Math.sin(Math.PI * u);
 		return `translate(${slide * x}px, ${slide * y}px) ${y ? `scaleY(${grow})` : `scaleX(${grow})`}`;
 	}
-	// The EXPANDED arrival comes from the BACK, not from the right: a full-page surface
-	// sliding in reads as a sheet, but the promoted board is its own app — it surfaces
-	// toward the viewer (scale from 96.5%, opacity riding along; both compositor
-	// currency) and only then lets its elements make their entrances (see contentHeld).
-	// The timeline HOLDS for its first half — the skybox's 420ms farewell owns the stage
-	// (see decorHidden) — then the board simply FADES IN through the second. No scale, no
-	// travel: the promoted app appears in place, opacity being the cheapest thing any
-	// compositor can animate.
-	const ARRIVE_MS = 760;
-	const arriveT = (t: number) => Math.max(0, (t - 0.5) / 0.5); // 0 through the hold, then 0→1
-	const fadeInAt = (t: number) => Math.min(1, arriveT(t) / 0.75);
-	function panelIn(
-		node: HTMLElement,
-		p: { x?: number; y?: number; duration?: number; arrive?: boolean }
-	) {
+	// EVERY panel slides: compact from its 680px offset, an expanded app from the full
+	// viewport width, the phone sheet up from the bottom — one gesture at three sizes.
+	// (An expanded arrival used to fade in place instead — a workaround for Safari
+	// re-rasterising the backdrop blur under a full-screen slide, since alleviated:
+	// the expanded backdrop is painted, not filtered — see the .surface-backdrop rule.)
+	function panelIn(node: HTMLElement, p: { x?: number; y?: number; duration?: number }) {
 		const { x = 0, y = 0, duration = 380 } = p;
-		if (p.arrive)
-			return {
-				duration: p.duration ?? ARRIVE_MS,
-				css: (t: number) => `opacity: ${fadeInAt(t)};`
-			};
 		return {
 			duration,
 			css: (t: number) =>
@@ -1155,12 +1157,6 @@
 	// .leaving class's plain transition (WAAPI wins while it runs, and both settle at rest).
 	function playOpenLanding() {
 		if (!panelEl || reduce) return;
-		if (!isMobile && panelExpanded) {
-			// The promoted board fades in in place — the WAAPI twin of panelIn's arrive mode.
-			const frames = Array.from({ length: 49 }, (_, i) => ({ opacity: String(fadeInAt(i / 48)) }));
-			panelEl.animate(frames, { duration: ARRIVE_MS, easing: 'linear' });
-			return;
-		}
 		const x = isMobile ? 0 : panelExpanded ? vw : 680;
 		const y = isMobile ? panelEl.clientHeight : 0;
 		const frames = Array.from({ length: 25 }, (_, i) => {
@@ -1185,22 +1181,29 @@
 	// `push` is false when the change *came from* history (a back/forward), which would
 	// otherwise re-push the entry we just popped.
 	// The Traffic board's controls, as the URL sees them. `null` is the default, which is
-	// spelled by leaving the param off entirely.
-	type BoardParams = { field: string | null; range: number | null; refresh: number | null };
-	const NO_PARAMS: BoardParams = { field: null, range: null, refresh: null };
+	// spelled by leaving the param off entirely; `expanded: false` (compact) likewise.
+	type BoardParams = {
+		field: string | null;
+		range: number | null;
+		refresh: number | null;
+		expanded: boolean;
+	};
+	const NO_PARAMS: BoardParams = { field: null, range: null, refresh: null, expanded: false };
 
 	// Built with URLSearchParams rather than string concatenation so the ordering is stable
 	// and the escaping isn't ours to get wrong. Order matches $lib/scope + the load's
 	// canonicalisation, so a URL we push is byte-identical to one the server would redirect
 	// to — otherwise `syncUrl`'s address-bar comparison below would never match and every
 	// pick would push a duplicate entry.
-	function boardQuery({ field: f, range: r, refresh: p }: BoardParams) {
+	function boardQuery({ field: f, range: r, refresh: p, expanded: x }: BoardParams) {
 		const q = new URLSearchParams();
 		if (f) q.set('field', f.toLowerCase());
 		const rt = r === null ? null : rangeToken(r);
 		if (rt) q.set('range', rt);
 		const pt = p === null ? null : refreshToken(p);
 		if (pt) q.set('refresh', pt);
+		const xt = expandedToken(x);
+		if (xt) q.set('expanded', xt);
 		const s = q.toString();
 		return s ? `?${s}` : '';
 	}
@@ -1228,7 +1231,8 @@
 			view: nv ? ($state.snapshot(nv) as View) : null,
 			field: bp.field,
 			range: bp.range,
-			refresh: bp.refresh
+			refresh: bp.refresh,
+			expanded: bp.expanded
 		};
 		// Picking a field *replaces* the entry: it's a control on the open panel, not a
 		// new place. Otherwise every chip click would need its own press of Back.
@@ -1262,6 +1266,9 @@
 	const urlRefresh = $derived(
 		page.state.refresh !== undefined ? page.state.refresh : data.refresh
 	);
+	const urlExpanded = $derived(
+		page.state.expanded !== undefined ? page.state.expanded : data.expanded
+	);
 
 	// The Traffic board's three controls, mirrored into the query. Seeded from the URL; see
 	// the note on `view` above for why reading `data` once is right. `null` means "the
@@ -1273,7 +1280,14 @@
 	// svelte-ignore state_referenced_locally
 	let refresh = $state<number | null>(data.refresh);
 
-	const boardParams = $derived<BoardParams>({ field, range, refresh });
+	// `expanded` rides only while the board is the open panel — PRES/STAR set
+	// panelExpanded too, but their URLs never carry board params.
+	const boardParams = $derived<BoardParams>({
+		field,
+		range,
+		refresh,
+		expanded: panelExpanded && view?.kind === 'port' && view.code === 'ATFC'
+	});
 
 	// The board changed a control: record it and rewrite the URL in place. A control is a
 	// setting on the open panel, not a new place, so these replace the history entry —
@@ -1335,12 +1349,14 @@
 		view = nv;
 		// A fresh open starts the board on its defaults — the previous visit's `?field=` and
 		// friends belong to the history entry we left, not to this new one. On a history-driven
-		// open (`push` false) the reconciler has already set them.
+		// open (`push` false) the reconciler has already set them. The board's SIZE is the
+		// exception: ATFC opens at the remembered toggle (see below), and the URL must say so
+		// from the first push or the address bar would name a compact board over a full one.
 		if (push) {
 			field = null;
 			range = null;
 			refresh = null;
-			syncUrl(nv, NO_PARAMS);
+			syncUrl(nv, nv.code === 'ATFC' ? { ...NO_PARAMS, expanded: panelExpanded } : NO_PARAMS);
 		}
 		// Only the Air Traffic board, the Star Map, and the Presentation Builder are designed to
 		// fill the viewport. PRES and STAR force the full layout on open (their compact forms are
@@ -1356,6 +1372,7 @@
 	// reduced-motion just applies immediately.
 	function navigate(nv: View, push = true) {
 		clearTimeout(navTimer);
+		navPopCode = null; // a real panel is taking the stage; any nav card yields
 		if (view && !reduce) {
 			panelLeaving = true;
 			navTimer = window.setTimeout(() => {
@@ -1408,6 +1425,10 @@
 			photoOpen = false;
 			return;
 		}
+		if (navPopCode) {
+			navPopCode = null;
+			return;
+		}
 		if (view) home();
 		else board('STG');
 	}
@@ -1435,6 +1456,7 @@
 		// here (the picker's own buttons handle those), so this only fires on the bare sky.
 		photoOpen = false;
 		skyConsoleOpen = false; // the sky console makes the same bargain
+		navPopCode = null; // and the nav flyouts
 		if (view && !panelExpanded && e.target === e.currentTarget) home();
 	}
 	// The open station's code (or null) — drives the masthead nav's active highlight. A plain
@@ -1458,7 +1480,12 @@
 		cleanups.push(() => clearTimeout(skyBootTimer));
 		const th = localStorage.getItem(THEME_KEY);
 		if (th === 'light' || th === 'dark') theme = th;
-		if (localStorage.getItem(EXPAND_KEY) === '1') panelExpanded = true;
+		// Deep-linked into the Traffic board, the URL names the size (`?expanded=`) and it
+		// wins over the remembered toggle — a shared link must open the same for everyone.
+		// Everywhere else the remembered toggle seeds as before (and only ATFC reads it:
+		// applyView forces PRES/STAR full and every other panel compact).
+		if (data.view?.kind === 'port' && data.view.code === 'ATFC') panelExpanded = data.expanded;
+		else if (localStorage.getItem(EXPAND_KEY) === '1') panelExpanded = true;
 		const sky = localStorage.getItem(SKY_KEY);
 		if (sky && SKY_MODES.includes(sky as SkyMode)) skyMode = sky as SkyMode; // else default 'auto'
 		applySky();
@@ -1498,6 +1525,11 @@
 		const nextField = urlField;
 		const nextRange = urlRange;
 		const nextRefresh = urlRefresh;
+		const nextExpanded = urlExpanded;
+		// The board's size follows history like its other controls — but only when the
+		// entry is the board's; other panels' entries carry expanded:false, which must
+		// not collapse a full PRES/STAR or re-run their forcing in applyView.
+		const boardEntry = nextView?.kind === 'port' && nextView.code === 'ATFC';
 		untrack(() => {
 			if (sameView(nextView, view)) {
 				// Same panel, different controls — restored by back/forward, or by a real
@@ -1508,6 +1540,7 @@
 				if (nextField !== field) field = nextField;
 				if (nextRange !== range) range = nextRange;
 				if (nextRefresh !== refresh) refresh = nextRefresh;
+				if (boardEntry && nextExpanded !== panelExpanded) panelExpanded = nextExpanded;
 				return;
 			}
 			// Set the controls before the panel swaps: the board reads them as props when the
@@ -1515,6 +1548,7 @@
 			field = nextField;
 			range = nextRange;
 			refresh = nextRefresh;
+			if (boardEntry) panelExpanded = nextExpanded;
 			// History moved without us — a Back or Forward. Keep the count of our own entries
 			// honest, or Back would keep stepping past the site's own first page.
 			if (ownPushes > 0) ownPushes--;
@@ -1572,30 +1606,51 @@
 	</div>
 {/snippet}
 
-<!-- Onward-travel chip row, shared by every panel: a destination's connections, a
-     line's station list, and the Traffic board's Related slot. `label` names the
-     section; `codes` are the station codes to link to. -->
-{#snippet onward(label: string, codes: string[])}
-	{#if codes.length}
-		<nav class="onward">
-			<p class="eyebrow">{label}</p>
-			<ul>
-				{#each codes as c}
+<!-- A nav flyout's content — the same blocks the destination's panel shows (pages[code],
+     so Edit Mode's saved copy carries over), minus the panel chrome: these stops are a
+     hello and a bio, not workspaces. About's onward cards (Work, Projects — PANEL_CARDS)
+     ride along under its copy, exactly as they do in the panel body. Authored here so
+     the copy and its styles stay with the page; Masthead just hangs the card (see its
+     .nav-pop). -->
+{#snippet navPop(code: string)}
+	<div class="pop-copy">
+		{#each pages[code] ?? [] as b}
+			{#if 'h' in b}
+				<h3>{b.h}</h3>
+			{:else if 'p' in b}
+				<p>{b.p}</p>
+			{:else if 'quote' in b}
+				<blockquote>{b.quote}</blockquote>
+			{:else if 'email' in b}
+				<p>
+					<a class="mail" href="mailto:{b.email}">
+						{b.email}<span class="mail-ico">{@html MAILBOX_SVG}</span>
+					</a>
+				</p>
+			{/if}
+		{/each}
+		{#if PANEL_CARDS[code]}
+			<ul class="app-cards">
+				{#each PANEL_CARDS[code] as c}
 					<li>
 						<a
-							class="chip"
+							class="app-card"
 							href={viewPath({ kind: 'port', code: c })}
 							data-sveltekit-preload-data="off"
+							style:--card-accent={accent[c]}
 							onclick={(e) => onNodeClick(e, () => board(c))}
 						>
-							<span class="chip-ico" style:color={accent[c]}>{@html PORT_ICONS[c] ?? ''}</span>
-							<span class="chip-title">{airports[c].title}</span>
+							<span class="app-ico">{@html PORT_ICONS[c]}</span>
+							<span class="app-copy">
+								<span class="app-name">{airports[c].title}</span>
+								<span class="app-blurb">{portDescriptions[c]}</span>
+							</span>
 						</a>
 					</li>
 				{/each}
 			</ul>
-		</nav>
-	{/if}
+		{/if}
+	</div>
 {/snippet}
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
@@ -1823,13 +1878,25 @@
 	<!-- Persistent masthead (wordmark + tagline + station nav) — its own component so a
 	     homepage-chrome tweak stays out of this catch-all page. It reports which destination
 	     was clicked; the page keeps the modifier-aware click + camera handling. -->
-	<!-- navTucked: on a phone the open sky console and the stacked nav want the same air —
-	     the nav steps aside while the console speaks (it comes right back on dismiss). -->
 	<Masthead
 		{activeCode}
 		covered={backdropHidden}
-		navTucked={skyConsoleOpen && isMobile}
-		onNavigate={(code, e) => onNodeClick(e, () => board(code))}
+		popCodes={NAV_POPS}
+		popCode={navPopCode}
+		{navPop}
+		onNavigate={(code, e) => {
+			// Desktop's Home and About are flyouts under their own buttons (see navPop),
+			// not panels. Modified clicks stay the browser's (new tab and friends), like
+			// every in-app link; on a phone both open their panels as before.
+			if (NAV_POPS.includes(code) && !isMobile) {
+				if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+				e.preventDefault();
+				e.stopPropagation(); // or the stage's anywhere-off dismiss undoes the open on the way up
+				navPopCode = navPopCode === code ? null : code;
+				return;
+			}
+			onNodeClick(e, () => board(code));
+		}}
 	/>
 
 	{#if view}
@@ -1841,9 +1908,7 @@
 			class:expanded={panelExpanded}
 			in:panelIn|global={isMobile
 				? { y: 900, duration: 380 }
-				: panelExpanded
-					? { arrive: true }
-					: { x: 680, duration: 380 }}
+				: { x: panelExpanded ? vw : 680, duration: 380 }}
 			out:fly|global={isMobile
 				? { y: 900, opacity: 1, duration: 380 }
 				: { x: panelExpanded ? vw : 680, opacity: 1, duration: 380 }}
@@ -1869,14 +1934,16 @@
 					{#if v.code === 'ATFC'}
 						<!-- The Traffic board owns its whole panel interior so, when expanded, its
 						     controls + a live summary fill the header beside the title. It gets the
-						     panel chrome it can't reach from a child: title, code, back, expanded, and
-						     the Connections nav as a snippet (authored here so it keeps page styling). -->
+						     panel chrome it can't reach from a child: title, code, back, expanded.
+						     (No Connections snippet: the Related rail is gone site-wide — onward
+						     destinations are body cards now, see PANEL_CARDS.) -->
 						<TrafficBoard
 							accent={accent[v.code]}
 							code={v.code}
 							title={port.title}
 							expanded={panelExpanded}
 							onback={goBack}
+							onhome={() => home()}
 							onToggleExpand={toggleExpand}
 							edit={dev && editMode}
 							copyText={settingsText}
@@ -1887,11 +1954,7 @@
 							onRangeChange={setRange}
 							initialRefresh={refresh}
 							onRefreshChange={setRefresh}
-						>
-							{#snippet connections()}
-								{@render onward('Related', relatedTo(v.code))}
-							{/snippet}
-						</TrafficBoard>
+						/>
 					{:else if v.code === 'PRES'}
 						<!-- The Presentation Builder owns its whole panel interior (its own toolbar +
 						     three-column editor), like the Traffic board. It's always full-viewport —
@@ -1902,7 +1965,12 @@
 						     it's always full-viewport: forced expanded on open (applyView), with no
 						     collapse toggle. Its header is the board's super bar, with the location
 						     control and a sky summary riding beside the title. -->
-						<StarMap accent={accent[v.code]} title={port.title} onback={goBack} />
+						<StarMap
+							accent={accent[v.code]}
+							title={port.title}
+							onback={goBack}
+							onhome={() => home()}
+						/>
 					{:else}
 					<!-- csb / csb-on: the shared collapsed-super-bar recipe (puhig base.css) —
 					     head-collapsed stays for the page's own seasoning (phantom scroll room). -->
@@ -2244,12 +2312,12 @@
 						{/each}
 						{/if}
 
-						<!-- Apps: the live apps themselves, promoted out of the Related rail and into the
-						     body as cards — each its own icon, name and blurb. They're the panel's real
-						     content; the rail below is for everything ELSE you can get to from here. -->
-						{#if v.code === 'APP'}
+						<!-- Onward destinations as cards in the body — each its own icon, name and
+						     blurb: the Apps panel's live apps, About's two branches (see PANEL_CARDS).
+						     They're the panel's real content, not a rail under it. -->
+						{#if PANEL_CARDS[v.code]}
 							<ul class="app-cards">
-								{#each APP_CARDS as c}
+								{#each PANEL_CARDS[v.code] as c}
 									<li>
 										<a
 											class="app-card"
@@ -2258,7 +2326,7 @@
 											style:--card-accent={accent[c]}
 											onclick={(e) => onNodeClick(e, () => board(c))}
 										>
-											<span class="app-ico">{@html APP_ICONS[c]}</span>
+											<span class="app-ico">{@html PORT_ICONS[c]}</span>
 											<span class="app-copy">
 												<span class="app-name">{airports[c].title}</span>
 												<span class="app-blurb">{portDescriptions[c]}</span>
@@ -2268,8 +2336,6 @@
 								{/each}
 							</ul>
 						{/if}
-
-						{@render onward('Related', relatedTo(v.code))}
 					</div>
 					{/if}
 			{/key}
@@ -2676,7 +2742,13 @@
 		z-index: 3;
 		display: flex;
 		flex-direction: column;
-		gap: 0.35rem;
+		/* The card hangs off its toggle at the NAV's spacing — the gap between Home,
+		   About and friends (1.5rem for Flat's text nav; Bubble tightens below, like
+		   the nav pills do) — so the console reads on the same grid as the masthead. */
+		gap: 1.5rem;
+	}
+	:global(html[data-ui='bubble']) .sky-console {
+		gap: 0.6rem;
 	}
 	/* The popout: the two rows on a solid card above the toggle (it overlays sky, so it
 	   gets the opaque panel stock, like the city search's results). */
@@ -3231,7 +3303,7 @@
 		   The bottom padding TIGHTENS with it. The old value was sized to hold the title's descenders
 		   clear of that rule; with no rule to clear, the same gap just left the body adrift from the
 		   title it belongs to. */
-		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(0.85rem, 1.5vw, 1.25rem);
+		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(0.4rem, 0.75vw, 0.65rem);
 	}
 	/* The header's control row: Back at the left, a panel's own action (Weather's search) at the
 	   right. It replaces the bare Back button, so the gap below it is the one Back used to set. */
@@ -3271,19 +3343,11 @@
 	}
 
 	/* Icon-circle back control (shared .icon-btn); only its placement is set here. The gap
-	   below it (to the eyebrow/title) matches the header's top/left edge inset, so the back
+	   below it (to the title) matches the header's top/left edge inset, so the back
 	   button sits in an evenly-framed pocket rather than crowding the text below it. */
 	.back {
 		align-self: flex-start;
 		margin-bottom: clamp(1.5rem, 4vw, 2.5rem);
-	}
-	.eyebrow {
-		margin: 0 0 0.4rem;
-		font-size: 0.8rem;
-		font-weight: 600;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: var(--sub);
 	}
 	/* Title + its accent bullet. Baseline-aligned so the dot rests on the title's text
 	   baseline, exactly like the masthead's bullets beside "Kashinoga" and ATFC's dot
@@ -3384,10 +3448,36 @@
 		font-style: italic;
 		color: var(--ink);
 	}
+	/* A nav flyout's copy — the panel body's voice at card scale (see navPop). */
+	.pop-copy h3 {
+		margin: 0 0 0.55rem;
+		font-size: 1.05rem;
+		font-weight: 700;
+		color: var(--ink);
+	}
+	.pop-copy p {
+		margin: 0 0 0.55rem;
+		font-size: 0.95rem;
+		line-height: 1.5;
+		color: var(--ink);
+	}
+	.pop-copy blockquote {
+		margin: 0.8rem 0 0;
+		padding-left: 1rem;
+		border-left: 3px solid var(--ink);
+		font-size: 1.05rem;
+		font-style: italic;
+		color: var(--ink);
+	}
+	/* The onward cards sit closer in the card than in a panel body — the pop is already
+	   a tight reading, and the body's 1.75rem read as a hole in it. */
+	.pop-copy .app-cards {
+		margin-top: 1rem;
+	}
 
 	/* ── Panel arrival — the depth cascade (see puhig's --enter-* tokens) ─────────────────
 	   The sheet flies in first (transition:fly, layer 0). Then the layer sitting on it — the
-	   header's eyebrow and chrome — rides in at --enter-lead. Then the layer deeper still, the
+	   header's chrome — rides in at --enter-lead. Then the layer deeper still, the
 	   body content, at one --enter-layer beyond that. The map's overlay always assembled this
 	   way (title, then dots, then tagline, then legend); this gives the panel the same reading,
 	   where it used to arrive as one rigid slab with every word already at full opacity.
@@ -3401,15 +3491,10 @@
 	   `backwards`, never `both`. The fill has to lift when the animation ends, or the animated
 	   transform would outrank the hover scale() on the buttons nested inside these wrappers and
 	   pin them at rest. Direct children of .surface-body are always prose or a wrapper
-	   (nav.onward, div.segmented, div.sky-picker) — never a button — so the transform only ever
+	   (ul.app-cards, div.segmented, div.sky-picker) — never a button — so the transform only ever
 	   lands on an ancestor; the chrome buttons get their own horizontal entrance below. */
 	@media (prefers-reduced-motion: no-preference) {
-		/* Layer 1: the eyebrow, on the surface with the chrome. */
-		.surface-head .eyebrow {
-			animation: rise 0.5s ease backwards;
-			animation-delay: var(--enter-lead);
-		}
-		/* Layer 2: the body content, a beat deeper — it fills the sheet the frame just drew. */
+		/* The body content, a layer past the chrome — it fills the sheet the frame just drew. */
 		.surface-body > * {
 			animation: rise 0.5s ease backwards;
 			animation-delay: calc(var(--enter-lead) + var(--enter-layer) + var(--n, 0) * var(--enter-step));
@@ -3758,9 +3843,6 @@
 		align-content: start;
 		gap: 1.75rem 2.75rem;
 	}
-	.surface.expanded .settings > .onward {
-		grid-column: 1 / -1;
-	}
 	/* The per-lead divider line reads as a stray rule atop a grid cell, so the groups separate by
 	   the grid gap alone; the lead that led each group no longer needs its top border. */
 	.surface.expanded .settings .stg-group > .seg-lead,
@@ -3808,22 +3890,10 @@
 		outline-offset: 2px;
 	}
 
-	.onward {
-		margin-top: 1.4rem;
-		padding-top: 1.25rem;
-		border-top: 1px solid var(--line);
-	}
-	.onward ul {
-		list-style: none;
-		margin: 0.6rem 0 0;
-		padding: 0;
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-	}
-	/* ── Apps cards ───────────────────────────────────────────────────────────────────────────── */
-	/* The Apps panel's real content: one card per live app, each carrying its own mark. Flat, like
-	   the panels themselves — an edge and the station's accent, no shadow. */
+	/* ── Onward cards ─────────────────────────────────────────────────────────────────────────── */
+	/* A panel's onward destinations as its real content (see PANEL_CARDS): one card per stop,
+	   each carrying its own mark. Flat, like the panels themselves — an edge and the station's
+	   accent, no shadow. */
 	.app-cards {
 		list-style: none;
 		margin: 1.75rem 0 0;
@@ -3943,25 +4013,6 @@
 	.chip:hover {
 		background: var(--line);
 	}
-	/* The station's mark, in its line's colour — see PORT_ICONS. Sized to the dot it replaced, so
-	   the chips keep their rhythm. */
-	.chip-ico {
-		display: grid;
-		place-items: center;
-		flex: none;
-		width: 1rem;
-		height: 1rem;
-	}
-	.chip-ico :global(svg) {
-		display: block;
-		width: 100%;
-		height: 100%;
-	}
-	.chip-title {
-		font-weight: 600;
-		color: var(--ink);
-	}
-
 	/* ══ Universal button interaction ═══════════════════════════════════════════════════
 	   Every button in the app springs the same way, in both UI styles: a small pop on hover,
 	   a squash + darken on press, on the shared --btn-spring. Amounts live in puhig's tokens

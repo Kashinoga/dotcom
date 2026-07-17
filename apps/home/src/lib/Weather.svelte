@@ -980,4 +980,7 @@
 		font-size: 0.85rem;
 		color: var(--sub);
 	}
+	.wx-source {
+		text-align: right;
+	}
 </style>
