@@ -980,11 +980,22 @@
 	// scrollTop 0 with no scroll event to say so.
 	let surfHeadCollapsed = $state(false);
 	function onSurfaceScroll(e: Event) {
+		// Mobile opts OUT of the fold entirely. The collapse is a scroll-driven layout
+		// change — the header (a flex sibling of the scroll body) resizes, and the phantom
+		// padding snaps the scrollHeight — and iOS momentum scrolling can't ride over that:
+		// the fling stutters and, on Weather, snaps back up. So on a phone the header just
+		// stays put (Star Map's mobile answer: floating chrome, no fold), and the body
+		// scrolls clean. Desktop keeps the fold — a mouse has no momentum fling to fight.
+		if (isMobile) {
+			if (surfHeadCollapsed) surfHeadCollapsed = false;
+			return;
+		}
 		const y = (e.currentTarget as HTMLElement).scrollTop;
 		surfHeadCollapsed = surfHeadCollapsed ? y > 8 : y > 64;
 	}
 	$effect(() => {
 		void view;
+		void isMobile; // crossing to mobile unfolds the header (the fold is desktop-only now)
 		surfHeadCollapsed = false;
 	});
 	let stageWx = $state<WeatherKind | null>(null);
@@ -3981,12 +3992,29 @@
 	/* A panel's onward destinations as its real content (see PANEL_CARDS): one card per stop,
 	   each carrying its own mark. Flat, like the panels themselves — an edge and the station's
 	   accent, no shadow. */
+	/* One column by default (mobile, and the narrow nav flyout): the cards stack, spaced by
+	   each item's own bottom margin. Multicol-flow, not grid, so the desktop rule below can
+	   pack the cards like a Pinterest board (natural heights, no equal-row stretching). */
 	.app-cards {
 		list-style: none;
 		margin: 1.75rem 0 0;
 		padding: 0;
-		display: grid;
-		gap: 0.75rem;
+	}
+	.app-cards li {
+		break-inside: avoid; /* a card never splits across a column break */
+		margin-bottom: 0.75rem;
+	}
+	/* Desktop: the Apps panel packs its cards into TWO columns, each card its natural height,
+	   the shorter ones tucking up under their neighbours — a Pinterest/masonry board, not an
+	   even grid. CSS columns give the packing for free (and read column-major, which suits a
+	   flat alphabetical list). A ~640px panel has the room; below the mobile seam it falls
+	   back to the single column above. Scoped to the panel BODY so the narrow nav flyout
+	   (About's Work/Projects) keeps its single column. */
+	@media (min-width: 961px) {
+		.surface-body .app-cards {
+			column-count: 2;
+			column-gap: 0.75rem;
+		}
 	}
 	.app-card {
 		display: flex;
