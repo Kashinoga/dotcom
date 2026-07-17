@@ -76,21 +76,24 @@
 	const isPhone = () =>
 		typeof matchMedia !== 'undefined' && matchMedia('(max-width: 560px)').matches;
 	// Inspector text field: the phone sheet covers the slide's live-edit surface, so the
-	// selected element's text is editable HERE too. Leaf elements only — writing
-	// textContent through an element with children would flatten its markup.
+	// selected element's text is editable HERE too. Leaf elements only — writing text
+	// through an element with children would flatten its markup. <br> is the one child
+	// that doesn't disqualify: the template's own h1 breaks its line with one, and the
+	// field round-trips it as a newline (textarea ↔ <br>) instead of dropping the break.
 	let elTextVal = $state('');
 	let elLeaf = $state(false);
-	// The toolbar rail scrolls on the phone; these drive the Weather-strip edge fades
-	// that say "there's more this way" (the scrollbar is hidden).
-	let toolsEl: HTMLElement | undefined = undefined;
-	let toolsAtStart = $state(true);
-	let toolsAtEnd = $state(true);
-	function measureTools() {
-		const el = toolsEl;
-		if (!el) return;
-		toolsAtStart = el.scrollLeft <= 1;
-		toolsAtEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 1;
-	}
+	const isLeafish = (el: HTMLElement) =>
+		Array.from(el.children).every((c) => c.tagName === 'BR');
+	const leafText = (el: HTMLElement) => {
+		let s = '';
+		el.childNodes.forEach((n) => {
+			if (n.nodeType === 3) s += n.textContent;
+			else if ((n as Element).tagName === 'BR') s += '\n';
+		});
+		return s;
+	};
+	// (The toolbar rail's and slide strip's edge fades are pure CSS — permanent, both
+	// edges, see the phone media block — so nothing here tracks their scroll.)
 	let elText = $state('#000000');
 	let elBg = $state('#000000');
 	// Rail geometry (grey line spans all stations; accent fill runs to the active one).
@@ -510,8 +513,8 @@
 			label: f.label,
 			variants: f.variants.map((v) => ({ ...v, on: selectedEl!.classList.contains(v.cls) }))
 		}));
-		elLeaf = selectedEl.children.length === 0;
-		elTextVal = selectedEl.textContent ?? '';
+		elLeaf = isLeafish(selectedEl);
+		elTextVal = leafText(selectedEl);
 		elInfo = {
 			tag: selectedEl.tagName.toLowerCase(),
 			cls: Array.from(selectedEl.classList).filter((c) => c !== 'data-builder-sel'),
@@ -541,10 +544,13 @@
 		markDirty(true);
 	}
 	// Same shape as applyInline, and for the same reason no refreshElInfo: rebuilding the
-	// element section would remount the very input being typed in, mid-keystroke.
+	// element section would remount the very field being typed in, mid-keystroke. The
+	// state write keeps the textarea's rows tracking its newlines — same string the field
+	// already holds, so the render is a no-op for the caret.
 	function applyText(v: string) {
 		if (!selectedEl) return;
-		selectedEl.textContent = v;
+		selectedEl.innerHTML = escapeHTML(v).replace(/\n/g, '<br>');
+		elTextVal = v;
 		captureInner();
 		markDirty(true);
 	}
@@ -808,15 +814,12 @@
 		window.addEventListener('keydown', onKeydown);
 		window.addEventListener('beforeunload', beforeUnload);
 		window.addEventListener('resize', updateRail);
-		window.addEventListener('resize', measureTools);
-		measureTools(); // seed the rail's edge fades before any scroll happens
 	});
 	onDestroy(() => {
 		if (typeof window === 'undefined') return;
 		window.removeEventListener('keydown', onKeydown);
 		window.removeEventListener('beforeunload', beforeUnload);
 		window.removeEventListener('resize', updateRail);
-		window.removeEventListener('resize', measureTools);
 		clearTimeout(toastTimer);
 	});
 </script>
@@ -835,13 +838,7 @@
 			<!-- Decorative accent dot beside the title (station-sign bullet), matching ATFC. -->
 			<span class="accent-dot" aria-hidden="true"></span>
 		</div>
-		<div
-			class="pb-tools"
-			bind:this={toolsEl}
-			onscroll={measureTools}
-			class:fade-start={!toolsAtStart}
-			class:fade-end={!toolsAtEnd}
-		>
+		<div class="pb-tools">
 			<button class="tb" onclick={newFromTemplate} title="Start a new presentation from the built-in template">{@html FILE_PLUS_SVG}New</button>
 			<button class="tb" onclick={openFile} title="Open a presentation HTML file">{@html FOLDER_OPEN_SVG}Open</button>
 			<button class="tb primary" onclick={saveFile} disabled={!slides.length} title="Save back to the same file (Ctrl/⌘-S)">{@html SAVE_SVG}Save</button>
@@ -909,7 +906,8 @@
 		<!-- Center: live preview -->
 		<section class="pb-col pb-center">
 			<div class="preview-bar">
-				<span>Live edit — click text to edit in place</span>
+				<!-- The counter leads the bar; the old "Live edit — click text…" hint is gone
+				     (clicking around IS the tool — the hint spent the bar's width restating it). -->
 				{#if current >= 0}<span class="counter">Slide {current + 1} / {slides.length}</span>{/if}
 				<!-- Phone only (see the ≤560px block): the inspector is a bottom sheet there,
 				     and this is its handle when no element tap has raised it. -->
@@ -970,14 +968,16 @@
 							     sheet COVERS the slide, so in-place editing is out of reach while a
 							     detail is being worked — leaf elements only (see applyText). -->
 							<span class="field-label">Text</span>
-							<input
+							<!-- A textarea, not an input: a title's <br> arrives here as a newline
+							     and must survive the round trip (Enter adds one). -->
+							<textarea
 								class="tv-val grow el-text"
-								type="text"
+								rows={Math.min(4, elTextVal.split('\n').length)}
 								value={elTextVal}
 								oninput={(e) => applyText(e.currentTarget.value)}
 								spellcheck="false"
 								aria-label="Element text"
-							/>
+							></textarea>
 						{/if}
 						{#each elInfo.families as fam}
 							<span class="field-label">{fam.label}</span>
@@ -1131,8 +1131,8 @@
 		<div
 			class="toast {toastKind}"
 			role="status"
-			in:fly={{ y: reduce ? 0 : -18, duration: reduce ? 140 : 280 }}
-			out:fly={{ y: reduce ? 0 : -12, duration: reduce ? 120 : 200 }}
+			in:fly={{ y: reduce ? 0 : 18, duration: reduce ? 140 : 280 }}
+			out:fly={{ y: reduce ? 0 : 12, duration: reduce ? 120 : 200 }}
 		>
 			{toastMsg}
 		</div>
@@ -1355,6 +1355,10 @@
 		height: 42px;
 		font: inherit;
 		font-size: 0.8rem;
+		/* Tight lines for the labels that WRAP (the empty state's "New from template" /
+		   "Open a presentation" on a narrow sheet) — the inherited leading spread a
+		   two-line label past the pill. Single-line labels don't feel it. */
+		line-height: 1.15;
 		font-weight: 600;
 		color: var(--ink);
 		background: color-mix(in srgb, var(--ink) 5%, transparent);
@@ -1448,6 +1452,11 @@
 	.tv-val.grow.el-text {
 		width: 100%;
 		box-sizing: border-box;
+		resize: none; /* rows follow the text's own newlines — no drag handle needed */
+		/* rows own the height beyond one line; the floor keeps a single-line field at
+		   the family's 42px. */
+		height: auto;
+		min-height: 42px;
 	}
 
 	/* ── Main 3-column layout ── */
@@ -1737,7 +1746,9 @@
 		/* No radius of its own: the .pb-center slab clips the whole canvas to its curve. */
 	}
 	.counter {
-		margin-left: auto;
+		/* Leads the bar (the hint that used to hold this edge is retired); whatever else
+		   joins the bar — the phone's Inspector chip — is pushed to the far end. */
+		margin-right: auto;
 	}
 	.preview-frame {
 		flex: 1;
@@ -1847,6 +1858,10 @@
 		border: 1.5px solid var(--line);
 		border-radius: 8px;
 		padding: 0.45rem 0.6rem;
+		/* Text fields join the 42px control family (buttons, chips) — one height for
+		   everything a finger lands on. */
+		box-sizing: border-box;
+		height: 42px;
 	}
 	input[type='text']:focus {
 		outline: none;
@@ -1914,6 +1929,10 @@
 		border: 1.5px solid var(--line);
 		border-radius: 6px;
 		padding: 0.22rem 0.35rem;
+		/* Same 42px family as input[type='text'] — the mono value fields (custom color,
+		   theme vars, ticker) were finger-hostile at their old 27px. */
+		box-sizing: border-box;
+		height: 42px;
 	}
 	.tv-val.grow {
 		flex: 1;
@@ -2046,28 +2065,38 @@
 
 	/* ── Toast ── */
 	.toast {
-		/* Top centre, dropping in just below the sticky toolbar — the same place, and the same
-		   fly in/out, as the site's own .edit-toast. Centred with auto margins, not
-		   translateX(-50%), so the transition owns `transform` alone. */
+		/* Bottom centre, rising from the panel's foot — out of the toolbar's and the
+		   preview bar's way entirely, and where a phone thumb's eye already rests.
+		   Centred with auto margins, not translateX(-50%), so the transition owns
+		   `transform` alone. */
 		position: absolute;
-		/* Below BOTH bands it would otherwise straddle — the toolbar (0.9rem inset around a
-		   ~2.2rem button row) and the preview bar under it — so it floats cleanly on the slide. */
-		top: 6.75rem;
+		bottom: 1.25rem;
 		left: 0;
 		right: 0;
 		margin-inline: auto;
 		width: fit-content;
 		max-width: min(90%, 420px);
 		text-align: center;
-		background: var(--panel-head);
-		border: 1.5px solid var(--line);
+		/* The aero family's pill, not a bespoke card: the same face-on-the-glass and 1px
+		   edge every panel control wears (see .icon-btn). Bubble adds the rim light, drop
+		   and frost below; Flat keeps just the face and line, as it does everywhere. */
+		background: var(--aero-face);
+		border: 1px solid var(--line-edge);
 		color: var(--ink);
 		padding: 0.55rem 1.1rem;
 		border-radius: 999px;
 		font-size: 0.85rem;
-		/* Floats above the editor on its border and fill alone — the same way the site's own
-		   .edit-toast separates itself, by inverting rather than by casting a shadow. */
-		z-index: 20;
+		/* Above the phone's inspector sheet (z 30): a save confirmation must outrank the
+		   very panel whose button fired it. */
+		z-index: 40;
+	}
+	:global(html[data-ui='bubble']) .toast {
+		/* The family gloss + drop (the masthead dots' pair), over a frosted pane — the
+		   toast floats over live slide content, and the blur does the legibility work
+		   it does for every glass surface here. */
+		box-shadow: var(--aero-gloss), var(--aero-drop);
+		-webkit-backdrop-filter: blur(8px);
+		backdrop-filter: blur(8px);
 	}
 	.toast.ok {
 		border-color: #00761b;
@@ -2151,19 +2180,16 @@
 			margin-left: 0;
 			max-width: none;
 		}
-		/* The toolbar rail's edge fades — the Weather city strip's move, worn here: with
-		   the scrollbar hidden, a dissolving edge is what says "more buttons this way".
-		   The classes come from measureTools; both edges can fade mid-rail at once. */
-		.pb-tools {
+		/* The scrolling rails' edge fades, worn by both the toolbar and the slide strip.
+		   PERMANENT, both edges — not keyed to scroll position like the Weather strip's:
+		   a scroll-gated fade only reads when a control happens to straddle the fade
+		   zone, and at rest it just made the cut edge look cleaner (the opposite of an
+		   affordance). Always-on, the dissolving edges read as the rails' material:
+		   these bands scroll. The side insets absorb most of the fade, so the first and
+		   last controls lose only their outer sliver. */
+		.pb-tools,
+		.pb-left .col-body {
 			--fade: 2rem;
-		}
-		.pb-tools.fade-end {
-			mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), transparent 100%);
-		}
-		.pb-tools.fade-start {
-			mask-image: linear-gradient(to left, #000 calc(100% - var(--fade)), transparent 100%);
-		}
-		.pb-tools.fade-start.fade-end {
 			mask-image: linear-gradient(
 				to right,
 				transparent 0,
@@ -2173,9 +2199,11 @@
 			);
 		}
 		/* Two rows only — strip, then preview. The inspector is position:fixed below, so
-		   the grid never sees it. */
+		   the grid never sees it. The slab shoulders go flat: full-width on a phone there
+		   is no glass beside them for rounded corners to sit against. */
 		.pb-main {
 			grid-template-rows: auto minmax(0, 1fr);
+			border-radius: 0;
 		}
 		/* The strip: chips scroll sideways, WITHOUT the col-head — a row of numbered slide
 		   chips already says "slides", and the reclaimed row goes to the preview. Its +
@@ -2189,9 +2217,11 @@
 		.add-stn {
 			display: inline-grid;
 			flex: 0 0 auto;
-			align-self: stretch;
+			/* Centred at its own fixed size, NOT stretched: taking the chips' row height
+			   turned the square into a slab the moment slides appeared. */
+			align-self: center;
 			width: 44px;
-			height: auto;
+			height: 44px;
 		}
 		.pb-left .col-body {
 			display: flex;
@@ -2258,6 +2288,7 @@
 		.insp-toggle {
 			display: inline-flex;
 			align-items: center;
+			margin-left: auto; /* far end of the bar, opposite the counter */
 			width: auto;
 			height: 30px;
 			padding: 0 0.7rem;
