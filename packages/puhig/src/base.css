@@ -345,8 +345,16 @@ body {
 /* The fold MOVES, so its transitions live behind the motion gate; with a preference set
  * it snaps between states. The .icon-btn transition restates the base color/background/
  * transform run: a transition list replaces, not merges, and the discs must keep their
- * hover/press feel while shrinking. */
-@media (prefers-reduced-motion: no-preference) and (max-width: 960px) {
+ * hover/press feel while shrinking.
+ *
+ * `pointer: fine` is load-bearing, not decorative: on a TOUCH device the fold is driven
+ * from the body's momentum scroll, and animating the header's box (padding, margins, icon
+ * sizes, font) over 280ms means animating the scroll VIEWPORT's height for 280ms mid-fling
+ * — which iOS momentum scrolling cannot ride over. It stutters, and on a barely-overflowing
+ * panel the fling dies and snaps back. So the animation is reserved for a fine pointer (a
+ * narrow desktop window, which has no fling); under a finger the fold snaps in a single
+ * reflow the momentum can absorb. */
+@media (prefers-reduced-motion: no-preference) and (max-width: 960px) and (pointer: fine) {
 	.csb {
 		transition: padding 0.28s ease;
 	}
