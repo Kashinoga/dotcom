@@ -67,6 +67,30 @@
 	let dragOverIdx = $state(-1);
 	// Element inspector — declarative snapshot of the selected element.
 	let elInfo = $state<ElInfo>(null);
+	// Phone: the inspector is a bottom SHEET, not a third stacked column — the preview
+	// keeps the screen and detail work slides up over it on demand. Open by the preview
+	// bar's toggle or by tapping an element in the slide (that tap says "inspect this");
+	// close by the sheet's X. Desktop ignores the flag entirely (the sheet styling lives
+	// in the ≤560px media block).
+	let inspOpen = $state(false);
+	const isPhone = () =>
+		typeof matchMedia !== 'undefined' && matchMedia('(max-width: 560px)').matches;
+	// Inspector text field: the phone sheet covers the slide's live-edit surface, so the
+	// selected element's text is editable HERE too. Leaf elements only — writing
+	// textContent through an element with children would flatten its markup.
+	let elTextVal = $state('');
+	let elLeaf = $state(false);
+	// The toolbar rail scrolls on the phone; these drive the Weather-strip edge fades
+	// that say "there's more this way" (the scrollbar is hidden).
+	let toolsEl: HTMLElement | undefined = undefined;
+	let toolsAtStart = $state(true);
+	let toolsAtEnd = $state(true);
+	function measureTools() {
+		const el = toolsEl;
+		if (!el) return;
+		toolsAtStart = el.scrollLeft <= 1;
+		toolsAtEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 1;
+	}
 	let elText = $state('#000000');
 	let elBg = $state('#000000');
 	// Rail geometry (grey line spans all stations; accent fill runs to the active one).
@@ -349,6 +373,13 @@
 	function selectSlide(i: number) {
 		current = i;
 		renderCurrentSlide();
+		// Keep the chosen station in view — the phone's horizontal strip especially, where
+		// Add appends off-screen to the right. 'nearest' makes it a no-op when visible.
+		requestAnimationFrame(() =>
+			listEl
+				?.querySelector('.stn-v.active')
+				?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduce ? 'auto' : 'smooth' })
+		);
 	}
 
 	function addSlide() {
@@ -447,6 +478,9 @@
 		selectedEl = target;
 		selectedEl.setAttribute('data-builder-sel', '');
 		refreshElInfo();
+		// Tapping an element on a phone MEANS "inspect this" — surface the sheet that
+		// holds the color controls the tap just armed.
+		if (isPhone()) inspOpen = true;
 	}
 	function deselectElement() {
 		if (selectedEl) selectedEl.removeAttribute('data-builder-sel');
@@ -476,6 +510,8 @@
 			label: f.label,
 			variants: f.variants.map((v) => ({ ...v, on: selectedEl!.classList.contains(v.cls) }))
 		}));
+		elLeaf = selectedEl.children.length === 0;
+		elTextVal = selectedEl.textContent ?? '';
 		elInfo = {
 			tag: selectedEl.tagName.toLowerCase(),
 			cls: Array.from(selectedEl.classList).filter((c) => c !== 'data-builder-sel'),
@@ -501,6 +537,14 @@
 	function applyInline(prop: string, value: string) {
 		if (!selectedEl) return;
 		selectedEl.style.setProperty(prop, value);
+		captureInner();
+		markDirty(true);
+	}
+	// Same shape as applyInline, and for the same reason no refreshElInfo: rebuilding the
+	// element section would remount the very input being typed in, mid-keystroke.
+	function applyText(v: string) {
+		if (!selectedEl) return;
+		selectedEl.textContent = v;
 		captureInner();
 		markDirty(true);
 	}
@@ -764,12 +808,15 @@
 		window.addEventListener('keydown', onKeydown);
 		window.addEventListener('beforeunload', beforeUnload);
 		window.addEventListener('resize', updateRail);
+		window.addEventListener('resize', measureTools);
+		measureTools(); // seed the rail's edge fades before any scroll happens
 	});
 	onDestroy(() => {
 		if (typeof window === 'undefined') return;
 		window.removeEventListener('keydown', onKeydown);
 		window.removeEventListener('beforeunload', beforeUnload);
 		window.removeEventListener('resize', updateRail);
+		window.removeEventListener('resize', measureTools);
 		clearTimeout(toastTimer);
 	});
 </script>
@@ -788,14 +835,20 @@
 			<!-- Decorative accent dot beside the title (station-sign bullet), matching ATFC. -->
 			<span class="accent-dot" aria-hidden="true"></span>
 		</div>
-		<div class="pb-tools">
+		<div
+			class="pb-tools"
+			bind:this={toolsEl}
+			onscroll={measureTools}
+			class:fade-start={!toolsAtStart}
+			class:fade-end={!toolsAtEnd}
+		>
 			<button class="tb" onclick={newFromTemplate} title="Start a new presentation from the built-in template">{@html FILE_PLUS_SVG}New</button>
 			<button class="tb" onclick={openFile} title="Open a presentation HTML file">{@html FOLDER_OPEN_SVG}Open</button>
 			<button class="tb primary" onclick={saveFile} disabled={!slides.length} title="Save back to the same file (Ctrl/⌘-S)">{@html SAVE_SVG}Save</button>
 			<button class="tb" onclick={downloadFile} disabled={!slides.length} title="Download a copy">{@html DOWNLOAD_SVG}Download</button>
 			<button class="tb" onclick={previewLive} disabled={!slides.length} title="Open the live presentation in a new tab">{@html PRESENTATION_SVG}Preview</button>
 		</div>
-		<span class="pb-file" class:dirty>{dirty ? '● ' : ''}{fileName || 'No file loaded'}</span>
+		<span class="pb-file" class:dirty title={fileName || undefined}>{dirty ? '● ' : ''}{fileName || 'No file loaded'}</span>
 		<span class="beta">Beta</span>
 	</header>
 
@@ -807,6 +860,9 @@
 				<button class="chip" onclick={addSlide} disabled={!slides.length} title="Add a new slide" aria-label="Add slide">{@html PLUS_SVG}</button>
 			</div>
 			<div class="col-body" bind:this={listEl}>
+				<!-- Phone strip only (hidden at every other width, where the col-head's + serves):
+				     Add LEADS the strip, so it's reachable without scrolling a long deck. -->
+				<button class="chip add-stn" onclick={addSlide} disabled={!slides.length} title="Add a new slide" aria-label="Add slide">{@html PLUS_SVG}</button>
 				{#if slides.length}
 					<div class="rail-bg" style:top="{railTop}px" style:height="{railH}px" style:left="{railLeft}px"></div>
 					<div class="rail-fg" style:top="{railTop}px" style:height="{railFgH}px" style:left="{railLeft}px"></div>
@@ -855,6 +911,15 @@
 			<div class="preview-bar">
 				<span>Live edit — click text to edit in place</span>
 				{#if current >= 0}<span class="counter">Slide {current + 1} / {slides.length}</span>{/if}
+				<!-- Phone only (see the ≤560px block): the inspector is a bottom sheet there,
+				     and this is its handle when no element tap has raised it. -->
+				<button
+					class="chip insp-toggle"
+					onclick={() => (inspOpen = !inspOpen)}
+					disabled={current < 0}
+					aria-expanded={inspOpen}
+					title="Slide properties and colors"
+				>Inspector</button>
 			</div>
 			<iframe class="preview-frame" title="Slide preview" bind:this={frame}></iframe>
 			{#if current < 0}
@@ -874,12 +939,14 @@
 		</section>
 
 		<!-- Right: inspector -->
-		<section class="pb-col pb-right">
+		<section class="pb-col pb-right" class:open={inspOpen}>
 			<div class="col-head">
 				<span>Inspector</span>
 				<div class="head-actions">
 					<button class="chip" onclick={duplicateSlide} disabled={current < 0} title="Duplicate slide" aria-label="Duplicate slide">{@html COPY_SVG}</button>
 					<button class="chip danger" onclick={deleteSlide} disabled={current < 0} title="Delete slide" aria-label="Delete slide">{@html TRASH_SVG}</button>
+					<!-- Phone only: dismiss the bottom sheet. -->
+					<button class="chip insp-close" onclick={() => (inspOpen = false)} aria-label="Close inspector" title="Close">{@html CLOSE_SVG}</button>
 				</div>
 			</div>
 			<div class="col-body">
@@ -898,6 +965,20 @@
 								<button class="mini icon-only" onclick={deselectElement} aria-label="Deselect" title="Deselect">{@html CLOSE_SVG}</button>
 							</span>
 						</div>
+						{#if elLeaf}
+							<!-- Text lives here as well as in the preview: on the phone the inspector
+							     sheet COVERS the slide, so in-place editing is out of reach while a
+							     detail is being worked — leaf elements only (see applyText). -->
+							<span class="field-label">Text</span>
+							<input
+								class="tv-val grow el-text"
+								type="text"
+								value={elTextVal}
+								oninput={(e) => applyText(e.currentTarget.value)}
+								spellcheck="false"
+								aria-label="Element text"
+							/>
+						{/if}
 						{#each elInfo.families as fam}
 							<span class="field-label">{fam.label}</span>
 							<div class="swatch-row">
@@ -1065,8 +1146,8 @@
 		/* FILLS the scroll box rather than growing past it: the columns' .col-body panes
 		   own their own scrolling, so nothing ever passes beneath the header — which is
 		   what lets the header go CLEAR, the same bargain the Traffic board makes (its
-		   body owns the scroll; the header needs no paint). The phone sheet stacks the
-		   columns and goes back to page scroll — see the media block. */
+		   body owns the scroll; the header needs no paint). The phone keeps this bargain
+		   too — strip + preview split the box, the inspector floats as a sheet. */
 		height: 100%;
 		flex: 1;
 		position: relative;
@@ -1344,13 +1425,29 @@
 		color: var(--ink);
 		border-color: var(--line-strong);
 	}
+	/* Danger reads on the BAND, not the glyph: the border warms red while the icon keeps
+	   its ink — a red trash can at 14px was more alarm than affordance. */
 	.chip.danger:hover:not(:disabled) {
-		color: #c93328;
 		border-color: #c93328;
 	}
 	.chip:disabled {
 		opacity: 0.4;
 		cursor: not-allowed;
+	}
+	/* Phone-only chrome (the inspector's toggle and X, the strip's leading Add) — only
+	   the ≤560px block shows them; every wider layout has the inspector standing in its
+	   own column and the slide list's + up in its col-head. */
+	.insp-toggle,
+	.insp-close,
+	.add-stn {
+		display: none;
+	}
+	/* The inspector's own text field spans the column like the label/classes inputs.
+	   (Triple selector: .tv-val.grow's width:auto ties this rule's specificity as a pair,
+	   and it sits later in the sheet — outrank it rather than lean on order.) */
+	.tv-val.grow.el-text {
+		width: 100%;
+		box-sizing: border-box;
 	}
 
 	/* ── Main 3-column layout ── */
@@ -2000,28 +2097,31 @@
 		}
 	}
 
-	/* ── Phone: the panel is a full-width bottom sheet. Tame the header so it reads as a
-	   tidy stack (back + brand, then a swipeable toolbar rail, then the filename) instead
-	   of five ragged wrapped rows, and give the preview room to breathe. ── */
+	/* ── Phone: preview-first. The header stays a tidy stack (back + brand, then the
+	   swipeable toolbar rail, then the filename), the slide list turns 90° into a
+	   horizontal STRIP of station chips, and the preview takes everything left — no page
+	   scroll, the panes own their own like desktop. The inspector leaves the flow
+	   entirely: it parks below the viewport as a bottom sheet, raised by the preview
+	   bar's Inspector chip or by tapping an element in the slide, so detail work slides
+	   up OVER the preview instead of competing with it for the column. ── */
 	@media (max-width: 560px) {
 		.pb {
 			font-size: 0.88rem;
 		}
-		.pb {
-			/* The phone sheet stacks the columns and scrolls the whole page again. */
-			height: auto;
-			min-height: 100%;
-		}
 		.pb-head {
 			/* Keep the even-pocket inset, a touch tighter for the phone sheet. */
 			--pb-inset: 0.7rem;
-			/* Content passes beneath here, so the sticky head keeps its veil. */
-			background: var(--panel-head);
 		}
-		/* Back button + brand share the first row; the brand fills the rest of it. */
+		/* Back button + brand share the first row; the brand fills the rest of it — at the
+		   ATFC collapsed bar's title scale, since Back is the only other thing on the row
+		   and the wordmark can afford the room. The dot keeps proportion beside it. */
 		.pb-brand {
 			flex: 1 1 auto;
-			font-size: 1rem;
+			font-size: 1.5rem;
+		}
+		.accent-dot {
+			width: 14px;
+			height: 14px;
 		}
 		/* Toolbar becomes a single horizontally-scrollable rail — swipe to reach Preview —
 		   bleeding to the sheet edges so the last button hints it continues off-screen. */
@@ -2040,31 +2140,150 @@
 		.pb-tools .tb {
 			flex: 0 0 auto;
 		}
-		/* Filename drops to its own row rather than being flung to a far corner. */
+		/* Filename and the Beta pill share the last row — name ellipsizing at the left
+		   (full name in its title), the pill held flush right by the name's grow. The
+		   basis is just shy of the row, NOT 0: a zero basis "fits" in the zero space left
+		   on the toolbar's row and gets crushed there; this one wraps, and leaves exactly
+		   a pill's worth of room beside it. */
 		.pb-file {
-			flex: 1 1 100%;
+			flex: 1 1 calc(100% - 80px);
+			min-width: 0;
 			margin-left: 0;
-			max-width: 100%;
+			max-width: none;
 		}
-		/* Preview gets the lion's share; the two panels stay compact but scrollable. Column
-		   headers pin so their add/duplicate/delete controls are always reachable. */
+		/* The toolbar rail's edge fades — the Weather city strip's move, worn here: with
+		   the scrollbar hidden, a dissolving edge is what says "more buttons this way".
+		   The classes come from measureTools; both edges can fade mid-rail at once. */
+		.pb-tools {
+			--fade: 2rem;
+		}
+		.pb-tools.fade-end {
+			mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), transparent 100%);
+		}
+		.pb-tools.fade-start {
+			mask-image: linear-gradient(to left, #000 calc(100% - var(--fade)), transparent 100%);
+		}
+		.pb-tools.fade-start.fade-end {
+			mask-image: linear-gradient(
+				to right,
+				transparent 0,
+				#000 var(--fade),
+				#000 calc(100% - var(--fade)),
+				transparent 100%
+			);
+		}
+		/* Two rows only — strip, then preview. The inspector is position:fixed below, so
+		   the grid never sees it. */
 		.pb-main {
-			grid-template-rows: auto minmax(300px, 58vh) auto;
+			grid-template-rows: auto minmax(0, 1fr);
+		}
+		/* The strip: chips scroll sideways, WITHOUT the col-head — a row of numbered slide
+		   chips already says "slides", and the reclaimed row goes to the preview. Its +
+		   moves into the strip itself, leading it (the .add-stn twin of the col-head's).
+		   The metro rail and the drag handles sit this orientation out (HTML5 drag doesn't
+		   exist under touch anyway); the station dot's job — "you are here" — moves to the
+		   chip's drawn edge. */
+		.pb-left .col-head {
+			display: none;
+		}
+		.add-stn {
+			display: inline-grid;
+			flex: 0 0 auto;
+			align-self: stretch;
+			width: 44px;
+			height: auto;
 		}
 		.pb-left .col-body {
-			max-height: 34vh;
+			display: flex;
+			max-height: none;
+			overflow-x: auto;
+			overflow-y: hidden;
+			gap: 0.45rem;
+			-webkit-overflow-scrolling: touch;
+		}
+		.rail-bg,
+		.rail-fg,
+		.stn-dot,
+		.stn-drag {
+			display: none;
+		}
+		.stn-v {
+			flex: 0 0 auto;
+			width: 9.5rem;
+			grid-template-columns: 1fr;
+			padding: 0.45rem 0.6rem;
+		}
+		.stn-title {
+			grid-column: 1;
+		}
+		.stn-v::before {
+			/* The chip IS the station now: a full-bleed face with a drawn edge (the
+			   vertical list's highlight started 26px in, clear of the rail it ran with). */
+			inset: 0;
+			border: 1px solid var(--line);
+		}
+		.stn-v.active::before {
+			border-color: var(--pb-accent);
+		}
+		/* The inspector as bottom sheet: parked below the viewport until `open`. Its
+		   col-head (Duplicate / Delete / X) rides along as the sheet's handle row; the
+		   body scrolls inside the height cap, same as it did as a column. */
+		.pb-right {
+			position: fixed;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			z-index: 30;
+			max-height: 62dvh;
+			border: 1px solid var(--line-strong);
+			border-bottom: 0;
+			border-radius: 14px 14px 0 0;
+			background: var(--page);
+			transform: translateY(100%);
+			visibility: hidden;
+		}
+		.pb-right.open {
+			transform: none;
+			visibility: visible;
 		}
 		.pb-right .col-body {
-			max-height: 50vh;
+			max-height: none;
 		}
-		.col-head {
-			position: sticky;
-			top: 0;
-			z-index: 2;
-			background: var(--panel-head);
+		/* The sheet's own chrome wakes at this width. The X keeps .chip's inline-grid —
+		   flex without centering shoved its glyph into the corner. The toggle is a worded
+		   chip, so it takes flex + its own padding instead of the 42px icon-square. */
+		.insp-close {
+			display: inline-grid;
+		}
+		.insp-toggle {
+			display: inline-flex;
+			align-items: center;
+			width: auto;
+			height: 30px;
+			padding: 0 0.7rem;
+			font-size: 0.72rem;
+			font-weight: 700;
 		}
 		.insert-grid {
 			grid-template-columns: 1fr 1fr;
+		}
+	}
+	/* The sheet RISES — motion gated as ever; with a preference set it appears in place.
+	   The visibility delay holds the sheet visible while it slides OUT; rising, it must
+	   be visible from the first frame (delay 0 on .open). */
+	@media (prefers-reduced-motion: no-preference) and (max-width: 560px) {
+		.pb-right {
+			transition: transform 0.32s cubic-bezier(0.32, 0.72, 0.24, 1), visibility 0s 0.32s;
+		}
+		.pb-right.open {
+			transition-delay: 0s, 0s;
+		}
+		/* The sheet's content keeps the rise cascade but sheds the page-mount lead: the
+		   sheet appears on DEMAND (tap → up in 0.32s), and swapped-in inspector rows
+		   waiting out --enter-lead + --enter-layer left it standing open and blank for a
+		   full second. Desktop keeps the long lead — there the column mounts with the page. */
+		.pb-right .col-body > * {
+			animation-delay: calc(min(var(--n, 0), 8) * var(--enter-step));
 		}
 	}
 </style>
