@@ -10,6 +10,7 @@
 	import TrafficBoard from '$lib/TrafficBoard.svelte';
 	import PresentationBuilder from '$lib/PresentationBuilder.svelte';
 	import Weather from '$lib/Weather.svelte';
+	import Aita from '$lib/Aita.svelte';
 	import StarMap from '$lib/StarMap.svelte';
 	import CitySearch from '$lib/CitySearch.svelte';
 	import {
@@ -27,7 +28,8 @@
 		GEAR_SVG,
 		EXTERNAL_SVG,
 		CLOUD_SUN_SVG,
-		STARS_SVG
+		STARS_SVG,
+		GAVEL_SVG
 	} from '$lib/icons';
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
@@ -498,8 +500,15 @@
 	// onto its own line. Lower the ceiling in proportion once a title runs past the length
 	// that still fits; anything shorter keeps the full wordmark scale.
 	const DEST_FITS = 9; // characters that fit at the full 5.5rem with a dot beside them
-	const destSize = (title: string) =>
-		`clamp(2.25rem, 9vw, ${(5.5 * Math.min(1, DEST_FITS / title.length)).toFixed(2)}rem)`;
+	const destSize = (title: string) => {
+		const k = Math.min(1, DEST_FITS / title.length);
+		if (k === 1) return `clamp(2.25rem, 9vw, 5.5rem)`;
+		// A long title must shrink on EVERY term, not just the ceiling: on a phone the
+		// 9vw middle is what wins, and "Court of Public Opinion" ran the header off the
+		// screen at it. The vw term budgets ~half an em per flap cell against ~85% of
+		// the viewport; the floor drops to bar scale so the budget can actually bind.
+		return `clamp(1.5rem, ${(150 / title.length).toFixed(2)}vw, ${(5.5 * k).toFixed(2)}rem)`;
+	};
 
 	// ── Reset ────────────────────────────────────────────────────────────────
 	// The six preferences this panel owns. Deliberately NOT the dev `clearLocalStorage`
@@ -692,14 +701,15 @@
 	// its Related rail. Everywhere else the rail is unchanged, and the hub stays in it either way.
 	// Alphabetical by TITLE: the cards' order is presentation, not hierarchy, so a new
 	// app files itself in rather than landing wherever it was added.
-	const APP_CARDS = ['ATFC', 'PRES', 'WTHR', 'STAR'].sort((a, b) =>
+	const APP_CARDS = ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA'].sort((a, b) =>
 		airports[a].title.localeCompare(airports[b].title)
 	);
 	const APP_ICONS: Record<string, string> = {
 		ATFC: AIRPLANE_SVG,
 		PRES: PRESENTATION_SVG,
 		WTHR: CLOUD_SUN_SVG,
-		STAR: STARS_SVG
+		STAR: STARS_SVG,
+		AITA: GAVEL_SVG
 	};
 	// A mark per destination, worn by its chip in the Related rail. It replaced a plain accent dot:
 	// the dot named the LINE a stop sits on and nothing about the stop itself. The mark says what the
@@ -1950,6 +1960,10 @@
 							<!-- Weather lives INSIDE the ordinary panel — it's a reading, not a workspace, so
 							     it doesn't take over the viewport the way the board and the Builder do. -->
 							<Weather />
+						{:else if v.code === 'AITA'}
+							<!-- The Court of Public Opinion makes the same bargain as Weather: a reading
+							     inside the ordinary panel, its chrome the panel's own. -->
+							<Aita />
 						{:else if v.code === 'STG'}
 							{@const editStg = dev && editMode}
 							<div class="stg-group">
@@ -3274,7 +3288,9 @@
 	.title-row {
 		display: flex;
 		align-items: baseline;
-		gap: 0.5rem clamp(0.85rem, 2vw, 1.5rem);
+		/* One fixed beat between title and bullet, every masthead the same — the old
+		   clamp let the gap swell past a full dot-width on desktop. */
+		gap: 0.5rem 0.75rem;
 		flex-wrap: wrap;
 	}
 	.title-row .dest {

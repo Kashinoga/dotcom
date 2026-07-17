@@ -158,9 +158,10 @@
 		display: flex;
 		/* Rest the bullets' bottoms on the wordmark's text baseline — a button with
 		   only an icon synthesizes its baseline at its bottom edge, so they sit on
-		   the line like the letters' bottom strokes. */
+		   the line like the letters' bottom strokes. Gap: the mastheads' shared
+		   0.75rem beat (the panel .title-rows keep the same). */
 		align-items: baseline;
-		gap: clamp(0.75rem, 2vw, 1.4rem);
+		gap: 0.75rem;
 		flex-wrap: wrap;
 	}
 	.theme {

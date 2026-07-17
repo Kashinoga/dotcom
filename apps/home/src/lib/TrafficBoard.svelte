@@ -1662,9 +1662,10 @@
 		display: flex;
 		/* Rest the refresh controls' bottoms on the title's text baseline (an icon-only
 		   button synthesizes its baseline at its bottom edge) — like the masthead's
-		   quick-settings bullets sitting on the wordmark baseline. */
+		   quick-settings bullets sitting on the wordmark baseline. Gap: the mastheads'
+		   shared 0.75rem beat (see the page's .title-row). */
 		align-items: baseline;
-		gap: 0.5rem clamp(0.85rem, 2vw, 1.5rem);
+		gap: 0.5rem 0.75rem;
 		flex-wrap: wrap;
 	}
 	.title-row .dest {

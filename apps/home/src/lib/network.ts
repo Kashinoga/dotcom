@@ -27,7 +27,8 @@ export const airports: Record<string, { title: string }> = {
 	ATFC: { title: 'Air Traffic' },
 	PRES: { title: 'Presentation Builder' },
 	WTHR: { title: 'Weather' },
-	STAR: { title: 'Star Map' }
+	STAR: { title: 'Star Map' },
+	AITA: { title: 'Court of Public Opinion' }
 };
 
 // The hierarchy — a place's children. This is the ONE structure the site's shape comes from: it
@@ -38,7 +39,7 @@ export const airports: Record<string, { title: string }> = {
 export const children: Record<string, string[]> = {
 	KSH: ['ABT', 'APP', 'STG'],
 	ABT: ['WRK', 'PRJ'],
-	APP: ['ATFC', 'PRES', 'WTHR', 'STAR']
+	APP: ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA']
 };
 
 /** A place's parent, inverted from `children`. The hub has none. */
@@ -70,7 +71,8 @@ export const accent: Record<string, string> = {
 	ATFC: '#f06030',
 	PRES: '#f06030',
 	WTHR: '#f06030',
-	STAR: '#f06030'
+	STAR: '#f06030',
+	AITA: '#f06030'
 };
 
 // A one-line blurb per place, used as the shared-link preview description and on the Apps cards.
@@ -84,5 +86,6 @@ export const portDescriptions: Record<string, string> = {
 	ATFC: 'A live board of the aircraft arriving, departing, or passing overhead.',
 	PRES: 'A visual editor for the route-map slide decks.',
 	WTHR: 'A National Oceanic and Atmospheric Administration data viewer.',
-	STAR: 'The constellations overhead right now, from wherever you are.'
+	STAR: 'The constellations overhead right now, from wherever you are.',
+	AITA: 'An r/AmItheAsshole reader — judge the story first, then unseal the jury.'
 };
