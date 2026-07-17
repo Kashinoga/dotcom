@@ -2171,8 +2171,21 @@
 		.pb-tools::-webkit-scrollbar {
 			display: none;
 		}
+		/* The toolbar's words come off on the phone — each bubble keeps its reicon alone,
+		   an icon square like every other panel control. font-size 0 collapses the text
+		   node while leaving it in the DOM (the accessible name and the title= survive);
+		   the svg is px-sized, so it rides through untouched, a step up for solo billing. */
 		.pb-tools .tb {
 			flex: 0 0 auto;
+			font-size: 0;
+			gap: 0;
+			width: 42px;
+			padding: 0;
+			justify-content: center;
+		}
+		.pb-tools .tb :global(svg) {
+			width: 18px;
+			height: 18px;
 		}
 		/* Filename and the Beta pill share the last row — name ellipsizing at the left
 		   (full name in its title), the pill held flush right by the name's grow. The
