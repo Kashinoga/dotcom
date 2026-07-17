@@ -1,5 +1,6 @@
-<script lang="ts">
+<script module lang="ts">
 	import SplitFlap from '$lib/SplitFlap.svelte';
+	import { EXTERNAL_SVG } from '$lib/icons';
 
 	// The Court of Public Opinion: an r/AmItheAsshole reader built around one rule —
 	// you judge BEFORE you see the jury. Paste a reddit link (or the story itself),
@@ -8,6 +9,11 @@
 	// is scrolling; this is deliberating.
 	//
 	// It lives inside the ordinary panel like Weather — a reading, not a workspace.
+	//
+	// MODULE script, not instance: the panel unmounts this component every time it
+	// closes, and a half-read case must survive that (Weather makes the same bargain
+	// via $lib/weather-state). Everything below lives for the page, so closing the
+	// court and coming back resumes mid-testimony, ruling intact.
 
 	type Verdict = 'YTA' | 'NTA' | 'ESH' | 'NAH' | 'INFO';
 	const VERDICTS: { id: Verdict; label: string; color: string }[] = [
@@ -40,7 +46,6 @@
 	let kase = $state<Case | null>(null);
 	let idx = $state(0); // lines revealed so far (0 = only the title)
 	let myPick = $state<Verdict | null>(null);
-	let linesEl: HTMLDivElement | undefined;
 	// URL-mode provenance: the link that produced this case, its post id (the cache
 	// key), and when its jury sheet was fetched — what the Update button refreshes.
 	let caseLink = $state('');
@@ -192,8 +197,12 @@
 		clearTimeout(freshTimer);
 		freshTimer = window.setTimeout(() => (fresh = false), 900);
 		if (idx >= kase.lines.length) return; // the last line lands; next tap opens court
+		// Queried, not bound: this module script outlives the component instance, so it
+		// can't hold a bind:this — and there's only ever one court in the DOM.
 		queueMicrotask(() =>
-			linesEl?.querySelector('.aita-line.current')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+			document
+				.querySelector('.aita .aita-line.current')
+				?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
 		);
 	}
 	const retreat = () => ((idx = Math.max(0, idx - 1)), (fresh = false));
@@ -277,14 +286,22 @@
 					{kase.sub} · u/{kase.author}{kase.created ? ` · ${fmtAge(kase.created)}` : ''}
 				</p>
 			{/if}
-			<h3 class="aita-title" style="--n:1">{kase.title}</h3>
+			<h3 class="aita-title" style="--n:1">
+				{kase.title}{#if caseId}<a
+						class="aita-out"
+						href={`https://redd.it/${caseId}`}
+						target="_blank"
+						rel="noopener"
+						aria-label="The post on reddit"
+						title="The post on reddit">{@html EXTERNAL_SVG}</a
+					>{/if}
+			</h3>
 
 			<!-- The reading itself: revealed lines dim behind the current one; the rest are
 			     simply not there yet. The whole region is the advance button. -->
 			<div
 				class="aita-lines"
 				style="--n:2"
-				bind:this={linesEl}
 				onclick={stage === 'read' ? advance : undefined}
 				role={stage === 'read' ? 'button' : undefined}
 				tabindex={stage === 'read' ? 0 : undefined}
@@ -376,14 +393,17 @@
 				</div>
 			{/if}
 			<div class="aita-actions aita-again" style="--n:9">
+				<!-- Back into the courtroom: the full story, bench still seated — reread the
+				     testimony, and re-ring if it changed your mind (a new ruling re-reveals). -->
+				<button type="button" class="aita-go" onclick={() => (stage = 'judge')}>Back to the case</button>
 				<button type="button" class="aita-go" onclick={reset}>Another case</button>
 				{#if caseLink}
 					<!-- The jury drifts while a post is live — this refetches past both caches
-					     (the drawer's and the server's). Your ruling stands; the sheet moves. -->
+					     (the drawer's and the server's). Your ruling stands; the tally moves. -->
 					<button type="button" class="aita-go" onclick={update} disabled={busy}>
-						{busy ? 'Re-polling the jury…' : 'Update the sheet'}
+						{busy ? 'Checking…' : 'Check comments'}
 					</button>
-					<span class="aita-fetched">sheet {fmtAge(fetchedAt / 1000)}</span>
+					<span class="aita-fetched">comments {fmtAge(fetchedAt / 1000)}</span>
 				{/if}
 			</div>
 		{/if}
@@ -503,6 +523,23 @@
 		line-height: 1.25;
 		color: var(--ink);
 		max-width: 34ch;
+	}
+	/* The outbound mark, riding the title's end — the site's usual "this trip leaves"
+	   disc, sized to the title's own type. */
+	.aita-out {
+		display: inline-block;
+		margin-left: 0.4rem;
+		color: var(--sub);
+		vertical-align: baseline;
+	}
+	.aita-out :global(svg) {
+		width: 0.8em;
+		height: 0.8em;
+		display: inline-block;
+		vertical-align: -0.05em;
+	}
+	.aita-out:hover {
+		color: var(--ink);
 	}
 
 	/* ── The reading. The story speaks in the data mono (Space Mono) — testimony being
