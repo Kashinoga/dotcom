@@ -237,6 +237,92 @@ body {
 	width: 24px;
 	height: 24px;
 }
+
+/* ── Collapsed super bar (CSB) ─────────────────────────────────────────────────────
+ * The shared phone fold: scrolled deep, a panel header tucks into ONE toolbar row —
+ * discs at 32px, the title at bar scale gliding up between them — and hands its tall
+ * pocket to the body. Grown on the ATFC board, then worn by the generic panel header;
+ * it lives here so the next header doesn't restate the recipe.
+ *
+ * Markup contract (add these alongside the header's own classes):
+ *   .csb       — the folding header itself
+ *   .csb-on    — the folded state. Toggle it from the body's scroll with HYSTERESIS
+ *                (collapse past ~64px, reopen under ~8) so the two states can't chase
+ *                each other; if the fold would eat most of the body's overflow, also
+ *                hand phantom bottom room back (see the page's .surface-body note).
+ *   .csb-fold  — the element whose ROW closes under the title: its -32px bottom margin
+ *                cancels its (shrunken) disc height. ATFC's Back cap; the surface's
+ *                whole control row. Must be block-level — an inline cap rides a text
+ *                line box whose strut leaves the collapse a few px short.
+ *   .csb-row   — the title's row: slides up beside the caps, its paddings seating a
+ *                24px line dead-centre on the 32px discs.
+ *   .csb-title — the wordmark. !important because some titles are sized inline
+ *                (destSize); at bar scale every title is short enough.
+ *   .csb-dot   — the accent bullet, kept at bar proportion.
+ * Panel-specific seasoning (corner pins, phantom scroll room) stays with the panel. */
+@media (max-width: 960px) {
+	/* Triple-classed on purpose: each wearer's own scoped padding shorthand
+	 * (.surface-head.svelte-x, .tfc-head.svelte-x) ties a double class and loads after
+	 * this sheet — the state class repeated is the polite way to outrank it.
+	 * ONE padding on every side: the bar's frame reads even all round (the wide panel
+	 * inset next to the tight bar looked like the discs had drifted in from the edges). */
+	.csb.csb-on.csb-on {
+		padding: 0.4rem;
+	}
+	.csb.csb-on .csb-fold {
+		margin-bottom: -32px;
+	}
+	.csb.csb-on .icon-btn {
+		width: 32px;
+		height: 32px;
+	}
+	.csb.csb-on .icon-btn svg {
+		width: 18px;
+		height: 18px;
+	}
+	.csb.csb-on .csb-row {
+		padding-block: 4px;
+		padding-left: calc(32px + 0.6rem);
+		column-gap: 0.4rem;
+		/* The title paints over the row's empty middle; the discs stay interactive. */
+		pointer-events: none;
+	}
+	.csb.csb-on .csb-title {
+		font-size: 1.5rem !important;
+	}
+	.csb.csb-on .csb-dot {
+		width: 14px;
+		height: 14px;
+	}
+}
+/* The fold MOVES, so its transitions live behind the motion gate; with a preference set
+ * it snaps between states. The .icon-btn transition restates the base color/background/
+ * transform run: a transition list replaces, not merges, and the discs must keep their
+ * hover/press feel while shrinking. */
+@media (prefers-reduced-motion: no-preference) and (max-width: 960px) {
+	.csb {
+		transition: padding 0.28s ease;
+	}
+	.csb .icon-btn {
+		transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease,
+			width 0.28s ease, height 0.28s ease;
+	}
+	.csb .icon-btn svg {
+		transition: width 0.28s ease, height 0.28s ease;
+	}
+	.csb .csb-fold {
+		transition: margin 0.28s ease;
+	}
+	.csb .csb-row {
+		transition: margin 0.28s ease, padding 0.28s ease, column-gap 0.28s ease;
+	}
+	.csb .csb-title {
+		transition: font-size 0.28s ease;
+	}
+	.csb .csb-dot {
+		transition: width 0.28s ease, height 0.28s ease;
+	}
+}
 /* 42px at EVERY width (it began as the phone's touch target; the desktop pass promoted
  * it — one control size, no breakpoint seam). Controls that wear this size by hand
  * (the search discs, the camera disc, the refresh dial, the unit toggle) restate it in

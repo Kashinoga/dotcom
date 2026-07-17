@@ -242,6 +242,32 @@
 	.cs-input:focus-visible {
 		outline: none; /* the field's own border is the focus affordance */
 	}
+	/* Worn inside a collapsed super bar (puhig's .csb recipe): the closed disc drops to
+	   the bar's 32px with its .icon-btn kin; the grown field keeps its width, just
+	   shorter. Media-gated like the recipe itself — csb-on can be true at any width. */
+	@media (max-width: 960px) {
+		:global(.csb.csb-on) .cs {
+			width: 32px;
+			height: 32px;
+		}
+		:global(.csb.csb-on) .cs.open {
+			width: min(20rem, 55vw);
+		}
+		:global(.csb.csb-on) .cs-icon {
+			width: 30px;
+			height: 30px;
+		}
+		:global(.csb.csb-on) .cs-icon :global(svg) {
+			width: 1.1rem;
+			height: 1.1rem;
+		}
+	}
+	@media (prefers-reduced-motion: no-preference) and (max-width: 960px) {
+		.cs-icon,
+		.cs-icon :global(svg) {
+			transition: width 0.28s ease, height 0.28s ease;
+		}
+	}
 	/* The results hang under the field, aligned to it. Opaque: it sits over the panel's content. */
 	.cs-results {
 		position: absolute;

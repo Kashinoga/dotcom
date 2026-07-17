@@ -1119,7 +1119,7 @@
 {#snippet accentDot()}
 	<!-- Decorative, nonfunctional: the app's accent colour as a station-sign bullet beside
 	     the title. The live refresh control lives up in the top-right corner. -->
-	<span class="accent-dot" aria-hidden="true"></span>
+	<span class="accent-dot csb-dot" aria-hidden="true"></span>
 {/snippet}
 {#snippet ringButton()}
 	<button
@@ -1157,7 +1157,10 @@
      expanded board shows the deck (showDeck), whose super bar is already one row —
      gating here keeps the class honest instead of leaning on its selectors missing. -->
 <div class="tfc" class:expanded class:head-collapsed={headCollapsed && !showDeck} style:--accent={accent}>
-	<header class="tfc-head" class:bar={showDeck}>
+	<!-- csb / csb-on: the shared collapsed-super-bar recipe (puhig base.css) — this board
+	     is where it grew; the root's head-collapsed stays for local seasoning (the corner
+	     pin below). -->
+	<header class="tfc-head csb" class:bar={showDeck} class:csb-on={headCollapsed && !showDeck}>
 		{#if showDeck}
 			<!-- Expanded: ONE super bar. The far edges are global app controls — back at the
 			     left cap, collapse at the right — framing the identity, controls, and summary. -->
@@ -1227,9 +1230,9 @@
 				{/if}
 			</div>
 		{:else}
-			{#if onback}<button type="button" class="icon-btn back" style="--bn:0" onclick={onback} aria-label="Back to route map" title="Route map">{@html ARROW_LEFT_SVG}</button>{/if}
-			<div class="title-row">
-				<h2 class="dest">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
+			{#if onback}<button type="button" class="icon-btn back csb-fold" style="--bn:0" onclick={onback} aria-label="Back to route map" title="Route map">{@html ARROW_LEFT_SVG}</button>{/if}
+			<div class="title-row csb-row">
+				<h2 class="dest csb-title">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
 				<!-- Decorative accent dot beside the title (station-sign bullet). -->
 				<div class="head-refresh">{@render accentDot()}</div>
 			</div>
@@ -1545,104 +1548,27 @@
 		.expand-compact {
 			display: none; /* phone bottom-sheet is already full width */
 		}
-		/* Scrolled deep, the phone header folds to ONE toolbar row: the caps shrink to 32px,
-		   the title drops to bar scale and glides up beside Back, and the freed ~4rem goes
-		   to the rows below. Everything stays tappable — the bar keeps Back and the refresh
-		   cap, just at toolbar proportion. Scroll back near the top and the full header
-		   returns; `head-collapsed` (set with hysteresis in the body's onscroll) is the
-		   switch, so the two states can't chase each other on a barely-overflowing board.
-
-		   The fold is built ENTIRELY from animatable properties — no display or position
-		   swaps — so the whole header travels as one motion (transitions in the gate
-		   below): Back's row closes under the title via margin collapse, and the title's
-		   left padding slides it clear of the cap it now shares the row with. */
+		/* Scrolled deep, the phone header folds to ONE toolbar row. The fold itself is the
+		   SHARED recipe in puhig's base.css now (.csb / .csb-on and friends — it grew
+		   here, then the generic panel header wanted it too); only this board's seasoning
+		   stays local. */
 		.back {
 			/* Block-level, so its row is exactly the disc: an inline-level cap rides a text
-			   line box whose strut leaves descender slack below, and the -32px margin
-			   collapse would come up those few px short. */
+			   line box whose strut leaves descender slack below, and the shared -32px
+			   margin collapse (.csb-fold) would come up those few px short. */
 			display: grid;
 		}
-		.head-collapsed .tfc-head {
-			padding-block: 0.4rem; /* bar-tight; side insets stay put so the bar keeps the column */
-		}
-		.head-collapsed .back {
-			/* Close the cap's own row: -32px cancels its (shrunken) height, so the title
-			   row beneath rises to share it. */
-			margin-bottom: -32px;
-		}
-		.head-collapsed .tfc-head .icon-btn {
-			/* Toolbar-size caps — the 42px disc scaled to sit inside the tight bar. */
-			width: 32px;
-			height: 32px;
-		}
-		.head-collapsed .tfc-head .icon-btn svg {
-			width: 18px;
-			height: 18px;
-		}
 		.head-collapsed .corner-compact {
-			/* Ride the bar: same top inset as its padding, so the shrunken cap sits level
-			   with Back across the row. */
+			/* Ride the bar: the corner is absolutely positioned, so the bar's own tight
+			   padding never reaches it — pin BOTH insets to the same 0.4rem, so the
+			   shrunken cap sits level with Back and hugs the edge like it. */
 			top: 0.4rem;
-		}
-		.head-collapsed .title-row {
-			/* Left: clear the Back cap now sharing the row. Block: 4px each side brings the
-			   24px text to exactly cap height (32px), so the bar's padding reads even above
-			   and below the caps. And at bar scale the wordmark gap reads as a hole — pull
-			   the station bullet in. */
-			padding-block: 4px;
-			padding-left: calc(32px + 0.6rem);
-			column-gap: 0.4rem;
-		}
-		.head-collapsed .dest {
-			/* Bar scale — sized to the toolbar strip, not wordmark scale. */
-			font-size: 1.5rem;
-		}
-		.head-collapsed .accent-dot {
-			/* The station bullet keeps riding the baseline, at bar proportion. */
-			width: 14px;
-			height: 14px;
+			right: 0.4rem;
 		}
 	}
-	/* The tuck MOVES (the title gliding into the bar, Back's row closing under it), so its
-	   transitions live behind the motion gate; with a preference set, the fold snaps. The
-	   .icon-btn transition restates base.css's color/background/transform run: a
-	   transition list replaces, not merges, and the caps must keep their hover/press feel
-	   while growing. */
 	@media (prefers-reduced-motion: no-preference) and (max-width: 960px) {
-		.tfc-head {
-			transition: padding 0.28s ease;
-		}
-		.tfc-head .icon-btn {
-			transition:
-				color 0.15s ease,
-				background 0.15s ease,
-				transform 0.15s ease,
-				width 0.28s ease,
-				height 0.28s ease;
-		}
-		.tfc-head .icon-btn svg {
-			transition: width 0.28s ease, height 0.28s ease;
-		}
-		.back {
-			transition:
-				color 0.15s ease,
-				background 0.15s ease,
-				transform 0.15s ease,
-				width 0.28s ease,
-				height 0.28s ease,
-				margin-bottom 0.28s ease;
-		}
 		.corner-compact {
-			transition: top 0.28s ease;
-		}
-		.title-row {
-			transition: padding 0.28s ease, column-gap 0.28s ease;
-		}
-		.dest {
-			transition: font-size 0.28s ease;
-		}
-		.accent-dot {
-			transition: width 0.28s ease, height 0.28s ease;
+			transition: top 0.28s ease, right 0.28s ease;
 		}
 	}
 	/* Top-right corner: the live refresh control paired with the expand/collapse toggle. */

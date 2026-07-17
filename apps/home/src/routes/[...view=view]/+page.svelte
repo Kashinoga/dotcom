@@ -39,6 +39,7 @@
 		weatherKind,
 		current as wxCurrent,
 		load as wxLoad,
+		setUnit as wxSetUnit,
 		type WeatherKind
 	} from '$lib/weather-state.svelte';
 	import faviconPres from '$lib/assets/favicon-pres.svg';
@@ -941,6 +942,22 @@
 	// console REMOUNTS every time a panel closes — replaying a 1.2s-delayed entrance
 	// there would blank the toggle just as the stage returns.
 	let skyBoot = $state(true);
+	// Phone header tuck for the standard panels — the ATFC board's collapsed super bar,
+	// worn by the generic surface: scrolled deep, the header folds to ONE toolbar row
+	// (title at bar scale between Back and the panel's actions) and hands its height to
+	// the body. Hysteresis for the board's reason: collapsing frees body height, and a
+	// single trigger point would let the two states chase each other on a
+	// barely-overflowing panel. Reset when the panel changes — a fresh panel opens at
+	// scrollTop 0 with no scroll event to say so.
+	let surfHeadCollapsed = $state(false);
+	function onSurfaceScroll(e: Event) {
+		const y = (e.currentTarget as HTMLElement).scrollTop;
+		surfHeadCollapsed = surfHeadCollapsed ? y > 8 : y > 64;
+	}
+	$effect(() => {
+		void view;
+		surfHeadCollapsed = false;
+	});
 	let stageWx = $state<WeatherKind | null>(null);
 	function setStageWx(k: WeatherKind | null) {
 		stageWx = k;
@@ -1537,7 +1554,8 @@
      `align-items: baseline` on .title-row rests the dot on the title's baseline. -->
 {#snippet accentDot(color: string)}
 	<div class="dot-wrap" aria-hidden="true">
-		<span class="accent-dot" style:background={color}></span>
+		<!-- csb-dot: shrinks to bar proportion inside a collapsed super bar (puhig). -->
+		<span class="accent-dot csb-dot" style:background={color}></span>
 	</div>
 {/snippet}
 
@@ -1873,8 +1891,14 @@
 						     control and a sky summary riding beside the title. -->
 						<StarMap accent={accent[v.code]} title={port.title} onback={goBack} />
 					{:else}
-					<div class="surface-head">
-						<div class="head-row">
+					<!-- csb / csb-on: the shared collapsed-super-bar recipe (puhig base.css) —
+					     head-collapsed stays for the page's own seasoning (phantom scroll room). -->
+					<div
+						class="surface-head csb"
+						class:head-collapsed={surfHeadCollapsed}
+						class:csb-on={surfHeadCollapsed}
+					>
+						<div class="head-row csb-fold">
 							<button
 								class="icon-btn back"
 								onclick={goBack}
@@ -1890,23 +1914,38 @@
 								     The reading lives in $lib/weather-state, so the header (the page's) can
 								     drive it exactly the way the search does. -->
 								<div class="head-actions">
-									<button
-										type="button"
-										class="icon-btn"
-										onclick={() => wxLoad(wxCurrent())}
-										aria-label="Refresh now"
-										title="Refresh now">{@html REFRESH_SVG}</button
-									>
+									<!-- Refresh and the unit fold away while the search is open — the
+									     grown field wants the whole row, and neither is a thing you do
+									     mid-typing. They return when the field folds back to its disc. -->
+									{#if !weather.searchOpen}
+										<button
+											type="button"
+											class="icon-btn"
+											onclick={() => wxLoad(wxCurrent())}
+											aria-label="Refresh now"
+											title="Refresh now">{@html REFRESH_SVG}</button
+										>
+										<!-- ONE disc, not a segmented pair: it shows the unit you're on and
+										     flips to the other — there are only two, so the toggle IS the
+										     picker. Lives here so the whole reading (body + rail) follows. -->
+										<button
+											type="button"
+											class="icon-btn unit-btn"
+											onclick={() => wxSetUnit(weather.unit === 'F' ? 'C' : 'F')}
+											aria-label={`Showing °${weather.unit} — switch to °${weather.unit === 'F' ? 'C' : 'F'}`}
+											title={`Switch to °${weather.unit === 'F' ? 'C' : 'F'}`}>°{weather.unit}</button
+										>
+									{/if}
 									<CitySearch />
 								</div>
 							{/if}
 						</div>
-						<div class="title-row">
-							<h2 class="dest" style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
+						<div class="title-row csb-row">
+							<h2 class="dest csb-title" style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
 							{@render accentDot(accent[v.code])}
 						</div>
 					</div>
-					<div class="surface-body" class:settings={v.code === 'STG'}>
+					<div class="surface-body" class:settings={v.code === 'STG'} onscroll={onSurfaceScroll}>
 						{#if v.code === 'WTHR'}
 							<!-- Weather lives INSIDE the ordinary panel — it's a reading, not a workspace, so
 							     it doesn't take over the viewport the way the board and the Builder do. -->
@@ -3193,6 +3232,25 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+	}
+	/* The unit disc speaks its unit in type, not a glyph — same 42px disc as its kin. */
+	.unit-btn {
+		font-size: 0.9rem;
+		font-weight: 700;
+	}
+	/* ── Phone: the collapsed super bar. The fold itself is the SHARED recipe in puhig's
+	   base.css (.csb / .csb-on / .csb-fold / .csb-row / .csb-title / .csb-dot — grown on
+	   the ATFC board); only this panel's seasoning lives here. */
+	@media (max-width: 960px) {
+		/* The fold takes ~105px from the header — hand the SAME length back to the body
+		   as phantom bottom room. Without it, a barely-overflowing panel collapses, loses
+		   most of its scroll range to the taller body, clamps back under the reopen
+		   threshold, and the header pulses straight open again (Weather at phone height
+		   lived exactly there). With it, collapsing never shrinks what's scrollable, so
+		   the hysteresis alone is enough. */
+		.head-collapsed + .surface-body {
+			padding-bottom: calc(3rem + 106px);
+		}
 	}
 
 	/* Icon-circle back control (shared .icon-btn); only its placement is set here. The gap

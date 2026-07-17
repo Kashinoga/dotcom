@@ -13,7 +13,7 @@
 		WIND_SVG,
 		PLUS_SVG
 	} from '$lib/icons';
-	import { weather, current, load, show, closeTab, openSearch, setUnit, restore, reorder, weatherKind } from '$lib/weather-state.svelte';
+	import { weather, current, load, show, closeTab, openSearch, restore, reorder, weatherKind } from '$lib/weather-state.svelte';
 	import { flip } from 'svelte/animate';
 
 	// Current conditions from the National Weather Service, for any US city.
@@ -476,20 +476,8 @@
 					<p class="wx-verdict">{verdict}</p>
 				{/if}
 			</div>
-			<div class="wx-side">
-				<div class="segmented wx-unit-toggle" role="radiogroup" aria-label="Units">
-					{#each ['F', 'C'] as u}
-						<button
-							type="button"
-							class="seg"
-							class:on={weather.unit === u}
-							role="radio"
-							aria-checked={weather.unit === u}
-							onclick={() => setUnit(u as 'F' | 'C')}>°{u}</button
-						>
-					{/each}
-				</div>
-			</div>
+			<!-- No unit control here any more: °F/°C folded into ONE disc and moved up to the
+			     panel header's action row (the page's), beside Refresh and Search. -->
 		</div>
 
 		<!-- The rest of the reading. Each stat is dropped rather than shown empty: plenty of stations
@@ -962,62 +950,8 @@
 		font-variant-numeric: tabular-nums;
 		margin-top: -0.15rem;
 	}
-	.wx-side {
-		margin-left: auto;
-		display: flex;
-		align-items: center;
-		/* One gap for the whole row — and it's the PANEL HEADER's 0.5rem (.head-actions,
-		   where Refresh and Search sit): the two rows of discs stack in the same corner,
-		   and a different beat here knocked their columns out of vertical alignment. */
-		gap: 0.5rem;
-	}
-	.wx-unit-toggle {
-		display: flex;
-		gap: 0.5rem;
-	}
-	/* The °F/°C pair wear the refresh disc's exact clothes (the .photo-toggle recipe: the
-	   *-circle discs composed in page stock) — an ink disc with the glyph in paper, not an
-	   outline pill sitting beside a filled circle. 42px both ways, same as the disc; sized
-	   from padding, °F and °C came out different widths. Rest is the disc's 62% ink; hover
-	   and the SELECTED unit go full ink — the unit you're on is the one held down.
-	   Compound selector so the fill also beats Bubble's generic .seg paper face (0,2,1). */
-	.wx-unit-toggle .seg {
-		box-sizing: border-box;
-		width: 42px;
-		height: 42px;
-		display: grid;
-		place-items: center;
-		padding: 0;
-		font: inherit;
-		font-size: 0.9rem;
-		font-weight: 700;
-		color: var(--ink);
-		background: var(--aero-face);
-		border: 1px solid var(--line-edge);
-		border-radius: 999px;
-		cursor: pointer;
-	}
-	.wx-unit-toggle .seg:hover {
-		background: color-mix(in srgb, var(--ink) 12%, transparent);
-	}
-	/* Selected says "on" the Settings way — the page's gray-fill .seg.on treatment (the
-	   denser var(--line) face) reaches these once nothing here overrides the face.
-	   Flat keeps ink. */
-	:global(html:not([data-ui='bubble'])) .wx-unit-toggle .seg.on {
-		background: var(--ink);
-		color: var(--paper);
-	}
-	/* Clear-pills light mode (see the page's scheme-dark note): the face brightens to the
-	   family's glass. Scoped here because the component's own rules out-specify the
-	   page's. :not(.on) like the page's own clear-pill list — the selected unit keeps its
-	   gray fill (that fill IS the on-state now; unguarded, this rule painted over it). */
-	:global(html[data-ui='bubble']:not(.scheme-dark)) .wx-unit-toggle .seg:not(.on) {
-		background: rgba(255, 255, 255, 0.16);
-		border-color: color-mix(in srgb, var(--ink) 16%, transparent);
-	}
-	:global(html[data-ui='bubble']:not(.scheme-dark)) .wx-unit-toggle .seg:not(.on):hover {
-		background: rgba(255, 255, 255, 0.36);
-	}
+	/* (The °F/°C control lives in the panel header now — one .unit-btn disc beside
+	   Refresh and Search, styled with the page's head-actions.) */
 
 	.wx-stats {
 		display: flex;
