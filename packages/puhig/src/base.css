@@ -23,6 +23,24 @@
 	font-style: italic;
 	font-display: swap;
 }
+/* The data mono — Space Mono, the third voice: Jost's geometric skeleton wearing
+ * Fraunces's mischief (the crossed zero, the flicked terminals). Every readout speaks
+ * it — flight rows, counters, coordinates, hex values — via --font-mono (themes/*).
+ * Latin subset, 400 + 700, ~16KB each. */
+@font-face {
+	font-family: 'Space Mono';
+	src: url('./fonts/space-mono.woff2') format('woff2');
+	font-weight: 400;
+	font-style: normal;
+	font-display: swap;
+}
+@font-face {
+	font-family: 'Space Mono';
+	src: url('./fonts/space-mono-bold.woff2') format('woff2');
+	font-weight: 700;
+	font-style: normal;
+	font-display: swap;
+}
 
 :root {
 	/* Default rendering intent: follow the OS. A theme's core neutrals use

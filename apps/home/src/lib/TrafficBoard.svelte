@@ -2491,7 +2491,7 @@
 	}
 	.mono {
 		font-variant-numeric: tabular-nums;
-		font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace;
+		font-family: var(--font-mono);
 	}
 	.num {
 		text-align: right;

@@ -1868,7 +1868,7 @@
 		border-color: var(--pb-accent);
 	}
 	code {
-		font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+		font-family: var(--font-mono);
 		font-size: 0.88em;
 		background: color-mix(in srgb, var(--ink) 8%, transparent);
 		padding: 0.05rem 0.36rem;
@@ -1910,7 +1910,7 @@
 	}
 	.tv-name {
 		font-size: 0.76rem;
-		font-family: ui-monospace, monospace;
+		font-family: var(--font-mono);
 		color: var(--sub);
 		flex: 1;
 		overflow: hidden;
@@ -1922,7 +1922,7 @@
 	}
 	.tv-val {
 		font-size: 0.72rem !important;
-		font-family: ui-monospace, monospace;
+		font-family: var(--font-mono);
 		color: var(--ink);
 		width: 8.5ch;
 		background: color-mix(in srgb, var(--ink) 4%, transparent);
@@ -1945,7 +1945,7 @@
 		justify-content: space-between;
 		gap: 0.5rem;
 		font-size: 0.82rem;
-		font-family: ui-monospace, monospace;
+		font-family: var(--font-mono);
 		margin-bottom: 0.7rem;
 		overflow: hidden;
 	}

@@ -180,16 +180,23 @@
 		return `${Math.floor(s / div)}${label} ago`;
 	}
 
+	// The newest section stands as its own card for a beat, then folds into the body of
+	// evidence above it (see .aita-line.merged) — the read literally accretes.
+	let fresh = $state(false);
+	let freshTimer = 0;
 	function advance() {
 		if (!kase) return;
 		if (idx >= kase.lines.length) return deliberate();
 		idx += 1;
+		fresh = true;
+		clearTimeout(freshTimer);
+		freshTimer = window.setTimeout(() => (fresh = false), 900);
 		if (idx >= kase.lines.length) return; // the last line lands; next tap opens court
 		queueMicrotask(() =>
 			linesEl?.querySelector('.aita-line.current')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
 		);
 	}
-	const retreat = () => (idx = Math.max(0, idx - 1));
+	const retreat = () => ((idx = Math.max(0, idx - 1)), (fresh = false));
 	const deliberate = () => (stage = 'judge');
 	function judge(v: Verdict) {
 		myPick = v;
@@ -236,7 +243,10 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="aita">
-	{#key stage}
+	<!-- read and judge share one key: opening court must not remount the story — the
+	     full merged section stays exactly where you read it, and the bench simply deals
+	     in beneath it. Input and reveal each remount (they're different rooms). -->
+	{#key stage === 'read' || stage === 'judge' ? 'case' : stage}
 		{#if stage === 'input'}
 			<p class="aita-lead" style="--n:0">
 				Paste an <span class="mono">r/AmItheAsshole</span> link — or the story itself — and read
@@ -284,7 +294,14 @@
 				aria-label="The story — click or press space to reveal the next line"
 			>
 				{#each kase.lines.slice(0, Math.max(idx, 0)) as line, i (i)}
-					<p class="aita-line" class:current={i === idx - 1 && stage === 'read'}>{line}</p>
+					<!-- merged: everything but the freshly-revealed card during the read —
+					     once the beat passes (or the court convenes) the seams dissolve and
+					     the sections read as ONE larger card. -->
+					<p
+						class="aita-line"
+						class:current={i === idx - 1 && stage === 'read'}
+						class:merged={stage !== 'read' || i < idx - 1 || !fresh}
+					>{line}</p>
 				{/each}
 				{#if stage === 'read'}
 					<p class="aita-cue">
@@ -417,7 +434,7 @@
 		color: color-mix(in srgb, var(--ink) 82%, var(--sub));
 	}
 	.mono {
-		font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+		font-family: var(--font-mono);
 		font-size: 0.92em;
 	}
 	.aita-src {
@@ -487,12 +504,15 @@
 		max-width: 34ch;
 	}
 
-	/* ── The reading. The story speaks in the motto's Fraunces — it's a tale being told,
-	   not interface copy. Read lines dim to the margins; the current one holds the ink. */
+	/* ── The reading. The story speaks in the data mono (Space Mono) — testimony being
+	   entered into the record, one exhibit at a time. Each section arrives as its OWN
+	   card (face + line, the quote cards' material), stands alone for a beat, then its
+	   seams dissolve into the card above — the body of evidence grows as one slab.
+	   Everything in the merge is animatable (margins, borders, radii), so the fold-in
+	   travels instead of snapping. Read lines dim; the current one holds the ink. */
 	.aita-lines {
 		display: flex;
 		flex-direction: column;
-		gap: 0.85rem;
 		cursor: pointer;
 		max-width: 62ch;
 	}
@@ -502,15 +522,40 @@
 		border-radius: 6px;
 	}
 	.aita-line {
-		margin: 0;
-		font-family: var(--font-motto);
-		font-size: 1.06rem;
-		line-height: 1.66;
+		margin: 0.85rem 0 0;
+		font-family: var(--font-mono);
+		font-size: 0.92rem;
+		line-height: 1.7;
 		color: var(--sub);
-		transition: color 0.35s ease;
+		background: color-mix(in srgb, var(--ink) 3%, transparent);
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		padding: 0.6rem 0.9rem;
+		transition: color 0.35s ease, margin 0.4s ease, border-color 0.4s ease,
+			border-radius 0.4s ease;
+	}
+	.aita-line:first-child {
+		margin-top: 0;
 	}
 	.aita-line.current {
 		color: var(--ink);
+	}
+	/* The seams: a merged card butting a merged card gives up the gap, the doubled rule
+	   and the corner radii between them — what remains reads as one card with paragraph
+	   air inside. :has() squares the UPPER card's bottom; the sibling combinator squares
+	   the lower card's top. */
+	.aita-line.merged + .aita-line.merged {
+		margin-top: 0;
+		border-top: 0;
+		border-top-left-radius: 0;
+		border-top-right-radius: 0;
+		padding-top: 0.2rem;
+	}
+	.aita-line.merged:has(+ .aita-line.merged) {
+		border-bottom-left-radius: 0;
+		border-bottom-right-radius: 0;
+		border-bottom: 0;
+		padding-bottom: 0.2rem;
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		.aita-line.current {
@@ -518,7 +563,7 @@
 		}
 	}
 	.aita-cue {
-		margin: 0;
+		margin: 0.85rem 0 0;
 		font-size: 0.78rem;
 		font-weight: 600;
 		letter-spacing: 0.06em;

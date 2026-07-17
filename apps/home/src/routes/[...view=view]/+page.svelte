@@ -47,6 +47,7 @@
 	import faviconPres from '$lib/assets/favicon-pres.svg';
 	import faviconWeather from '$lib/assets/favicon-weather.svg';
 	import faviconStar from '$lib/assets/favicon-star.svg';
+	import faviconAita from '$lib/assets/favicon-aita.svg';
 	import { airports, accent, connections, portDescriptions, HUB } from '$lib/network';
 	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
 	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
@@ -1307,9 +1308,11 @@
 					? faviconWeather
 					: view?.kind === 'port' && view.code === 'STAR'
 						? faviconStar
-						: dev
-							? faviconDev
-							: faviconSite
+						: view?.kind === 'port' && view.code === 'AITA'
+							? faviconAita
+							: dev
+								? faviconDev
+								: faviconSite
 	);
 	const headTitle = $derived(
 		selectedField ? `Air Traffic · ${selectedField.name} — ${SITE}` : viewTitle(view)
@@ -1539,9 +1542,9 @@
      homepage. These track `view`/`field` (not `data.*`), so they update as you fly around
      the map and switch fields, without a navigation. -->
 <svelte:head>
-	<!-- The tab wears the open app's mark: the plane for the Traffic board, the presentation glyph
-	     for the Builder (which is why neither shows one in its own header any more). Everywhere else
-	     it's the site heart — orange in dev, so the dev tab is easy to spot. -->
+	<!-- The tab wears the open app's mark — every app flies its own (plane, presentation,
+	     cloud, stars, gavel), which is why none shows one in its own header. Everywhere
+	     else it's the site heart — orange in dev, so the dev tab is easy to spot. -->
 	<link rel="icon" href={favicon} type="image/svg+xml" />
 	<title>{headTitle}</title>
 	<meta name="description" content={headDescription} />

@@ -462,7 +462,7 @@
 		opacity: 0.7;
 	}
 	.mono {
-		font-family: 'SF Mono', ui-monospace, monospace;
+		font-family: var(--font-mono);
 		font-weight: 600;
 		letter-spacing: 0.01em;
 	}
