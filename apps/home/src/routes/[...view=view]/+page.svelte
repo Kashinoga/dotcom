@@ -936,6 +936,11 @@
 	// The console folds into ONE chip; the rows live in a popout above it. Closes on
 	// Escape or any stage click (the stage's own click handler runs on empty sky).
 	let skyConsoleOpen = $state(false);
+	// One-shot, page-load only: the sky toggle rises in on the masthead nav's beat (see
+	// .sky-toggle.boot). The flag drops once that entrance has played, because the
+	// console REMOUNTS every time a panel closes — replaying a 1.2s-delayed entrance
+	// there would blank the toggle just as the stage returns.
+	let skyBoot = $state(true);
 	let stageWx = $state<WeatherKind | null>(null);
 	function setStageWx(k: WeatherKind | null) {
 		stageWx = k;
@@ -1417,6 +1422,10 @@
 		vw = window.innerWidth;
 		vh = window.innerHeight;
 		wasMobile = isMobile;
+		// The sky toggle's load entrance has fully played by ~1.8s (1.23s delay + 0.5s
+		// rise); drop the flag just after so later remounts appear instantly.
+		const skyBootTimer = setTimeout(() => (skyBoot = false), 2000);
+		cleanups.push(() => clearTimeout(skyBootTimer));
 		const th = localStorage.getItem(THEME_KEY);
 		if (th === 'light' || th === 'dark') theme = th;
 		if (localStorage.getItem(EXPAND_KEY) === '1') panelExpanded = true;
@@ -1729,6 +1738,7 @@
 			<button
 				type="button"
 				class="icon-btn sky-toggle"
+				class:boot={skyBoot}
 				aria-expanded={skyConsoleOpen}
 				aria-label="Sky controls"
 				title={`Sky · ${skyMode === 'auto' ? `auto (${skyPhase})` : skyMode}${stageWx ? ` · ${stageWx}` : ''}`}
@@ -2677,6 +2687,16 @@
 		align-self: flex-start;
 		/* Size comes wholly from .icon-btn — the same 42px disc and 24px glyph as the
 		   panel's Back and Refresh. */
+	}
+	/* Page-load entrance: the toggle rises in on the masthead nav's own beat, one step
+	   past its last pill (the nav runs 0.95s + n×0.07s) — the sky's dial arriving as the
+	   fifth member of the row, just in its own corner. `.boot` is one-shot (page state):
+	   the console remounts on every panel close, and this must not replay there. */
+	@media (prefers-reduced-motion: no-preference) {
+		.sky-toggle.boot {
+			animation: rise 0.5s ease backwards;
+			animation-delay: 1.23s;
+		}
 	}
 	.sky-chip {
 		/* Grid-stretched to a shared column width (see .sky-row), so the label centres in

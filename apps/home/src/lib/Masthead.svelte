@@ -186,9 +186,14 @@
 	.brand-dot + .brand-dot {
 		margin-left: 0.35rem;
 	}
-	/* Bubble: the dots join the aero family — the same rim light and airy drop every
-	   disc wears, so the brand bullets read as moulded glass, not flat paint. */
+	/* Bubble: the dots join the aero family as TRANSLUCENT glass, not opaque enamel —
+	   the colour poured into the disc (the toast's food-colouring move) with the family
+	   frost behind it, so the sky reads through each bullet. Rim light and drop as every
+	   disc wears. Flat keeps the solid paint above: flat is colour, not glass. */
 	:global(html[data-ui='bubble']) .brand-dot {
+		background: color-mix(in srgb, var(--dot) 60%, transparent);
+		-webkit-backdrop-filter: blur(6px) saturate(1.3);
+		backdrop-filter: blur(6px) saturate(1.3);
 		box-shadow: var(--aero-gloss), var(--aero-drop);
 	}
 	.tagline {
