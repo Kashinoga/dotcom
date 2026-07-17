@@ -29,7 +29,9 @@
 		EXTERNAL_SVG,
 		CLOUD_SUN_SVG,
 		STARS_SVG,
-		GAVEL_SVG
+		GAVEL_SVG,
+		MAXIMIZE_SVG,
+		MINIMIZE_SVG
 	} from '$lib/icons';
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
@@ -1359,14 +1361,14 @@
 			refresh = null;
 			syncUrl(nv, nv.code === 'ATFC' ? { ...NO_PARAMS, expanded: panelExpanded } : NO_PARAMS);
 		}
-		// Only the Air Traffic board, the Star Map, and the Presentation Builder are designed to
-		// fill the viewport. PRES and STAR force the full layout on open (their compact forms are
-		// fallbacks); every other panel is compact-only, so clear any lingering expand intent
-		// (e.g. from a previous ATFC visit) — that keeps panelExpanded true to what's shown, so
-		// the panel renders AND slides out at the right width. Only ATFC keeps whatever the user
-		// last toggled.
+		// Only the Air Traffic board, the Star Map, the Presentation Builder, and the Court
+		// are designed to fill the viewport. PRES and STAR force the full layout on open
+		// (their compact forms are fallbacks); every other panel is compact-only, so clear
+		// any lingering expand intent (e.g. from a previous ATFC visit) — that keeps
+		// panelExpanded true to what's shown, so the panel renders AND slides out at the
+		// right width. ATFC and AITA keep whatever the user last toggled.
 		if (nv.code === 'PRES' || nv.code === 'STAR') panelExpanded = true;
-		else if (nv.code !== 'ATFC') panelExpanded = false;
+		else if (nv.code !== 'ATFC' && nv.code !== 'AITA') panelExpanded = false;
 	}
 	// Reuse the open panel across destinations: slide the whole panel out, swap its
 	// content off-screen, then slide it back in. A fresh open (no panel yet) or
@@ -1920,9 +1922,10 @@
 			     WebKit rasterises the backdrop blur once instead of re-blurring every scroll
 			     frame - the fix for Safari big-surface backdrop-filter cost. -->
 			<div class="surface-backdrop" aria-hidden="true"></div>
-			<!-- No generic expand toggle: only the Air Traffic board, the Star Map, and the
-			     Presentation Builder are designed to fill the viewport (ATFC renders its own
-			     toggle; PRES and STAR are always full). Every other panel is compact-only. -->
+			<!-- No generic expand toggle: only the Air Traffic board, the Star Map, the
+			     Presentation Builder, and the Court are designed to fill the viewport (ATFC
+			     and the Court render their own toggles; PRES and STAR are always full).
+			     Every other panel is compact-only. -->
 
 			<!-- The panel is reused across destinations: on navigation the whole panel
 			     slides out, swaps to the new node's content while off-screen, then
@@ -1981,14 +1984,27 @@
 						class="surface-head csb"
 						class:head-collapsed={surfHeadCollapsed}
 						class:csb-on={surfHeadCollapsed}
+						class:court={v.code === 'AITA'}
 					>
 						<div class="head-row csb-fold">
-							<button
-								class="icon-btn back"
-								onclick={goBack}
-								aria-label={ownPushes > 0 ? 'Back' : 'Back to home'}
-								title={ownPushes > 0 ? 'Back' : 'Home'}>{@html ARROW_LEFT_SVG}</button
-							>
+							{#if v.code === 'AITA' && panelExpanded}
+								<!-- E-COPO trades Back for Home, like the other full-viewport apps:
+								     expanded has nowhere to peel back to mid-thought, so the left cap
+								     goes straight home (the right cap already collapses). -->
+								<button
+									class="icon-btn back"
+									onclick={() => home()}
+									aria-label="Close and go home"
+									title="Home">{@html HOME_SVG}</button
+								>
+							{:else}
+								<button
+									class="icon-btn back"
+									onclick={goBack}
+									aria-label={ownPushes > 0 ? 'Back' : 'Back to home'}
+									title={ownPushes > 0 ? 'Back' : 'Home'}>{@html ARROW_LEFT_SVG}</button
+								>
+							{/if}
 							{#if v.code === 'WTHR'}
 								<!-- Weather's search lives up here, on the Back row: it acts on the whole panel, so
 								     it belongs with the panel's own controls. It's a disc that GROWS into a field —
@@ -2023,13 +2039,32 @@
 									<CitySearch />
 								</div>
 							{/if}
+							{#if v.code === 'AITA'}
+								<!-- The Court can be taken full-viewport — a long docket is a reading,
+								     and E-COPO centres it as a column (see .surface-body.court). Same
+								     corner the other panels keep their global controls in. -->
+								<div class="head-actions">
+									<button
+										type="button"
+										class="icon-btn"
+										onclick={toggleExpand}
+										aria-label={panelExpanded ? 'Collapse panel' : 'Expand panel'}
+										title={panelExpanded ? 'Collapse' : 'Expand'}
+									>{@html panelExpanded ? MINIMIZE_SVG : MAXIMIZE_SVG}</button>
+								</div>
+							{/if}
 						</div>
 						<div class="title-row csb-row">
 							<h2 class="dest csb-title" style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
 							{@render accentDot(accent[v.code])}
 						</div>
 					</div>
-					<div class="surface-body" class:settings={v.code === 'STG'} onscroll={onSurfaceScroll}>
+					<div
+						class="surface-body"
+						class:settings={v.code === 'STG'}
+						class:court={v.code === 'AITA'}
+						onscroll={onSurfaceScroll}
+					>
 						{#if v.code === 'WTHR'}
 							<!-- Weather lives INSIDE the ordinary panel — it's a reading, not a workspace, so
 							     it doesn't take over the viewport the way the board and the Builder do. -->
@@ -2684,6 +2719,21 @@
 		--ch: clamp(280px, 44vh, 520px);
 		top: 9vh;
 		opacity: 0.68;
+	}
+	/* Sun through-glow: at the low-sun phases the clouds catch light on their EDGES —
+	   drop-shadow follows the artwork's alpha silhouette, so every puff gets a rim
+	   without touching the art. Dawn wears one soft gold halo; dusk layers a tight
+	   ember edge under a wider pink bloom. High-sun phases and night carry none (the
+	   sun is overhead or gone), and skipping the filter there keeps those frames
+	   cheapest. A pixel of downward offset leans the light toward the horizon the sun
+	   sits on. (This is scene light, not chrome depth — Flat's no-shadow rule governs
+	   the control language, and the sky isn't a control.) */
+	:global(html[data-sky='dawn']) .cloud-layer {
+		filter: drop-shadow(0 1px 14px rgba(255, 176, 118, 0.5));
+	}
+	:global(html[data-sky='dusk']) .cloud-layer {
+		filter: drop-shadow(0 1px 10px rgba(255, 128, 82, 0.75))
+			drop-shadow(0 2px 30px rgba(255, 92, 130, 0.45));
 	}
 	/* The drift — the near layer faster than the far one: parallax without a z-axis. Gated
 	   like every other motion here; without it the clouds simply hang, which is also weather. */
@@ -3423,6 +3473,24 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.05rem;
+	}
+	/* E-COPO: expanded, the Court reads as a CENTRED column — the docket is prose, and
+	   full-viewport line lengths are unreadable. Head and body share the measure so the
+	   title sits over its own column. Sized to the content, not generously: the court's
+	   prose caps itself at 62ch and holds a shared LEFT edge, so a wider column just
+	   accumulated slack on the right (under the expand disc) and the reading sat left of
+	   centre. 42rem ≈ that 62ch plus the body's side padding — the column hugs what it
+	   holds, so centring the column centres the words. */
+	.surface.expanded .surface-head.court,
+	.surface.expanded .surface-body.court {
+		width: 100%;
+		max-width: 42rem;
+		margin-inline: auto;
+	}
+	/* A long docket scrolls; classic scrollbars carve their lane out of one side and
+	   would nudge the centred column off by half a bar. Reserve both edges instead. */
+	.surface.expanded .surface-body.court {
+		scrollbar-gutter: stable both-edges;
 	}
 	.surface-body h3 {
 		margin: 1.1rem 0 -0.2rem;

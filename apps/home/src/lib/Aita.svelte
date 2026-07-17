@@ -731,6 +731,12 @@
 		gap: 0.45rem;
 		max-width: 34rem;
 	}
+	/* E-COPO: the ballot sheet stretches to the reading column's full measure — in the
+	   centred expanded layout a capped chart floated in slack, and the bars are the one
+	   piece here that's a gauge, not prose (long bars read better, not worse). */
+	:global(.surface.expanded) .aita-sheet {
+		max-width: none;
+	}
 	.aita-row {
 		display: grid;
 		grid-template-columns: 3.2rem 1fr 2.6rem;
