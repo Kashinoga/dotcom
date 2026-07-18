@@ -1034,6 +1034,17 @@
 	// viewport, so viewport width ≈ panel width.)
 	let mq: MediaQueryList | undefined;
 	const onMq = (e: MediaQueryListEvent) => (wide = e.matches);
+	// Mobile = the CSB breakpoint. Past it the header stops FOLDING on scroll — same reason
+	// the generic panels dropped it: the fold is a scroll-driven layout change (the header
+	// resizing) that iOS momentum can't ride over. The stay-put header just casts its scroll
+	// shade (.tfc-body.scrolled) instead. Kept as a coarse boolean; the exact px only matters
+	// at the seam, and matchMedia flips it without a resize listener.
+	let narrowMq: MediaQueryList | undefined;
+	let narrow = $state(false);
+	const onNarrow = (e: MediaQueryListEvent) => {
+		narrow = e.matches;
+		if (narrow) headCollapsed = false; // crossing to mobile unfolds the header
+	};
 
 	onMount(() => {
 		loadPersistedPhotos(); // reuse last session's aircraft-type photos
@@ -1043,12 +1054,16 @@
 		mq = window.matchMedia('(min-width: 900px)');
 		wide = mq.matches;
 		mq.addEventListener('change', onMq);
+		narrowMq = window.matchMedia('(max-width: 960px)');
+		narrow = narrowMq.matches;
+		narrowMq.addEventListener('change', onNarrow);
 	});
 	onDestroy(() => {
 		destroyed = true;
 		clearInterval(timer);
 		clearInterval(ringTimer);
 		mq?.removeEventListener('change', onMq);
+		narrowMq?.removeEventListener('change', onNarrow);
 		for (const id of rowTimers.values()) clearTimeout(id);
 		rowTimers.clear();
 	});
@@ -1296,8 +1311,9 @@
 		class:scrolled={bodyScrolled}
 		onscroll={(e) => {
 			const y = e.currentTarget.scrollTop;
-			bodyScrolled = y > 2;
-			headCollapsed = headCollapsed ? y > 8 : y > 64;
+			bodyScrolled = y > 2; // drives the header's scroll shade at every size
+			// Mobile keeps the header put (no CSB fold) — the shade alone marks the scroll.
+			headCollapsed = narrow ? false : headCollapsed ? y > 8 : y > 64;
 		}}
 	>
 		<!-- Live-data activity meter, covering the whole wait so there's feedback BEFORE and

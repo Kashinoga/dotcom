@@ -29,7 +29,8 @@ export const airports: Record<string, { title: string }> = {
 	WTHR: { title: 'Weather' },
 	STAR: { title: 'Star Map' },
 	AITA: { title: 'Court of Public Opinion' },
-	PUD: { title: 'Intergalactic Park Ranger' }
+	PUD: { title: 'Intergalactic Park Ranger' },
+	EMOJ: { title: 'Emoji Viewer' }
 };
 
 // The hierarchy — a place's children. This is the ONE structure the site's shape comes from: it
@@ -40,7 +41,7 @@ export const airports: Record<string, { title: string }> = {
 export const children: Record<string, string[]> = {
 	KSH: ['ABT', 'APP', 'STG'],
 	ABT: ['WRK', 'PRJ'],
-	APP: ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA', 'PUD']
+	APP: ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA', 'PUD', 'EMOJ']
 };
 
 /** A place's parent, inverted from `children`. The hub has none. */
@@ -74,7 +75,8 @@ export const accent: Record<string, string> = {
 	WTHR: '#f06030',
 	STAR: '#f06030',
 	AITA: '#f06030',
-	PUD: '#f06030'
+	PUD: '#f06030',
+	EMOJ: '#f06030'
 };
 
 // A one-line blurb per place, used as the shared-link preview description and on the Apps cards.
@@ -90,5 +92,6 @@ export const portDescriptions: Record<string, string> = {
 	WTHR: 'A National Oceanic and Atmospheric Administration data viewer.',
 	STAR: 'The constellations overhead right now, from wherever you are.',
 	AITA: 'An r/AmItheAsshole reader — judge the story first, then unseal the jury.',
-	PUD: 'An idle game — ranger the Pocket Universe Division’s parks, gathering Data Shards.'
+	PUD: 'An idle game — ranger the Pocket Universe Division’s parks, gathering Data Shards.',
+	EMOJ: 'Browse and copy the system emojis, drawn by your own device.'
 };

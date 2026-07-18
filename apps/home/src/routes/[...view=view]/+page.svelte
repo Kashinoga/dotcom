@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import { fly, fade } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import { cubicOut, backOut } from 'svelte/easing';
 	import { browser, dev } from '$app/environment';
 	import { page } from '$app/state';
 	import { pushState, replaceState } from '$app/navigation';
@@ -12,6 +12,9 @@
 	import Weather from '$lib/Weather.svelte';
 	import Aita from '$lib/Aita.svelte';
 	import PudIdle from '$lib/PudIdle.svelte';
+	import EmojiViewer from '$lib/EmojiViewer.svelte';
+	import EmojiSearch from '$lib/EmojiSearch.svelte';
+	import { emojiSearch } from '$lib/emoji-search.svelte';
 	import StarMap from '$lib/StarMap.svelte';
 	import CitySearch from '$lib/CitySearch.svelte';
 	import {
@@ -32,6 +35,7 @@
 		STARS_SVG,
 		GAVEL_SVG,
 		GEM_SVG,
+		SMILE_SVG,
 		MAXIMIZE_SVG,
 		MINIMIZE_SVG
 	} from '$lib/icons';
@@ -53,6 +57,7 @@
 	import faviconStar from '$lib/assets/favicon-star.svg';
 	import faviconAita from '$lib/assets/favicon-aita.svg';
 	import faviconPud from '$lib/assets/favicon-pud.svg';
+	import faviconEmoji from '$lib/assets/favicon-emoji.svg';
 	import { airports, accent, portDescriptions, HUB } from '$lib/network';
 	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
 	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
@@ -710,10 +715,14 @@
 			{ email: 'contact@kashinoga.com' }
 		]
 	};
+	// Panels on the NEW HEADER MODEL: the accent bullet leaves the title and becomes a
+	// badge beside Back (see .app-badge). Rolling out one panel at a time; add a code here
+	// to move it over.
+	const NEW_HEADER = ['APP', 'EMOJ'];
 	// The apps the Apps panel shows as CARDS in its body.
 	// Alphabetical by TITLE: the cards' order is presentation, not hierarchy, so a new
 	// app files itself in rather than landing wherever it was added.
-	const APP_CARDS = ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA', 'PUD'].sort((a, b) =>
+	const APP_CARDS = ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA', 'PUD', 'EMOJ'].sort((a, b) =>
 		airports[a].title.localeCompare(airports[b].title)
 	);
 	const APP_ICONS: Record<string, string> = {
@@ -722,7 +731,8 @@
 		WTHR: CLOUD_SUN_SVG,
 		STAR: STARS_SVG,
 		AITA: GAVEL_SVG,
-		PUD: GEM_SVG
+		PUD: GEM_SVG,
+		EMOJ: SMILE_SVG
 	};
 	// A mark per destination, worn by its chip in the Related rail. It replaced a plain accent dot:
 	// the dot named the LINE a stop sits on and nothing about the stop itself. The mark says what the
@@ -979,24 +989,63 @@
 	// barely-overflowing panel. Reset when the panel changes — a fresh panel opens at
 	// scrollTop 0 with no scroll event to say so.
 	let surfHeadCollapsed = $state(false);
+	// Has the body scrolled at all? Drives the header's scroll shade on mobile — the inset
+	// breath of shade under the stay-put header, ATFC's own tell that "content has gone
+	// under" (see .surface-body.scrolled). Separate from the fold: it fires at every size.
+	let surfScrolled = $state(false);
+	// The Emoji Viewer's header does NOT stay put: its big title lives at the top of the
+	// scrolling body (see the EMOJ body branch) and scrolls away. Once it's gone, a compact
+	// title flies in beside the badge (headTitleShown). `emojTitleEl` is the big title, so
+	// its own height is the threshold — no magic number.
+	let emojTitleEl = $state<HTMLElement | undefined>(undefined);
+	let headTitleShown = $state(false);
+	// Shared by the scroll handler AND a mount-time sync, so a body that opens already
+	// scrolled (a refresh mid-scroll restores the inner scroller) shows the right shade and
+	// compact title without waiting for the next scroll event.
+	function syncSurfaceScroll(scroller: HTMLElement) {
+		const y = scroller.scrollTop;
+		surfScrolled = y > 2;
+		if (emojTitleEl) {
+			// A little hysteresis so a hair of scroll near the seam can't flicker it.
+			const gone = emojTitleEl.offsetTop + emojTitleEl.offsetHeight - 12;
+			headTitleShown = headTitleShown ? y > gone - 24 : y > gone;
+		}
+	}
 	function onSurfaceScroll(e: Event) {
+		const scroller = e.currentTarget as HTMLElement;
+		syncSurfaceScroll(scroller);
+		const y = scroller.scrollTop;
 		// Mobile opts OUT of the fold entirely. The collapse is a scroll-driven layout
 		// change — the header (a flex sibling of the scroll body) resizes, and the phantom
 		// padding snaps the scrollHeight — and iOS momentum scrolling can't ride over that:
 		// the fling stutters and, on Weather, snaps back up. So on a phone the header just
-		// stays put (Star Map's mobile answer: floating chrome, no fold), and the body
-		// scrolls clean. Desktop keeps the fold — a mouse has no momentum fling to fight.
+		// stays put (Star Map's mobile answer: floating chrome, no fold) and casts its shade,
+		// and the body scrolls clean. Desktop keeps the fold — a mouse has no fling to fight.
 		if (isMobile) {
 			if (surfHeadCollapsed) surfHeadCollapsed = false;
 			return;
 		}
-		const y = (e.currentTarget as HTMLElement).scrollTop;
 		surfHeadCollapsed = surfHeadCollapsed ? y > 8 : y > 64;
 	}
 	$effect(() => {
 		void view;
 		void isMobile; // crossing to mobile unfolds the header (the fold is desktop-only now)
+		headTitleShown = false; // a fresh panel opens at the top, big title in view
 		surfHeadCollapsed = false;
+	});
+	// When the EMOJ big title mounts, sync from the CURRENT scroll — a refresh mid-scroll
+	// can restore the inner scroller with no scroll event to say so, which left the compact
+	// title hidden until the next scroll. rAF so any restoration has landed and the title's
+	// height is measurable. Runs after the reset effect above (later in source), so its
+	// value wins on a fresh mount.
+	$effect(() => {
+		const el = emojTitleEl;
+		if (!el) return;
+		const raf = requestAnimationFrame(() => {
+			const scroller = el.closest('.surface-body') as HTMLElement | null;
+			if (scroller) syncSurfaceScroll(scroller);
+		});
+		return () => cancelAnimationFrame(raf);
 	});
 	let stageWx = $state<WeatherKind | null>(null);
 	function setStageWx(k: WeatherKind | null) {
@@ -1344,9 +1393,11 @@
 							? faviconAita
 							: view?.kind === 'port' && view.code === 'PUD'
 								? faviconPud
-								: dev
-									? faviconDev
-									: faviconSite
+								: view?.kind === 'port' && view.code === 'EMOJ'
+									? faviconEmoji
+									: dev
+										? faviconDev
+										: faviconSite
 	);
 	const headTitle = $derived(
 		selectedField ? `Air Traffic · ${selectedField.name} — ${SITE}` : viewTitle(view)
@@ -1619,10 +1670,17 @@
      baseline. An inline-block wrapper (font-size:0 to collapse whitespace) takes its
      baseline from the inline-block dot inside it, which is its bottom margin edge — so
      `align-items: baseline` on .title-row rests the dot on the title's baseline. -->
-{#snippet accentDot(color: string)}
+{#snippet accentDot(code: string, titleSize: string)}
 	<div class="dot-wrap" aria-hidden="true">
-		<!-- csb-dot: shrinks to bar proportion inside a collapsed super bar (puhig). -->
-		<span class="accent-dot csb-dot" style:background={color}></span>
+		<!-- The bullet arrives as the SOLID accent dot (the ::before overlay), then settles
+		     into a lighter accent circle holding this place's own mark — the app-card icon
+		     treatment, at title-bullet scale. Sized to the title's LOWERCASE height: the dot
+		     inherits the title's own font-size, and its 1ex width/height is exactly the
+		     x-height (the height of the "s" in "Apps"). csb-dot: shrinks to bar proportion
+		     inside a collapsed super bar (puhig). -->
+		<span class="accent-dot csb-dot" style:--accent={accent[code]} style:font-size={titleSize}>
+			<span class="accent-mark">{@html PORT_ICONS[code] ?? ''}</span>
+		</span>
 	</div>
 {/snippet}
 
@@ -2002,6 +2060,7 @@
 						class:head-collapsed={surfHeadCollapsed}
 						class:csb-on={surfHeadCollapsed}
 						class:court={v.code === 'AITA'}
+						class:scrolled={surfScrolled}
 					>
 						<div class="head-row csb-fold">
 							{#if v.code === 'AITA' && panelExpanded}
@@ -2021,6 +2080,35 @@
 									aria-label={ownPushes > 0 ? 'Back' : 'Back to home'}
 									title={ownPushes > 0 ? 'Back' : 'Home'}>{@html ARROW_LEFT_SVG}</button
 								>
+							{/if}
+							{#if NEW_HEADER.includes(v.code)}
+								<!-- NEW HEADER MODEL: the accent bullet leaves the title and becomes a
+								     badge here, right of Back — the app's mark in its accent circle,
+								     arriving solid then settling to the marked light wash (see
+								     .app-badge). Action TBD. -->
+								<button
+									type="button"
+									class="app-badge"
+									style:--accent={accent[v.code]}
+									aria-label={port.title}
+									title={port.title}
+								>
+									<span class="app-badge-mark">{@html PORT_ICONS[v.code] ?? ''}</span>
+								</button>
+							{/if}
+							{#if v.code === 'EMOJ' && headTitleShown && !(emojiSearch.open && isMobile)}
+								<!-- The compact title flies in beside the badge once the big title (in the
+								     scrolling body) has gone by — but yields when the grown search would
+								     crowd it (on a phone, the field takes most of the row). -->
+								<span class="head-title" in:fly={{ x: -14, duration: 380, easing: backOut }} out:fly={{ x: -10, duration: 150 }}>{port.title}</span>
+							{/if}
+							{#if v.code === 'EMOJ'}
+								<!-- The Emoji Viewer's search rides the super bar's right edge, Weather's
+								     arrangement: a disc that grows into a field, sharing its query with the
+								     wall below through $lib/emoji-search. -->
+								<div class="head-actions">
+									<EmojiSearch />
+								</div>
 							{/if}
 							{#if v.code === 'WTHR'}
 								<!-- Weather's search lives up here, on the Back row: it acts on the whole panel, so
@@ -2071,15 +2159,22 @@
 								</div>
 							{/if}
 						</div>
-						<div class="title-row csb-row">
-							<h2 class="dest csb-title" style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
-							{@render accentDot(accent[v.code])}
-						</div>
+						{#if v.code !== 'EMOJ'}
+							<div class="title-row csb-row">
+								<h2 class="dest csb-title" style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
+								<!-- The new model moves the bullet up to a badge beside Back (see .app-badge);
+								     panels not yet on it keep the bullet here beside the title. -->
+								{#if !NEW_HEADER.includes(v.code)}{@render accentDot(v.code, destSize(port.title))}{/if}
+							</div>
+						{/if}
+						<!-- EMOJ: the big title lives in the BODY (below), so it scrolls away; the
+						     header keeps only its control row. -->
 					</div>
 					<div
 						class="surface-body"
 						class:settings={v.code === 'STG'}
 						class:court={v.code === 'AITA'}
+						class:scrolled={surfScrolled}
 						onscroll={onSurfaceScroll}
 					>
 						{#if v.code === 'WTHR'}
@@ -2094,6 +2189,13 @@
 							<!-- Intergalactic Park Ranger makes it too: the game lives in the ordinary panel — a clicker
 							     is a thing you visit, not a workspace that takes the viewport. -->
 							<PudIdle />
+						{:else if v.code === 'EMOJ'}
+							<!-- The Emoji Viewer: a wall of the system's own emojis to browse and copy.
+							     Its big title lives HERE, at the top of the scroll body, so it scrolls
+							     away — the header keeps only the control row, and a compact title flies
+							     in beside the badge once this has passed (headTitleShown). -->
+							<h2 class="dest ev-title" bind:this={emojTitleEl} style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
+							<EmojiViewer />
 						{:else if v.code === 'STG'}
 							{@const editStg = dev && editMode}
 							<div class="stg-group">
@@ -3374,10 +3476,8 @@
 		/* No rule under the title. The header and the body are the same stock — both are the panel's
 		   pure white/black — so the border drew a line between two things that are one thing, and at
 		   wordmark scale it read as an underline.
-		   The bottom padding TIGHTENS with it. The old value was sized to hold the title's descenders
-		   clear of that rule; with no rule to clear, the same gap just left the body adrift from the
-		   title it belongs to. */
-		padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.5rem, 4vw, 2.75rem) clamp(0.4rem, 0.75vw, 0.65rem);
+		   ONE clamp on every side, so the header is evenly framed all round. */
+		padding: clamp(1.5rem, 4vw, 2.5rem);
 	}
 	/* The header's control row: Back at the left, a panel's own action (Weather's search) at the
 	   right. It replaces the bare Back button, so the gap below it is the one Back used to set.
@@ -3389,11 +3489,36 @@
 		z-index: 3;
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
-		margin-bottom: clamp(1.5rem, 4vw, 2.5rem);
+		/* flex-start + a gap, not space-between: the left controls (Back, and — the new
+		   header model — the app badge beside it) CLUSTER at the left, while a panel's own
+		   right-hand actions push away with margin-left:auto below. Equivalent to the old
+		   space-between for panels that only have the two ends, but it also lets a second
+		   left-side control sit next to Back. */
+		gap: 0.5rem;
+	}
+	.head-actions {
+		margin-left: auto;
 	}
 	.head-row .back {
 		margin-bottom: 0;
+	}
+	/* The fixed controls NEVER shrink — .icon-btn has no flex-shrink of its own, so when the
+	   grown search and the outgoing compact title briefly overflow the row (mid-transition on
+	   a phone), the discs got squished. Pin them; the title absorbs the squeeze instead
+	   (below). */
+	.head-row .back,
+	.head-row .app-badge {
+		flex: none;
+	}
+	/* The right-hand actions CAN shrink (but not grow). A growing search field springs open
+	   with an overshoot; on a phone its left edge hits the Back+badge cluster mid-spring, and
+	   the leftover overshoot used to spill PAST the right edge (an 8px outward bounce). Letting
+	   this cluster shrink lets the field itself absorb that overflow instead — right edge stays
+	   pinned, discs stay rigid. Harmless where the field is rigid (Weather's stays flex:none)
+	   or where there's room (desktop never overflows, so nothing shrinks). */
+	.head-row .head-actions {
+		flex: 0 1 auto;
+		min-width: 0;
 	}
 	/* The panel's own actions, clustered at the right end of the Back row. */
 	.head-actions {
@@ -3442,17 +3567,53 @@
 	.title-row .dest {
 		flex: none;
 	}
-	/* See the accentDot snippet: this wrapper exists to carry a correct baseline. */
+	/* Centred against the title, not baseline-aligned — the same way E-ATFC seats its own
+	   bullet beside "Air Traffic" (.bar .head-refresh: align-self center). align-self wins
+	   over the title-row's align-items: baseline. */
 	.dot-wrap {
 		display: inline-block;
 		font-size: 0;
+		align-self: center;
 	}
-	/* Nonfunctional colour bullet. Empty inline-block → bottom-edge baseline. */
+	/* Station-sign bullet, now a mark-holder. RESTING state (and what reduced-motion
+	   shows): a light accent wash holding the place's mark — the app-card icon squircle at
+	   bullet scale. inline-block gives the wrapper its bottom-edge baseline; grid centres
+	   the mark. */
 	.accent-dot {
-		display: inline-block;
-		width: 30px;
-		height: 30px;
+		position: relative;
+		display: inline-grid;
+		place-items: center;
+		/* Sized to the title's lowercase height: the dot wears the title's font-size (set
+		   inline), and 0.47em is Jost's x-height (its "s" measures ~0.455em; the CSS `ex`
+		   unit runs larger than the real glyph, so it's spelled as an em fraction here). */
+		width: 0.47em;
+		height: 0.47em;
 		border-radius: 999px;
+		background: color-mix(in srgb, var(--accent) 15%, transparent);
+		vertical-align: baseline;
+	}
+	/* The SOLID accent disc — the bullet's arrival face. It sits over the light wash and
+	   fades away as the dot settles (see dot-settle), revealing the wash and the mark. At
+	   rest it's gone (opacity 0). */
+	.accent-dot::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: 999px;
+		background: var(--accent);
+		opacity: 0;
+	}
+	.accent-mark {
+		display: grid;
+		place-items: center;
+		width: 62%;
+		height: 62%;
+		color: var(--accent);
+	}
+	.accent-mark :global(svg) {
+		width: 100%;
+		height: 100%;
+		display: block;
 	}
 	/* Bubble: the aero family's rim light and drop — see the masthead's brand dots. */
 	:global(html[data-ui='bubble']) .accent-dot {
@@ -3464,6 +3625,14 @@
 		.accent-dot {
 			animation: dot-in 0.45s var(--spring) 0.5s backwards;
 		}
+		/* Then it SETTLES: once the roll-in lands (~0.95s), the solid arrival disc fades
+		   out and the mark rises in — a solid dot becoming a marked, lightly-washed circle. */
+		.accent-dot::before {
+			animation: dot-solid-out 0.4s ease 0.95s backwards;
+		}
+		.accent-mark {
+			animation: dot-mark-in 0.4s var(--spring) 0.95s backwards;
+		}
 	}
 	@keyframes dot-in {
 		from {
@@ -3474,6 +3643,120 @@
 			opacity: 1;
 			transform: translateX(0);
 		}
+	}
+	/* The arrival disc holds solid through the roll-in (backwards fill), then fades. */
+	@keyframes dot-solid-out {
+		from {
+			opacity: 1;
+		}
+		to {
+			opacity: 0;
+		}
+	}
+	/* The mark waits out the roll-in blank, then pops in on the family spring. */
+	@keyframes dot-mark-in {
+		from {
+			opacity: 0;
+			transform: scale(0.5);
+		}
+		to {
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
+
+	/* ── The app badge (new header model) ── The accent bullet as a control disc, right of
+	   Back: a 42px circle in the app's accent, holding its mark. Arrives SOLID (the ::before
+	   face), then settles to the marked light wash — the same solid→mark reveal the title
+	   bullet does, at control size. */
+	.app-badge {
+		position: relative;
+		flex: none;
+		box-sizing: border-box;
+		display: inline-grid;
+		place-items: center;
+		width: 42px;
+		height: 42px;
+		padding: 0;
+		border: 0;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--accent) 15%, transparent);
+		cursor: pointer;
+		transition: background 0.15s ease, transform 0.12s var(--btn-spring);
+	}
+	.app-badge::before {
+		content: '';
+		position: absolute;
+		inset: 0;
+		border-radius: 999px;
+		background: var(--accent);
+		opacity: 0;
+	}
+	.app-badge-mark {
+		position: relative;
+		z-index: 1;
+		display: grid;
+		place-items: center;
+		width: 55%;
+		height: 55%;
+		color: var(--accent);
+	}
+	.app-badge-mark :global(svg) {
+		width: 100%;
+		height: 100%;
+		display: block;
+	}
+	.app-badge:hover {
+		background: color-mix(in srgb, var(--accent) 24%, transparent);
+	}
+	.app-badge:active {
+		transform: scale(0.92);
+	}
+	.app-badge:focus-visible {
+		outline: var(--focus-ring);
+		outline-offset: 2px;
+	}
+	:global(html[data-ui='bubble']) .app-badge {
+		box-shadow: var(--aero-gloss), var(--aero-drop);
+	}
+	/* Aeroify the ARRIVAL face too: the solid accent disc (::before) sits over the badge's
+	   own gloss and would hide it, so it wears the rim light itself — the solid disc reads
+	   as aero all through the before-settle, not just once the wash shows. Gloss is inset
+	   (edge-hugging), never a sheen wash — the bubble-gloss rule. The title bullet's own
+	   arrival face gets the same. */
+	:global(html[data-ui='bubble']) .app-badge::before,
+	:global(html[data-ui='bubble']) .accent-dot::before {
+		box-shadow: var(--aero-gloss);
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		/* Settles a beat after the header lands: the solid face fades, the mark rises in. */
+		.app-badge::before {
+			animation: dot-solid-out 0.4s ease 0.7s backwards;
+		}
+		.app-badge-mark {
+			animation: dot-mark-in 0.4s var(--spring) 0.7s backwards;
+		}
+	}
+
+	/* EMOJ: the big title, now the first thing in the SCROLLING body (so it scrolls away).
+	   It keeps .dest's wordmark scale; a little top room stands in for the header padding it
+	   used to sit under. */
+	.ev-title {
+		margin: 0.25rem 0 0;
+	}
+	/* The compact title that flies in beside the badge once the big one is gone — bar scale,
+	   centred in the control row. */
+	.head-title {
+		align-self: center;
+		/* Shrinks and clips first when the row is tight — so the growing search squeezes the
+		   title (which is leaving anyway) rather than the pinned discs. */
+		min-width: 0;
+		overflow: hidden;
+		font-size: clamp(1.1rem, 1.4vw, 1.35rem);
+		font-weight: 700;
+		letter-spacing: -0.01em;
+		color: var(--ink);
+		white-space: nowrap;
 	}
 
 	.dest {
@@ -3488,6 +3771,14 @@
 		/* One line always — see the ATFC .dest note. A two-word destination would otherwise
 		   wrap at narrow panel widths, taking the accent dot beside it down with it. */
 		white-space: nowrap;
+		/* Trim the line box to the BASELINE at the bottom: at wordmark scale, line-height 1
+		   still leaves the font's descent space below the glyphs, so the header's (equal)
+		   bottom padding LOOKED bigger than its top. Now the padding is measured from the
+		   baseline, so top and bottom read even. Descenders overhang into the pad, as they
+		   should. (Progressive: browsers without text-box-trim keep the old, slightly loose
+		   bottom — no worse than before.) */
+		text-box-trim: trim-end;
+		text-box-edge: cap alphabetic;
 	}
 	.surface-body {
 		flex: 1;
@@ -3499,6 +3790,15 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.05rem;
+		/* The scroll shade's canvas: an inset shadow on a scroller pins to the BOX, so it
+		   sits exactly under the stay-put header once content has passed beneath it. */
+		transition: box-shadow 0.25s ease;
+	}
+	/* Content has gone under the header — the ATFC board's own tell (.tfc-body.scrolled),
+	   worn by every panel now the header no longer folds to mark the scroll. A breath of
+	   shade, not a drawn band: long blur, light hand. At every width. */
+	.surface-body.scrolled {
+		box-shadow: inset 0 26px 22px -22px light-dark(rgba(8, 10, 14, 0.15), rgba(0, 0, 0, 0.35));
 	}
 	/* E-COPO: expanded, the Court reads as a CENTRED column — the docket is prose, and
 	   full-viewport line lengths are unreadable. Head and body share the measure so the
@@ -3632,9 +3932,19 @@
 	   translate would pin its scale() — the e2e buttons suite hovers long after, and asserts
 	   exactly 1.05. */
 	@media (prefers-reduced-motion: no-preference) {
-		.surface-head .back {
+		/* Every control on the head row rides in on the chrome ripple — Back leads (--bn 0),
+		   then the app badge and any right-hand actions fall in behind it, left to right, on
+		   the family spring. (The badge's own mark-settle plays a beat later, once it's
+		   landed — see .app-badge.) */
+		.surface-head .back,
+		.surface-head .app-badge,
+		.surface-head .head-actions .icon-btn {
 			animation: btn-in 0.42s var(--spring) backwards;
 			animation-delay: calc(var(--enter-lead) + var(--bn, 0) * var(--btn-enter-step));
+		}
+		.surface-head .app-badge,
+		.surface-head .head-actions .icon-btn {
+			--bn: 1;
 		}
 	}
 
