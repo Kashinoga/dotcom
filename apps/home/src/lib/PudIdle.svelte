@@ -1089,6 +1089,9 @@
 		border-radius: 999px;
 		background: color-mix(in srgb, var(--accent, #f06030) 14%, transparent);
 		overflow: hidden;
+		/* Running ↔ paused is a state change worth SEEING happen: the band warms from accent to
+		   yellow and back rather than cutting between them. */
+		transition: background-color 0.45s ease;
 	}
 	.pud-mining-sweep {
 		position: absolute;
@@ -1096,6 +1099,10 @@
 		width: 40%;
 		border-radius: 999px;
 		background: linear-gradient(90deg, transparent, var(--accent, #f06030), transparent);
+		/* The travelling peak spreads into a full-width line as the works stop, and gathers back
+		   into a peak as they start. Transform is left out on purpose — the sweep animation owns
+		   it while running, and transitioning a property an animation is driving fights it. */
+		transition: opacity 0.45s ease, width 0.45s ease;
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		.pud-mining-sweep {
@@ -1104,11 +1111,9 @@
 		.pud-mining.boosted .pud-mining-sweep {
 			animation-duration: 0.85s;
 		}
-		/* Both animations named together so the play states below line up with them: the travel
-		   is held, the pulse runs. */
+		/* Only the pulse — the travel isn't paused here, it's not running at all. */
 		.pud-mining.paused .pud-mining-sweep {
-			animation: pud-sweep 1.9s linear infinite, pud-idle-pulse 2.8s ease-in-out infinite;
-			animation-play-state: paused, running;
+			animation: pud-idle-pulse 2.8s ease-in-out infinite;
 		}
 	}
 	/* Slow, and never all the way out — a line that vanished would read as nothing there. */
@@ -1139,6 +1144,15 @@
 	   resting opacity has to be legible on its own. */
 	.pud-mining.paused .pud-mining-sweep {
 		background: linear-gradient(90deg, transparent, var(--pud-idle, #e6b93c), transparent);
+		/* FULL WIDTH, and no travel. Holding the travel animation paused was the first attempt
+		   and it had a hole in it: the peak stops wherever it happened to be, and on a fresh
+		   mount it has never moved — so it sat at the keyframe's start, translateX(-100%),
+		   outside a band that clips its overflow. Reload while paused and the line was simply
+		   gone. Spanning the band needs no travel to have happened, so it reads the same whether
+		   you paused a moment ago or a week ago, and the gradient still gives the faded ends and
+		   the bright middle. */
+		width: 100%;
+		transform: none;
 		opacity: 0.55;
 	}
 	/* Percentages are of the sweep's OWN width (40% of the track): -100% hides it off the

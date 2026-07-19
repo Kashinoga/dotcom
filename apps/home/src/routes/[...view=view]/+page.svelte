@@ -34,7 +34,7 @@
 		CLOUD_SUN_SVG,
 		STARS_SVG,
 		GAVEL_SVG,
-		GEM_SVG,
+		PLANET_SVG,
 		SMILE_SVG,
 		MAXIMIZE_SVG,
 		MINIMIZE_SVG
@@ -743,7 +743,7 @@
 		WTHR: CLOUD_SUN_SVG,
 		STAR: STARS_SVG,
 		AITA: GAVEL_SVG,
-		PUD: GEM_SVG,
+		PUD: PLANET_SVG,
 		EMOJ: SMILE_SVG
 	};
 	// A mark per destination, worn by its chip in the Related rail. It replaced a plain accent dot:
