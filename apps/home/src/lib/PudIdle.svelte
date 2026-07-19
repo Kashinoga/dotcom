@@ -99,9 +99,32 @@
 	// the stamps only change by the minute, and re-rendering twenty rows five times a second to
 	// move nothing would be the most expensive thing on screen.
 	let logNow = $state(Date.now());
-	// Has the ledger's list scrolled under its heading? Drives the heading's shade — the same
-	// tell the panel's own bar gives when content has gone under it (puhig's .csb.csb-on + *).
+	// The ledger's two edges. Each says the same thing in the direction it faces: there are rows
+	// past this line. `logScrolled` shades under the heading (the tell the panel's own bar gives
+	// when content has gone under it — puhig's .csb.csb-on + *); `logMore` shades the bottom
+	// while there's still list below.
+	//
+	// Both are synced from the ELEMENT, not just from scroll events, because the bottom one has
+	// to be right BEFORE anything is scrolled: a full ledger overflows the moment it renders,
+	// and a bottom edge that only appeared after you scrolled would be missing exactly when it's
+	// most useful — on arrival, when you can't yet tell there's more.
+	let logEl = $state<HTMLElement | undefined>(undefined);
 	let logScrolled = $state(false);
+	let logMore = $state(false);
+	function syncLogEdges(el: HTMLElement | undefined = logEl) {
+		if (!el) return;
+		logScrolled = el.scrollTop > 2;
+		logMore = el.scrollTop + el.clientHeight < el.scrollHeight - 2;
+	}
+	// Re-measure whenever the list changes length (a new entry can make it overflow for the
+	// first time) and once it mounts. rAF so the rows have been laid out before we measure.
+	$effect(() => {
+		log.length;
+		const el = logEl;
+		if (!el) return;
+		const raf = requestAnimationFrame(() => syncLogEdges(el));
+		return () => cancelAnimationFrame(raf);
+	});
 	const stamp = (at: number) => {
 		const secs = Math.max(0, Math.round((logNow - at) / 1000));
 		if (secs < 45) return 'just now';
@@ -498,8 +521,10 @@
 			<ul
 				class="pud-log"
 				class:scrolled={logScrolled}
+				class:more={logMore}
+				bind:this={logEl}
 				aria-live="polite"
-				onscroll={(e) => (logScrolled = e.currentTarget.scrollTop > 2)}
+				onscroll={(e) => syncLogEdges(e.currentTarget)}
 			>
 				{#each log as entry, i (entry.id)}
 					<li
@@ -915,12 +940,17 @@
 		flex-direction: column;
 		gap: 0.5rem;
 	}
-	/* Scrolled, the heading earns an edge — said the way the panel's bar says it: an inset
-	   breath of shade on the SCROLLER, pinned to its box (an inset shadow on a scroller pins to
-	   the box, not the content), so it sits right under the heading while the rows pass beneath.
-	   Same values as puhig's folded-bar shade, so the two edges read as one idea. */
+	/* BOTH edges shade, each saying the same thing in the direction it faces: there are rows past
+	   this line. Said the way the panel's bar says it — an inset breath on the SCROLLER, pinned
+	   to its box (an inset shadow on a scroller pins to the BOX, not the content), same values as
+	   puhig's folded-bar shade so every edge in the app reads as one idea.
+	   Composed through two custom properties rather than three combined rules, so top and bottom
+	   are independent: either, both, or neither can be lit, and each transitions on its own. */
 	.pud-log.scrolled {
-		box-shadow: inset 0 26px 22px -22px light-dark(rgba(8, 10, 14, 0.15), rgba(0, 0, 0, 0.35));
+		--log-shade-top: inset 0 26px 22px -22px light-dark(rgba(8, 10, 14, 0.15), rgba(0, 0, 0, 0.35));
+	}
+	.pud-log.more {
+		--log-shade-bottom: inset 0 -26px 22px -22px light-dark(rgba(8, 10, 14, 0.15), rgba(0, 0, 0, 0.35));
 	}
 	.pud-log {
 		list-style: none;
@@ -930,12 +960,16 @@
 		flex-direction: column;
 		max-height: 13rem;
 		overflow-y: auto;
-		/* Rounded at the TOP only: the rows are clipped there, right under the heading and its
-		   shade, and a hard square edge inside the ledger's own 14px frame read as a torn strip.
-		   The bottom stays square — nothing is cut off down there, the list simply ends. The
-		   radius rides the overflow, so the shade curves with it. */
-		border-top-left-radius: 10px;
-		border-top-right-radius: 10px;
+		/* Rounded all round: the rows are cut at BOTH ends of this box — the top under the
+		   heading, the bottom against the ledger's own edge — and a hard square cut inside a
+		   14px frame read as a torn strip either way. The radius rides the overflow, so the
+		   shades curve with it.
+		   The shades default to nothing and are lit by .scrolled / .more above; declaring both
+		   slots here (rather than in each state rule) is what lets them compose. */
+		border-radius: 10px;
+		--log-shade-top: 0 0 0 0 transparent;
+		--log-shade-bottom: 0 0 0 0 transparent;
+		box-shadow: var(--log-shade-top), var(--log-shade-bottom);
 		transition: box-shadow 0.25s ease;
 		/* The rows scroll under the heading, so reserve the bar's lane rather than letting it
 		   appear and shove the times sideways when the twentieth entry lands. */
