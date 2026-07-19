@@ -479,7 +479,7 @@
 					<span class="pud-pull" aria-hidden="true"></span>
 				{/if}
 			{/key}
-			Extract <span class="pud-per">+{perClick}</span>
+			<span class="pud-extract-label">Extract <span class="pud-per">+{perClick}</span></span>
 		</button>
 		<button type="button" class="pud-boost" class:on={boosted} disabled={!canBoost && !boosted} onclick={overclock}>
 			{#if boosted}×2 · {secsLeft(boostUntil)}s
@@ -824,17 +824,34 @@
 		border-radius: 999px;
 		cursor: pointer;
 	}
+	/* CLEAR, like Overclock and Pause beside it — the accent isn't the button's resting state
+	   any more, it's what happens WHEN YOU PULL. A permanently orange button says "this is the
+	   important one"; a clear one that floods orange on every press says "that worked", which is
+	   the thing worth saying on a control you hit a hundred times. It keeps the heavier weight
+	   so it still reads as the primary of the three.
+	   The sweep is pinned inside the pill, and the pill is a 999px capsule — overflow clips the
+	   sweep's ends to that curve so it can't square off the corners. */
 	.pud-extract {
-		/* The pull bar is pinned inside the pill, and the pill is a 999px capsule — overflow
-		   clips the bar's ends to that curve so it can't square off the corners. */
 		position: relative;
 		overflow: hidden;
 		flex: none;
 		gap: 0.5rem;
 		font-weight: 700;
-		color: var(--paper);
-		background: var(--accent, #f06030);
-		border: 1.5px solid var(--accent, #f06030);
+		color: var(--ink);
+		background: color-mix(in srgb, var(--ink) 4%, transparent);
+		border: 1.5px solid var(--line-edge);
+		transition: border-color 0.15s ease, background 0.15s ease;
+	}
+	.pud-extract:hover {
+		border-color: var(--line-strong);
+	}
+	/* Above the sweep, so an accent flood passes BEHIND the words rather than washing them. */
+	.pud-extract-label {
+		position: relative;
+		z-index: 1;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
 	}
 	/* THE PULL BAR — feedback for a thing that takes no time. Extract is instant, so there's no
 	   wait to report; what this says is "that press landed", which matters most exactly when the
@@ -845,16 +862,19 @@
 	   never runs — there's simply nothing drawn, rather than a bar stuck at full width. */
 	.pud-pull {
 		position: absolute;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		height: 3px;
+		/* FULL BLEED — the wash crosses the whole face rather than riding a 3px rail at the
+		   bottom. At button size that rail was a detail you had to be looking for; the whole
+		   pill lighting up is the thing you catch out of the corner of your eye while your
+		   attention is on the count. */
+		inset: 0;
 		transform-origin: left center;
 		transform: scaleX(0);
 		opacity: 0;
-		/* Paper, not white: the pill's own label colour, so the bar belongs to the button
-		   whatever the scheme does with the accent underneath it. */
-		background: var(--paper);
+		/* THE ACCENT — the button's clear face floods orange as the pull lands. It sits at z-index
+		   0, under .pud-extract-label, so the flood passes behind the words instead of over
+		   them: at full strength an accent wash across ink text would take the label with it. */
+		z-index: 0;
+		background: var(--accent, #f06030);
 		pointer-events: none;
 	}
 	@media (prefers-reduced-motion: no-preference) {
@@ -862,13 +882,16 @@
 			animation: pud-pull 0.24s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
 		}
 	}
+	/* Strong on the way across, gone by the end: the flood is the whole feedback now that the
+	   button doesn't rest in the accent, so it reads at full strength rather than the quarter a
+	   wash over an already-orange face could afford. */
 	@keyframes pud-pull {
 		0% {
 			transform: scaleX(0);
-			opacity: 0.85;
+			opacity: 0.9;
 		}
 		70% {
-			opacity: 0.85;
+			opacity: 0.9;
 		}
 		100% {
 			transform: scaleX(1);
@@ -1239,5 +1262,14 @@
 	}
 	:global(html[data-ui='bubble']) .pud-extract {
 		box-shadow: var(--aero-gloss), var(--aero-drop);
+	}
+	/* The FLOOD is aero too. The pill wears the family's gloss whatever it's filled with, but
+	   that gloss is on the button — once the orange sweeps across at full strength it covers it,
+	   and the accent read as flat paint sliding under a glass rim. Giving the sweep its own
+	   inset rim light keeps the material consistent all the way through the pull: the button is
+	   aero, and so is the thing filling it. Inset only (edge-hugging), never a sheen wash across
+	   the face — the bubble-gloss rule, same as the badge's arrival disc. */
+	:global(html[data-ui='bubble']) .pud-pull {
+		box-shadow: var(--aero-gloss);
 	}
 </style>
