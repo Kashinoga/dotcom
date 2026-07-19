@@ -1026,11 +1026,12 @@
 	// breath of shade under the stay-put header, ATFC's own tell that "content has gone
 	// under" (see .surface-body.scrolled). Separate from the fold: it fires at every size.
 	let surfScrolled = $state(false);
-	// The Emoji Viewer's header does NOT stay put: its big title lives at the top of the
-	// scrolling body (see the EMOJ body branch) and scrolls away. Once it's gone, a compact
-	// title flies in beside the badge (headTitleShown). `emojTitleEl` is the big title, so
-	// its own height is the threshold — no magic number.
-	let emojTitleEl = $state<HTMLElement | undefined>(undefined);
+	// On the new header model the big title does NOT stay put: it lives at the top of the
+	// scrolling body (see bodyTitleEl's h2) and scrolls away. Once it's gone, a compact title
+	// flies in beside the badge (headTitleShown), so the bar always names the panel — the big
+	// title while it's in view, the small one after. `bodyTitleEl` IS the big title, so its
+	// own height is the threshold — no magic number, and it re-measures per panel.
+	let bodyTitleEl = $state<HTMLElement | undefined>(undefined);
 	let headTitleShown = $state(false);
 	// Shared by the scroll handler AND a mount-time sync, so a body that opens already
 	// scrolled (a refresh mid-scroll restores the inner scroller) shows the right shade and
@@ -1038,10 +1039,26 @@
 	function syncSurfaceScroll(scroller: HTMLElement) {
 		const y = scroller.scrollTop;
 		surfScrolled = y > 2;
-		if (emojTitleEl) {
-			// A little hysteresis so a hair of scroll near the seam can't flicker it.
-			const gone = emojTitleEl.offsetTop + emojTitleEl.offsetHeight - 12;
-			headTitleShown = headTitleShown ? y > gone - 24 : y > gone;
+		if (bodyTitleEl) {
+			// How far the big title's bottom sits ABOVE the scroller's top edge: negative while
+			// any of it is still in view, positive once it's fully gone. Measured from live
+			// rects rather than `offsetTop + offsetHeight` against scrollTop, because offsetTop
+			// is relative to the OFFSET PARENT — the positioned panel, not the scroller — so it
+			// carried the header's ~122px and put the handover that much out of reach. The
+			// Emoji Viewer never noticed (it scrolls thousands of px), but Apps, Weather and the
+			// Park Ranger scroll ~70–140px in total and could never reach the old threshold: the
+			// title would scroll clean out of sight and the bar would still be unnamed. Rects
+			// also stay honest when the fold changes the header's height mid-scroll.
+			const r = bodyTitleEl.getBoundingClientRect();
+			const visible = Math.max(0, r.bottom - scroller.getBoundingClientRect().top);
+			// A little hysteresis so a hair of scroll near the seam can't flicker it — but
+			// scaled to the TITLE, not a flat pixel count. The title is only as tall as its own
+			// type, and destSize shrinks that for long names: "Intergalactic Park Ranger" is
+			// ~26px on desktop and every title is ~30px on a phone. A flat 36px band was taller
+			// than the whole title there, so once the compact title arrived nothing could ever
+			// dismiss it — it stayed pinned beside the badge with the big title back in view.
+			const hideAt = Math.max(16, Math.min(36, r.height * 0.6));
+			headTitleShown = headTitleShown ? visible < hideAt : visible <= 12;
 		}
 	}
 	function onSurfaceScroll(e: Event) {
@@ -1066,13 +1083,13 @@
 		headTitleShown = false; // a fresh panel opens at the top, big title in view
 		surfHeadCollapsed = false;
 	});
-	// When the EMOJ big title mounts, sync from the CURRENT scroll — a refresh mid-scroll
-	// can restore the inner scroller with no scroll event to say so, which left the compact
+	// When the big title mounts, sync from the CURRENT scroll — a refresh mid-scroll can
+	// restore the inner scroller with no scroll event to say so, which left the compact
 	// title hidden until the next scroll. rAF so any restoration has landed and the title's
 	// height is measurable. Runs after the reset effect above (later in source), so its
 	// value wins on a fresh mount.
 	$effect(() => {
-		const el = emojTitleEl;
+		const el = bodyTitleEl;
 		if (!el) return;
 		const raf = requestAnimationFrame(() => {
 			const scroller = el.closest('.surface-body') as HTMLElement | null;
@@ -2146,10 +2163,10 @@
 									<span class="app-badge-mark">{@html PORT_ICONS[v.code] ?? ''}</span>
 								</button>
 							{/if}
-							{#if v.code === 'EMOJ' && headTitleShown && !(emojiSearch.open && isMobile)}
+							{#if NEW_HEADER.includes(v.code) && headTitleShown && !(v.code === 'EMOJ' && emojiSearch.open && isMobile)}
 								<!-- The compact title flies in beside the badge once the big title (in the
-								     scrolling body) has gone by — but yields when the grown search would
-								     crowd it (on a phone, the field takes most of the row). -->
+								     scrolling body) has gone by — but yields when the Emoji Viewer's grown
+								     search would crowd it (on a phone, the field takes most of the row). -->
 								<span class="head-title" in:fly={{ x: -14, duration: 380, easing: backOut }} out:fly={{ x: -10, duration: 150 }}>{port.title}</span>
 							{/if}
 							{#if v.code === 'EMOJ'}
@@ -2209,16 +2226,16 @@
 								</div>
 							{/if}
 						</div>
-						{#if v.code !== 'EMOJ'}
+						{#if !NEW_HEADER.includes(v.code)}
+							<!-- Panels off the model keep the old arrangement: the title sits in the
+							     header, with the accent bullet beside it. On the model the title moves
+							     to the BODY (below) so it scrolls away, and the bullet becomes the
+							     badge on the row above. -->
 							<div class="title-row csb-row">
 								<h2 class="dest csb-title" style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
-								<!-- The new model moves the bullet up to a badge beside Back (see .app-badge);
-								     panels not yet on it keep the bullet here beside the title. -->
-								{#if !NEW_HEADER.includes(v.code)}{@render accentDot(v.code, destSize(port.title))}{/if}
+								{@render accentDot(v.code, destSize(port.title))}
 							</div>
 						{/if}
-						<!-- EMOJ: the big title lives in the BODY (below), so it scrolls away; the
-						     header keeps only its control row. -->
 					</div>
 					<div
 						class="surface-body"
@@ -2227,6 +2244,13 @@
 						class:scrolled={surfScrolled}
 						onscroll={onSurfaceScroll}
 					>
+						{#if NEW_HEADER.includes(v.code)}
+							<!-- THE BIG TITLE, first thing in the scrolling body — so it scrolls away and
+							     hands the naming over to the compact title in the bar (headTitleShown).
+							     It's the panel's h2 wherever it sits; only the parent changed, from the
+							     header to the scroller. Bound so its own height is the handover threshold. -->
+							<h2 class="dest body-title" bind:this={bodyTitleEl} style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
+						{/if}
 						{#if v.code === 'WTHR'}
 							<!-- Weather lives INSIDE the ordinary panel — it's a reading, not a workspace, so
 							     it doesn't take over the viewport the way the board and the Builder do. -->
@@ -2241,10 +2265,7 @@
 							<PudIdle />
 						{:else if v.code === 'EMOJ'}
 							<!-- The Emoji Viewer: a wall of the system's own emojis to browse and copy.
-							     Its big title lives HERE, at the top of the scroll body, so it scrolls
-							     away — the header keeps only the control row, and a compact title flies
-							     in beside the badge once this has passed (headTitleShown). -->
-							<h2 class="dest ev-title" bind:this={emojTitleEl} style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
+							     Its big title is the shared one above, at the top of the scroll body. -->
 							<EmojiViewer />
 						{:else if v.code === 'STG'}
 							{@const editStg = dev && editMode}
@@ -3770,10 +3791,10 @@
 		}
 	}
 
-	/* EMOJ: the big title, now the first thing in the SCROLLING body (so it scrolls away).
-	   It keeps .dest's wordmark scale; a little top room stands in for the header padding it
-	   used to sit under. */
-	.ev-title {
+	/* The big title, first thing in the SCROLLING body (so it scrolls away) on every panel
+	   on the new header model. It keeps .dest's wordmark scale; a little top room stands in
+	   for the header padding it used to sit under. */
+	.body-title {
 		margin: 0.25rem 0 0;
 	}
 	/* The compact title that flies in beside the badge once the big one is gone — bar scale,
