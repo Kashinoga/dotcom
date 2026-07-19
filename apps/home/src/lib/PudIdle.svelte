@@ -424,8 +424,14 @@
 	     as its newest entry — arriving in the accent, so it's still the first thing you see on
 	     a return — and printing the same sentence twice on one screen read as a stutter.) -->
 
-	<!-- The tally: the shard mark, the count, and what's flowing in. -->
-	<div class="pud-count">
+	<!-- The GAME column. It's a wrapper rather than a bare run of children so the two-column
+	     layout below is a grid of exactly TWO cells. The first attempt left them all as direct
+	     children and stretched the ledger down the side with `grid-row: 1 / span 99` — which
+	     really does make 99 rows, and .pud's row-gap then charged for every empty one: ~1650px
+	     of nothing, and a scrollbar on a panel whose content ended a third of the way down. -->
+	<div class="pud-main">
+		<!-- The tally: the shard mark, the count, and what's flowing in. -->
+		<div class="pud-count">
 		<span class="pud-gem" class:boosted aria-hidden="true">{@html GEM_SVG}</span>
 		<div>
 			<div class="pud-num">
@@ -531,7 +537,8 @@
 					{fmt(rigCost(r))}
 				</button>
 			</div>
-		{/each}
+			{/each}
+		</div>
 	</div>
 
 	{#if log.length}
@@ -601,6 +608,14 @@
 		flex-direction: column;
 		gap: 1.05rem;
 	}
+	/* The game column carries the stack's own rhythm, so .pud is left holding just two things:
+	   this and the ledger. */
+	.pud-main {
+		display: flex;
+		flex-direction: column;
+		gap: 1.05rem;
+		min-width: 0;
+	}
 	/* ── Two columns, once there's room ──────────────────────────────────────────
 	   Full-viewport, this app has far more width than a stack of rows needs, and the ledger is
 	   the piece that wants to be READ ALONGSIDE rather than scrolled down to: it's the answer
@@ -620,16 +635,15 @@
 			column-gap: clamp(1.25rem, 2.5vw, 2.25rem);
 			align-items: start;
 		}
-		.pud > * {
+		/* Exactly two cells, so nothing has to span anything: the game column is one child and
+		   the ledger is the other. This replaced a `grid-row: 1 / span 99` on the ledger, which
+		   generated 99 rows and paid row-gap on all of them — about 1650px of empty grid, and a
+		   scrollbar on a panel whose content stopped a third of the way down. */
+		.pud-main {
 			grid-column: 1;
 		}
-		/* Top of the second column, and only as tall as it needs to be — `span 99` reaches past
-			 however many rows the left column grows to (an explicit `-1` can't resolve against
-			 IMPLICIT rows, which is what a flat child list makes), while align-self keeps it
-			 sitting at the top instead of stretching down the whole side. */
 		.pud-ledger {
 			grid-column: 2;
-			grid-row: 1 / span 99;
 			align-self: start;
 		}
 		/* Its own frame, so it reads as a panel beside the game rather than a stray list. */
@@ -650,7 +664,8 @@
 	}
 	/* Entrance — the panel's pieces settle top-to-bottom, the Weather/Court cadence. */
 	@media (prefers-reduced-motion: no-preference) {
-		.pud > * {
+		.pud-main > *,
+		.pud-ledger {
 			animation: pud-settle 0.45s ease backwards;
 		}
 		/* …but NOT the settings card. It's a child of .pud, so it was picking this up on top of
@@ -660,19 +675,19 @@
 		.pud > .pud-settings {
 			animation: none;
 		}
-		.pud > :nth-child(2) {
+		.pud-main > :nth-child(2) {
 			animation-delay: 0.06s;
 		}
-		.pud > :nth-child(3) {
+		.pud-main > :nth-child(3) {
 			animation-delay: 0.12s;
 		}
-		.pud > :nth-child(4) {
+		.pud-main > :nth-child(4) {
 			animation-delay: 0.18s;
 		}
-		.pud > :nth-child(5) {
+		.pud-main > :nth-child(5) {
 			animation-delay: 0.24s;
 		}
-		.pud > :nth-child(6) {
+		.pud-main > :nth-child(6) {
 			animation-delay: 0.3s;
 		}
 	}
@@ -1105,7 +1120,14 @@
 		position: absolute;
 		z-index: 5;
 		top: 0;
-		right: 0;
+		/* Lined up with the GEAR, not with this column. The card lives in the body, which is
+		   inset further from the edge than the bar its button sits in, so `right: 0` left it
+		   ~29px shy of the button and read as floating near it rather than hanging off it.
+		   Reaching out by the difference between the two insets (both published by the page on
+		   this body) puts the card's right edge exactly under the button's at every width — the
+		   pixel gap changes with the viewport, since both insets are clamps, so a fixed nudge
+		   would have been right at one size and wrong everywhere else. */
+		right: calc(var(--bar-inset, 1rem) - var(--app-inset, 2.75rem));
 		width: min(20rem, calc(100% - 1rem));
 		display: flex;
 		flex-direction: column;

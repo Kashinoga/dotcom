@@ -3615,7 +3615,13 @@
 	   distance off the edge. Deliberately WIDER than the bar's --bar-inset: the board does the
 	   same, keeping its chrome tight to the corner while its rows breathe. */
 	.surface-head.bar + .surface-body {
-		padding-inline: clamp(1.5rem, 4vw, 2.75rem);
+		/* Both insets are published here, because the app inside needs the DIFFERENCE: the
+		   settings card is drawn in this body but springs from a button in the bar, and the two
+		   sit at different distances from the edge. Naming them lets the card line up with its
+		   button at any width instead of guessing a pixel count that only holds at one. */
+		--app-inset: clamp(1.5rem, 4vw, 2.75rem);
+		--bar-inset: clamp(0.7rem, 1.3vw, 1rem);
+		padding-inline: var(--app-inset);
 		padding-bottom: 2rem;
 	}
 	/* The header's control row: Back at the left, a panel's own action (Weather's search) at the
