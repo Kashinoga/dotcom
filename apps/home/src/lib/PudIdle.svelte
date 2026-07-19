@@ -83,7 +83,47 @@
 		}
 	];
 
+	// ── Woodcutting ─────────────────────────────────────────────────────────────
+	// The first of the ancestor build's SKILLS to come over (~/Downloads/Git/pud-idle,
+	// WoodcuttingView.svelte). It's the other half of an idle game from the rigs: those pay
+	// while you're gone, this pays attention — you pick a stand, it takes real seconds, and
+	// you watch it fill. Same three the ancestor cut, same forest (LPU-1031's fast-grown
+	// timber), at times that suit a panel you visit rather than a page you live in.
+	//
+	// One axe, one tree: starting a cut while another runs is refused rather than queued, which
+	// is the ancestor's rule and the reason the progress bar can be a single CSS animation
+	// instead of a scheduler.
+	type Tree = { id: string; name: string; blurb: string; ms: number; yield: number };
+	const TREES: Tree[] = [
+		{
+			id: 'kindling',
+			name: 'Kindling',
+			blurb: 'Dry twigs off the forest floor. Quick work, and it catches at a spark.',
+			ms: 1600,
+			yield: 1
+		},
+		{
+			id: 'timber',
+			name: 'Timber',
+			blurb: 'Living stands, grown fast and light in the long LPU-1031 daylight.',
+			ms: 3400,
+			yield: 1
+		},
+		{
+			id: 'deadfall',
+			name: 'Deadfall',
+			blurb: 'Fallen giants, slow to break. The fungal floor has been at them for years.',
+			ms: 5600,
+			yield: 2
+		}
+	];
+
 	let shards = $state(0);
+	let wood = $state<Record<string, number>>({});
+	// The cut in progress, or nothing. `ms` rides along so the bar can animate for exactly as
+	// long as the award is going to take, from one source of truth.
+	let chop = $state<{ id: string; ms: number } | null>(null);
+	let chopTimer = 0;
 	let lifetime = $state(0); // every shard ever held — the save's bragging number
 	let clickLevel = $state(0);
 	let owned = $state<Record<string, number>>(Object.fromEntries(RIGS.map((r) => [r.id, 0])));
@@ -105,7 +145,7 @@
 	// this panel writes to it. The ancestor tagged each event with an EMOJI; here a kind maps to
 	// a colour instead — dotcom draws its marks as SVG and sets its tone in type, so a row of
 	// emoji would read as a foreign object. The colour does the same scanning work.
-	type LogKind = 'rig' | 'upgrade' | 'boost' | 'time' | 'away' | 'reset';
+	type LogKind = 'rig' | 'upgrade' | 'boost' | 'time' | 'away' | 'reset' | 'wood';
 	type LogEntry = { id: number; kind: LogKind; message: string; at: number };
 	const LOG_MAX = 20; // the ancestor's cap, and about a screenful
 	let log = $state<LogEntry[]>([]);
@@ -164,6 +204,11 @@
 		return hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
 	};
 
+	// What's actually in the stores, in the order the stands are listed — so the card reads down
+	// in the same order as the detail above it rather than by whatever arrived first.
+	const held = $derived(
+		TREES.map((t) => ({ id: t.id, name: t.name, count: wood[t.id] ?? 0 })).filter((h) => h.count > 0)
+	);
 	const perClick = $derived(1 + clickLevel);
 	const rigRunning = (id: string) => (owned[id] ?? 0) > 0 && !rigPaused[id];
 	const baseCps = $derived(
@@ -259,6 +304,24 @@
 		pullSeq += 1;
 		syncFlap(Date.now()); // a pull that lands in an open window flaps at once
 	}
+	function startChop(t: Tree) {
+		// Clicking the tree you're already cutting calls it off — the ancestor simply ignored a
+		// second click, but a cut you can't stop is a five-second lockout on a panel someone
+		// might be leaving. Nothing is awarded for a cancelled cut.
+		if (chop?.id === t.id) {
+			clearTimeout(chopTimer);
+			chop = null;
+			return;
+		}
+		if (chop) return; // one axe, one tree
+		chop = { id: t.id, ms: t.ms };
+		chopTimer = window.setTimeout(() => {
+			wood[t.id] = (wood[t.id] ?? 0) + t.yield;
+			note('wood', `Felled ${t.yield > 1 ? `${t.yield}× ` : ''}${t.name}.`);
+			chop = null;
+			save();
+		}, t.ms);
+	}
 	function buyRig(r: Rig) {
 		const cost = rigCost(r);
 		if (shards < cost) return;
@@ -315,6 +378,9 @@
 		owned = Object.fromEntries(RIGS.map((r) => [r.id, 0]));
 		boostUntil = 0;
 		boostReadyAt = 0;
+		wood = {};
+		clearTimeout(chopTimer);
+		chop = null;
 		log = [];
 		note('reset', 'The universe is bare again. The probe is in your hand.');
 		armReset = false;
@@ -335,6 +401,7 @@
 		// The ledger rides along, so a return shows what the division did before you left
 		// rather than an empty page. Bounded by LOG_MAX on the way in and on the way out.
 		log?: LogEntry[];
+		wood?: Record<string, number>;
 		savedAt: number;
 	};
 	function save() {
@@ -350,6 +417,7 @@
 				paused,
 				rigPaused: { ...rigPaused },
 				log: log.slice(0, LOG_MAX),
+				wood: { ...wood },
 				savedAt: Date.now()
 			};
 			localStorage.setItem(SAVE_KEY, JSON.stringify(body));
@@ -375,6 +443,7 @@
 				boostReadyAt = s.boostReadyAt ?? 0;
 				paused = s.paused ?? false;
 				rigPaused = { ...(s.rigPaused ?? {}) };
+				wood = { ...(s.wood ?? {}) };
 				// Restore the ledger, defensively: it's the one saved field that's a list of
 				// objects, so a hand-edited or half-written save could put anything here.
 				log = Array.isArray(s.log)
@@ -437,6 +506,7 @@
 		clearInterval(tickTimer);
 		clearInterval(saveTimer);
 		clearInterval(stampTimer);
+		clearTimeout(chopTimer); // a cut in flight doesn't outlive the panel
 		if (typeof window !== 'undefined') {
 			window.removeEventListener('pagehide', save);
 			document.removeEventListener('pointerdown', onAwayPointer, true);
@@ -573,9 +643,48 @@
 			</div>
 			{/each}
 		</div>
+
+		<!-- WOODCUTTING — the active half. The rigs pay while you're away; this pays attention.
+		     One stand at a time (see startChop): pressing the one that's running calls it off,
+		     pressing another while one runs is refused. -->
+		<div class="pud-wood">
+			<p class="pud-lead">Forestry detail</p>
+			{#each TREES as t (t.id)}
+				{@const busy = chop?.id === t.id}
+				<button
+					type="button"
+					class="pud-item pud-tree"
+					class:busy
+					disabled={!!chop && !busy}
+					onclick={() => startChop(t)}
+					aria-label={busy ? `Stop cutting ${t.name}` : `Cut ${t.name}`}
+				>
+					{#if busy}
+						<!-- The cut itself, drawn once and left to the compositor: the bar's duration IS
+						     the action's duration, so nothing has to tick it. No {#key} needed — the
+						     block unmounts when the cut ends, so the next one gets a fresh node and the
+						     animation starts from zero on its own. -->
+						<span class="pud-tree-fill" style:--chop-ms="{t.ms}ms" aria-hidden="true"></span>
+					{/if}
+					<span class="pud-tree-copy">
+						<span class="pud-item-name">
+							{t.name}
+							{#if (wood[t.id] ?? 0) > 0}<span class="pud-owned">×{fmt(wood[t.id])}</span>{/if}
+						</span>
+						<span class="pud-item-blurb">{t.blurb}</span>
+					</span>
+					<span class="pud-tree-time">{busy ? 'cutting…' : `${(t.ms / 1000).toFixed(1)}s`}</span>
+				</button>
+			{/each}
+		</div>
 	</div>
 
-	{#if log.length}
+	<!-- The SIDE column: what the division has to show for itself. Wrapped, like .pud-main, so
+	     the two-column grid stays exactly two cells — assigning both cards to column 2 and
+	     letting auto-flow find rows for them is how the last layout ended up paying row-gap on
+	     99 empty rows. -->
+	<div class="pud-side">
+		{#if log.length}
 		<!-- THE LEDGER — the division's log, newest first (see `note`). It replaced a single
 		     line that only held the last thing that happened; an idle game is a thing you look
 		     away from, and one sentence can't tell you what you missed.
@@ -607,7 +716,27 @@
 				{/each}
 			</ul>
 		</section>
-	{/if}
+		{/if}
+
+		<!-- THE STORES — what the forestry detail has actually brought in. Only what you HAVE is
+		     listed: an inventory of zeroes is a list of things you haven't done, and the stands
+		     above already say what's out there to cut. -->
+		<section class="pud-inv" aria-label="Division stores">
+			<p class="pud-lead">Division stores</p>
+			{#if held.length}
+				<ul class="pud-inv-list">
+					{#each held as h (h.id)}
+						<li class="pud-inv-row">
+							<span class="pud-inv-name">{h.name}</span>
+							<span class="pud-inv-count">{fmt(h.count)}</span>
+						</li>
+					{/each}
+				</ul>
+			{:else}
+				<p class="pud-inv-empty">Nothing in the stores. The forestry detail is idle.</p>
+			{/if}
+		</section>
+	</div>
 
 	<!-- The division's settings: the lifetime tally, and the way out. They used to sit in a foot
 	     rule under the shop, where a destructive button lived one mis-click from the buy pills;
@@ -642,8 +771,13 @@
 		flex-direction: column;
 		gap: 1.05rem;
 	}
-	/* The game column carries the stack's own rhythm, so .pud is left holding just two things:
-	   this and the ledger. */
+	/* The two columns carry their own stacks, so .pud is left holding exactly two children. */
+	.pud-side {
+		display: flex;
+		flex-direction: column;
+		gap: 1.05rem;
+		min-width: 0;
+	}
 	.pud-main {
 		display: flex;
 		flex-direction: column;
@@ -676,12 +810,13 @@
 		.pud-main {
 			grid-column: 1;
 		}
-		.pud-ledger {
+		.pud-side {
 			grid-column: 2;
 			align-self: start;
 		}
 		/* Its own frame, so it reads as a panel beside the game rather than a stray list. */
-		.pud-ledger {
+		.pud-ledger,
+		.pud-inv {
 			padding: 0.9rem 1rem;
 			border: 1px solid var(--line-edge);
 			border-radius: 14px;
@@ -699,7 +834,7 @@
 	/* Entrance — the panel's pieces settle top-to-bottom, the Weather/Court cadence. */
 	@media (prefers-reduced-motion: no-preference) {
 		.pud-main > *,
-		.pud-ledger {
+		.pud-side > * {
 			animation: pud-settle 0.45s ease backwards;
 		}
 		/* …but NOT the settings card. It's a child of .pud, so it was picking this up on top of
@@ -1094,6 +1229,151 @@
 	.pud-buy:disabled {
 		opacity: 0.5;
 		cursor: default;
+	}
+
+	/* ── Woodcutting ─────────────────────────────────────────────────────────────
+	   The stands read as the requisition rows do — a name, a blurb, and a figure at the right —
+	   because they ARE the same kind of thing: a row you press. What's different is that this
+	   one takes time, so the row itself is the progress bar. */
+	.pud-wood {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	/* A stand IS a requisition row — it wears .pud-item for the card itself (face, border,
+	   radius, padding) so the two lists read as one kind of thing, which they are: a row you
+	   press. What's left here is only what a requisition row doesn't need — it's a <button>,
+	   it clips a progress fill, and it can be busy or waiting its turn. */
+	.pud-tree {
+		position: relative;
+		overflow: hidden; /* the fill is clipped to the card's own corners */
+		align-items: center;
+		width: 100%;
+		text-align: left;
+		font: inherit;
+		cursor: pointer;
+		transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+	}
+	.pud-tree:hover:not(:disabled) {
+		border-color: var(--line-strong);
+	}
+	/* Another stand is being cut: this one isn't refusing you, it's waiting its turn. */
+	.pud-tree:disabled {
+		opacity: 0.45;
+		cursor: default;
+	}
+	.pud-tree.busy {
+		border-color: var(--accent, #f06030);
+	}
+	/* The blurb is dimmed ink, which is fine on the card's own face and weak once the accent
+	   sweeps under it. While a cut runs it comes up to full ink — legible on both halves of the
+	   row, since the fill passes across rather than covering it all at once. */
+	.pud-tree.busy .pud-item-blurb {
+		color: var(--ink);
+	}
+	.pud-tree-copy {
+		position: relative;
+		z-index: 1; /* above the fill, so the sweep passes behind the words */
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+		min-width: 0;
+		flex: 1;
+	}
+	.pud-tree-time {
+		position: relative;
+		z-index: 1;
+		flex: none;
+		font-size: 0.72rem;
+		font-variant-numeric: tabular-nums;
+		color: color-mix(in srgb, var(--ink) 45%, transparent);
+	}
+	/* THE CUT. One animation, running for exactly the action's duration — the award lands on a
+	   timer of the same length, so the bar reaching the end and the log line appearing are the
+	   same moment. Linear, because this one IS reporting progress through a wait: an eased bar
+	   would lie about how much is left. */
+	.pud-tree-fill {
+		position: absolute;
+		inset: 0;
+		z-index: 0;
+		transform-origin: left center;
+		transform: scaleX(0);
+		/* The SAME indicator Extract floods with — solid accent, not a tint, so a cut and a pull
+		   read as the same material doing the same job at different speeds. Its opacity is
+		   static here and the animation drives only the transform: Extract's flash fades out
+		   because it's over in 240ms, but a cut is a wait you watch, and a bar that dimmed as it
+		   filled would be reporting the opposite of what's happening. */
+		opacity: 0.9;
+		background: var(--accent, #f06030);
+		pointer-events: none;
+	}
+	/* …aeroified with it. Same reasoning as the pull: the card wears the family's gloss, and once
+	   the fill covers the card it covers that gloss, so the fill carries its own inset rim light
+	   and the material holds all the way across. */
+	:global(html[data-ui='bubble']) .pud-tree-fill {
+		box-shadow: var(--aero-gloss);
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.pud-tree-fill {
+			animation: pud-chop var(--chop-ms, 3s) linear forwards;
+		}
+	}
+	/* With a motion preference set the bar doesn't sweep, so the row says it another way: the
+	   whole stand tints for as long as the cut runs. Something has to mark the wait. */
+	@media (prefers-reduced-motion: reduce) {
+		.pud-tree.busy {
+			background: color-mix(in srgb, var(--accent, #f06030) 16%, transparent);
+		}
+	}
+	@keyframes pud-chop {
+		from {
+			transform: scaleX(0);
+		}
+		to {
+			transform: scaleX(1);
+		}
+	}
+
+	/* ── The stores ──────────────────────────────────────────────────────────────
+	   A short tally under the ledger: what the forestry detail has brought in, in the order the
+	   stands are listed. Quiet by design — the ledger beside it is the thing with news. */
+	.pud-inv {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.pud-inv-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	.pud-inv-row {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.3rem 0;
+		font-size: 0.85rem;
+	}
+	.pud-inv-row + .pud-inv-row {
+		border-top: 1px solid transparent;
+		border-image: var(--rule-fade) 1;
+	}
+	.pud-inv-name {
+		color: var(--ink);
+	}
+	.pud-inv-count {
+		font-variant-numeric: tabular-nums;
+		font-weight: 700;
+		color: var(--accent, #f06030);
+	}
+	.pud-inv-empty {
+		margin: 0;
+		font-size: 0.8rem;
+		font-style: italic;
+		color: color-mix(in srgb, var(--ink) 45%, transparent);
 	}
 
 	/* ── The ledger ──────────────────────────────────────────────────────────────

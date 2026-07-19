@@ -2655,6 +2655,16 @@
 	.stage {
 		position: fixed;
 		inset: 0;
+		/* …and sized to the VISIBLE viewport, not the layout one. `inset: 0` alone resolves
+		   against the layout viewport, which on iOS is the tall one — the height the page has
+		   when Safari's toolbars are collapsed. With them expanded the stage is taller than
+		   what you can actually see, so the panel hangs below the fold and its control bar
+		   rides up out of view as the toolbar animates: the bar reads as "not sticky" when in
+		   fact the whole frame is off. dvh tracks the visible height as the toolbars move.
+		   The vh line stays as the fallback for anything without dvh; a browser that
+		   understands the second simply takes it. */
+		height: 100vh;
+		height: 100dvh;
 		overflow: hidden;
 		/* The default background: pure white in light, pure black in dark — or the time-of-day
 		   sky gradient when sky mode is opted into. Kept here (not --page) so the backdrop is a
