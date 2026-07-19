@@ -752,6 +752,33 @@
 	// branches.
 	const PANEL_CARDS: Record<string, string[]> = { APP: APP_CARDS, ABT: ['WRK', 'PRJ'] };
 
+	// Where to cut the card list into the two desktop columns (see .app-cols). The cut is
+	// CONTIGUOUS — column one takes a prefix, column two the rest — so that when the columns
+	// stack on a phone they read back as the original alphabetical run. That rules out the
+	// greedy shortest-column packing a masonry board would use; instead we pick the one cut
+	// point whose two halves come out closest in height.
+	//
+	// Height is estimated, not measured: a card is its title plus its blurb, wrapped at a
+	// rough character count for the ~270px column. Being a line or two out just makes the
+	// columns slightly uneven — it can't break the layout, which is why it isn't worth a
+	// measure/reflow pass.
+	const cardLines = (c: string) =>
+		Math.ceil((airports[c]?.title?.length ?? 0) / 22) +
+		Math.ceil((portDescriptions[c]?.length ?? 0) / 34);
+	function cardSplit(codes: string[]): number {
+		const h = codes.map(cardLines);
+		const total = h.reduce((a, b) => a + b, 0);
+		let run = 0,
+			best = 1,
+			bestDelta = Infinity;
+		for (let k = 1; k < codes.length; k++) {
+			run += h[k - 1];
+			const delta = Math.abs(run - (total - run));
+			if (delta < bestDelta) (bestDelta = delta), (best = k);
+		}
+		return best;
+	}
+
 	const stub = (t: string): Block[] => [
 		{
 			p: `“${t}” is a placeholder destination. This surface scrolls and holds headings, paragraphs, images, and quotes — drop the real ${t.toLowerCase()} content here.`
@@ -1684,6 +1711,41 @@
 	</div>
 {/snippet}
 
+<!-- A panel's onward destinations, dealt into two columns on desktop and one everywhere else.
+     TWO REAL LISTS, not one multicol list: CSS columns did this in fewer lines, but WebKit
+     doesn't reliably paint a column after the first here — Safari left the second column's
+     top card as an empty slot, and headless WebKit dropped the whole column, while Chromium
+     and Firefox were fine. Flex columns are laid out and painted the same way by all three.
+     The cut is contiguous (see cardSplit), so stacked on a phone they read alphabetically. -->
+{#snippet appCards(codes: string[])}
+	{@const k = codes.length > 1 ? cardSplit(codes) : codes.length}
+	<div class="app-cols">
+		{#each [codes.slice(0, k), codes.slice(k)] as group}
+			{#if group.length}
+				<ul class="app-cards">
+					{#each group as c}
+						<li>
+							<a
+								class="app-card"
+								href={viewPath({ kind: 'port', code: c })}
+								data-sveltekit-preload-data="off"
+								style:--card-accent={accent[c]}
+								onclick={(e) => onNodeClick(e, () => board(c))}
+							>
+								<span class="app-ico">{@html PORT_ICONS[c]}</span>
+								<span class="app-copy">
+									<span class="app-name">{airports[c].title}</span>
+									<span class="app-blurb">{portDescriptions[c]}</span>
+								</span>
+							</a>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		{/each}
+	</div>
+{/snippet}
+
 <!-- A nav flyout's content — the same blocks the destination's panel shows (pages[code],
      so Edit Mode's saved copy carries over), minus the panel chrome: these stops are a
      hello and a bio, not workspaces. About's onward cards (Work, Projects — PANEL_CARDS)
@@ -1708,25 +1770,7 @@
 			{/if}
 		{/each}
 		{#if PANEL_CARDS[code]}
-			<ul class="app-cards">
-				{#each PANEL_CARDS[code] as c}
-					<li>
-						<a
-							class="app-card"
-							href={viewPath({ kind: 'port', code: c })}
-							data-sveltekit-preload-data="off"
-							style:--card-accent={accent[c]}
-							onclick={(e) => onNodeClick(e, () => board(c))}
-						>
-							<span class="app-ico">{@html PORT_ICONS[c]}</span>
-							<span class="app-copy">
-								<span class="app-name">{airports[c].title}</span>
-								<span class="app-blurb">{portDescriptions[c]}</span>
-							</span>
-						</a>
-					</li>
-				{/each}
-			</ul>
+			{@render appCards(PANEL_CARDS[code])}
 		{/if}
 	</div>
 {/snippet}
@@ -2477,25 +2521,7 @@
 						     blurb: the Apps panel's live apps, About's two branches (see PANEL_CARDS).
 						     They're the panel's real content, not a rail under it. -->
 						{#if PANEL_CARDS[v.code]}
-							<ul class="app-cards">
-								{#each PANEL_CARDS[v.code] as c}
-									<li>
-										<a
-											class="app-card"
-											href={viewPath({ kind: 'port', code: c })}
-											data-sveltekit-preload-data="off"
-											style:--card-accent={accent[c]}
-											onclick={(e) => onNodeClick(e, () => board(c))}
-										>
-											<span class="app-ico">{@html PORT_ICONS[c]}</span>
-											<span class="app-copy">
-												<span class="app-name">{airports[c].title}</span>
-												<span class="app-blurb">{portDescriptions[c]}</span>
-											</span>
-										</a>
-									</li>
-								{/each}
-							</ul>
+							{@render appCards(PANEL_CARDS[v.code])}
 						{/if}
 					</div>
 					{/if}
@@ -3868,7 +3894,7 @@
 	}
 	/* The onward cards sit closer in the card than in a panel body — the pop is already
 	   a tight reading, and the body's 1.75rem read as a hole in it. */
-	.pop-copy .app-cards {
+	.pop-copy .app-cols {
 		margin-top: 1rem;
 	}
 
@@ -4302,28 +4328,36 @@
 	/* A panel's onward destinations as its real content (see PANEL_CARDS): one card per stop,
 	   each carrying its own mark. Flat, like the panels themselves — an edge and the station's
 	   accent, no shadow. */
-	/* One column by default (mobile, and the narrow nav flyout): the cards stack, spaced by
-	   each item's own bottom margin. Multicol-flow, not grid, so the desktop rule below can
-	   pack the cards like a Pinterest board (natural heights, no equal-row stretching). */
+	/* The columns stack by default — one above the other on a phone and in the narrow nav
+	   flyout — which is why the split that fills them has to be contiguous: stacked, they
+	   read back as the one alphabetical list (see cardSplit). */
+	.app-cols {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		margin-top: 1.75rem;
+	}
 	.app-cards {
 		list-style: none;
-		margin: 1.75rem 0 0;
+		margin: 0;
 		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem; /* gap, not margins — nothing to collapse, nothing to trail */
 	}
-	.app-cards li {
-		break-inside: avoid; /* a card never splits across a column break */
-		margin-bottom: 0.75rem;
-	}
-	/* Desktop: the Apps panel packs its cards into TWO columns, each card its natural height,
-	   the shorter ones tucking up under their neighbours — a Pinterest/masonry board, not an
-	   even grid. CSS columns give the packing for free (and read column-major, which suits a
-	   flat alphabetical list). A ~640px panel has the room; below the mobile seam it falls
-	   back to the single column above. Scoped to the panel BODY so the narrow nav flyout
-	   (About's Work/Projects) keeps its single column. */
+	/* Desktop: the two lists sit side by side, each card its natural height and the shorter
+	   column ending where it ends — the Pinterest board the cards had under CSS columns,
+	   minus the WebKit paint bug that cost the second column (see the appCards snippet).
+	   `align-items: flex-start` keeps the lists from stretching to a common height; scoped
+	   to the panel BODY so the flyout (About's Work/Projects) stays stacked. */
 	@media (min-width: 961px) {
-		.surface-body .app-cards {
-			column-count: 2;
-			column-gap: 0.75rem;
+		.surface-body .app-cols {
+			flex-direction: row;
+			align-items: flex-start;
+		}
+		.surface-body .app-cols > .app-cards {
+			flex: 1 1 0;
+			min-width: 0; /* flex items floor at content width without it; the blurbs would push wide */
 		}
 	}
 	.app-card {
