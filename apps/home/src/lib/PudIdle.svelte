@@ -174,7 +174,17 @@
 	const canBoost = $derived(nowMs >= boostReadyAt && baseCps > 0 && !paused);
 
 	const rigCost = (r: Rig) => Math.round(r.base * Math.pow(1.15, owned[r.id] ?? 0));
-	const clickCost = $derived(Math.round(25 * Math.pow(1.7, clickLevel)));
+	// Sharpening starts at the price of your first Field Probe — the anchor is deliberate: the
+	// two are the things you can afford first, and one pays whenever you pull while the other
+	// pays while you're gone.
+	//
+	// It used to open at 25 and climb ×1.7, which is steeper than the RIGS climb (×1.15) for a
+	// reward that stays a flat +1. That compounds badly: the eighth sharpen cost 1,744 shards
+	// for one more shard a pull, and getting there cost 4,199 — by which point a Relay Mast at
+	// ~115 was paying +10/s and the upgrade was plainly a trap. ×1.4 keeps the same shape (each
+	// one dearer than the last, so it can't outrun the rigs forever) at a price that stays worth
+	// paying: the eighth is 221 and the whole run to it is 737.
+	const clickCost = $derived(Math.round(15 * Math.pow(1.4, clickLevel)));
 
 	// Short-scale formatting: whole numbers under a thousand (the count is a tally, not
 	// a reading), one decimal once the units arrive.

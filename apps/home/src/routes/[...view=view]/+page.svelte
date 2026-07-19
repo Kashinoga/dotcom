@@ -2147,7 +2147,14 @@
 						class:scrolled={surfScrolled}
 					>
 						<div class="head-row csb-fold">
-							{#if v.code === 'AITA' && panelExpanded}
+							{#if BAR_HEADER.includes(v.code) && isMobile}
+								<!-- A dense bar on a PHONE drops its Back cap. There's barely a row's
+								     worth of width there, and the cap plus its gap was the 50px that
+								     squeezed everything to its right — the badge, the name, and the
+								     controls. The way out is the browser's own back gesture, which
+								     works because every panel is a real URL (pushState, see applyView);
+								     desktop keeps the cap, where the room was never in question. -->
+							{:else if v.code === 'AITA' && panelExpanded}
 								<!-- E-COPO trades Back for Home, like the other full-viewport apps:
 								     expanded has nowhere to peel back to mid-thought, so the left cap
 								     goes straight home (the right cap already collapses). -->
@@ -3664,6 +3671,15 @@
 	.head-row .head-actions {
 		flex: 0 1 auto;
 		min-width: 0;
+	}
+	/* …but the DISCS inside it don't shrink. That allowance is for a growing search FIELD, which
+	   is elastic by design; an icon button is a circle, and letting it absorb the squeeze turned
+	   the Park Ranger's gear into a 28x42 oval on a phone (26x42 at 360px) while everything else
+	   stayed round. The field still takes the overflow — it's the only elastic thing left in the
+	   cluster, which is what the allowance was always for. */
+	.head-actions > .icon-btn,
+	.head-actions > .beta {
+		flex: none;
 	}
 	/* The panel's own actions, clustered at the right end of the Back row. */
 	.head-actions {
