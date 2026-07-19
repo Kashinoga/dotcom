@@ -32,11 +32,19 @@
 	const BOOST_COOLDOWN_MS = 150_000; // …and the works need 2m to cool after
 
 	type Rig = { id: string; name: string; blurb: string; cps: number; base: number };
-	// Costs walk the idle classic ×1.15 per owned; each tier ~an order of magnitude up.
-	// EVERY rig earns at least a whole shard a second. The first two used to pay 0.1/s and 1/s,
-	// which read as buying nothing: the headline counter ticks in hundredths, so a Field Probe's
-	// tenth-of-a-shard was invisible against a pull worth a whole one, and the first purchase —
-	// the one that has to land — felt like a downgrade from clicking.
+	// Costs walk the idle classic ×1.15 per owned; each tier ~an order of magnitude up. The
+	// COSTS are Cookie Clicker's own opening ladder (15 / 100 / 1.1k / 12k / 130k), so the rates
+	// are its ladder too — multiplied by ten, which buys the one thing this game needed that
+	// Cookie Clicker didn't: EVERY rig earns at least a whole shard a second. At CC's literal
+	// rates the first two paid 0.1/s and 1/s, and a tenth of a shard is invisible here — the
+	// headline ticks in hundredths, so the first purchase, the one that has to land, felt like a
+	// downgrade from clicking.
+	//
+	// Lifting only those two (1 and 4) fixed the floor and broke the ladder: it left the Field
+	// Probe 33× more shard-efficient than the Starship Array, so every tier after the first was
+	// a worse buy than the thing you already owned. Scaling the whole curve by the same ten
+	// keeps CC's shape — the Relay is the early sweet spot, and efficiency eases off gently
+	// after it — and brings the spread from 33× down to 5×.
 	const RIGS: Rig[] = [
 		{
 			id: 'probe',
@@ -49,28 +57,28 @@
 			id: 'relay',
 			name: 'Relay Mast',
 			blurb: 'Shards drift in on the division band, day and night.',
-			cps: 4,
+			cps: 10,
 			base: 100
 		},
 		{
 			id: 'foundry',
 			name: 'Shard Foundry',
 			blurb: 'The pocket-universe foundries, retooled for extraction.',
-			cps: 8,
+			cps: 80,
 			base: 1100
 		},
 		{
 			id: 'grove',
 			name: 'Grove Server',
 			blurb: 'Racked deep in the sacred groves, where premium data grows.',
-			cps: 47,
+			cps: 470,
 			base: 12_000
 		},
 		{
 			id: 'array',
 			name: 'Starship Array',
 			blurb: 'The old starship’s dish farm, turned inward at last.',
-			cps: 260,
+			cps: 2600,
 			base: 130_000
 		}
 	];
@@ -180,8 +188,9 @@
 		}
 		return `${n < 100 ? n.toFixed(1) : Math.floor(n)}${units[u]}`;
 	};
-	// Rates keep their decimal while they're small — the first probe's 0.1/s is the whole
-	// point of the purchase, and the tally's floor read it as nothing at all.
+	// Rates keep their decimal while they're small. Every RIG is a whole number now, but the
+	// live rate isn't: a single probe overclocked is 2/s, and a paused-then-resumed board can
+	// sit on fractions between ticks.
 	const fmtRate = (n: number): string => (n > 0 && n < 10 ? String(Math.round(n * 10) / 10) : fmt(n));
 	// The HEADLINE tally, split for life: the whole part big, and — while the count is
 	// small enough that the fraction still reads — two decimals trailing, dimmed and
