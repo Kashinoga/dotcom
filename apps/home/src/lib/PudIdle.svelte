@@ -653,6 +653,13 @@
 		.pud > * {
 			animation: pud-settle 0.45s ease backwards;
 		}
+		/* …but NOT the settings card. It's a child of .pud, so it was picking this up on top of
+		   its own popSpring and playing two entrances at once — springing out of the gear while
+		   also settling down from above. This one is a popout, not part of the page's arrival:
+		   it comes and goes on a press, long after the panel has landed. */
+		.pud > .pud-settings {
+			animation: none;
+		}
 		.pud > :nth-child(2) {
 			animation-delay: 0.06s;
 		}

@@ -3586,23 +3586,9 @@
 	   A full-viewport app spends its vertical space on content, so the header's generous
 	   2.5rem frame and the wordmark-scale title below it both go: the title moves INTO the row
 	   at bar scale, and what it used to occupy goes back to the app. */
-	/* ONE measure for the bar and the body beneath it. Without it the bar spans the whole
-	   viewport while the body centres, so the bar's controls drift away from the content they
-	   belong to: Back sat ~110px left of the tally, and the settings card — which is drawn
-	   inside the BODY — hung ~130px clear of the gear it springs from, reading as unrelated to
-	   the button that opened it. Declared on both wearers so the number lives in one place. */
-	.surface-head.bar,
-	.surface.expanded .surface-body.ranger {
-		--app-measure: 84rem;
-	}
 	.surface-head.bar {
 		--bar-inset: clamp(0.7rem, 1.3vw, 1rem);
 		padding: var(--bar-inset);
-	}
-	.surface-head.bar .head-row {
-		width: 100%;
-		max-width: var(--app-measure);
-		margin-inline: auto;
 	}
 	/* The row's gap is NOT --bar-inset. E-ATFC spends that inset on its FRAME and on the space
 	   between its big groups (ident / deck / corner); the controls inside a cluster sit much
@@ -3625,11 +3611,12 @@
 		   line), so 1.3 still cropped 2.4px off the top and bottom. */
 		line-height: 1.55;
 	}
-	/* The body picks the inset up too, so the content's left edge lines up under the Back cap
-	   instead of stepping in by a full panel margin. */
+	/* The body's own inset — E-ATFC's exact value, so the two apps sit their content the same
+	   distance off the edge. Deliberately WIDER than the bar's --bar-inset: the board does the
+	   same, keeping its chrome tight to the corner while its rows breathe. */
 	.surface-head.bar + .surface-body {
-		padding-inline: clamp(0.7rem, 1.3vw, 1rem);
-		padding-bottom: 1.5rem;
+		padding-inline: clamp(1.5rem, 4vw, 2.75rem);
+		padding-bottom: 2rem;
 	}
 	/* The header's control row: Back at the left, a panel's own action (Weather's search) at the
 	   right. It replaces the bare Back button, so the gap below it is the one Back used to set.
@@ -3890,10 +3877,14 @@
 	   own column at the top right — see .pud), so the cap has to hold both without either being
 	   squeezed. It stays a cap rather than full-bleed so the rows don't run the width of an
 	   ultrawide display. */
+	/* FULL BLEED, like E-ATFC — no centred measure at all. This used to cap at 84rem and centre,
+	   which at 1600px put the app's left edge 144px in while the board it's modelled on starts
+	   at 40px: nearly four times the inset, and most of it invisible margin rather than breath.
+	   The cap made sense when the app was one column of stretched rows; it lays out in two now,
+	   so the width goes to the columns instead of to the gutters. The inset is the board's own
+	   (clamp(1.5rem, 4vw, 2.75rem), applied below) rather than the bar's tighter one — the same
+	   split E-ATFC keeps between its bar and its rows. */
 	.surface.expanded .surface-body.ranger {
-		width: 100%;
-		max-width: var(--app-measure);
-		margin-inline: auto;
 		scrollbar-gutter: stable both-edges;
 	}
 	.surface-body h3 {
