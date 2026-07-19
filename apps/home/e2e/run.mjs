@@ -26,7 +26,14 @@ import { fileURLToPath } from 'node:url';
 // process group it created, never a pattern match.
 //
 // Browsers are not installed by `pnpm install`. Once, per machine:
-//   pnpm --filter home exec playwright install firefox
+//   pnpm --filter home exec playwright install firefox chromium webkit
+//
+// Firefox runs every suite. `cards` additionally runs CHROMIUM and WEBKIT, and that is not
+// incidental: the Apps columns were CSS multicol once, and WebKit doesn't reliably paint a
+// column after the first — Safari shipped a half-empty Apps panel while Firefox and Chromium
+// both rendered it perfectly, so a Firefox-only suite had nothing to say about it. If an engine
+// isn't installed, `cards` FAILS loudly with the install command rather than skipping: a silent
+// pass would put us back where we started.
 //
 // Turnaround / what-to-run (the whole run pays a cold `vite dev` spawn up front):
 //   • Iterating: keep ONE dev server warm and point at it — `E2E_BASE=http://localhost:5219
@@ -34,9 +41,10 @@ import { fileURLToPath } from 'node:url';
 //   • `--changed` scopes to the suites a diff can regress: puhig token/theme edits → the visual
 //     suites (dots/noshadow/glass/pcclose); board/builder/component edits → their suites; the
 //     catch-all page or an unclassified file → the full run.
-//   • The homepage CHROME (masthead, nav, tagline, the stage click-to-close) is NOT covered by
-//     any live suite — the suites that touched it are parked (see SKIP). Verify those edits by
-//     driving the page in a browser, not by running e2e; the suite has nothing to say about them.
+//   • The homepage MASTHEAD (its bullets, the tagline, the stage click-to-close) still has no
+//     suite of its own — `hubsize`, which measured it, was deleted with the map. `deeplink` and
+//     `field` now click the nav to move between panels, so the nav LINKS are exercised, but
+//     nothing asserts how the masthead looks. Verify those edits in a browser.
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = dirname(HERE);
@@ -48,7 +56,9 @@ const SUITES = [
 	'field', // the field selector
 	'settings', // the settings panel
 	'reset', // reset to defaults
-	'dots', // accent bullets beside every panel title
+	'dots', // the accent bullet: a badge on the header model, beside the title off it
+	'header', // the panel super bar — the big title scrolls away, the bar picks up the name
+	'cards', // the Apps panel's two columns — CROSS-ENGINE (see the browsers note above)
 	'buttons', // one hover pop and press squash, everywhere
 	'noshadow', // Flat mode grows no shadows — rest, hover, or :active
 	'glass', // …and no backdrop-filter
@@ -85,7 +95,9 @@ const BROAD = [
 
 // Suites that assert on colour, material, shadow, dot geometry or panel chrome — i.e. what a
 // design-token or puhig-surface change can regress. Reused for every puhig file below.
-const PANEL_UI = ['dots', 'noshadow', 'glass', 'pcclose'];
+// `header` is in here because puhig owns the collapsed super bar itself (.csb / .csb-on /
+// .csb-fold in base.css) — the bar this suite drives is a puhig recipe, not just app markup.
+const PANEL_UI = ['dots', 'header', 'noshadow', 'glass', 'pcclose'];
 
 // Narrower source files → just the suites that exercise them. (Views all render through the
 // catch-all page, but these modules own a bounded slice of it.) Entries may name suites that
@@ -98,10 +110,12 @@ const NARROW = [
 	{ re: /^src\/lib\/fields\.ts$/, suites: ['field', 'scope', 'oplong'] },
 	{ re: /^src\/params\/view\.ts$/, suites: ['deeplink'] },
 	{ re: /^src\/routes\/\[\.\.\.view=view\]\/\+page\.ts$/, suites: ['deeplink'] },
-	// The homepage masthead/nav is its own component. Only `hubsize` asserts on it (the hub dot
-	// vs the masthead's bullets), and it's parked, so a masthead-only edit currently scopes to
-	// nothing — verify those in a browser. Left as the true coupling for when hubsize un-parks.
-	{ re: /^src\/lib\/Masthead\.svelte$/, suites: ['hubsize'] },
+	// The homepage masthead/nav is its own component. `hubsize` was the suite that asserted on it
+	// and it's gone with the map, so this used to name only that — which resolved to NOTHING, and
+	// a masthead edit quietly ran no tests at all. It isn't nothing any more: reaching a panel
+	// goes through the nav now, so `deeplink` and `field` both click this component and a broken
+	// nav fails them. Neither one looks at how the masthead is DRAWN — that still wants eyes.
+	{ re: /^src\/lib\/Masthead\.svelte$/, suites: ['deeplink', 'field'] },
 	{ re: /^src\/lib\/PresentationBuilder\.svelte$/, suites: ['ticker', 'ticker-edge', 'repeat'] },
 	{ re: /^src\/lib\/TrafficBoard\.svelte$/, suites: ['scope', 'field', 'oplong', 'pcclose', 'dots'] },
 	{ re: /^src\/lib\/SplitFlap\.svelte$/, suites: ['scope', 'field', 'oplong', 'pcclose'] },
@@ -207,15 +221,19 @@ if (changed) {
 // come from the lines. `maplayout` and `hubsize` were pure map geometry and are deleted, not
 // repaired — there is nothing left for them to measure.
 //
-// TODO(buttons): `buttons` is still parked, but NOT for the map any more — its legend section is
-// gone. It hangs hovering a Settings `.seg` that demonstrably exists, which is its own rot and
-// wants its own look.
-const SKIP = new Set(['buttons']);
+// `buttons` is UN-PARKED. It wasn't the map that broke it: the Settings loop pressed the panel's
+// own Back first, which left the panel closed for every selector after it, so `button.seg` was
+// never found and the suite hung 30s waiting for it. It re-opens the panel per selector now. Its
+// one remaining failure was a measurement race, not a missing pop — see `settle` in buttons.mjs.
+const SKIP = new Set([]);
+// SKIP is empty and should stay that way. It's kept because parking a suite beats deleting one
+// while it's being repaired — but a parked suite is coverage you aren't getting, so the note by
+// SKIP must say what's wrong and what un-parks it.
 const parked = chosen.filter((s) => SKIP.has(s));
-if (parked.length) console.log(`e2e: skipping ${parked.length} map-dependent suite(s) — see TODO(map) in run.mjs: ${parked.join(', ')}`);
+if (parked.length) console.log(`e2e: skipping ${parked.length} parked suite(s) — see SKIP in run.mjs: ${parked.join(', ')}`);
 chosen = chosen.filter((s) => !SKIP.has(s));
 if (!chosen.length) {
-	console.log('e2e: nothing to run (all selected suites are parked behind TODO(map)).');
+	console.log('e2e: nothing to run (every selected suite is parked — see SKIP in run.mjs).');
 	process.exit(0);
 }
 

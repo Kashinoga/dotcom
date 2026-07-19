@@ -112,37 +112,50 @@ const checkedIn = (page, group) =>
 }
 
 // ── 4. Decoration is BUILT only when it can be seen ────────────────────────
-// The stars are dark-only and the rings light-only. Painting the hidden one transparent left its
-// animations running for nothing, so each is now gated on the scheme in use.
+// Each scheme has its own sky decoration — clouds drift in a light one, stars twinkle in a dark
+// one — and the point of this section is that the hidden one is NOT IN THE DOM. Painting it
+// transparent instead left its animations running for nothing.
+//
+// The light decoration used to be static rings, and this suite asserted "nothing animates
+// forever". Both facts have moved on: `.ring-line` no longer exists anywhere in the source, and
+// the light sky's clouds drift endlessly BY DESIGN (as the night sky's stars twinkle and shoot).
+// So the endless-animation count is no longer the measure — the measure is that the animations
+// running belong to the scheme you're actually looking at. Asserting "nothing repaints forever"
+// today would be asserting the motion away.
 //
 // The sky is pinned in both cases, not left on the Auto default: an opted-into sky decides the
 // colour scheme (dusk and night are dark), so with Auto the wall clock — not the seeded theme —
 // would pick which of the two renders, and this suite would pass or fail by time of day.
+const decoration = () =>
+	({
+		clouds: document.querySelectorAll('.cloud-layer').length,
+		stars: document.querySelectorAll('.stars span').length,
+		// Endless animations, by the decoration they belong to. Entrance flourishes are finite and
+		// still winding down at this point — they're supposed to be, so they're not counted.
+		forever: [...document.getAnimations()]
+			.filter((a) => a.playState === 'running' && a.effect?.getTiming().iterations === Infinity)
+			.map((a) => a.animationName ?? '')
+	});
 {
 	const { ctx, page } = await firstVisit({ 'ksh-theme': 'light', 'ksh-sky': 'noon' });
-	const seen = await page.evaluate(() => ({
-		rings: document.querySelectorAll('.ring-line').length,
-		stars: document.querySelectorAll('.stars span').length,
-		// Only ENDLESS animations matter: entrance flourishes are still winding down at this point
-		// and are supposed to be. What must not exist is anything that repaints forever.
-		forever: document
-			.getAnimations()
-			.filter((a) => a.playState === 'running' && a.effect?.getTiming().iterations === Infinity)
-			.length
-	}));
-	ok('light: rings drawn', seen.rings > 0, String(seen.rings));
+	const seen = await page.evaluate(decoration);
+	ok('light: clouds drawn', seen.clouds > 0, String(seen.clouds));
 	ok('light: no stars in the DOM', seen.stars === 0, String(seen.stars));
-	ok('light: nothing animating forever at idle', seen.forever === 0, String(seen.forever));
+	ok('light: the clouds are the thing drifting', seen.forever.some((n) => /cloud-drift/.test(n)),
+		seen.forever.join(', ') || 'nothing');
+	ok('light: no star animation running', !seen.forever.some((n) => /twinkle|shoot/.test(n)),
+		seen.forever.join(', '));
 	await ctx.close();
 }
 {
 	const { ctx, page } = await firstVisit({ 'ksh-theme': 'dark', 'ksh-sky': 'night' });
-	const seen = await page.evaluate(() => ({
-		rings: document.querySelectorAll('.ring-line').length,
-		stars: document.querySelectorAll('.stars span').length
-	}));
+	const seen = await page.evaluate(decoration);
 	ok('dark: stars drawn', seen.stars > 0, String(seen.stars));
-	ok('dark: no rings in the DOM', seen.rings === 0, String(seen.rings));
+	ok('dark: no clouds in the DOM', seen.clouds === 0, String(seen.clouds));
+	ok('dark: the stars are the thing twinkling', seen.forever.some((n) => /twinkle/.test(n)),
+		seen.forever.join(', ') || 'nothing');
+	ok('dark: no cloud animation running', !seen.forever.some((n) => /cloud-drift/.test(n)),
+		seen.forever.join(', '));
 	await ctx.close();
 }
 

@@ -51,12 +51,15 @@ ok('click app card → panel is open', await page.locator('aside.surface').isVis
 ok('click app card → title updates', (await page.title()) === 'Air Traffic — Kashinoga');
 
 // ── 3. Panel → panel keeps URL in step with the visible panel ───────────────
-// Chip to APP (a "Connections" link inside the ATFC panel).
-await page.locator('aside.surface a.chip[href="/apps"]').first().click();
+// Panel → panel, via the masthead's nav. This used to click a "Connections" chip inside the
+// ATFC panel, but the Related rail is gone site-wide (onward destinations are body cards now,
+// see PANEL_CARDS) and ATFC — which owns its whole interior — carries no cards of its own. The
+// nav is how you leave one panel for another, so that's what's exercised.
+await page.getByRole('link', { name: 'Apps', exact: true }).click();
 await page.waitForURL(`${B}/apps`, { timeout: 5000 });
 await page.waitForTimeout(600);
-ok('chip → URL becomes /app', page.url() === `${B}/apps`);
-ok('chip → title is Apps', (await page.title()) === 'Apps — Kashinoga', await page.title());
+ok('panel → panel: URL becomes /apps', page.url() === `${B}/apps`);
+ok('panel → panel: title is Apps', (await page.title()) === 'Apps — Kashinoga', await page.title());
 
 // ── 4. Back / forward drive the panel ───────────────────────────────────────
 await page.goBack();
@@ -84,7 +87,8 @@ ok('back to / → title is Kashinoga', (await page.title()) === 'Kashinoga');
 
 // ── 6. Escape closes and updates the URL ────────────────────────────────────
 await page.goto(`${B}/about`, { waitUntil: 'networkidle' });
-await page.locator('aside.surface a.chip[href="/about/projects"]').first().click();
+// About fans out to Work/Projects as body CARDS (PANEL_CARDS), not the retired chip rail.
+await page.locator('aside.surface a.app-card[href="/about/projects"]').first().click();
 await page.waitForURL(`${B}/about/projects`, { timeout: 5000 });
 await page.waitForTimeout(500);
 await page.keyboard.press('Escape');

@@ -71,7 +71,9 @@ ok('forward → board with ?field=den', page.url() === `${B}${A}?field=den`, pag
 ok('forward → DEN still selected', (await field()) === 'Denver');
 
 // ── a fresh open of the board starts on the default ─────────────────────────
-await page.locator('aside.surface a.chip[href="/apps"]').first().click();
+// Leaving the board for Apps goes through the masthead's nav: the Related chip rail these
+// used to click is gone site-wide, and ATFC owns its interior so it carries no body cards.
+await page.getByRole('link', { name: 'Apps', exact: true }).click();
 await page.waitForURL(`${B}/apps`, { timeout: 5000 });
 await page.waitForTimeout(700);
 // The apps are CARDS in the Apps panel's body now, not chips in its Related rail.
@@ -84,7 +86,7 @@ ok('re-open board → default field', (await field()) === 'Gracemeria');
 // ── the field never leaks onto another panel ────────────────────────────────
 await pickField('Seattle');
 await page.waitForTimeout(800);
-await page.locator('aside.surface a.chip[href="/apps"]').first().click();
+await page.getByRole('link', { name: 'Apps', exact: true }).click();
 await page.waitForURL(`${B}/apps`, { timeout: 5000 });
 await page.waitForTimeout(700);
 ok('navigate away → no ?field= on /apps', page.url() === `${B}/apps`, page.url());

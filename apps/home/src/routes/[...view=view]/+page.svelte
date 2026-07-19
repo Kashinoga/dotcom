@@ -4279,9 +4279,15 @@
 		border-top: 1px solid transparent;
 		border-image: var(--rule-fade) 1;
 	}
-	/* …but not on the first group: the header's own bottom border already draws that line, and a
-	   second one right beneath it reads as a double rule. */
-	.stg-group:first-child .seg-lead {
+	/* …but not on the first group: the line above it is already drawn (by the header's own bottom
+	   border, or by the big title now sitting at the top of the body), and a second one right
+	   beneath reads as a double rule.
+	   TWO selectors, because the first group stopped being :first-child when the big title moved
+	   into the scrolling body — the title holds that slot now, and the group behind it started
+	   drawing a rule it has never had. `.body-title +` covers the panels on the header model;
+	   :first-child still covers a body with no title above it. */
+	.stg-group:first-child .seg-lead,
+	.body-title + .stg-group .seg-lead {
 		margin-top: 0;
 		padding-top: 0;
 		border-top: none;

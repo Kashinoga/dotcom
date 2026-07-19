@@ -14,7 +14,11 @@ const AC = [
 
 const browser = await firefox.launch();
 
-async function openCard({ w, h, dark = false }) {
+// `ui` is PINNED by every caller, never left to the default. The close chip has two different
+// recipes — Flat gives it a solid face, Bubble a frosted one (see .pc-close in TrafficBoard) —
+// and the default is Bubble, so the solid-fill assertions below were quietly checking Flat's
+// rules against Bubble's rendering and failing on a chip that was doing exactly what it should.
+async function openCard({ w, h, dark = false, ui }) {
 	const ctx = await browser.newContext({
 		viewport: { width: w, height: h },
 		colorScheme: dark ? 'dark' : 'light'
@@ -29,10 +33,11 @@ async function openCard({ w, h, dark = false }) {
 	// alone can't select the light palette — after 21:00 local, Auto sky IS night and a
 	// "light" context silently renders dark. Pin the sky and theme explicitly.
 	await page.goto(`${B}/`, { waitUntil: 'domcontentloaded' });
-	await page.evaluate((d) => {
+	await page.evaluate(([d, u]) => {
 		localStorage.setItem('ksh-sky', d ? 'night' : 'noon');
 		localStorage.setItem('ksh-theme', d ? 'dark' : 'light');
-	}, dark);
+		if (u) localStorage.setItem('ksh-ui', u);
+	}, [dark, ui]);
 	await page.goto(`${B}/apps/air-traffic?field=dsm`, { waitUntil: 'networkidle' });
 	await page.waitForTimeout(2500);
 	await page.locator('button.type-btn').first().click();
@@ -58,6 +63,8 @@ const geom = (page) =>
 			fromImgTop: bb.y - img.y,
 			fromImgRight: img.right - bb.right,
 			bg: cs.backgroundColor,
+			// Bubble backs the chip with frost instead of a solid face — see the UI-style blocks.
+			backdrop: cs.backdropFilter,
 			border: cs.borderTopWidth,
 			stacked,
 			// Does any info text run under the button?
@@ -67,7 +74,7 @@ const geom = (page) =>
 
 // ── Phone: stacked card, button lands on the photo ────────────────────────────
 {
-	const { ctx, page } = await openCard({ w: 390, h: 844 });
+	const { ctx, page } = await openCard({ w: 390, h: 844, ui: 'flat' });
 	const g = await geom(page);
 	ok('phone: card is stacked', g.stacked);
 	ok('phone: button is a 42px touch target', g.w === 42 && g.h === 42, `${g.w}×${g.h}`);
@@ -90,7 +97,7 @@ const geom = (page) =>
 
 // ── Desktop: side-by-side card, button sits on the card background ─────────────
 {
-	const { ctx, page } = await openCard({ w: 1500, h: 950 });
+	const { ctx, page } = await openCard({ w: 1500, h: 950, ui: 'flat' });
 	const g = await geom(page);
 	ok('desktop: card is side-by-side', !g.stacked);
 	ok('desktop: button is 42px (the one control size at every width)', g.w === 42 && g.h === 42, `${g.w}×${g.h}`);
@@ -109,14 +116,33 @@ const geom = (page) =>
 	await ctx.close();
 }
 
-// ── Dark mode: the chip must still be opaque and legible ──────────────────────
+// ── Flat, dark: the chip must still be opaque and legible ────────────────────
 {
-	const { ctx, page } = await openCard({ w: 390, h: 844, dark: true });
+	const { ctx, page } = await openCard({ w: 390, h: 844, dark: true, ui: 'flat' });
 	const g = await geom(page);
-	ok('dark: chip is opaque', !/rgba\(0, 0, 0, 0\)/.test(g.bg), g.bg);
+	ok('flat dark: chip is opaque', !/rgba\(0, 0, 0, 0\)/.test(g.bg), g.bg);
 	// --panel-fill-solid is pure black in dark now (every app surface is #fff / #000).
-	ok('dark: chip uses the dark panel fill', g.bg === 'rgb(0, 0, 0)', g.bg);
+	ok('flat dark: chip uses the dark panel fill', g.bg === 'rgb(0, 0, 0)', g.bg);
 	await page.screenshot({ path: artifact('pcclose-dark.png'), clip: { x: 0, y: 100, width: 390, height: 420 } });
+	await ctx.close();
+}
+
+// ── Bubble: the SAME legibility, bought a different way ──────────────────────
+// This is the default UI and had no coverage at all — the blocks above were written for Flat
+// and, left unpinned, were reading Bubble's chip and calling it broken. Bubble deliberately
+// trades the solid face for the aero family's frost (see .pc-close under html[data-ui='bubble']),
+// so the assertion isn't "opaque" here — it's that SOMETHING still separates the chip from an
+// arbitrary photograph. A translucent face with no backdrop-filter behind it would be the real
+// regression this guards: the × left floating on whatever the image happens to be.
+for (const dark of [false, true]) {
+	const { ctx, page } = await openCard({ w: 390, h: 844, dark, ui: 'bubble' });
+	const g = await geom(page);
+	const mode = `bubble ${dark ? 'dark' : 'light'}`;
+	ok(`${mode}: chip still sits over the photo`, g.overImage);
+	ok(`${mode}: chip is not fully transparent`, !/rgba\(0, 0, 0, 0\)|^transparent$/.test(g.bg), g.bg);
+	ok(`${mode}: frost backs the chip (blur, not a solid face)`, /blur\(/.test(g.backdrop), g.backdrop || 'none');
+	ok(`${mode}: keeps its ring`, parseFloat(g.border) >= 1 && parseFloat(g.border) <= 2, g.border);
+	ok(`${mode}: still a 42px touch target`, g.w === 42 && g.h === 42, `${g.w}×${g.h}`);
 	await ctx.close();
 }
 
