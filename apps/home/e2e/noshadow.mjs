@@ -50,6 +50,22 @@ for (const [ui, expectZero] of [['flat', true], ['bubble', false]]) {
     else ok(`bubble: ${path} still has shadows`, found.length>0, `${found.length} el`);
   }
 
+  // ── The Beta pill wears the family's material in Bubble, and none of it in Flat ──────────
+  // Two apps wear the same pill (puhig's .beta), so both are checked: the recipe moved out of
+  // the Presentation Builder to be shared with the Park Ranger, and a shared recipe is exactly
+  // the kind that gets re-scoped to one wearer by accident. The pill keeps its accent FILL in
+  // both styles — this is about light, not colour.
+  for (const [path, label] of [['/apps/presentation-builder','PB'],['/apps/intergalactic-park-ranger','IPR']]) {
+    await p.goto(B+path,{waitUntil:'networkidle'}); await p.waitForTimeout(1800);
+    const beta = p.locator('.beta').first();
+    if (!(await beta.count())) { ok(`${ui}: ${label} has a Beta pill`, false, 'absent'); continue; }
+    const bad = await beta.evaluate(new Function('return '+REAL_SHADOW)());
+    const fill = await beta.evaluate((e)=>getComputedStyle(e).backgroundColor);
+    if (expectZero) ok(`flat: ${label} Beta pill has no shadow`, bad.length===0, bad.join('|').slice(0,60));
+    else ok(`bubble: ${label} Beta pill is aeroified`, bad.length>0, 'no gloss/drop');
+    ok(`${ui}: ${label} Beta pill keeps its accent fill`, /^rgb\(240, 96, 48\)$/.test(fill), fill);
+  }
+
   // hover + active states
   await p.goto(B+'/apps/presentation-builder',{waitUntil:'networkidle'});
   await p.getByRole('button',{name:'New from template'}).click(); await p.waitForTimeout(1500);

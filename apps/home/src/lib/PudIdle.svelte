@@ -335,6 +335,9 @@
 				Data Shards · {paused ? 'paused' : `${fmtRate(cps)}/s${boosted ? ' · overclocked ×2' : ''}`}
 			</div>
 		</div>
+		<!-- Still finding its feet, and says so — the Builder's pill (puhig's .beta), riding the
+		     far end of the tally row the way it rides the far end of that app's super bar. -->
+		<span class="beta">Beta</span>
 	</div>
 
 	<!-- The works, visibly working: while any rig runs, a sweep crosses the band — the
@@ -495,6 +498,12 @@
 		display: flex;
 		align-items: center;
 		gap: 0.9rem;
+	}
+	/* The Beta pill takes the far end of the row and sits with the tally's top line rather than
+	   centring against a 44px gem — it's a label on the app, not part of the reading. */
+	.pud-count .beta {
+		margin-left: auto;
+		align-self: flex-start;
 	}
 	.pud-gem :global(svg) {
 		width: 44px;

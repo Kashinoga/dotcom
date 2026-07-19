@@ -489,6 +489,51 @@ html[data-ui='bubble'] .app-badge::before {
 	margin: 0.25rem 0 0;
 }
 
+/* ── The Beta pill ─────────────────────────────────────────────────────────────────────────
+ * A small caps tag saying an app is still finding its feet. It grew on the Presentation
+ * Builder and now rides on the Park Ranger too, so it lives here rather than in either — same
+ * reasoning as .app-badge above: a recipe scoped to one Svelte component can't be worn by the
+ * other, and two copies drift.
+ *
+ * It takes the place's own --accent. The Builder names its accent --pb-accent internally, so
+ * it maps that onto --accent for this pill in its own stylesheet — one line there beats a
+ * bespoke token here. */
+.beta {
+	font-size: 0.6rem;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: #fff;
+	background: var(--accent, #f06030);
+	border-radius: 999px;
+	padding: 0.1rem 0.45rem;
+	line-height: 1.5;
+}
+/* Aero: the pill joins the family's material — the edge-hugging gloss and the airy drop every
+ * other Bubble control wears. It keeps its accent FILL (that's what the tag is for), so this
+ * adds light, not colour, and — like the rest of the family — nothing at the bottom but its
+ * own edge. The text is white on accent either way, so the gloss must not wash the face. */
+html[data-ui='bubble'] .beta {
+	box-shadow: var(--aero-gloss), var(--aero-drop);
+}
+/* Enters just after the ornament it follows (the accent dot on the Builder), so a masthead's
+ * ornaments cascade left to right on mount rather than all landing at once. */
+@media (prefers-reduced-motion: no-preference) {
+	.beta {
+		animation: beta-in 0.45s var(--spring) 0.38s backwards;
+	}
+}
+@keyframes beta-in {
+	from {
+		opacity: 0;
+		transform: translateX(-0.5rem) scale(0.85);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0) scale(1);
+	}
+}
+
 /* 42px at EVERY width (it began as the phone's touch target; the desktop pass promoted
  * it — one control size, no breakpoint seam). Controls that wear this size by hand
  * (the search discs, the camera disc, the refresh dial, the unit toggle) restate it in

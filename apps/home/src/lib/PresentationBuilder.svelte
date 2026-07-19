@@ -1215,33 +1215,11 @@
 			transform: translateX(0);
 		}
 	}
+	/* The pill itself — type, shape, aero material and its entrance — is puhig's now (.beta in
+	   base.css), because the Park Ranger wears it too. All that's left here is naming: the
+	   shared recipe fills from --accent, and this app calls its accent --pb-accent. */
 	.beta {
-		font-size: 0.6rem;
-		font-weight: 700;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
-		color: #fff;
-		background: var(--pb-accent);
-		border-radius: 999px;
-		padding: 0.1rem 0.45rem;
-		line-height: 1.5;
-	}
-	/* The Beta pill enters just after the accent dot (same spring, a beat later), so the
-	   masthead ornaments cascade in left-to-right on mount. */
-	@media (prefers-reduced-motion: no-preference) {
-		.beta {
-			animation: beta-in 0.45s var(--spring) 0.38s backwards;
-		}
-	}
-	@keyframes beta-in {
-		from {
-			opacity: 0;
-			transform: translateX(-0.5rem) scale(0.85);
-		}
-		to {
-			opacity: 1;
-			transform: translateX(0) scale(1);
-		}
+		--accent: var(--pb-accent);
 	}
 	.pb-tools {
 		display: flex;
