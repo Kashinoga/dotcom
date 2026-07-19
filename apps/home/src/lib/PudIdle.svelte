@@ -99,6 +99,9 @@
 	// the stamps only change by the minute, and re-rendering twenty rows five times a second to
 	// move nothing would be the most expensive thing on screen.
 	let logNow = $state(Date.now());
+	// Has the ledger's list scrolled under its heading? Drives the heading's shade — the same
+	// tell the panel's own bar gives when content has gone under it (puhig's .csb.csb-on + *).
+	let logScrolled = $state(false);
 	const stamp = (at: number) => {
 		const secs = Math.max(0, Math.round((logNow - at) / 1000));
 		if (secs < 45) return 'just now';
@@ -492,7 +495,12 @@
 		     role="status" was doing — additions get announced, the history doesn't. -->
 		<section class="pud-ledger" aria-label="Division ledger">
 			<p class="pud-lead">Division ledger</p>
-			<ul class="pud-log" aria-live="polite">
+			<ul
+				class="pud-log"
+				class:scrolled={logScrolled}
+				aria-live="polite"
+				onscroll={(e) => (logScrolled = e.currentTarget.scrollTop > 2)}
+			>
 				{#each log as entry, i (entry.id)}
 					<li
 						class="pud-log-row"
@@ -524,6 +532,53 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1.05rem;
+	}
+	/* ── Two columns, once there's room ──────────────────────────────────────────
+	   Full-viewport, this app has far more width than a stack of rows needs, and the ledger is
+	   the piece that wants to be READ ALONGSIDE rather than scrolled down to: it's the answer
+	   to "what just happened", and answering that under the shop means scrolling away from the
+	   thing you just did. So it takes its own column at the top right and the game stays left.
+
+	   The seam is the app's own mobile seam (960px): below it everything falls back to the
+	   single column above, which is the layout the panel has always had. Grid, not flex, because
+	   the children are a flat list — assigning them all to column 1 and lifting ONE out to
+	   column 2 needs no wrapper element around the rest. */
+	@media (min-width: 961px) {
+		.pud {
+			display: grid;
+			/* The ledger's column is fixed-ish: its rows are one line of text, so letting it
+			   share the surplus would just stretch the timestamps away from the messages. */
+			grid-template-columns: minmax(0, 1fr) clamp(17rem, 24vw, 23rem);
+			column-gap: clamp(1.25rem, 2.5vw, 2.25rem);
+			align-items: start;
+		}
+		.pud > * {
+			grid-column: 1;
+		}
+		/* Top of the second column, and only as tall as it needs to be — `span 99` reaches past
+			 however many rows the left column grows to (an explicit `-1` can't resolve against
+			 IMPLICIT rows, which is what a flat child list makes), while align-self keeps it
+			 sitting at the top instead of stretching down the whole side. */
+		.pud-ledger {
+			grid-column: 2;
+			grid-row: 1 / span 99;
+			align-self: start;
+		}
+		/* Its own frame, so it reads as a panel beside the game rather than a stray list. */
+		.pud-ledger {
+			padding: 0.9rem 1rem;
+			border: 1px solid var(--line-edge);
+			border-radius: 14px;
+			background: var(--aero-face);
+		}
+		/* Taller here than in the stacked layout: a column of its own has the height to spend,
+		   and the whole point is seeing more than the last thing you did.
+		   Scoped through .pud-ledger for WEIGHT, not for reach: the base .pud-log rule is
+		   declared later in this stylesheet, so a bare .pud-log here — same specificity, earlier
+		   in source — quietly lost, and the ledger kept the stacked layout's 13rem. */
+		.pud-ledger .pud-log {
+			max-height: 22rem;
+		}
 	}
 	/* Entrance — the panel's pieces settle top-to-bottom, the Weather/Court cadence. */
 	@media (prefers-reduced-motion: no-preference) {
@@ -860,6 +915,13 @@
 		flex-direction: column;
 		gap: 0.5rem;
 	}
+	/* Scrolled, the heading earns an edge — said the way the panel's bar says it: an inset
+	   breath of shade on the SCROLLER, pinned to its box (an inset shadow on a scroller pins to
+	   the box, not the content), so it sits right under the heading while the rows pass beneath.
+	   Same values as puhig's folded-bar shade, so the two edges read as one idea. */
+	.pud-log.scrolled {
+		box-shadow: inset 0 26px 22px -22px light-dark(rgba(8, 10, 14, 0.15), rgba(0, 0, 0, 0.35));
+	}
 	.pud-log {
 		list-style: none;
 		margin: 0;
@@ -868,6 +930,13 @@
 		flex-direction: column;
 		max-height: 13rem;
 		overflow-y: auto;
+		/* Rounded at the TOP only: the rows are clipped there, right under the heading and its
+		   shade, and a hard square edge inside the ledger's own 14px frame read as a torn strip.
+		   The bottom stays square — nothing is cut off down there, the list simply ends. The
+		   radius rides the overflow, so the shade curves with it. */
+		border-top-left-radius: 10px;
+		border-top-right-radius: 10px;
+		transition: box-shadow 0.25s ease;
 		/* The rows scroll under the heading, so reserve the bar's lane rather than letting it
 		   appear and shove the times sideways when the twentieth entry lands. */
 		scrollbar-gutter: stable;

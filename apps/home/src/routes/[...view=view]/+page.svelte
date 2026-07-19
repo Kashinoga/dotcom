@@ -3587,7 +3587,15 @@
 	}
 	.surface-head.bar .head-title {
 		font-size: clamp(1.15rem, 1.5vw, 1.5rem);
-		line-height: 1.05;
+		/* NOT E-ATFC's 1.05, and the difference matters here: that title is a plain .dest, but
+		   .head-title carries `overflow: hidden` (puhig) so it can clip before the discs do when
+		   the row runs tight. A 1.05 box is shorter than the glyphs are tall, so the overflow
+		   took the descenders with it — the "g" in "Intergalactic Park Ranger" came off at the
+		   bottom. This leaves room for them. It costs the bar nothing: the row's height is set
+		   by the 42px Back and badge, not by this line.
+		   1.55, measured, not guessed: Jost's ink box runs ~1.51em (34px of ink in a 22.5px
+		   line), so 1.3 still cropped 2.4px off the top and bottom. */
+		line-height: 1.55;
 	}
 	/* The body picks the inset up too, so the content's left edge lines up under the Back cap
 	   instead of stepping in by a full panel margin. */
@@ -3847,16 +3855,16 @@
 	.surface.expanded .surface-body.court {
 		scrollbar-gutter: stable both-edges;
 	}
-	/* The Park Ranger opens full-viewport now (it's growing into an app, not a clicker you
-	   glance at), and a full viewport stretched its requisition rows to ~1400px — the rig's
-	   name at one edge and its price at the other, with a field of nothing between. So it
-	   centres a column, the Court's answer to the same problem, at a wider measure: these rows
-	   carry a name, a blurb and a cost chip where the docket carries prose.
-	   This is a HOLDING layout. When the ancestor's inventory/equipment/skills land there'll be
-	   more than one column's worth to place, and this cap is the thing to replace. */
+	/* The Park Ranger opens full-viewport, and a full viewport stretched its requisition rows
+	   to ~1400px — the rig's name at one edge and its price at the other, with a field of
+	   nothing between. So it centres a measure, the Court's answer to the same problem.
+	   Wider than it was: the app lays out in TWO columns now (the game left, the ledger in its
+	   own column at the top right — see .pud), so the cap has to hold both without either being
+	   squeezed. It stays a cap rather than full-bleed so the rows don't run the width of an
+	   ultrawide display. */
 	.surface.expanded .surface-body.ranger {
 		width: 100%;
-		max-width: 56rem;
+		max-width: 84rem;
 		margin-inline: auto;
 		scrollbar-gutter: stable both-edges;
 	}
