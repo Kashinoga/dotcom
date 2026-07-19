@@ -1104,12 +1104,42 @@
 		.pud-mining.boosted .pud-mining-sweep {
 			animation-duration: 0.85s;
 		}
+		/* Both animations named together so the play states below line up with them: the travel
+		   is held, the pulse runs. */
+		.pud-mining.paused .pud-mining-sweep {
+			animation: pud-sweep 1.9s linear infinite, pud-idle-pulse 2.8s ease-in-out infinite;
+			animation-play-state: paused, running;
+		}
 	}
-	/* Paused, the band stays but the sweep stands where it stopped, dimmed — downtime
-	   should look like held breath, not absence. */
+	/* Slow, and never all the way out — a line that vanished would read as nothing there. */
+	@keyframes pud-idle-pulse {
+		0%,
+		100% {
+			opacity: 0.28;
+		}
+		50% {
+			opacity: 0.85;
+		}
+	}
+	/* Paused, the works go YELLOW and breathe. The band and its sweep keep their shape — same
+	   faded field, same bright peak where the sweep stood when it stopped — but the accent gives
+	   way to the masthead's own yellow (#e6b93c, the first of the brand dots) and the whole line
+	   pulses slowly. Downtime should look like held breath rather than absence, and a colour
+	   that isn't the running colour says "stopped" from across the panel, where a dimmed orange
+	   just looked like a quiet moment.
+	   The sweep's TRAVEL stays paused while the pulse runs — two animations on one element with
+	   their own play states, so the peak holds its position and only the light moves. */
+	.pud-mining.paused {
+		background: color-mix(in srgb, var(--pud-idle, #e6b93c) 14%, transparent);
+	}
+	/* COLOUR only in here. The play states live with the animations in the motion block below —
+	   a single `animation-play-state: paused` at this level outranked the two-value one there
+	   and stopped the pulse along with the travel, which is how this first shipped: a yellow
+	   line that didn't breathe. With a motion preference set nothing animates anyway, so the
+	   resting opacity has to be legible on its own. */
 	.pud-mining.paused .pud-mining-sweep {
-		animation-play-state: paused;
-		opacity: 0.35;
+		background: linear-gradient(90deg, transparent, var(--pud-idle, #e6b93c), transparent);
+		opacity: 0.55;
 	}
 	/* Percentages are of the sweep's OWN width (40% of the track): -100% hides it off the
 	   left edge, +250% walks its leading edge clear past the right. */
