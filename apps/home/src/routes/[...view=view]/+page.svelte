@@ -961,6 +961,10 @@
 	// panels and reloads.
 	const EXPAND_KEY = 'ksh-panel-expanded';
 	let panelExpanded = $state(false);
+	// The Park Ranger's own settings popout, opened from its bar (see the PUD head-actions).
+	// The BUTTON lives up here because the bar is the page's; the CARD is drawn by PudIdle,
+	// which owns the numbers in it (the lifetime tally, and abandoning the universe).
+	let pudSettings = $state(false);
 	// Nothing decorative is BUILT unless it can be seen: the stars are dark-only, and
 	// everything goes when a panel covers the whole viewport (expanded on desktop, or any
 	// panel on mobile, where it's a full-screen sheet).
@@ -1086,6 +1090,7 @@
 	$effect(() => {
 		void view;
 		void isMobile; // crossing to mobile unfolds the header (the fold is desktop-only now)
+		pudSettings = false; // a fresh panel never opens with a popout already up
 		headTitleShown = false; // a fresh panel opens at the top, big title in view
 		surfHeadCollapsed = false;
 	});
@@ -2254,6 +2259,15 @@
 										aria-label="Intergalactic Park Ranger is in beta"
 										title="This app is in beta — expect it to change"
 									>Beta</button>
+									<button
+										type="button"
+										class="icon-btn"
+										data-pud-settings
+										aria-expanded={pudSettings}
+										onclick={() => (pudSettings = !pudSettings)}
+										aria-label={pudSettings ? 'Close division settings' : 'Division settings'}
+										title="Division settings"
+									>{@html GEAR_SVG}</button>
 								</div>
 							{/if}
 						</div>
@@ -2296,7 +2310,7 @@
 						{:else if v.code === 'PUD'}
 							<!-- Intergalactic Park Ranger makes it too: the game lives in the ordinary panel — a clicker
 							     is a thing you visit, not a workspace that takes the viewport. -->
-							<PudIdle />
+							<PudIdle settingsOpen={pudSettings} onCloseSettings={() => (pudSettings = false)} />
 						{:else if v.code === 'EMOJ'}
 							<!-- The Emoji Viewer: a wall of the system's own emojis to browse and copy.
 							     Its big title is the shared one above, at the top of the scroll body. -->
@@ -3572,9 +3586,23 @@
 	   A full-viewport app spends its vertical space on content, so the header's generous
 	   2.5rem frame and the wordmark-scale title below it both go: the title moves INTO the row
 	   at bar scale, and what it used to occupy goes back to the app. */
+	/* ONE measure for the bar and the body beneath it. Without it the bar spans the whole
+	   viewport while the body centres, so the bar's controls drift away from the content they
+	   belong to: Back sat ~110px left of the tally, and the settings card — which is drawn
+	   inside the BODY — hung ~130px clear of the gear it springs from, reading as unrelated to
+	   the button that opened it. Declared on both wearers so the number lives in one place. */
+	.surface-head.bar,
+	.surface.expanded .surface-body.ranger {
+		--app-measure: 84rem;
+	}
 	.surface-head.bar {
 		--bar-inset: clamp(0.7rem, 1.3vw, 1rem);
 		padding: var(--bar-inset);
+	}
+	.surface-head.bar .head-row {
+		width: 100%;
+		max-width: var(--app-measure);
+		margin-inline: auto;
 	}
 	/* The row's gap is NOT --bar-inset. E-ATFC spends that inset on its FRAME and on the space
 	   between its big groups (ident / deck / corner); the controls inside a cluster sit much
@@ -3864,7 +3892,7 @@
 	   ultrawide display. */
 	.surface.expanded .surface-body.ranger {
 		width: 100%;
-		max-width: 84rem;
+		max-width: var(--app-measure);
 		margin-inline: auto;
 		scrollbar-gutter: stable both-edges;
 	}

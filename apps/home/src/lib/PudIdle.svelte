@@ -2,8 +2,18 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import { backOut } from 'svelte/easing';
+	import { popSpring } from '$lib/pop-spring';
 	import SplitFlap from '$lib/SplitFlap.svelte';
-	import { GEM_SVG } from '$lib/icons';
+	import { GEM_SVG, CLOSE_SVG } from '$lib/icons';
+
+	// The settings popout is opened from the PANEL BAR, which belongs to the catch-all page —
+	// so the page owns the open/closed flag and the button, and this component draws the card
+	// and the numbers in it. Splitting it that way keeps the tally and the abandon button
+	// beside the state they act on instead of passing both up.
+	let { settingsOpen = false, onCloseSettings }: {
+		settingsOpen?: boolean;
+		onCloseSettings?: () => void;
+	} = $props();
 
 	// Intergalactic Park Ranger — the Pocket Universe Division's clicker (you're the
 	// ranger; PUD is the park service), revived from the standalone pud-idle repo
@@ -108,6 +118,11 @@
 	// to be right BEFORE anything is scrolled: a full ledger overflows the moment it renders,
 	// and a bottom edge that only appeared after you scrolled would be missing exactly when it's
 	// most useful — on arrival, when you can't yet tell there's more.
+	// The settings card, and its click-away. The card springs out of a button that lives in the
+	// PAGE's bar, so "outside" has to spare that button too — otherwise the press that closes
+	// the card is the same press the toggle reads as "open", and the card shuts and reopens in
+	// one click. `[data-pud-settings]` marks it (see the PUD head-actions in the page).
+	let settingsEl = $state<HTMLElement | undefined>(undefined);
 	let logEl = $state<HTMLElement | undefined>(undefined);
 	let logScrolled = $state(false);
 	let logMore = $state(false);
@@ -125,6 +140,13 @@
 		const raf = requestAnimationFrame(() => syncLogEdges(el));
 		return () => cancelAnimationFrame(raf);
 	});
+	function onAwayPointer(e: PointerEvent) {
+		if (!settingsOpen) return;
+		const t = e.target;
+		if (!(t instanceof Element)) return;
+		if (settingsEl?.contains(t) || t.closest('[data-pud-settings]')) return;
+		onCloseSettings?.();
+	}
 	const stamp = (at: number) => {
 		const secs = Math.max(0, Math.round((logNow - at) / 1000));
 		if (secs < 45) return 'just now';
@@ -383,12 +405,16 @@
 		// The interval plus onDestroy misses one exit: a hard reload/close, where no
 		// teardown runs. pagehide is the door that always swings on the way out.
 		window.addEventListener('pagehide', save);
+		document.addEventListener('pointerdown', onAwayPointer, true);
 	});
 	onDestroy(() => {
 		clearInterval(tickTimer);
 		clearInterval(saveTimer);
 		clearInterval(stampTimer);
-		if (typeof window !== 'undefined') window.removeEventListener('pagehide', save);
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('pagehide', save);
+			document.removeEventListener('pointerdown', onAwayPointer, true);
+		}
 		save();
 	});
 </script>
@@ -542,18 +568,35 @@
 		</section>
 	{/if}
 
-	<!-- The ledger's small print: the lifetime tally, and the way out. Abandon asks
-	     twice — the second press is the real one, and clicking anything else disarms. -->
-	<div class="pud-foot">
-		<span class="pud-lifetime">{fmt(lifetime)} extracted all-time</span>
-		<button type="button" class="pud-reset" class:armed={armReset} onclick={reset} onblur={() => (armReset = false)}>
-			{armReset ? 'Sure? Every shard.' : 'Abandon universe'}
-		</button>
-	</div>
+	<!-- The division's settings: the lifetime tally, and the way out. They used to sit in a foot
+	     rule under the shop, where a destructive button lived one mis-click from the buy pills;
+	     now they're behind the bar's gear, in a card that springs out of it (popSpring, the same
+	     recipe the nav flyouts and the Star Map's story card use).
+	     Abandon still asks twice — the second press is the real one, and looking away disarms. -->
+	{#if settingsOpen}
+		<aside
+			class="pud-settings"
+			bind:this={settingsEl}
+			transition:popSpring={{ y: -10, origin: 'right top' }}
+			aria-label="Division settings"
+		>
+			<div class="pud-settings-head">
+				<p class="pud-lead">Division settings</p>
+				<button type="button" class="icon-btn" aria-label="Close settings" onclick={() => onCloseSettings?.()}>
+					{@html CLOSE_SVG}
+				</button>
+			</div>
+			<p class="pud-lifetime">{fmt(lifetime)} extracted all-time</p>
+			<button type="button" class="pud-reset" class:armed={armReset} onclick={reset} onblur={() => (armReset = false)}>
+				{armReset ? 'Sure? Every shard.' : 'Abandon universe'}
+			</button>
+		</aside>
+	{/if}
 </div>
 
 <style>
 	.pud {
+		position: relative; /* the settings card pins to this app's top-right corner */
 		display: flex;
 		flex-direction: column;
 		gap: 1.05rem;
@@ -1045,14 +1088,37 @@
 		}
 	}
 
-	.pud-foot {
+	/* The settings card. It hangs from the bar's gear at the top RIGHT, so it's pinned to this
+	   corner of the app and springs out of the button (popSpring anchors the swell at the
+	   caller's corner — see the transition on the element).
+	   Positioned against .pud, which the grid rule below makes a positioning context; the panel
+	   body scrolls, so anchoring to the app rather than the viewport keeps it with its button
+	   instead of floating over the page. */
+	.pud-settings {
+		position: absolute;
+		z-index: 5;
+		top: 0;
+		right: 0;
+		width: min(20rem, calc(100% - 1rem));
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		padding: 0.9rem 1rem 1rem;
+		border: 1px solid var(--line-edge);
+		border-radius: 14px;
+		background: var(--panel-fill-solid, var(--paper));
+		box-shadow: var(--aero-drop, 0 18px 40px -24px rgba(8, 10, 14, 0.45));
+	}
+	.pud-settings-head {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		gap: 0.9rem;
-		padding-top: 0.9rem;
-		border-top: 1px solid transparent;
-		border-image: var(--rule-fade) 1;
+		gap: 0.75rem;
+	}
+	/* Solid, not the ink wash the rest of the app wears: this card floats OVER the shop, and a
+	   translucent face let the rows read straight through the abandon button. */
+	.pud-settings .pud-lifetime {
+		margin: 0;
 		font-size: 0.78rem;
 		color: var(--sub);
 	}
