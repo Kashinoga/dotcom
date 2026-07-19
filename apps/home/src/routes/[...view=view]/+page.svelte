@@ -1479,13 +1479,18 @@
 			refresh = null;
 			syncUrl(nv, nv.code === 'ATFC' ? { ...NO_PARAMS, expanded: panelExpanded } : NO_PARAMS);
 		}
-		// Only the Air Traffic board, the Star Map, the Presentation Builder, and the Court
-		// are designed to fill the viewport. PRES and STAR force the full layout on open
-		// (their compact forms are fallbacks); every other panel is compact-only, so clear
-		// any lingering expand intent (e.g. from a previous ATFC visit) — that keeps
-		// panelExpanded true to what's shown, so the panel renders AND slides out at the
-		// right width. ATFC and AITA keep whatever the user last toggled.
-		if (nv.code === 'PRES' || nv.code === 'STAR') panelExpanded = true;
+		// Only the Air Traffic board, the Star Map, the Presentation Builder, the Court and
+		// the Park Ranger are designed to fill the viewport. PRES, STAR and PUD force the
+		// full layout on open (their compact forms are fallbacks); every other panel is
+		// compact-only, so clear any lingering expand intent (e.g. from a previous ATFC
+		// visit) — that keeps panelExpanded true to what's shown, so the panel renders AND
+		// slides out at the right width. ATFC and AITA keep whatever the user last toggled.
+		//
+		// PUD joined that list because it's growing into a full app rather than a clicker you
+		// glance at: the ancestor build it's drawing from (~/Downloads/Git/pud-idle) carries an
+		// inventory, equipment, skills and an activity log, and none of that fits a 640px
+		// column beside the map.
+		if (nv.code === 'PRES' || nv.code === 'STAR' || nv.code === 'PUD') panelExpanded = true;
 		else if (nv.code !== 'ATFC' && nv.code !== 'AITA') panelExpanded = false;
 	}
 	// Reuse the open panel across destinations: slide the whole panel out, swap its
@@ -1604,7 +1609,7 @@
 		// Deep-linked into the Traffic board, the URL names the size (`?expanded=`) and it
 		// wins over the remembered toggle — a shared link must open the same for everyone.
 		// Everywhere else the remembered toggle seeds as before (and only ATFC reads it:
-		// applyView forces PRES/STAR full and every other panel compact).
+		// applyView forces PRES/STAR/PUD full and every other panel compact).
 		if (data.view?.kind === 'port' && data.view.code === 'ATFC') panelExpanded = data.expanded;
 		else if (localStorage.getItem(EXPAND_KEY) === '1') panelExpanded = true;
 		const sky = localStorage.getItem(SKY_KEY);
@@ -2256,6 +2261,7 @@
 						class="surface-body"
 						class:settings={v.code === 'STG'}
 						class:court={v.code === 'AITA'}
+						class:ranger={v.code === 'PUD'}
 						class:scrolled={surfScrolled}
 						onscroll={onSurfaceScroll}
 					>
@@ -3797,6 +3803,19 @@
 	/* A long docket scrolls; classic scrollbars carve their lane out of one side and
 	   would nudge the centred column off by half a bar. Reserve both edges instead. */
 	.surface.expanded .surface-body.court {
+		scrollbar-gutter: stable both-edges;
+	}
+	/* The Park Ranger opens full-viewport now (it's growing into an app, not a clicker you
+	   glance at), and a full viewport stretched its requisition rows to ~1400px — the rig's
+	   name at one edge and its price at the other, with a field of nothing between. So it
+	   centres a column, the Court's answer to the same problem, at a wider measure: these rows
+	   carry a name, a blurb and a cost chip where the docket carries prose.
+	   This is a HOLDING layout. When the ancestor's inventory/equipment/skills land there'll be
+	   more than one column's worth to place, and this cap is the thing to replace. */
+	.surface.expanded .surface-body.ranger {
+		width: 100%;
+		max-width: 56rem;
+		margin-inline: auto;
 		scrollbar-gutter: stable both-edges;
 	}
 	.surface-body h3 {
