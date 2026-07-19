@@ -846,7 +846,12 @@
 			<button class="tb" onclick={previewLive} disabled={!slides.length} title="Open the live presentation in a new tab">{@html PRESENTATION_SVG}Preview</button>
 		</div>
 		<span class="pb-file" class:dirty title={fileName || undefined}>{dirty ? '● ' : ''}{fileName || 'No file loaded'}</span>
-		<span class="beta">Beta</span>
+		<button
+			type="button"
+			class="beta"
+			aria-label="Presentation Builder is in beta"
+			title="This app is in beta — expect it to change">Beta</button
+		>
 	</header>
 
 	<div class="pb-main">

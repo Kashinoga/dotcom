@@ -2225,6 +2225,21 @@
 									>{@html panelExpanded ? MINIMIZE_SVG : MAXIMIZE_SVG}</button>
 								</div>
 							{/if}
+							{#if v.code === 'PUD'}
+								<!-- The Park Ranger says it's still finding its feet, and says it in the
+								     bar's right-hand corner — the same corner every other panel keeps its
+								     global controls in, rather than inline with the tally it was sitting
+								     beside. The Presentation Builder wears the twin of this at the right
+								     end of its own bar (both are puhig's .beta). -->
+								<div class="head-actions">
+									<button
+										type="button"
+										class="beta"
+										aria-label="Intergalactic Park Ranger is in beta"
+										title="This app is in beta — expect it to change"
+									>Beta</button>
+								</div>
+							{/if}
 						</div>
 						{#if !NEW_HEADER.includes(v.code)}
 							<!-- Panels off the model keep the old arrangement: the title sits in the
@@ -4460,6 +4475,7 @@
 	:global(html:root .pud-boost),
 	:global(html:root .pud-buy),
 	:global(html:root .pud-reset),
+	:global(html:root .beta),
 	:global(html:root .pud-item-switch) {
 		transition:
 			transform 0.3s var(--btn-spring),
@@ -4520,6 +4536,7 @@
 	:global(html:root .pud-boost:active:not(:disabled)),
 	:global(html:root .pud-buy:active:not(:disabled)),
 	:global(html:root .pud-reset:active:not(:disabled)),
+	:global(html:root .beta:active:not(:disabled)),
 	:global(html:root .pud-item-switch:active:not(:disabled)) {
 		box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.07);
 	}
@@ -4546,6 +4563,7 @@
 		:global(html:root .pud-boost:hover:not(:disabled)),
 		:global(html:root .pud-buy:hover:not(:disabled)),
 		:global(html:root .pud-reset:hover:not(:disabled)),
+		:global(html:root .beta:hover:not(:disabled)),
 		:global(html:root .pud-item-switch:hover:not(:disabled)) {
 			transform: scale(var(--btn-hover-scale));
 		}
@@ -4569,6 +4587,7 @@
 		:global(html:root .pud-boost:active:not(:disabled)),
 		:global(html:root .pud-buy:active:not(:disabled)),
 		:global(html:root .pud-reset:active:not(:disabled)),
+		:global(html:root .beta:active:not(:disabled)),
 		:global(html:root .pud-item-switch:active:not(:disabled)) {
 			transform: scale(var(--btn-press-scale));
 			transition-duration: 0.1s;

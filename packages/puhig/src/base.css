@@ -499,6 +499,12 @@ html[data-ui='bubble'] .app-badge::before {
  * it maps that onto --accent for this pill in its own stylesheet — one line there beats a
  * bespoke token here. */
 .beta {
+	/* It's a <button> now, sitting in the bar's right-hand corner with the panel's other global
+	   controls — so it resets the UA's button face (its own font, no border, no system
+	   background) before drawing the pill. Everything below is what it always was. */
+	font: inherit;
+	border: 0;
+	cursor: pointer;
 	font-size: 0.6rem;
 	font-weight: 700;
 	letter-spacing: 0.1em;
@@ -508,6 +514,10 @@ html[data-ui='bubble'] .app-badge::before {
 	border-radius: 999px;
 	padding: 0.1rem 0.45rem;
 	line-height: 1.5;
+}
+.beta:focus-visible {
+	outline: var(--focus-ring);
+	outline-offset: 2px;
 }
 /* Aero: the pill joins the family's material — the edge-hugging gloss and the airy drop every
  * other Bubble control wears. It keeps its accent FILL (that's what the tag is for), so this
