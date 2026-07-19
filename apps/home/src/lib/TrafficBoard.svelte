@@ -1714,14 +1714,13 @@
 	}
 	/* Panel chrome, matched to the generic .surface-head so ATFC reads like every other
 	   destination panel (this board just renders it itself). */
-	/* Back is an icon circle on the left, matching the refresh control (shared styling
-	   in the .icon-circle group above; only its placement is set here). */
-	.back {
-		align-self: flex-start;
-		/* Match the header's top/left edge inset so the back button is evenly framed rather
-		   than crowding the title below it (mirrors the generic .surface-head). */
-		margin-bottom: clamp(1.5rem, 4vw, 2.5rem);
-	}
+	/* Back is an icon circle on the left, matching the refresh control (shared styling in the
+	   .icon-circle group above). It carries no placement of its own any more: it used to sit
+	   ABOVE the title as its own block, so it opted out of the header's alignment
+	   (align-self: flex-start) and held the title off itself with a bottom margin of the
+	   header's own inset. On the new model it's the first item in a centred control row, and
+	   both of those fought it — the margin stretched the row to 82px and flex-start pinned Back
+	   to the top of it, so the badge centred 20px BELOW Back. The row aligns them now. */
 	.dest {
 		margin: 0;
 		/* Exact homepage wordmark scale, so the title dominates the 30px refresh circle the
@@ -1744,7 +1743,7 @@
 	.head-row {
 		display: flex;
 		align-items: center;
-		gap: 0.6rem;
+		gap: 0.5rem; /* the panels' beat between Back and the badge — same cluster, same spacing */
 		/* Keep clear of the pinned corner cluster: two 42px discs plus their gap and inset. */
 		padding-right: 6.5rem;
 	}

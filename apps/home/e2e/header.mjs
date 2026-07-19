@@ -45,12 +45,43 @@ const ok = (name, pass, detail = '') => {
 	console.log(`  ${pass ? 'PASS' : 'FAIL'}  ${name}${!pass && detail ? '  — ' + detail : ''}`);
 };
 
+// Back and the badge are one CLUSTER at the left of the control row, so they share a centre
+// line. Worth asserting because the board got this wrong in a way that reads as "the favicon
+// button is misaligned": Back kept two rules from when it sat ABOVE the title — align-self:
+// flex-start and a bottom margin of the header's inset — which stretched the row to 82px and
+// pinned Back to the top of it, so the centred badge sat 20px below it.
+const clusterAligned = (head) => {
+	const back = head?.querySelector('.back');
+	const badge = head?.querySelector('.app-badge');
+	if (!back || !badge) return null;
+	const b = back.getBoundingClientRect();
+	const g = badge.getBoundingClientRect();
+	return {
+		drift: +Math.abs((b.top + b.height / 2) - (g.top + g.height / 2)).toFixed(1),
+		sameSize: Math.round(b.height) === Math.round(g.height),
+		gap: +(g.left - b.right).toFixed(1)
+	};
+};
+
 const read = () => {
 	const head = document.querySelector('.surface-head');
 	const body = document.querySelector('.surface-body');
 	const title = body?.querySelector(':scope > .body-title');
 	const compact = head?.querySelector('.head-title');
+	const back = head?.querySelector('.back');
+	const badgeEl = head?.querySelector('.app-badge');
+	const cluster = back && badgeEl
+		? (() => {
+				const b = back.getBoundingClientRect();
+				const g = badgeEl.getBoundingClientRect();
+				return {
+					drift: +Math.abs((b.top + b.height / 2) - (g.top + g.height / 2)).toFixed(1),
+					sameSize: Math.round(b.height) === Math.round(g.height)
+				};
+			})()
+		: null;
 	return {
+		cluster,
 		compact: compact ? compact.textContent.trim() : null,
 		bodyTitleIsFirst: !!title && body.firstElementChild === title,
 		headHasBigTitle: !!head?.querySelector('.title-row'),
@@ -93,6 +124,9 @@ for (const vp of [{ width: 1400, height: 820 }, { width: 390, height: 844 }]) {
 		const top = await page.evaluate(read);
 
 		ok(`${path}: badge beside Back`, top.badge);
+		ok(`${path}: Back and the badge share a centre line`,
+			!!top.cluster && top.cluster.drift <= 1 && top.cluster.sameSize,
+			top.cluster ? `${top.cluster.drift}px drift, sameSize=${top.cluster.sameSize}` : 'no cluster');
 		ok(`${path}: the big title is the body's first child`, top.bodyTitleIsFirst);
 		ok(`${path}: no title row left in the header`, !top.headHasBigTitle);
 		ok(`${path}: the bar is unnamed while the big title shows`, top.compact === null, top.compact ?? '');
@@ -138,7 +172,19 @@ for (const vp of [{ width: 1400, height: 820 }, { width: 390, height: 844 }]) {
 				mark: !!head?.querySelector('.app-badge svg'),
 				bigTitleInHead: !!head?.querySelector('.dest'),
 				bodyTitleFirst: !!body && body.firstElementChild?.classList.contains('body-title'),
-				compact: head?.querySelector('.head-title')?.textContent.trim() ?? null
+				compact: head?.querySelector('.head-title')?.textContent.trim() ?? null,
+				cluster: (() => {
+					const back = head?.querySelector('.back');
+					const badge = head?.querySelector('.app-badge');
+					if (!back || !badge) return null;
+					const b = back.getBoundingClientRect();
+					const g = badge.getBoundingClientRect();
+					return {
+						drift: +Math.abs((b.top + b.height / 2) - (g.top + g.height / 2)).toFixed(1),
+						sameSize: Math.round(b.height) === Math.round(g.height),
+						rowH: Math.round(head.querySelector('.head-row')?.getBoundingClientRect().height ?? 0)
+					};
+				})()
 			};
 		}, spec);
 		ok(`${path}: builds its own header, not the shared bar`, !g.sharedBar, `sharedBar=${g.sharedBar}`);
@@ -148,6 +194,13 @@ for (const vp of [{ width: 1400, height: 820 }, { width: 390, height: 844 }]) {
 			// Unexpanded, the board wears the model in its own chrome: badge beside Back, big
 			// title in ITS scroller, nothing left in the bar but controls.
 			ok(`${path}: unexpanded wears the badge`, g.badge && g.mark, `badge=${g.badge} mark=${g.mark}`);
+			// The board is where this broke: Back kept its old above-the-title placement rules,
+			// which stretched the row and dropped the badge 20px below it.
+			ok(`${path}: Back and the badge share a centre line`,
+				!!g.cluster && g.cluster.drift <= 1 && g.cluster.sameSize,
+				g.cluster ? `${g.cluster.drift}px drift, row ${g.cluster.rowH}px` : 'no cluster');
+			ok(`${path}: the control row is one disc tall`,
+				!!g.cluster && g.cluster.rowH <= 46, g.cluster ? `${g.cluster.rowH}px` : 'no row');
 			ok(`${path}: unexpanded moves its title into the body`, g.bodyTitleFirst && !g.bigTitleInHead,
 				`bodyFirst=${g.bodyTitleFirst} headTitle=${g.bigTitleInHead}`);
 			ok(`${path}: unexpanded starts unnamed in the bar`, g.compact === null, g.compact ?? '');
