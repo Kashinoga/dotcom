@@ -124,6 +124,22 @@
 	// orbit, a transit window, a supply drop on a clock, and a request-priority action that cut
 	// the wait — but no working parts: the drop never landed and the manifest never arrived.
 	// Here the clock runs, the drop lands, and the manifest goes into the stores.
+	// ── Basecamp ────────────────────────────────────────────────────────────────
+	// The ancestor listed Basecamp beside Home and the Starship as one of the LOCATIONS, and its
+	// activity log already carried a 'campfire' event type — the camp was planned, never built.
+	// It's built here as the thing the forestry detail was missing: a use for the timber.
+	//
+	// A fire is lit with what you cut, burns for a minute, and the whole division works warmer
+	// while it does. That closes the loop the stands opened — cut, burn, extract faster — and
+	// stacks with Overclock rather than replacing it: one is what you pay shards for, the other
+	// is what you cut wood for.
+	const FIRE_MS = 60_000;
+	const FIRE_MULT = 1.5;
+	const FIRE_COST: { id: string; n: number }[] = [
+		{ id: 'kindling', n: 2 },
+		{ id: 'timber', n: 1 }
+	];
+
 	const SHIP = { name: 'IPR Courier — Vanta', where: 'Densette Gateway' };
 	const DROP_MS = 120_000; // a drop every two minutes…
 	const DROP_RUSH_MS = 15_000; // …or fifteen seconds, if you pay the freight
@@ -142,6 +158,7 @@
 	let stores = $state<Record<string, number>>({});
 	let dropAt = $state(0);
 	let rushed = $state(false);
+	let fireUntil = $state(0);
 	// The cut in progress, or nothing. `ms` rides along so the bar can animate for exactly as
 	// long as the award is going to take, from one source of truth.
 	let chop = $state<{ id: string; ms: number } | null>(null);
@@ -167,7 +184,16 @@
 	// this panel writes to it. The ancestor tagged each event with an EMOJI; here a kind maps to
 	// a colour instead — dotcom draws its marks as SVG and sets its tone in type, so a row of
 	// emoji would read as a foreign object. The colour does the same scanning work.
-	type LogKind = 'rig' | 'upgrade' | 'boost' | 'time' | 'away' | 'reset' | 'wood' | 'supply';
+	type LogKind =
+		| 'rig'
+		| 'upgrade'
+		| 'boost'
+		| 'time'
+		| 'away'
+		| 'reset'
+		| 'wood'
+		| 'supply'
+		| 'campfire';
 	type LogEntry = { id: number; kind: LogKind; message: string; at: number };
 	const LOG_MAX = 20; // the ancestor's cap, and about a screenful
 	let log = $state<LogEntry[]>([]);
@@ -243,7 +269,13 @@
 		RIGS.reduce((s, r) => s + (rigPaused[r.id] ? 0 : r.cps * (owned[r.id] ?? 0)), 0)
 	);
 	const boosted = $derived(nowMs > 0 && nowMs < boostUntil);
-	const cps = $derived(paused ? 0 : baseCps * (boosted ? 2 : 1));
+	const lit = $derived(nowMs > 0 && nowMs < fireUntil);
+	// The fire and the overclock MULTIPLY rather than override: they're bought with different
+	// things (timber and shards), so stacking them is the reward for running both.
+	const cps = $derived(paused ? 0 : baseCps * (boosted ? 2 : 1) * (lit ? FIRE_MULT : 1));
+	// Enough in the stores for a fire, and nothing already burning. Kept as its own derived so
+	// the button can say WHY it's out — the cost is listed either way.
+	const canLight = $derived(!lit && FIRE_COST.every((c) => (stores[c.id] ?? 0) >= c.n));
 	const canBoost = $derived(nowMs >= boostReadyAt && baseCps > 0 && !paused);
 
 	const rigCost = (r: Rig) => Math.round(r.base * Math.pow(1.15, owned[r.id] ?? 0));
@@ -350,6 +382,13 @@
 			save();
 		}, t.ms);
 	}
+	function lightFire() {
+		if (!canLight) return;
+		for (const c of FIRE_COST) stores[c.id] = (stores[c.id] ?? 0) - c.n;
+		fireUntil = Date.now() + FIRE_MS;
+		note('campfire', `The camp fire is lit — the division works warm for a minute.`);
+		save();
+	}
 	// The drop lands: a crate or two into the stores, a line in the ledger, and the next window
 	// set. Deterministic enough to be fair — one guaranteed item, a second sometimes — because a
 	// supply line that can deliver nothing reads as broken rather than unlucky.
@@ -438,6 +477,7 @@
 		stores = {};
 		dropAt = Date.now() + DROP_MS;
 		rushed = false;
+		fireUntil = 0;
 		clearTimeout(chopTimer);
 		chop = null;
 		log = [];
@@ -464,6 +504,7 @@
 		stores?: Record<string, number>;
 		dropAt?: number;
 		rushed?: boolean;
+		fireUntil?: number;
 		savedAt: number;
 	};
 	function save() {
@@ -482,6 +523,7 @@
 				stores: { ...stores },
 				dropAt,
 				rushed,
+				fireUntil,
 				savedAt: Date.now()
 			};
 			localStorage.setItem(SAVE_KEY, JSON.stringify(body));
@@ -510,6 +552,7 @@
 				stores = { ...(s.stores ?? s.wood ?? {}) };
 				dropAt = s.dropAt ?? 0;
 				rushed = s.rushed ?? false;
+				fireUntil = s.fireUntil ?? 0;
 				// Restore the ledger, defensively: it's the one saved field that's a list of
 				// objects, so a hand-edited or half-written save could put anything here.
 				log = Array.isArray(s.log)
@@ -611,7 +654,9 @@
 				{#key flapNum}<SplitFlap text={flapNum} from={flapNumPrev} delay={0} base={130} stagger={0} tick={35} />{/key}{#if flapUnit}{#key flapUnit}<SplitFlap text={flapUnit} delay={0} base={130} tick={35} />{/key}{/if}
 			</div>
 			<div class="pud-sub">
-				Data Shards · {paused ? 'paused' : `${fmtRate(cps)}/s${boosted ? ' · overclocked ×2' : ''}`}
+				Data Shards · {paused
+					? 'paused'
+					: `${fmtRate(cps)}/s${boosted ? ' · overclocked ×2' : ''}${lit ? ` · fire ×${FIRE_MULT}` : ''}`}
 			</div>
 		</div>
 		<!-- (The Beta pill moved OUT of here: it's a control now, in the panel bar's right-hand
@@ -664,7 +709,56 @@
 	<!-- Requisitions and the courier sit side by side: both are places you spend, and neither
 	     fills a whole panel's width on its own. Stacks below the app's own seam. -->
 	<div class="pud-cols">
-	<div class="pud-shop">
+		<!-- THE PLACES — Basecamp and the Courier, the two spots the ranger works out of (the
+		     ancestor listed them together as Locations). Requisitions sits beside them. -->
+		<div class="pud-places">
+			<!-- BASECAMP — where the timber goes. Cut, burn, extract faster. -->
+			<div class="pud-camp" class:lit>
+				<p class="pud-lead">Basecamp</p>
+				<div class="pud-ship-id">
+					<span class="pud-item-name">Camp fire</span>
+					<span class="pud-item-blurb">
+						{lit
+							? `Burning — the division works at ×${FIRE_MULT} for ${Math.max(0, Math.ceil((fireUntil - nowMs) / 1000))}s.`
+							: `Costs ${FIRE_COST.map((c) => `${c.n}× ${TREES.find((t) => t.id === c.id)?.name}`).join(', ')}. Burns a minute.`}
+					</span>
+				</div>
+				<button type="button" class="pud-boost" disabled={!canLight} onclick={lightFire}>
+					{lit ? 'Burning' : 'Light the fire'}
+				</button>
+			</div>
+
+		<!-- THE COURIER — the ancestor's starship panel with its clock running: a named ship in
+		     orbit, a transit window, and a supply drop that actually lands (see landDrop). -->
+		<div class="pud-ship">
+			<p class="pud-lead">Courier</p>
+			<div class="pud-ship-id">
+				<span class="pud-item-name">{SHIP.name}</span>
+				<span class="pud-item-blurb">In orbit · {SHIP.where}</span>
+			</div>
+			<dl class="pud-ship-stat">
+				<div>
+					<dt>Next drop</dt>
+					<dd>{dropIn > 0 ? `${dropIn}s` : 'overhead'}</dd>
+				</div>
+				<div>
+					<dt>Priority</dt>
+					<dd>{rushed ? 'Expedited' : 'Standard'}</dd>
+				</div>
+			</dl>
+			<button
+				type="button"
+				class="pud-boost"
+				disabled={!canRush}
+				onclick={requestRush}
+				title={rushed ? 'The window is already forward' : `Costs ${fmt(RUSH_COST)} shards`}
+			>
+				{rushed ? 'Expedited' : `Request priority · ${fmt(RUSH_COST)}`}
+			</button>
+			</div>
+		</div>
+
+		<div class="pud-shop">
 		<p class="pud-lead">Division requisitions</p>
 		<div class="pud-item">
 			<span class="pud-item-main">
@@ -716,35 +810,6 @@
 				</button>
 			</div>
 			{/each}
-		</div>
-
-		<!-- THE COURIER — the ancestor's starship panel with its clock running: a named ship in
-		     orbit, a transit window, and a supply drop that actually lands (see landDrop). -->
-		<div class="pud-ship">
-			<p class="pud-lead">Courier</p>
-			<div class="pud-ship-id">
-				<span class="pud-item-name">{SHIP.name}</span>
-				<span class="pud-item-blurb">In orbit · {SHIP.where}</span>
-			</div>
-			<dl class="pud-ship-stat">
-				<div>
-					<dt>Next drop</dt>
-					<dd>{dropIn > 0 ? `${dropIn}s` : 'overhead'}</dd>
-				</div>
-				<div>
-					<dt>Priority</dt>
-					<dd>{rushed ? 'Expedited' : 'Standard'}</dd>
-				</div>
-			</dl>
-			<button
-				type="button"
-				class="pud-boost"
-				disabled={!canRush}
-				onclick={requestRush}
-				title={rushed ? 'The window is already forward' : `Costs ${fmt(RUSH_COST)} shards`}
-			>
-				{rushed ? 'Expedited' : `Request priority · ${fmt(RUSH_COST)}`}
-			</button>
 		</div>
 		</div>
 
@@ -1183,13 +1248,14 @@
 		border-color: var(--ink);
 	}
 
+	/* No top rule. It divided the shop from the actions row above it back when the shop was the
+	   next thing down the page; the shop is a COLUMN in a band now, sitting beside Basecamp and
+	   the Courier with nothing above it to be divided from — the rule was drawing a line under
+	   empty space, and only on one of the two columns. */
 	.pud-shop {
 		display: flex;
 		flex-direction: column;
 		gap: 0.55rem;
-		padding-top: 1.1rem;
-		border-top: 1px solid transparent;
-		border-image: var(--rule-fade) 1;
 	}
 	.pud-lead {
 		margin: 0 0 0.2rem;
@@ -1345,13 +1411,43 @@
 		gap: 1.05rem;
 		min-width: 0;
 	}
+	/* Basecamp and the Courier stack as one column — they're the two PLACES, and reading them
+	   together is the point. */
+	.pud-places {
+		display: flex;
+		flex-direction: column;
+		gap: 1.05rem;
+		min-width: 0;
+	}
 	@media (min-width: 961px) {
 		.pud-cols {
 			display: grid;
-			grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+			/* Places first, requisitions beside them and wider: the shop's rows carry a name, a
+			   blurb AND a cost chip, where a place is a short status block with one button. */
+			grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
 			gap: 1.05rem;
 			align-items: start;
 		}
+	}
+	/* The camp wears the courier's card, because it's the same kind of thing: a place, its
+	   state, and the one thing you can do there. */
+	.pud-camp {
+		display: flex;
+		flex-direction: column;
+		gap: 0.7rem;
+		padding: 0.9rem 1rem 1rem;
+		border: 1px solid var(--line-edge);
+		border-radius: 12px;
+		background: var(--aero-face);
+		transition: border-color 0.2s ease;
+	}
+	/* Lit, the camp says so in its edge — the fire is a state you should be able to see from
+	   across the panel, not something you have to read. */
+	.pud-camp.lit {
+		border-color: var(--accent, #f06030);
+	}
+	.pud-camp .pud-boost {
+		align-self: flex-start;
 	}
 	/* The courier: a status block, framed like the cards in the side column so it reads as a
 	   panel rather than a stray list, with its figures on their own line. */
