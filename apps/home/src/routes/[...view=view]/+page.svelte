@@ -716,9 +716,15 @@
 		]
 	};
 	// Panels on the NEW HEADER MODEL: the accent bullet leaves the title and becomes a
-	// badge beside Back (see .app-badge). Rolling out one panel at a time; add a code here
-	// to move it over.
-	const NEW_HEADER = ['APP', 'EMOJ'];
+	// badge beside Back (see .app-badge). The rollout is done — this is now every panel
+	// that renders the SHARED super bar, so the list reads as "all of them minus the ones
+	// that can't".
+	//
+	// The three that can't are ATFC, PRES and STAR: they own their whole panel interior and
+	// build their own header (see the branch above), so there's no shared bar here to move a
+	// bullet in. Moving them over means editing those components, not this list. KSH never
+	// reaches this branch either — Home is the map, not a panel.
+	const NEW_HEADER = ['APP', 'EMOJ', 'ABT', 'WRK', 'PRJ', 'STG', 'WTHR', 'AITA', 'PUD'];
 	// The apps the Apps panel shows as CARDS in its body.
 	// Alphabetical by TITLE: the cards' order is presentation, not hierarchy, so a new
 	// app files itself in rather than landing wherever it was added.
