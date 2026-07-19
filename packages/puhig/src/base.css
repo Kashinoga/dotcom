@@ -375,6 +375,120 @@ body {
 		transition: width 0.28s ease, height 0.28s ease;
 	}
 }
+/* ── The new header model ──────────────────────────────────────────────────────────────
+ * The accent bullet leaves the title to become a control-sized disc beside Back (.app-badge),
+ * and the big title moves into the SCROLLING body (.body-title) so it scrolls away — once it
+ * has, a compact title flies in beside the badge (.head-title) and the bar carries the name.
+ *
+ * It lives HERE, beside .csb, for the same reason .csb does: two different wearers build this
+ * bar — the generic panel in the catch-all page, and the Traffic board, which owns its whole
+ * interior — and a recipe scoped to one of them can't be worn by the other. Panel-specific
+ * seasoning (flex rules for a particular row, phantom scroll room) stays with the panel.
+ *
+ * The keyframes are named badge-* rather than reusing the page's dot-* pair: those are
+ * declared inside a Svelte component, so their names are SCOPED and invisible from here. */
+.app-badge {
+	position: relative;
+	flex: none;
+	box-sizing: border-box;
+	display: inline-grid;
+	place-items: center;
+	width: 42px;
+	height: 42px;
+	padding: 0;
+	border: 0;
+	border-radius: 999px;
+	background: color-mix(in srgb, var(--accent) 15%, transparent);
+	cursor: pointer;
+	transition: background 0.15s ease, transform 0.12s var(--btn-spring);
+}
+/* The ARRIVAL face: a solid accent disc that fades off to reveal the marked wash beneath. */
+.app-badge::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: 999px;
+	background: var(--accent);
+	opacity: 0;
+}
+.app-badge-mark {
+	position: relative;
+	z-index: 1;
+	display: grid;
+	place-items: center;
+	width: 55%;
+	height: 55%;
+	color: var(--accent);
+}
+.app-badge-mark svg {
+	width: 100%;
+	height: 100%;
+	display: block;
+}
+.app-badge:hover {
+	background: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.app-badge:active {
+	transform: scale(0.92);
+}
+.app-badge:focus-visible {
+	outline: var(--focus-ring);
+	outline-offset: 2px;
+}
+html[data-ui='bubble'] .app-badge {
+	box-shadow: var(--aero-gloss), var(--aero-drop);
+}
+/* Aeroify the arrival face too: the solid disc sits over the badge's own gloss and would hide
+ * it, so it wears the rim light itself. Gloss is inset (edge-hugging), never a sheen wash. */
+html[data-ui='bubble'] .app-badge::before {
+	box-shadow: var(--aero-gloss);
+}
+@media (prefers-reduced-motion: no-preference) {
+	/* Settles a beat after the header lands: the solid face fades, the mark rises in. */
+	.app-badge::before {
+		animation: badge-solid-out 0.4s ease 0.7s backwards;
+	}
+	.app-badge-mark {
+		animation: badge-mark-in 0.4s var(--spring) 0.7s backwards;
+	}
+}
+@keyframes badge-solid-out {
+	from {
+		opacity: 1;
+	}
+	to {
+		opacity: 0;
+	}
+}
+@keyframes badge-mark-in {
+	from {
+		opacity: 0;
+		transform: scale(0.5);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+/* The compact title that flies in beside the badge once the big one has scrolled away — bar
+ * scale, centred in the control row. It shrinks and clips before its neighbours: when the row
+ * is tight the title is the thing that's leaving anyway, so it yields rather than the discs. */
+.head-title {
+	align-self: center;
+	min-width: 0;
+	overflow: hidden;
+	font-size: clamp(1.1rem, 1.4vw, 1.35rem);
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	color: var(--ink);
+	white-space: nowrap;
+}
+/* The big title, first thing in the scrolling body. It keeps the wordmark scale it had in the
+ * header; a little top room stands in for the header padding it used to sit under. */
+.body-title {
+	margin: 0.25rem 0 0;
+}
+
 /* 42px at EVERY width (it began as the phone's touch target; the desktop pass promoted
  * it — one control size, no breakpoint seam). Controls that wear this size by hand
  * (the search discs, the camera disc, the refresh dial, the unit toggle) restate it in

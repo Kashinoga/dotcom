@@ -30,9 +30,14 @@ const MODEL = {
 	'/apps/court-of-public-opinion': 'Court of Public Opinion',
 	'/apps/intergalactic-park-ranger': 'Intergalactic Park Ranger'
 };
-// Panels that own their whole interior and build their own header — no shared bar to move a
-// bullet into, so they are NOT on the model. Asserted, so a half-migration shows up here.
-const OFF_MODEL = { '/apps/air-traffic': '.tfc-head', '/apps/star-map': null };
+// Panels that build their own header. They have no shared bar, but that no longer means they're
+// off the model — the Traffic board wears it in its own chrome when UNEXPANDED: badge beside
+// Back, title in its own scroller (.tfc-body), same handover. The Builder and the Star Map are
+// always full-viewport, so they have no unexpanded header to put a badge in at all.
+const OWN_HEADER = {
+	'/apps/air-traffic': { head: '.tfc-head', body: '.tfc-body', model: true, title: 'Air Traffic' },
+	'/apps/star-map': { head: null, body: null, model: false }
+};
 
 const results = [];
 const ok = (name, pass, detail = '') => {
@@ -95,15 +100,21 @@ for (const vp of [{ width: 1400, height: 820 }, { width: 390, height: 844 }]) {
 		await scrollBody(page, 1e6);
 		const down = await page.evaluate(read);
 
-		if (down.travel > 0 && down.visible === 0) {
-			// The title has fully cleared, so the bar MUST have picked up the name — however
-			// little travel the panel had. This is the check the short panels were failing.
+		// Three zones, because the handover is hysteretic and only the ends are decidable:
+		//   <= 12px of title left  the bar MUST carry the name (this is the show threshold, and
+		//                          the check the short-travel panels were failing)
+		//   >= 36px still showing  the big title is plainly doing the naming, so the bar must not
+		//   in between             the hysteresis band — either answer is correct depending on
+		//                          which way you arrived, so asserting here would be inventing a
+		//                          contract the code doesn't have
+		if (down.visible <= 12) {
 			ok(`${path}: the bar picks up the name once the title clears`, down.compact === title,
-				`${down.compact ?? 'nothing'} (travel ${Math.round(down.travel)}px)`);
-		} else {
-			// Not enough travel to push the title off — the big one is still doing the naming.
+				`${down.compact ?? 'nothing'} (visible ${down.visible}px, travel ${Math.round(down.travel)}px)`);
+		} else if (down.visible >= 36) {
 			ok(`${path}: no handover while the big title is still visible`, down.compact === null,
 				`visible=${down.visible} compact=${down.compact ?? 'none'}`);
+		} else {
+			console.log(`  ---   ${path}: ${down.visible}px of title left — inside the hysteresis band, not asserted`);
 		}
 
 		// …and back up. The compact title has to LEAVE again, or it sits beside the badge with
@@ -114,17 +125,68 @@ for (const vp of [{ width: 1400, height: 820 }, { width: 390, height: 844 }]) {
 	}
 
 	// The panels that build their own header keep it — they never grew a shared bar.
-	for (const [path, ownHead] of Object.entries(OFF_MODEL)) {
+	for (const [path, spec] of Object.entries(OWN_HEADER)) {
 		await page.goto(B + path, { waitUntil: 'networkidle' });
-		await page.waitForTimeout(1300);
-		const g = await page.evaluate((sel) => ({
-			sharedBar: !!document.querySelector('.surface-head'),
-			bodyTitle: !!document.querySelector('.surface-body > .body-title'),
-			ownHead: sel ? !!document.querySelector(sel) : null
-		}), ownHead);
-		ok(`${path}: builds its own header, not the shared bar`, !g.sharedBar && !g.bodyTitle,
-			`sharedBar=${g.sharedBar} bodyTitle=${g.bodyTitle}`);
-		if (ownHead) ok(`${path}: its own header is there`, g.ownHead);
+		await page.waitForTimeout(1600);
+		const g = await page.evaluate((s) => {
+			const head = s.head ? document.querySelector(s.head) : null;
+			const body = s.body ? document.querySelector(s.body) : null;
+			return {
+				sharedBar: !!document.querySelector('.surface-head'),
+				ownHead: s.head ? !!head : null,
+				badge: !!head?.querySelector('.app-badge'),
+				mark: !!head?.querySelector('.app-badge svg'),
+				bigTitleInHead: !!head?.querySelector('.dest'),
+				bodyTitleFirst: !!body && body.firstElementChild?.classList.contains('body-title'),
+				compact: head?.querySelector('.head-title')?.textContent.trim() ?? null
+			};
+		}, spec);
+		ok(`${path}: builds its own header, not the shared bar`, !g.sharedBar, `sharedBar=${g.sharedBar}`);
+		if (spec.head) ok(`${path}: its own header is there`, g.ownHead);
+
+		if (spec.model) {
+			// Unexpanded, the board wears the model in its own chrome: badge beside Back, big
+			// title in ITS scroller, nothing left in the bar but controls.
+			ok(`${path}: unexpanded wears the badge`, g.badge && g.mark, `badge=${g.badge} mark=${g.mark}`);
+			ok(`${path}: unexpanded moves its title into the body`, g.bodyTitleFirst && !g.bigTitleInHead,
+				`bodyFirst=${g.bodyTitleFirst} headTitle=${g.bigTitleInHead}`);
+			ok(`${path}: unexpanded starts unnamed in the bar`, g.compact === null, g.compact ?? '');
+
+			await page.evaluate((sel) => new Promise((done) => {
+				const el = document.querySelector(sel);
+				el.scrollTo({ top: el.scrollHeight });
+				requestAnimationFrame(() => requestAnimationFrame(done));
+			}), spec.body);
+			await page.waitForTimeout(700);
+			const after = await page.evaluate((sel) =>
+				document.querySelector(sel)?.querySelector('.head-title')?.textContent.trim() ?? null, spec.head);
+			ok(`${path}: the bar picks up the name once its title clears`, after === spec.title, after ?? 'nothing');
+
+			// EXPANDED is a different arrangement and deliberately keeps the old one: one super
+			// bar leading with the title and its bullet, no badge, no handover.
+			const expandBtn = page.getByRole('button', { name: /Expand panel/i });
+			if (await expandBtn.count()) {
+				await expandBtn.first().click();
+				await page.waitForTimeout(1200);
+				const exp = await page.evaluate((s) => {
+					const head = document.querySelector(s.head);
+					return {
+						identTitle: !!head?.querySelector('.ident .dest'),
+						dot: !!head?.querySelector('.accent-dot'),
+						badge: !!head?.querySelector('.app-badge'),
+						bodyTitle: !!document.querySelector(`${s.body} > .body-title`),
+						compact: !!head?.querySelector('.head-title')
+					};
+				}, spec);
+				ok(`${path}: expanded keeps its super bar's own title and bullet`,
+					exp.identTitle && exp.dot, `title=${exp.identTitle} dot=${exp.dot}`);
+				ok(`${path}: expanded grows no badge and no handover`,
+					!exp.badge && !exp.bodyTitle && !exp.compact,
+					`badge=${exp.badge} bodyTitle=${exp.bodyTitle} compact=${exp.compact}`);
+			}
+		} else {
+			ok(`${path}: is always full-viewport, so no unexpanded header to move`, !g.badge && !g.bodyTitleFirst);
+		}
 	}
 
 	await ctx.close();

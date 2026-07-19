@@ -41,10 +41,10 @@ import { fileURLToPath } from 'node:url';
 //   • `--changed` scopes to the suites a diff can regress: puhig token/theme edits → the visual
 //     suites (dots/noshadow/glass/pcclose); board/builder/component edits → their suites; the
 //     catch-all page or an unclassified file → the full run.
-//   • The homepage MASTHEAD (its bullets, the tagline, the stage click-to-close) still has no
-//     suite of its own — `hubsize`, which measured it, was deleted with the map. `deeplink` and
-//     `field` now click the nav to move between panels, so the nav LINKS are exercised, but
-//     nothing asserts how the masthead looks. Verify those edits in a browser.
+//   • The homepage MASTHEAD has `masthead` again (it replaces the deleted `hubsize`): the
+//     wordmark and its bullets, the tagline's emphasis, the four stations and what a phone does
+//     to them, the flyouts, and — the part worth having — that a full-viewport panel takes it
+//     out of the TAB ORDER, not merely out of sight.
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = dirname(HERE);
@@ -56,6 +56,7 @@ const SUITES = [
 	'field', // the field selector
 	'settings', // the settings panel
 	'reset', // reset to defaults
+	'masthead', // the homepage chrome: wordmark, bullets, tagline, the station nav
 	'dots', // the accent bullet: a badge on the header model, beside the title off it
 	'header', // the panel super bar — the big title scrolls away, the bar picks up the name
 	'cards', // the Apps panel's two columns — CROSS-ENGINE (see the browsers note above)
@@ -110,12 +111,10 @@ const NARROW = [
 	{ re: /^src\/lib\/fields\.ts$/, suites: ['field', 'scope', 'oplong'] },
 	{ re: /^src\/params\/view\.ts$/, suites: ['deeplink'] },
 	{ re: /^src\/routes\/\[\.\.\.view=view\]\/\+page\.ts$/, suites: ['deeplink'] },
-	// The homepage masthead/nav is its own component. `hubsize` was the suite that asserted on it
-	// and it's gone with the map, so this used to name only that — which resolved to NOTHING, and
-	// a masthead edit quietly ran no tests at all. It isn't nothing any more: reaching a panel
-	// goes through the nav now, so `deeplink` and `field` both click this component and a broken
-	// nav fails them. Neither one looks at how the masthead is DRAWN — that still wants eyes.
-	{ re: /^src\/lib\/Masthead\.svelte$/, suites: ['deeplink', 'field'] },
+	// The homepage masthead/nav is its own component, and it has its own suite again: `masthead`
+	// replaces the deleted `hubsize`. `deeplink` and `field` come along because both click this
+	// component to reach a panel, so a broken nav fails them too.
+	{ re: /^src\/lib\/Masthead\.svelte$/, suites: ['masthead', 'deeplink', 'field'] },
 	{ re: /^src\/lib\/PresentationBuilder\.svelte$/, suites: ['ticker', 'ticker-edge', 'repeat'] },
 	{ re: /^src\/lib\/TrafficBoard\.svelte$/, suites: ['scope', 'field', 'oplong', 'pcclose', 'dots'] },
 	{ re: /^src\/lib\/SplitFlap\.svelte$/, suites: ['scope', 'field', 'oplong', 'pcclose'] },

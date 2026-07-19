@@ -3718,98 +3718,11 @@
 		}
 	}
 
-	/* ── The app badge (new header model) ── The accent bullet as a control disc, right of
-	   Back: a 42px circle in the app's accent, holding its mark. Arrives SOLID (the ::before
-	   face), then settles to the marked light wash — the same solid→mark reveal the title
-	   bullet does, at control size. */
-	.app-badge {
-		position: relative;
-		flex: none;
-		box-sizing: border-box;
-		display: inline-grid;
-		place-items: center;
-		width: 42px;
-		height: 42px;
-		padding: 0;
-		border: 0;
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--accent) 15%, transparent);
-		cursor: pointer;
-		transition: background 0.15s ease, transform 0.12s var(--btn-spring);
-	}
-	.app-badge::before {
-		content: '';
-		position: absolute;
-		inset: 0;
-		border-radius: 999px;
-		background: var(--accent);
-		opacity: 0;
-	}
-	.app-badge-mark {
-		position: relative;
-		z-index: 1;
-		display: grid;
-		place-items: center;
-		width: 55%;
-		height: 55%;
-		color: var(--accent);
-	}
-	.app-badge-mark :global(svg) {
-		width: 100%;
-		height: 100%;
-		display: block;
-	}
-	.app-badge:hover {
-		background: color-mix(in srgb, var(--accent) 24%, transparent);
-	}
-	.app-badge:active {
-		transform: scale(0.92);
-	}
-	.app-badge:focus-visible {
-		outline: var(--focus-ring);
-		outline-offset: 2px;
-	}
-	:global(html[data-ui='bubble']) .app-badge {
-		box-shadow: var(--aero-gloss), var(--aero-drop);
-	}
-	/* Aeroify the ARRIVAL face too: the solid accent disc (::before) sits over the badge's
-	   own gloss and would hide it, so it wears the rim light itself — the solid disc reads
-	   as aero all through the before-settle, not just once the wash shows. Gloss is inset
-	   (edge-hugging), never a sheen wash — the bubble-gloss rule. The title bullet's own
-	   arrival face gets the same. */
-	:global(html[data-ui='bubble']) .app-badge::before,
+	/* .app-badge / .head-title / .body-title — the new header model's recipe — moved to puhig's
+	   base.css, because the Traffic board builds its own bar and needs the same badge. Only the
+	   title bullet's aero arrival face stays here; the bullet itself is still the page's. */
 	:global(html[data-ui='bubble']) .accent-dot::before {
 		box-shadow: var(--aero-gloss);
-	}
-	@media (prefers-reduced-motion: no-preference) {
-		/* Settles a beat after the header lands: the solid face fades, the mark rises in. */
-		.app-badge::before {
-			animation: dot-solid-out 0.4s ease 0.7s backwards;
-		}
-		.app-badge-mark {
-			animation: dot-mark-in 0.4s var(--spring) 0.7s backwards;
-		}
-	}
-
-	/* The big title, first thing in the SCROLLING body (so it scrolls away) on every panel
-	   on the new header model. It keeps .dest's wordmark scale; a little top room stands in
-	   for the header padding it used to sit under. */
-	.body-title {
-		margin: 0.25rem 0 0;
-	}
-	/* The compact title that flies in beside the badge once the big one is gone — bar scale,
-	   centred in the control row. */
-	.head-title {
-		align-self: center;
-		/* Shrinks and clips first when the row is tight — so the growing search squeezes the
-		   title (which is leaving anyway) rather than the pinned discs. */
-		min-width: 0;
-		overflow: hidden;
-		font-size: clamp(1.1rem, 1.4vw, 1.35rem);
-		font-weight: 700;
-		letter-spacing: -0.01em;
-		color: var(--ink);
-		white-space: nowrap;
 	}
 
 	.dest {

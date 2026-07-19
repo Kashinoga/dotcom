@@ -10,8 +10,11 @@
 		REFRESH_SVG,
 		MAXIMIZE_SVG,
 		MINIMIZE_SVG,
-		HOME_SVG
+		HOME_SVG,
+		AIRPLANE_SVG
 	} from '$lib/icons';
+	import { fly } from 'svelte/transition';
+	import { backOut } from 'svelte/easing';
 	import { AIRPORTS, DEFAULT_FIELD, fieldByIata, type Airport } from '$lib/fields';
 	import { RANGES, DEFAULT_RANGE, INTERVALS, DEFAULT_POLL_MS } from '$lib/scope';
 
@@ -866,6 +869,28 @@
 	// itself and the header would flap open and shut. Collapse deep (64), reopen only
 	// near the top (8) — the states can't chase each other.
 	let headCollapsed = $state(false);
+	// The COMPACT board is on the new header model, like every ordinary panel: the accent
+	// bullet is a badge beside Back and the big title lives at the top of the scrolling body,
+	// so it scrolls away and hands the naming to a compact title in the bar. The expanded
+	// board is untouched — its super bar is one row that already leads with the title, and it
+	// has no separate scroller to hand anything over to.
+	let bodyTitleEl = $state<HTMLElement | undefined>(undefined);
+	let headTitleShown = $state(false);
+	// Same measurement as the panels' (see syncSurfaceScroll in the catch-all page): how much
+	// of the big title is still showing above the scroller's top edge, from LIVE RECTS — not
+	// offsetTop against scrollTop, which is measured from the offset parent and would carry the
+	// header's height. The hysteresis band scales with the title so it can never exceed it.
+	function syncHeadTitle(scroller: HTMLElement) {
+		if (!bodyTitleEl) return;
+		const r = bodyTitleEl.getBoundingClientRect();
+		const visible = Math.max(0, r.bottom - scroller.getBoundingClientRect().top);
+		const hideAt = Math.max(16, Math.min(36, r.height * 0.6));
+		headTitleShown = headTitleShown ? visible < hideAt : visible <= 12;
+	}
+	// Expanding hands the title back to the super bar, so the compact one must not linger.
+	$effect(() => {
+		if (showDeck) headTitleShown = false;
+	});
 	// Split-flap start delay. Live/initial rows cascade top-to-bottom (i × ROW_STEP).
 	// An ENTERING row flaps only AFTER its open motion (turn + OPEN_MS), so the flap
 	// and the open never run together. A LEAVING row's cells are frozen; its reason
@@ -1276,11 +1301,19 @@
 				{/if}
 			</div>
 		{:else}
-			{#if onback}<button type="button" class="icon-btn back csb-fold" style="--bn:0" onclick={onback} aria-label="Back to route map" title="Route map">{@html ARROW_LEFT_SVG}</button>{/if}
-			<div class="title-row csb-row">
-				<h2 class="dest csb-title">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
-				<!-- Decorative accent dot beside the title (station-sign bullet). -->
-				<div class="head-refresh">{@render accentDot()}</div>
+			<!-- NEW HEADER MODEL, same as every ordinary panel: Back, then the app's mark in its
+			     accent circle. The bullet that used to sit beside the title is this badge now,
+			     and the title itself has moved into the body below (bodyTitleEl) so it scrolls
+			     away. What's left up here is a control row. -->
+			<div class="head-row csb-fold" style="--bn:0">
+				{#if onback}<button type="button" class="icon-btn back" onclick={onback} aria-label="Back to route map" title="Route map">{@html ARROW_LEFT_SVG}</button>{/if}
+				<span class="app-badge" style:--accent={accent} aria-hidden="true">
+					<span class="app-badge-mark">{@html AIRPLANE_SVG}</span>
+				</span>
+				{#if headTitleShown}
+					<!-- Flies in once the big title has gone by, so the bar always names the board. -->
+					<span class="head-title" in:fly={{ x: -14, duration: 380, easing: backOut }} out:fly={{ x: -10, duration: 150 }}>{title}</span>
+				{/if}
 			</div>
 			<!-- Top-right corner: the live refresh control paired with the expand toggle. Sits
 			     inside the header, which stays put while the body scrolls. --bn keeps it
@@ -1314,8 +1347,15 @@
 			bodyScrolled = y > 2; // drives the header's scroll shade at every size
 			// Mobile keeps the header put (no CSB fold) — the shade alone marks the scroll.
 			headCollapsed = narrow ? false : headCollapsed ? y > 8 : y > 64;
+			syncHeadTitle(e.currentTarget);
 		}}
 	>
+		{#if !showDeck}
+			<!-- The compact board's big title: first thing in the SCROLLING body, so it goes under
+			     as you read the rows and the bar picks the name up (see syncHeadTitle). The
+			     expanded board's super bar leads with its own title instead. -->
+			<h2 class="dest body-title" bind:this={bodyTitleEl}>{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
+		{/if}
 		<!-- Live-data activity meter, covering the whole wait so there's feedback BEFORE and
 		     DURING, not just after. Two phases share one bar (so it never disappears between
 		     them): while the board is first loading a field, the ADS-B fetch is in flight and
@@ -1697,22 +1737,30 @@
 		   keeps the title off a second line when the bar simply runs out of room. */
 		white-space: nowrap;
 	}
-	/* The title's own row: "Air Traffic" on the left, the control deck filling the
-	   whole band to its right. Wraps to stacked only if it ever gets tight (the deck
-	   renders past 900px, so that's a safety net). */
-	.title-row {
+	/* The COMPACT board's control row (new header model): Back, the badge, and — once the big
+	   title below has scrolled by — the compact title. The corner cluster (refresh + expand) is
+	   pinned to the header's own top-right, so this row only holds the left-hand run and leaves
+	   room for it. Mirrors .head-row on the ordinary panels. */
+	.head-row {
 		display: flex;
-		/* Rest the refresh controls' bottoms on the title's text baseline (an icon-only
-		   button synthesizes its baseline at its bottom edge) — like the masthead's
-		   quick-settings bullets sitting on the wordmark baseline. Gap: the mastheads'
-		   shared 0.75rem beat (see the page's .title-row). */
-		align-items: baseline;
-		gap: 0.5rem 0.75rem;
-		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.6rem;
+		/* Keep clear of the pinned corner cluster: two 42px discs plus their gap and inset. */
+		padding-right: 6.5rem;
 	}
-	.title-row .dest {
-		flex: none;
+	.head-row .head-title {
+		/* The row is the only thing that can give when the title is long. */
+		min-width: 0;
 	}
+	/* The compact board's big title, now the first thing in the scrolling body. The wordmark
+	   scale comes from .dest; .body-title (puhig) gives it the top room the header padding used
+	   to. Its own bottom room separates it from the activity meter and the rows. */
+	.tfc-body > .body-title {
+		margin-bottom: clamp(0.75rem, 1.5vw, 1.1rem);
+	}
+	/* (.title-row went with the compact header's title — the row it laid out doesn't exist any
+	   more. The EXPANDED bar lays its title out with .ident, which is a different arrangement:
+	   one line, title then bullet, no baseline-rested control cluster.) */
 	/* Decorative accent dot beside the title — mirrors the homepage masthead's dots sitting
 	   next to the wordmark. Deliberately NOT a flex container: as a plain inline-block the
 	   dot keeps its true bottom-edge baseline so `align-items: baseline` on the row rests it
