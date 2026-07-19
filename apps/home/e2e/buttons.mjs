@@ -88,6 +88,123 @@ for (const ui of ['flat','bubble']) {
   const fld = p.locator('button.field').first();
   await fld.hover({force:true}); await p.waitForTimeout(450);
   ok(`${ui}: ATFC .field hover = ${HOVER}`, (await scaleOf(fld))===HOVER, String(await scaleOf(fld)));
+
+  // Intergalactic Park Ranger — the app that is ENTIRELY about clicking, and whose buttons had
+  // no spring at all: the universal recipe is opt-in by class name and none of its classes were
+  // ever listed, even though its own CSS claimed "the universal spring gives the tap its thock".
+  //
+  // Seeded with a save so every control is present AND enabled — the shop's Buy pills are
+  // disabled while you can't afford them, and a rig row only becomes a BUTTON once you own one.
+  // Each control gets a fresh panel: the press is released away from the button so no click
+  // fires, and away lands on the STAGE, whose anywhere-off click closes the panel.
+  const PUD = '/apps/intergalactic-park-ranger';
+  const seed = () => localStorage.setItem('ksh-pud', JSON.stringify({
+    shards: 1e7, lifetime: 1e7, clickLevel: 3, owned: { probe: 2 },
+    boostUntil: 0, boostReadyAt: 0, paused: false, rigPaused: {}, savedAt: Date.now()
+  }));
+  // The rig row is a full-width row, not a pill, so it takes the Apps cards' softened amounts.
+  for (const [sel, label, hov, prs] of [
+    ['.pud-extract', 'IPR Extract', HOVER, PRESS],
+    ['.pud-boost', 'IPR Overclock', HOVER, PRESS],
+    ['.pud-buy', 'IPR Buy', HOVER, PRESS],
+    ['.pud-item-switch', 'IPR rig row', 1.01, 0.995],
+    ['.pud-reset', 'IPR Reset', HOVER, PRESS]
+  ]) {
+    await p.goto(B+PUD,{waitUntil:'domcontentloaded'});
+    await p.evaluate(seed);
+    await p.goto(B+PUD,{waitUntil:'networkidle'}); await p.waitForTimeout(1800);
+    await settle(p);
+    const loc = p.locator(sel).first();
+    if (!(await loc.count())) { ok(`${ui}: ${label} is present`, false, 'absent'); continue; }
+    await loc.scrollIntoViewIfNeeded().catch(()=>{});
+    await loc.hover({force:true}); await p.waitForTimeout(450);
+    ok(`${ui}: ${label} hover = ${hov}`, (await scaleOf(loc))===hov, String(await scaleOf(loc)));
+    await p.mouse.down(); await p.waitForTimeout(240);
+    ok(`${ui}: ${label} press = ${prs}`, (await scaleOf(loc))===prs, String(await scaleOf(loc)));
+    ok(`${ui}: ${label} rides the shared spring`, /cubic-bezier\(0\.34, 1\.4/.test(await easingOf(loc)), await easingOf(loc));
+    await p.mouse.move(5, 5); await p.mouse.up(); await p.waitForTimeout(200);
+  }
+  // An UNOWNED rig has nothing to switch, so its body is a <span> that never takes the switch
+  // class. A span is never :disabled — so if the spring were listed on .pud-item-main instead,
+  // these inert rows would pop under the cursor as though they did something.
+  await p.goto(B+PUD,{waitUntil:'networkidle'}); await p.waitForTimeout(1500);
+  const inert = await p.evaluate(() => {
+    const span = [...document.querySelectorAll('.pud-item-main')].find((e) => e.tagName === 'SPAN');
+    return span ? getComputedStyle(span).transitionProperty.includes('transform') : null;
+  });
+  ok(`${ui}: IPR inert rig rows take no spring`, inert === false, String(inert));
+  await ctx.close();
+}
+
+// ── A TAP gets the same squash as a click ────────────────────────────────────
+// The press is a CSS transition on :active, so it needs time on the clock. A macOS trackpad
+// tap-to-click releases in under a frame: :active came and went before the 0.1s transition had
+// moved, and a tap got NO feedback while a click got the full squash. Measured on Extract:
+// held 250ms → 0.945, held 80ms → 0.945, held 30ms → 0.957, tap → 1.0 (nothing).
+//
+// Sampling matters here. scaleOf() reads the transform ONCE, and a tap's squash is over in a
+// few hundred ms — a single read lands wherever it lands. This watches every frame and keeps
+// the PEAK, which is the thing a person actually sees.
+const peakOnTap = async (p, sel) => {
+  const l = p.locator(sel).first();
+  if (!(await l.count())) return 'absent';
+  await l.scrollIntoViewIfNeeded().catch(()=>{});
+  await l.hover({force:true}); await p.waitForTimeout(400);
+  await p.evaluate((s)=>{ window.__peak = 1; window.__watching = true;
+    const el = document.querySelector(s);
+    const tick = () => { const m = getComputedStyle(el).transform.match(/matrix\(([^)]+)\)/);
+      window.__peak = Math.min(window.__peak, m ? parseFloat(m[1].split(',')[0]) : 1);
+      if (window.__watching) requestAnimationFrame(tick); };
+    tick(); }, sel);
+  await p.mouse.down(); await p.mouse.up();   // a TAP: no hold at all
+  await p.waitForTimeout(400);
+  const peak = await p.evaluate(()=>{ window.__watching = false; return +window.__peak.toFixed(3); });
+  await p.mouse.move(700, 930); await p.waitForTimeout(250);
+  return peak;
+};
+for (const ui of ['flat','bubble']) {
+  const ctx = await b.newContext({ viewport:{width:1400,height:950} });
+  const p = await ctx.newPage();
+  await p.goto(B+'/',{waitUntil:'domcontentloaded'});
+  await p.evaluate(u=>{localStorage.setItem('ksh-ui',u);localStorage.setItem('ksh-sky','off');localStorage.setItem('ksh-theme','light');},ui);
+  await p.goto(B+'/settings',{waitUntil:'networkidle'}); await p.waitForTimeout(1600);
+  ok(`${ui}: tapping a .seg squashes it`, (await peakOnTap(p,'button.seg'))<=PRESS+0.005, String(await peakOnTap(p,'button.seg')));
+  ok(`${ui}: tapping Back squashes it`, (await peakOnTap(p,'button.icon-btn.back'))<=PRESS+0.005);
+  await p.goto(B+'/apps',{waitUntil:'networkidle'}); await p.waitForTimeout(1600);
+  // The Apps cards soften the amounts (0.99), so a tap must reach THEIR press scale, not 0.95 —
+  // proof the floor uses each control's own --btn-press-scale rather than a hardcoded squash.
+  const card = await peakOnTap(p,'a.app-card');
+  ok(`${ui}: tapping an Apps card squashes it to its own softer amount`, card <= 0.991 && card > 0.96, String(card));
+  await ctx.close();
+}
+// The motion gate still wins: with a preference set there's no squash to hold, and press.ts
+// must not even mark the control.
+{
+  const ctx = await b.newContext({ viewport:{width:1400,height:950}, reducedMotion:'reduce' });
+  const p = await ctx.newPage();
+  await p.goto(B+'/',{waitUntil:'domcontentloaded'});
+  await p.evaluate(()=>{localStorage.setItem('ksh-ui','flat');localStorage.setItem('ksh-sky','off');});
+  await p.goto(B+'/settings',{waitUntil:'networkidle'}); await p.waitForTimeout(1600);
+  ok('reduced-motion: a tap does not squash', (await peakOnTap(p,'button.seg'))===1);
+  ok('reduced-motion: no .btn-tap marked', await p.evaluate(()=>{
+    const el = document.querySelector('button.seg');
+    el.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+    return !el.classList.contains('btn-tap'); }));
+  await ctx.close();
+}
+// A dead control stays dead — the floor must not revive a disabled button.
+{
+  const ctx = await b.newContext({ viewport:{width:1400,height:950} });
+  const p = await ctx.newPage();
+  await p.goto(B+'/',{waitUntil:'domcontentloaded'});
+  await p.evaluate(()=>{localStorage.setItem('ksh-ui','flat');localStorage.setItem('ksh-sky','off');localStorage.setItem('ksh-theme','light');
+    localStorage.setItem('ksh-pud',JSON.stringify({shards:0,lifetime:0,clickLevel:0,owned:{},boostUntil:0,boostReadyAt:0,paused:false,rigPaused:{},savedAt:Date.now()}));});
+  await p.goto(B+'/apps/intergalactic-park-ranger',{waitUntil:'networkidle'}); await p.waitForTimeout(2000);
+  ok('a disabled control takes no tap squash', await p.evaluate(()=>{
+    const el = [...document.querySelectorAll('.pud-buy')].find(e=>e.disabled);
+    if (!el) return false;
+    el.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}));
+    return !el.classList.contains('btn-tap'); }));
   await ctx.close();
 }
 

@@ -4447,7 +4447,20 @@
 	:global(html:root .tb),
 	:global(html:root .mini),
 	:global(html:root .swatch-btn),
-	:global(html:root .app-card) {
+	:global(html:root .app-card),
+	/* The Park Ranger's own controls — Extract, Overclock/pause, the shop's Buy pills, the rig
+	   rows and Reset. Its CSS said "the universal spring gives the tap its thock" all along, but
+	   the spring is opt-in BY CLASS NAME and these were never listed, so the buttons of the one
+	   app that's entirely about clicking had no thock at all.
+	   The rig row is `.pud-item-switch`, NOT `.pud-item-main`: an unowned rig has nothing to
+	   switch, so its body renders as a <span> that only takes the switch class once the first
+	   unit is online. A span is never :disabled, so listing .pud-item-main would have made
+	   inert rows pop under the cursor as if they did something. */
+	:global(html:root .pud-extract),
+	:global(html:root .pud-boost),
+	:global(html:root .pud-buy),
+	:global(html:root .pud-reset),
+	:global(html:root .pud-item-switch) {
 		transition:
 			transform 0.3s var(--btn-spring),
 			background 0.18s var(--btn-soft),
@@ -4502,7 +4515,12 @@
 	:global(html:root .tb:active:not(:disabled)),
 	:global(html:root .mini:active:not(:disabled)),
 	:global(html:root .swatch-btn:active:not(:disabled)),
-	:global(html:root .app-card:active:not(:disabled)) {
+	:global(html:root .app-card:active:not(:disabled)),
+	:global(html:root .pud-extract:active:not(:disabled)),
+	:global(html:root .pud-boost:active:not(:disabled)),
+	:global(html:root .pud-buy:active:not(:disabled)),
+	:global(html:root .pud-reset:active:not(:disabled)),
+	:global(html:root .pud-item-switch:active:not(:disabled)) {
 		box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.07);
 	}
 
@@ -4523,7 +4541,12 @@
 		:global(html:root .tb:hover:not(:disabled)),
 		:global(html:root .mini:hover:not(:disabled)),
 		:global(html:root .swatch-btn:hover:not(:disabled)),
-		:global(html:root .app-card:hover:not(:disabled)) {
+		:global(html:root .app-card:hover:not(:disabled)),
+		:global(html:root .pud-extract:hover:not(:disabled)),
+		:global(html:root .pud-boost:hover:not(:disabled)),
+		:global(html:root .pud-buy:hover:not(:disabled)),
+		:global(html:root .pud-reset:hover:not(:disabled)),
+		:global(html:root .pud-item-switch:hover:not(:disabled)) {
 			transform: scale(var(--btn-hover-scale));
 		}
 		:global(html:root .seg:active:not(:disabled)),
@@ -4541,7 +4564,25 @@
 		:global(html:root .tb:active:not(:disabled)),
 		:global(html:root .mini:active:not(:disabled)),
 		:global(html:root .swatch-btn:active:not(:disabled)),
-		:global(html:root .app-card:active:not(:disabled)) {
+		:global(html:root .app-card:active:not(:disabled)),
+		:global(html:root .pud-extract:active:not(:disabled)),
+		:global(html:root .pud-boost:active:not(:disabled)),
+		:global(html:root .pud-buy:active:not(:disabled)),
+		:global(html:root .pud-reset:active:not(:disabled)),
+		:global(html:root .pud-item-switch:active:not(:disabled)) {
+			transform: scale(var(--btn-press-scale));
+			transition-duration: 0.1s;
+		}
+		/* The TAP squash. A trackpad tap-to-click releases in under a frame, so :active is gone
+		   before the 0.1s press transition has moved — a tap got no feedback at all while a click
+		   got the full squash. $lib/press holds `.btn-tap` on for a short floor after pointerdown
+		   so the squash always plays; :active keeps it for anything longer.
+		   ONE class, not a copy of the family list: press.ts finds a control by the recipe's own
+		   fingerprint (a transform transition on the spring), so this can't drift out of step with
+		   the four lists above.
+		   Doubled class for weight: the pointer is still OVER the button during a tap, so this has
+		   to outrank the hover pop's 0,4,1 — the repeat matches it and being later wins the tie. */
+		:global(html:root .btn-tap.btn-tap:not(:disabled)) {
 			transform: scale(var(--btn-press-scale));
 			transition-duration: 0.1s;
 		}
