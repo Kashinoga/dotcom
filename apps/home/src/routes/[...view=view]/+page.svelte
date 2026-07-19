@@ -725,6 +725,12 @@
 	// bullet in. Moving them over means editing those components, not this list. KSH never
 	// reaches this branch either — Home is the map, not a panel.
 	const NEW_HEADER = ['APP', 'EMOJ', 'ABT', 'WRK', 'PRJ', 'STG', 'WTHR', 'AITA', 'PUD'];
+	// …and the panels whose bar is DENSE: one row, the title in it beside the badge, the
+	// header's generous inset traded for the Traffic board's bar inset. A full-viewport app
+	// wants its vertical space for content, and a wordmark that scrolls away is a luxury a
+	// panel can afford only when there's a column of prose under it. Same recipe as E-ATFC
+	// (see .tfc-head.bar): one --bar-inset drives the padding and the row's gap.
+	const BAR_HEADER = ['PUD'];
 	// The apps the Apps panel shows as CARDS in its body.
 	// Alphabetical by TITLE: the cards' order is presentation, not hierarchy, so a new
 	// app files itself in rather than landing wherever it was added.
@@ -2131,6 +2137,7 @@
 						class="surface-head csb"
 						class:head-collapsed={surfHeadCollapsed}
 						class:csb-on={surfHeadCollapsed}
+						class:bar={BAR_HEADER.includes(v.code)}
 						class:court={v.code === 'AITA'}
 						class:scrolled={surfScrolled}
 					>
@@ -2168,7 +2175,11 @@
 									<span class="app-badge-mark">{@html PORT_ICONS[v.code] ?? ''}</span>
 								</button>
 							{/if}
-							{#if NEW_HEADER.includes(v.code) && headTitleShown && !(v.code === 'EMOJ' && emojiSearch.open && isMobile)}
+							{#if BAR_HEADER.includes(v.code)}
+								<!-- A dense bar names itself outright: no big title below to hand over
+								     FROM, so the title simply sits here beside the badge. -->
+								<span class="head-title">{port.title}</span>
+							{:else if NEW_HEADER.includes(v.code) && headTitleShown && !(v.code === 'EMOJ' && emojiSearch.open && isMobile)}
 								<!-- The compact title flies in beside the badge once the big title (in the
 								     scrolling body) has gone by — but yields when the Emoji Viewer's grown
 								     search would crowd it (on a phone, the field takes most of the row). -->
@@ -2265,7 +2276,9 @@
 						class:scrolled={surfScrolled}
 						onscroll={onSurfaceScroll}
 					>
-						{#if NEW_HEADER.includes(v.code)}
+						{#if NEW_HEADER.includes(v.code) && !BAR_HEADER.includes(v.code)}
+							<!-- (A BAR_HEADER panel has none of this: its bar carries the name outright,
+							     so there's no big title here to scroll away or hand over.) -->
 							<!-- THE BIG TITLE, first thing in the scrolling body — so it scrolls away and
 							     hands the naming over to the compact title in the bar (headTitleShown).
 							     It's the panel's h2 wherever it sits; only the parent changed, from the
@@ -3552,6 +3565,29 @@
 		   wordmark scale it read as an underline.
 		   ONE clamp on every side, so the header is evenly framed all round. */
 		padding: clamp(1.5rem, 4vw, 2.5rem);
+	}
+	/* ── The DENSE bar (BAR_HEADER) ── E-ATFC's recipe, borrowed wholesale: one --bar-inset
+	   drives the padding AND the row's gap, so the Back cap sits in an evenly-framed pocket
+	   with equal space above, below, left, and to the title (see .tfc-head.bar).
+	   A full-viewport app spends its vertical space on content, so the header's generous
+	   2.5rem frame and the wordmark-scale title below it both go: the title moves INTO the row
+	   at bar scale, and what it used to occupy goes back to the app. */
+	.surface-head.bar {
+		--bar-inset: clamp(0.7rem, 1.3vw, 1rem);
+		padding: var(--bar-inset);
+	}
+	.surface-head.bar .head-row {
+		gap: var(--bar-inset);
+	}
+	.surface-head.bar .head-title {
+		font-size: clamp(1.15rem, 1.5vw, 1.5rem);
+		line-height: 1.05;
+	}
+	/* The body picks the inset up too, so the content's left edge lines up under the Back cap
+	   instead of stepping in by a full panel margin. */
+	.surface-head.bar + .surface-body {
+		padding-inline: clamp(0.7rem, 1.3vw, 1rem);
+		padding-bottom: 1.5rem;
 	}
 	/* The header's control row: Back at the left, a panel's own action (Weather's search) at the
 	   right. It replaces the bare Back button, so the gap below it is the one Back used to set.

@@ -27,7 +27,14 @@ const MODEL = {
 	'/about/projects': 'Projects',
 	'/settings': 'Settings',
 	'/apps/weather': 'Weather',
-	'/apps/court-of-public-opinion': 'Court of Public Opinion',
+	'/apps/court-of-public-opinion': 'Court of Public Opinion'
+};
+// Panels on the DENSE bar (BAR_HEADER): full-viewport apps that spend their vertical space on
+// content, so the title sits IN the bar beside the badge and there's no big title below to
+// scroll away. They're on the header model — badge, no title row — but they opt OUT of the
+// handover, and asserting that is the point: a panel that grew a body title again would be
+// giving back the room the dense bar exists to reclaim.
+const BAR = {
 	'/apps/intergalactic-park-ranger': 'Intergalactic Park Ranger'
 };
 // Panels that build their own header. They have no shared bar, but that no longer means they're
@@ -156,6 +163,30 @@ for (const vp of [{ width: 1400, height: 820 }, { width: 390, height: 844 }]) {
 		await scrollBody(page, 0);
 		const up = await page.evaluate(read);
 		ok(`${path}: the bar hands the name back at the top`, up.compact === null, up.compact ?? '');
+	}
+
+	for (const [path, title] of Object.entries(BAR)) {
+		await page.goto(B + path, { waitUntil: 'networkidle' });
+		await page.waitForTimeout(1500);
+		const g = await page.evaluate(() => {
+			const head = document.querySelector('.surface-head');
+			const body = document.querySelector('.surface-body');
+			return {
+				bar: head?.classList.contains('bar'),
+				badge: !!head?.querySelector('.app-badge'),
+				headTitle: head?.querySelector('.head-title')?.textContent.trim() ?? null,
+				titleRow: !!head?.querySelector('.title-row'),
+				bodyTitle: !!body?.querySelector(':scope > .body-title'),
+				headH: Math.round(head?.getBoundingClientRect().height ?? 0)
+			};
+		});
+		ok(`${path}: wears the dense bar`, g.bar === true);
+		ok(`${path}: badge beside Back`, g.badge);
+		ok(`${path}: the bar carries the name outright`, g.headTitle === title, g.headTitle ?? 'nothing');
+		ok(`${path}: no big title anywhere`, !g.titleRow && !g.bodyTitle,
+			`titleRow=${g.titleRow} bodyTitle=${g.bodyTitle}`);
+		// The whole point of the dense bar: it's a control row, not a masthead.
+		ok(`${path}: the bar stays short`, g.headH > 0 && g.headH < 110, `${g.headH}px`);
 	}
 
 	// The panels that build their own header keep it — they never grew a shared bar.

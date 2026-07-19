@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
+	import { flip } from 'svelte/animate';
+	import { backOut } from 'svelte/easing';
 	import SplitFlap from '$lib/SplitFlap.svelte';
 	import { GEM_SVG } from '$lib/icons';
 
@@ -72,9 +74,39 @@
 	let paused = $state(false); // the rigs down tools; the hand extractor still works
 	let rigPaused = $state<Record<string, boolean>>({}); // …and any ONE rig can down its own
 	let nowMs = $state(0); // ticked by the loop; drives the countdowns
-	let awayNote = $state('');
-	let lastEvent = $state('');
 	let armReset = $state(false); // the two-step abandon
+
+	// ── The ledger ──────────────────────────────────────────────────────────────
+	// A rolling log of what the division did, newest first — ported from the older build's
+	// activity log (~/Downloads/Git/pud-idle, src/lib/stores/activityLog.ts). It replaces the
+	// single line that used to live here, which only ever held the LAST thing that happened:
+	// an idle game is a thing you look away from, and coming back to one sentence tells you
+	// nothing about the five minutes you missed.
+	//
+	// Kept in the component rather than a store (the ancestor's shape) because nothing outside
+	// this panel writes to it. The ancestor tagged each event with an EMOJI; here a kind maps to
+	// a colour instead — dotcom draws its marks as SVG and sets its tone in type, so a row of
+	// emoji would read as a foreign object. The colour does the same scanning work.
+	type LogKind = 'rig' | 'upgrade' | 'boost' | 'time' | 'away' | 'reset';
+	type LogEntry = { id: number; kind: LogKind; message: string; at: number };
+	const LOG_MAX = 20; // the ancestor's cap, and about a screenful
+	let log = $state<LogEntry[]>([]);
+	let logSeq = 0;
+	function note(kind: LogKind, message: string) {
+		log = [{ id: ++logSeq, kind, message, at: Date.now() }, ...log].slice(0, LOG_MAX);
+	}
+	// Coarse clock for the "3m ago" stamps. Its own 20s beat, NOT the game loop's 200ms one:
+	// the stamps only change by the minute, and re-rendering twenty rows five times a second to
+	// move nothing would be the most expensive thing on screen.
+	let logNow = $state(Date.now());
+	const stamp = (at: number) => {
+		const secs = Math.max(0, Math.round((logNow - at) / 1000));
+		if (secs < 45) return 'just now';
+		const mins = Math.round(secs / 60);
+		if (mins < 60) return `${mins}m ago`;
+		const hours = Math.round(mins / 60);
+		return hours < 24 ? `${hours}h ago` : `${Math.round(hours / 24)}d ago`;
+	};
 
 	const perClick = $derived(1 + clickLevel);
 	const rigRunning = (id: string) => (owned[id] ?? 0) > 0 && !rigPaused[id];
@@ -158,7 +190,7 @@
 		if (shards < cost) return;
 		shards -= cost;
 		owned[r.id] = (owned[r.id] ?? 0) + 1;
-		lastEvent = `${r.name} №${owned[r.id]} comes online — +${fmtRate(r.cps)}/s.`;
+		note('rig', `${r.name} №${owned[r.id]} comes online — +${fmtRate(r.cps)}/s.`);
 		syncFlap(Date.now()); // a spend drops the count sharply — flap it if the window's open
 		save();
 	}
@@ -166,7 +198,7 @@
 		if (shards < clickCost) return;
 		shards -= clickCost;
 		clickLevel += 1;
-		lastEvent = `Extractor sharpened — ${perClick} shards a pull.`;
+		note('upgrade', `Extractor sharpened — ${perClick} shards a pull.`);
 		syncFlap(Date.now());
 		save();
 	}
@@ -175,21 +207,27 @@
 		const now = Date.now();
 		boostUntil = now + BOOST_MS;
 		boostReadyAt = now + BOOST_COOLDOWN_MS;
-		lastEvent = 'Overclock engaged — the whole division hums at ×2.';
+		note('boost', 'Overclock engaged — the whole division hums at ×2.');
 		save();
 	}
 	function togglePause() {
 		paused = !paused;
-		lastEvent = paused
-			? 'All rigs down tools. The division rests; your hands don’t have to.'
-			: 'The rigs spin back up — extraction resumes.';
+		note(
+			'time',
+			paused
+				? 'All rigs down tools. The division rests; your hands don’t have to.'
+				: 'The rigs spin back up — extraction resumes.'
+		);
 		save();
 	}
 	function toggleRig(r: Rig) {
 		rigPaused[r.id] = !rigPaused[r.id];
-		lastEvent = rigPaused[r.id]
-			? `The ${r.name.toLowerCase()}s stand down.`
-			: `The ${r.name.toLowerCase()}s spin back up.`;
+		note(
+			'time',
+			rigPaused[r.id]
+				? `The ${r.name.toLowerCase()}s stand down.`
+				: `The ${r.name.toLowerCase()}s spin back up.`
+		);
 		save();
 	}
 	function reset() {
@@ -203,8 +241,8 @@
 		owned = Object.fromEntries(RIGS.map((r) => [r.id, 0]));
 		boostUntil = 0;
 		boostReadyAt = 0;
-		awayNote = '';
-		lastEvent = 'The universe is bare again. The probe is in your hand.';
+		log = [];
+		note('reset', 'The universe is bare again. The probe is in your hand.');
 		armReset = false;
 		save();
 	}
@@ -220,6 +258,9 @@
 		boostReadyAt: number;
 		paused?: boolean;
 		rigPaused?: Record<string, boolean>;
+		// The ledger rides along, so a return shows what the division did before you left
+		// rather than an empty page. Bounded by LOG_MAX on the way in and on the way out.
+		log?: LogEntry[];
 		savedAt: number;
 	};
 	function save() {
@@ -234,6 +275,7 @@
 				boostReadyAt,
 				paused,
 				rigPaused: { ...rigPaused },
+				log: log.slice(0, LOG_MAX),
 				savedAt: Date.now()
 			};
 			localStorage.setItem(SAVE_KEY, JSON.stringify(body));
@@ -244,6 +286,7 @@
 
 	let tickTimer = 0;
 	let saveTimer = 0;
+	let stampTimer = 0;
 	let lastTick = 0;
 	onMount(() => {
 		try {
@@ -258,6 +301,14 @@
 				boostReadyAt = s.boostReadyAt ?? 0;
 				paused = s.paused ?? false;
 				rigPaused = { ...(s.rigPaused ?? {}) };
+				// Restore the ledger, defensively: it's the one saved field that's a list of
+				// objects, so a hand-edited or half-written save could put anything here.
+				log = Array.isArray(s.log)
+					? s.log
+							.filter((e) => e && typeof e.message === 'string' && typeof e.at === 'number')
+							.slice(0, LOG_MAX)
+					: [];
+				logSeq = log.reduce((m, e) => Math.max(m, e.id ?? 0), 0);
 				// The rigs kept working: credit the time away, unboosted, capped — unless
 				// they were left DOWN (wholesale or one by one), in which case down they stayed.
 				if (!paused) {
@@ -272,7 +323,7 @@
 					if (gain >= 1) {
 						shards += gain;
 						lifetime += gain;
-						awayNote = `While you were away, the rigs pulled ${fmt(gain)} shards.`;
+						note('away', `The rigs pulled ${fmt(gain)} shards while you were away.`);
 					}
 				}
 			}
@@ -301,6 +352,8 @@
 			syncFlap(now); // turn the board over when its window opens
 		}, 200);
 		saveTimer = window.setInterval(save, 5000);
+		// The ledger's stamps ("3m ago") move on their own slow beat — see `stamp`.
+		stampTimer = window.setInterval(() => (logNow = Date.now()), 20_000);
 		// The interval plus onDestroy misses one exit: a hard reload/close, where no
 		// teardown runs. pagehide is the door that always swings on the way out.
 		window.addEventListener('pagehide', save);
@@ -308,15 +361,16 @@
 	onDestroy(() => {
 		clearInterval(tickTimer);
 		clearInterval(saveTimer);
+		clearInterval(stampTimer);
 		if (typeof window !== 'undefined') window.removeEventListener('pagehide', save);
 		save();
 	});
 </script>
 
 <div class="pud">
-	{#if awayNote}
-		<p class="pud-away">{awayNote}</p>
-	{/if}
+	<!-- (The "while you were away" banner used to sit here. The ledger carries that line now,
+	     as its newest entry — arriving in the accent, so it's still the first thing you see on
+	     a return — and printing the same sentence twice on one screen read as a stutter.) -->
 
 	<!-- The tally: the shard mark, the count, and what's flowing in. -->
 	<div class="pud-count">
@@ -428,15 +482,31 @@
 		{/each}
 	</div>
 
-	{#if lastEvent}
-		<!-- Keyed on the message, so each new line REPLACES the node and its entrance keyframe
-		     starts over — the ledger speaks up instead of silently swapping its text under you.
-		     The animation is CSS, not a Svelte transition, so it sits behind the app's motion
-		     gate like every other flourish here. Keying a role="status" is deliberate too: a
-		     fresh node in a live region is what gets the line announced again. -->
-		{#key lastEvent}
-			<p class="pud-note" role="status">{lastEvent}</p>
-		{/key}
+	{#if log.length}
+		<!-- THE LEDGER — the division's log, newest first (see `note`). It replaced a single
+		     line that only held the last thing that happened; an idle game is a thing you look
+		     away from, and one sentence can't tell you what you missed.
+		     Each row keeps its own entrance: `animate:flip` slides the standing rows down as a
+		     new one lands, and the newest wears the arrival keyframe (accent, cooling to the
+		     note's ink) that the single line used to. aria-live on the list is what the old
+		     role="status" was doing — additions get announced, the history doesn't. -->
+		<section class="pud-ledger" aria-label="Division ledger">
+			<p class="pud-lead">Division ledger</p>
+			<ul class="pud-log" aria-live="polite">
+				{#each log as entry, i (entry.id)}
+					<li
+						class="pud-log-row"
+						class:newest={i === 0}
+						data-kind={entry.kind}
+						animate:flip={{ duration: 320, easing: backOut }}
+					>
+						<span class="pud-log-dot" aria-hidden="true"></span>
+						<span class="pud-log-msg">{entry.message}</span>
+						<time class="pud-log-at" datetime={new Date(entry.at).toISOString()}>{stamp(entry.at)}</time>
+					</li>
+				{/each}
+			</ul>
+		</section>
 	{/if}
 
 	<!-- The ledger's small print: the lifetime tally, and the way out. Abandon asks
@@ -487,12 +557,6 @@
 		}
 	}
 
-	.pud-away {
-		margin: 0;
-		font-size: 0.85rem;
-		font-style: italic;
-		color: var(--sub);
-	}
 
 	.pud-count {
 		display: flex;
@@ -787,29 +851,80 @@
 		cursor: default;
 	}
 
-	.pud-note {
+	/* ── The ledger ──────────────────────────────────────────────────────────────
+	   A quiet list, not a feed: small type, one line a row, the time right-aligned so the
+	   messages keep a clean left edge to scan down. It caps its own height and scrolls, so a
+	   full twenty entries can't push the foot off the panel. */
+	.pud-ledger {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.pud-log {
+		list-style: none;
 		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		max-height: 13rem;
+		overflow-y: auto;
+		/* The rows scroll under the heading, so reserve the bar's lane rather than letting it
+		   appear and shove the times sideways when the twentieth entry lands. */
+		scrollbar-gutter: stable;
+	}
+	.pud-log-row {
+		display: flex;
+		align-items: baseline;
+		gap: 0.6rem;
+		padding: 0.3rem 0;
 		font-size: 0.85rem;
 		color: var(--sub);
 	}
-	/* The ledger line announces itself: it rises a few px as it fades in, and arrives in the
-	   app's accent before settling to the note's own dim ink — the colour is what catches the
-	   eye when the words themselves barely change ("…№2 comes online" → "…№3 comes online").
-	   Held briefly at full strength so a fast buyer sees each line land rather than one blur.
-	   Behind the motion gate: with a preference set the line simply changes. */
+	.pud-log-row + .pud-log-row {
+		border-top: 1px solid transparent;
+		border-image: var(--rule-fade) 1;
+	}
+	/* The kind, said in colour rather than an emoji (see the LogKind note in the script): a
+	   dot in the app's accent for the things you DID, and a dimmer one for what merely
+	   happened — time passing, rigs standing down, the universe being abandoned. */
+	.pud-log-dot {
+		flex: none;
+		width: 6px;
+		height: 6px;
+		border-radius: 999px;
+		background: var(--accent, #f06030);
+		/* Nudge it onto the text's own line rather than its baseline box. */
+		transform: translateY(-1px);
+	}
+	.pud-log-row[data-kind='time'] .pud-log-dot,
+	.pud-log-row[data-kind='reset'] .pud-log-dot,
+	.pud-log-row[data-kind='away'] .pud-log-dot {
+		background: color-mix(in srgb, var(--ink) 30%, transparent);
+	}
+	.pud-log-msg {
+		flex: 1;
+		min-width: 0;
+	}
+	.pud-log-at {
+		flex: none;
+		font-size: 0.75rem;
+		font-variant-numeric: tabular-nums;
+		color: color-mix(in srgb, var(--ink) 40%, transparent);
+	}
+	/* The newest row announces itself the way the single line used to: it rises a few px and
+	   arrives in the accent, cooling to the note's own ink. */
 	@media (prefers-reduced-motion: no-preference) {
-		.pud-note {
+		.pud-log-row.newest {
 			animation: pud-note-in 1.1s var(--spring, ease) backwards;
 		}
 	}
 	/* NO opacity ramp — deliberately, and this took a trace to see. Buying does real work on the
-	   main thread (the headline re-flaps, the save writes), so the new line's animation doesn't
+	   main thread (the headline re-flaps, the save writes), so the new row's animation doesn't
 	   get its first tick for ~250ms. With `backwards` fill the element sits on the 0% frame until
-	   then, and a 0% frame that includes a low opacity means the ledger reads BLANK for a quarter
-	   second after the click — the animation making the app look like it hitched, which is worse
-	   than not animating at all. Held frames are only safe if they're legible, so the arrival is
-	   carried by a short rise and the accent instead: the line is readable the whole way through,
-	   whenever the clock actually starts. */
+	   then, and a 0% frame that includes a low opacity means the newest line reads BLANK for a
+	   quarter second after the click — the animation making the app look like it hitched, which
+	   is worse than not animating at all. Held frames are only safe if they're legible, so the
+	   arrival is carried by a short rise and the accent instead. */
 	@keyframes pud-note-in {
 		0% {
 			transform: translateY(6px);
