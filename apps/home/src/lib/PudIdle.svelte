@@ -21,19 +21,23 @@
 
 	type Rig = { id: string; name: string; blurb: string; cps: number; base: number };
 	// Costs walk the idle classic ×1.15 per owned; each tier ~an order of magnitude up.
+	// EVERY rig earns at least a whole shard a second. The first two used to pay 0.1/s and 1/s,
+	// which read as buying nothing: the headline counter ticks in hundredths, so a Field Probe's
+	// tenth-of-a-shard was invisible against a pull worth a whole one, and the first purchase —
+	// the one that has to land — felt like a downgrade from clicking.
 	const RIGS: Rig[] = [
 		{
 			id: 'probe',
 			name: 'Field Probe',
 			blurb: 'A handheld probe, sweeping the LPU-1031 shallows.',
-			cps: 0.1,
+			cps: 1,
 			base: 15
 		},
 		{
 			id: 'relay',
 			name: 'Relay Mast',
 			blurb: 'Shards drift in on the division band, day and night.',
-			cps: 1,
+			cps: 4,
 			base: 100
 		},
 		{
@@ -422,7 +426,14 @@
 	</div>
 
 	{#if lastEvent}
-		<p class="pud-note" role="status">{lastEvent}</p>
+		<!-- Keyed on the message, so each new line REPLACES the node and its entrance keyframe
+		     starts over — the ledger speaks up instead of silently swapping its text under you.
+		     The animation is CSS, not a Svelte transition, so it sits behind the app's motion
+		     gate like every other flourish here. Keying a role="status" is deliberate too: a
+		     fresh node in a live region is what gets the line announced again. -->
+		{#key lastEvent}
+			<p class="pud-note" role="status">{lastEvent}</p>
+		{/key}
 	{/if}
 
 	<!-- The ledger's small print: the lifetime tally, and the way out. Abandon asks
@@ -668,7 +679,13 @@
 	.pud-item-switch {
 		cursor: pointer;
 		border-radius: 8px;
-		transition: opacity 0.15s ease;
+		/* This one is a full-width ROW, not a pill: the family's 5% pop would swing its far edge
+		   tens of px and shove the price chip beside it. Same softening the Apps cards take, for
+		   the same reason — the spring itself is shared, only the amounts shrink. */
+		--btn-hover-scale: 1.01;
+		--btn-press-scale: 0.995;
+		/* A row scales from its own left edge, so its text doesn't drift toward the middle. */
+		transform-origin: left center;
 	}
 	.pud-item-switch:hover {
 		opacity: 0.8;
@@ -771,6 +788,40 @@
 		margin: 0;
 		font-size: 0.85rem;
 		color: var(--sub);
+	}
+	/* The ledger line announces itself: it rises a few px as it fades in, and arrives in the
+	   app's accent before settling to the note's own dim ink — the colour is what catches the
+	   eye when the words themselves barely change ("…№2 comes online" → "…№3 comes online").
+	   Held briefly at full strength so a fast buyer sees each line land rather than one blur.
+	   Behind the motion gate: with a preference set the line simply changes. */
+	@media (prefers-reduced-motion: no-preference) {
+		.pud-note {
+			animation: pud-note-in 1.1s var(--spring, ease) backwards;
+		}
+	}
+	/* NO opacity ramp — deliberately, and this took a trace to see. Buying does real work on the
+	   main thread (the headline re-flaps, the save writes), so the new line's animation doesn't
+	   get its first tick for ~250ms. With `backwards` fill the element sits on the 0% frame until
+	   then, and a 0% frame that includes a low opacity means the ledger reads BLANK for a quarter
+	   second after the click — the animation making the app look like it hitched, which is worse
+	   than not animating at all. Held frames are only safe if they're legible, so the arrival is
+	   carried by a short rise and the accent instead: the line is readable the whole way through,
+	   whenever the clock actually starts. */
+	@keyframes pud-note-in {
+		0% {
+			transform: translateY(6px);
+			color: var(--accent, #f06030);
+		}
+		18% {
+			transform: translateY(0);
+			color: var(--accent, #f06030);
+		}
+		55% {
+			color: var(--accent, #f06030);
+		}
+		100% {
+			color: var(--sub);
+		}
 	}
 
 	.pud-foot {
