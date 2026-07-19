@@ -3576,8 +3576,14 @@
 		--bar-inset: clamp(0.7rem, 1.3vw, 1rem);
 		padding: var(--bar-inset);
 	}
+	/* The row's gap is NOT --bar-inset. E-ATFC spends that inset on its FRAME and on the space
+	   between its big groups (ident / deck / corner); the controls inside a cluster sit much
+	   closer — 6.4px between field pills, 8px between the Home/collapse/refresh caps. Handing
+	   the full 16px to Back↔badge↔title made this bar's buttons sit twice as far apart as the
+	   bar it's copying. 0.5rem is the caps' own beat, and matches .head-actions on the right so
+	   both ends of the row are spaced alike. */
 	.surface-head.bar .head-row {
-		gap: var(--bar-inset);
+		gap: 0.5rem;
 	}
 	.surface-head.bar .head-title {
 		font-size: clamp(1.15rem, 1.5vw, 1.5rem);
