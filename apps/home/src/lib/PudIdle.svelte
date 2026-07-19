@@ -228,9 +228,16 @@
 	}
 	const secsLeft = (until: number) => Math.max(0, Math.ceil((until - nowMs) / 1000));
 
+	// Each pull bumps this, and the sweep inside the Extract button is keyed on it — a new key
+	// means a new node, which is what makes a CSS animation start OVER rather than carry on from
+	// wherever it was. That's the whole point here: the pull is instant, so the bar isn't
+	// reporting progress through a wait, it's reporting THAT A PULL HAPPENED. Spammed, it has to
+	// restart on every press or the button looks dead under a fast hand.
+	let pullSeq = $state(0);
 	function extract() {
 		shards += perClick;
 		lifetime += perClick;
+		pullSeq += 1;
 		syncFlap(Date.now()); // a pull that lands in an open window flaps at once
 	}
 	function buyRig(r: Rig) {
@@ -464,6 +471,14 @@
 	<!-- The hands-on half: the pull, and the overclock beside it. -->
 	<div class="pud-actions">
 		<button type="button" class="pud-extract" onclick={extract}>
+			{#key pullSeq}
+				{#if pullSeq > 0}
+					<!-- The pull's own bar, along the bottom edge of the pill. Decorative: the count
+					     above is what actually reports the shards, and this is aria-hidden so a
+					     screen reader isn't told about a 240ms flourish on every press. -->
+					<span class="pud-pull" aria-hidden="true"></span>
+				{/if}
+			{/key}
 			Extract <span class="pud-per">+{perClick}</span>
 		</button>
 		<button type="button" class="pud-boost" class:on={boosted} disabled={!canBoost && !boosted} onclick={overclock}>
@@ -810,12 +825,55 @@
 		cursor: pointer;
 	}
 	.pud-extract {
+		/* The pull bar is pinned inside the pill, and the pill is a 999px capsule — overflow
+		   clips the bar's ends to that curve so it can't square off the corners. */
+		position: relative;
+		overflow: hidden;
 		flex: none;
 		gap: 0.5rem;
 		font-weight: 700;
 		color: var(--paper);
 		background: var(--accent, #f06030);
 		border: 1.5px solid var(--accent, #f06030);
+	}
+	/* THE PULL BAR — feedback for a thing that takes no time. Extract is instant, so there's no
+	   wait to report; what this says is "that press landed", which matters most exactly when the
+	   button is being hammered and the count is a blur. It runs left to right along the bottom
+	   edge and fades as it completes, quick enough (240ms) to finish inside a fast press and
+	   still restart cleanly on the next one (see pullSeq).
+	   It rests at scaleX(0) and opacity 0, so with a motion preference set — where the animation
+	   never runs — there's simply nothing drawn, rather than a bar stuck at full width. */
+	.pud-pull {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		height: 3px;
+		transform-origin: left center;
+		transform: scaleX(0);
+		opacity: 0;
+		/* Paper, not white: the pill's own label colour, so the bar belongs to the button
+		   whatever the scheme does with the accent underneath it. */
+		background: var(--paper);
+		pointer-events: none;
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.pud-pull {
+			animation: pud-pull 0.24s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+		}
+	}
+	@keyframes pud-pull {
+		0% {
+			transform: scaleX(0);
+			opacity: 0.85;
+		}
+		70% {
+			opacity: 0.85;
+		}
+		100% {
+			transform: scaleX(1);
+			opacity: 0;
+		}
 	}
 	.pud-per {
 		font-size: 0.8rem;
