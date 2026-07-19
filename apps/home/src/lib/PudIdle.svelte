@@ -118,8 +118,30 @@
 		}
 	];
 
+	// ── The courier ─────────────────────────────────────────────────────────────
+	// Ported from the ancestor's starship store (~/Downloads/Git/pud-idle,
+	// src/lib/stores/starship.ts), which had the fiction and the shape — a named courier in
+	// orbit, a transit window, a supply drop on a clock, and a request-priority action that cut
+	// the wait — but no working parts: the drop never landed and the manifest never arrived.
+	// Here the clock runs, the drop lands, and the manifest goes into the stores.
+	const SHIP = { name: 'IPR Courier — Vanta', where: 'Densette Gateway' };
+	const DROP_MS = 120_000; // a drop every two minutes…
+	const DROP_RUSH_MS = 15_000; // …or fifteen seconds, if you pay the freight
+	const RUSH_COST = 250;
+	// What a drop can carry. Small counts: the courier is a supply line, not a windfall.
+	const SUPPLIES = [
+		{ id: 'rations', name: 'Rations', max: 4 },
+		{ id: 'medkits', name: 'Medkits', max: 2 },
+		{ id: 'toolkits', name: 'Toolkits', max: 1 }
+	];
+
 	let shards = $state(0);
-	let wood = $state<Record<string, number>>({});
+	// Everything the division holds — timber from the stands, crates from the courier. It was
+	// `wood` when only the forestry detail filled it; saves written under that name are still
+	// read (see the load), so nobody's timber disappears.
+	let stores = $state<Record<string, number>>({});
+	let dropAt = $state(0);
+	let rushed = $state(false);
 	// The cut in progress, or nothing. `ms` rides along so the bar can animate for exactly as
 	// long as the award is going to take, from one source of truth.
 	let chop = $state<{ id: string; ms: number } | null>(null);
@@ -145,7 +167,7 @@
 	// this panel writes to it. The ancestor tagged each event with an EMOJI; here a kind maps to
 	// a colour instead — dotcom draws its marks as SVG and sets its tone in type, so a row of
 	// emoji would read as a foreign object. The colour does the same scanning work.
-	type LogKind = 'rig' | 'upgrade' | 'boost' | 'time' | 'away' | 'reset' | 'wood';
+	type LogKind = 'rig' | 'upgrade' | 'boost' | 'time' | 'away' | 'reset' | 'wood' | 'supply';
 	type LogEntry = { id: number; kind: LogKind; message: string; at: number };
 	const LOG_MAX = 20; // the ancestor's cap, and about a screenful
 	let log = $state<LogEntry[]>([]);
@@ -207,8 +229,14 @@
 	// What's actually in the stores, in the order the stands are listed — so the card reads down
 	// in the same order as the detail above it rather than by whatever arrived first.
 	const held = $derived(
-		TREES.map((t) => ({ id: t.id, name: t.name, count: wood[t.id] ?? 0 })).filter((h) => h.count > 0)
+		[...TREES, ...SUPPLIES]
+			.map((t) => ({ id: t.id, name: t.name, count: stores[t.id] ?? 0 }))
+			.filter((h) => h.count > 0)
 	);
+	// Whole seconds until the courier is overhead; the tick already moves nowMs, so this needs
+	// no clock of its own.
+	const dropIn = $derived(Math.max(0, Math.ceil((dropAt - nowMs) / 1000)));
+	const canRush = $derived(!rushed && shards >= RUSH_COST && dropIn > DROP_RUSH_MS / 1000);
 	const perClick = $derived(1 + clickLevel);
 	const rigRunning = (id: string) => (owned[id] ?? 0) > 0 && !rigPaused[id];
 	const baseCps = $derived(
@@ -316,11 +344,40 @@
 		if (chop) return; // one axe, one tree
 		chop = { id: t.id, ms: t.ms };
 		chopTimer = window.setTimeout(() => {
-			wood[t.id] = (wood[t.id] ?? 0) + t.yield;
+			stores[t.id] = (stores[t.id] ?? 0) + t.yield;
 			note('wood', `Felled ${t.yield > 1 ? `${t.yield}× ` : ''}${t.name}.`);
 			chop = null;
 			save();
 		}, t.ms);
+	}
+	// The drop lands: a crate or two into the stores, a line in the ledger, and the next window
+	// set. Deterministic enough to be fair — one guaranteed item, a second sometimes — because a
+	// supply line that can deliver nothing reads as broken rather than unlucky.
+	function landDrop(now: number) {
+		const roll = Math.floor(Math.random() * SUPPLIES.length);
+		const picked = [SUPPLIES[roll]];
+		if (Math.random() < 0.45) {
+			const second = SUPPLIES[(roll + 1 + Math.floor(Math.random() * (SUPPLIES.length - 1))) % SUPPLIES.length];
+			if (second.id !== picked[0].id) picked.push(second);
+		}
+		const manifest = picked.map((it) => {
+			const n = 1 + Math.floor(Math.random() * it.max);
+			stores[it.id] = (stores[it.id] ?? 0) + n;
+			return `${n}× ${it.name}`;
+		});
+		note('supply', `${SHIP.name} drops ${manifest.join(' and ')}.`);
+		dropAt = now + DROP_MS;
+		rushed = false;
+		save();
+	}
+	function requestRush() {
+		if (!canRush) return;
+		shards -= RUSH_COST;
+		dropAt = Math.min(dropAt, Date.now() + DROP_RUSH_MS);
+		rushed = true;
+		note('supply', `Freight paid — ${SHIP.name} brings the window forward.`);
+		syncFlap(Date.now()); // the spend drops the count sharply
+		save();
 	}
 	function buyRig(r: Rig) {
 		const cost = rigCost(r);
@@ -378,7 +435,9 @@
 		owned = Object.fromEntries(RIGS.map((r) => [r.id, 0]));
 		boostUntil = 0;
 		boostReadyAt = 0;
-		wood = {};
+		stores = {};
+		dropAt = Date.now() + DROP_MS;
+		rushed = false;
 		clearTimeout(chopTimer);
 		chop = null;
 		log = [];
@@ -401,7 +460,10 @@
 		// The ledger rides along, so a return shows what the division did before you left
 		// rather than an empty page. Bounded by LOG_MAX on the way in and on the way out.
 		log?: LogEntry[];
-		wood?: Record<string, number>;
+		wood?: Record<string, number>; // pre-courier name for `stores`; still read, never written
+		stores?: Record<string, number>;
+		dropAt?: number;
+		rushed?: boolean;
 		savedAt: number;
 	};
 	function save() {
@@ -417,7 +479,9 @@
 				paused,
 				rigPaused: { ...rigPaused },
 				log: log.slice(0, LOG_MAX),
-				wood: { ...wood },
+				stores: { ...stores },
+				dropAt,
+				rushed,
 				savedAt: Date.now()
 			};
 			localStorage.setItem(SAVE_KEY, JSON.stringify(body));
@@ -443,7 +507,9 @@
 				boostReadyAt = s.boostReadyAt ?? 0;
 				paused = s.paused ?? false;
 				rigPaused = { ...(s.rigPaused ?? {}) };
-				wood = { ...(s.wood ?? {}) };
+				stores = { ...(s.stores ?? s.wood ?? {}) };
+				dropAt = s.dropAt ?? 0;
+				rushed = s.rushed ?? false;
 				// Restore the ledger, defensively: it's the one saved field that's a list of
 				// objects, so a hand-edited or half-written save could put anything here.
 				log = Array.isArray(s.log)
@@ -475,6 +541,10 @@
 		}
 		nowMs = Date.now();
 		lastTick = nowMs;
+		// A courier that was overhead while you were gone unloads once on your return — not once
+		// per window missed, which after a night away would be a screenful of crates.
+		if (!dropAt) dropAt = nowMs + DROP_MS;
+		else if (nowMs >= dropAt) landDrop(nowMs);
 		// Seed the board on the loaded count (no opening flap-from-zero).
 		const seed = fmtParts(shards);
 		flapNum = seed.num;
@@ -492,6 +562,7 @@
 				shards += gain;
 				lifetime += gain;
 			}
+			if (dropAt && now >= dropAt) landDrop(now);
 			syncFlap(now); // turn the board over when its window opens
 		}, 200);
 		saveTimer = window.setInterval(save, 5000);
@@ -590,6 +661,9 @@
 	     (its ring spins while it works; a click stands it down or spins it up), and the
 	     COST CHIP at the right is the buy. Unowned rigs have nothing to switch, so their
 	     body waits inert until the first unit comes online. -->
+	<!-- Requisitions and the courier sit side by side: both are places you spend, and neither
+	     fills a whole panel's width on its own. Stacks below the app's own seam. -->
+	<div class="pud-cols">
 	<div class="pud-shop">
 		<p class="pud-lead">Division requisitions</p>
 		<div class="pud-item">
@@ -644,6 +718,36 @@
 			{/each}
 		</div>
 
+		<!-- THE COURIER — the ancestor's starship panel with its clock running: a named ship in
+		     orbit, a transit window, and a supply drop that actually lands (see landDrop). -->
+		<div class="pud-ship">
+			<p class="pud-lead">Courier</p>
+			<div class="pud-ship-id">
+				<span class="pud-item-name">{SHIP.name}</span>
+				<span class="pud-item-blurb">In orbit · {SHIP.where}</span>
+			</div>
+			<dl class="pud-ship-stat">
+				<div>
+					<dt>Next drop</dt>
+					<dd>{dropIn > 0 ? `${dropIn}s` : 'overhead'}</dd>
+				</div>
+				<div>
+					<dt>Priority</dt>
+					<dd>{rushed ? 'Expedited' : 'Standard'}</dd>
+				</div>
+			</dl>
+			<button
+				type="button"
+				class="pud-boost"
+				disabled={!canRush}
+				onclick={requestRush}
+				title={rushed ? 'The window is already forward' : `Costs ${fmt(RUSH_COST)} shards`}
+			>
+				{rushed ? 'Expedited' : `Request priority · ${fmt(RUSH_COST)}`}
+			</button>
+		</div>
+		</div>
+
 		<!-- WOODCUTTING — the active half. The rigs pay while you're away; this pays attention.
 		     One stand at a time (see startChop): pressing the one that's running calls it off,
 		     pressing another while one runs is refused. -->
@@ -669,7 +773,7 @@
 					<span class="pud-tree-copy">
 						<span class="pud-item-name">
 							{t.name}
-							{#if (wood[t.id] ?? 0) > 0}<span class="pud-owned">×{fmt(wood[t.id])}</span>{/if}
+							{#if (stores[t.id] ?? 0) > 0}<span class="pud-owned">×{fmt(stores[t.id])}</span>{/if}
 						</span>
 						<span class="pud-item-blurb">{t.blurb}</span>
 					</span>
@@ -1229,6 +1333,70 @@
 	.pud-buy:disabled {
 		opacity: 0.5;
 		cursor: default;
+	}
+
+	/* ── The requisitions/courier band ───────────────────────────────────────────
+	   Two columns once there's room, and the requisitions take the greater share: their rows
+	   carry a name, a blurb AND a cost chip, where the courier is a short status block. Below
+	   the app's seam it's one column again, courier under shop, like everything else here. */
+	.pud-cols {
+		display: flex;
+		flex-direction: column;
+		gap: 1.05rem;
+		min-width: 0;
+	}
+	@media (min-width: 961px) {
+		.pud-cols {
+			display: grid;
+			grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+			gap: 1.05rem;
+			align-items: start;
+		}
+	}
+	/* The courier: a status block, framed like the cards in the side column so it reads as a
+	   panel rather than a stray list, with its figures on their own line. */
+	.pud-ship {
+		display: flex;
+		flex-direction: column;
+		gap: 0.7rem;
+		padding: 0.9rem 1rem 1rem;
+		border: 1px solid var(--line-edge);
+		border-radius: 12px;
+		background: var(--aero-face);
+	}
+	.pud-ship-id {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+	}
+	.pud-ship-stat {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem 1.4rem;
+		margin: 0;
+	}
+	.pud-ship-stat div {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
+	}
+	.pud-ship-stat dt {
+		font-size: 0.7rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: color-mix(in srgb, var(--ink) 45%, transparent);
+	}
+	.pud-ship-stat dd {
+		margin: 0;
+		font-size: 0.95rem;
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
+		color: var(--ink);
+	}
+	/* The freight button is a .pud-boost — same clear pill as Overclock and Pause, because it's
+	   the same kind of thing: an occasional spend, not the button you live on. */
+	.pud-ship .pud-boost {
+		align-self: flex-start;
 	}
 
 	/* ── Woodcutting ─────────────────────────────────────────────────────────────
