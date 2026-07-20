@@ -3705,7 +3705,45 @@
 	   the bubble gloss and air on every card, and true backdrop-blur on the four big ones. */
 	.surface-head.bar,
 	.surface-body.ranger {
-		--aero-face: color-mix(in srgb, var(--paper) 45%, transparent);
+		/* THE OPALITE — the shard's own light (GEM_OPAL_SVG's stops: iced blue, lilac, a pink
+		   edge — day arms and night arms both), blended once here so every surface that
+		   catches it — the cards, the bar's pill, the mining band's aeropalite trough — pours
+		   from the same stone and cannot drift. Theme-aware like the gem itself. */
+		--opalite: light-dark(
+			color-mix(in srgb, color-mix(in srgb, #a8cbe8 55%, #c9b5e4) 75%, #eab8d4),
+			color-mix(in srgb, color-mix(in srgb, #7fa8d9 55%, #a08ed6) 75%, #d290bb)
+		);
+		/* Split by theme, because the mix's BASE differs in what it has to do. Light theme:
+		   paper is white, and 45% of it grounds the cards against the daylit forest. Dark
+		   theme planetside: paper is pure BLACK, and 45% black glass over a night forest was
+		   cards you had to squint for — so the dark arm derives from INK instead, a light
+		   frost lifted off the scene (puhig's own 5%-ink face, poured thicker). Orbit is
+		   untouched by this: its override below restates the paper mix against its indigo. */
+		--aero-face: light-dark(
+			color-mix(in srgb, var(--paper) 45%, transparent),
+			/* The night face: OPALITE light over night-black glass — the cards drink from the
+			   same stone as the shard (GEM_OPAL_SVG's night stops: iced blue, lilac, a pink
+			   edge), so the panel's one gem and its glass agree on what light is. The body is
+			   a neutral cold black poured deep (68%), the card itself nearly night; the
+			   contrast is the opalite's alone, a thin pour (10%) caught in dark glass. Knobs:
+			   the stop blend, the 10% pour, the body's 68%. */
+			color-mix(in srgb, var(--opalite) 10%, color-mix(in srgb, #05070a 68%, transparent))
+		);
+	}
+	/* The BAR wears a THINNER face than the cards. Its scrolled pill carries real backdrop
+	   blur — the one piece of chrome where the glass genuinely frosts what slides beneath —
+	   so the blur does the separating and the face only tints; at the cards' strength the
+	   night frost read as a lamp across the top of the panel. Mildly translucent instead:
+	   the deck moves visibly under the glass. (Orbit's override below still outranks this,
+	   so the ship's bar keeps its indigo cut.) */
+	.surface-head.bar {
+		--aero-face: light-dark(
+			color-mix(in srgb, var(--paper) 24%, transparent),
+			/* The pill catches the same opalite as the cards, poured THINNER (8% into a 40%
+			   night body vs the cards' 10-into-68): the bar is the one glass with real blur
+			   behind it, so it stays airier and lets the frosted deck read through. */
+			color-mix(in srgb, var(--opalite) 8%, color-mix(in srgb, #05070a 40%, transparent))
+		);
 	}
 	/* IN ORBIT the chrome stops being the PAGE's and becomes the SHIP's. Planetside the panel is
 	   a lit page over daylit ground; aboard the courier it hangs in the void, and a white raft
@@ -3731,6 +3769,10 @@
 		   floats) is #0a1020 — the most indigo of its three stops and a step up from the void-edge
 		   #030409. Taking it as paper cuts the glass from exactly the sky behind it. */
 		--paper: #0a1020;
+		/* And the face restated as the plain paper mix: the planetside rule above splits its
+		   face by theme (dark derives from ink so night-forest cards don't drown), but in orbit
+		   the indigo paper IS the point — the glass keeps its cast from the sky it floats on. */
+		--aero-face: color-mix(in srgb, var(--paper) 45%, transparent);
 	}
 	/* Expanded: fill the viewport (desktop) — useful for the wide Traffic board. Same frosted
 	   background + backdrop blur as the compact state; only the width and edge treatment change. */
@@ -3829,6 +3871,17 @@
 	.surface-head.bar {
 		--bar-inset: clamp(0.7rem, 1.3vw, 1rem);
 		padding: var(--bar-inset);
+		/* OVERLAID on the scroller, not stacked above it. In flow, the bar's translucency was a
+		   lie the eye caught immediately: nothing ever passed BEHIND the bar — its glass only
+		   sampled the panel's static fill, and no face percentage could make content appear
+		   where content never went. Absolute over the body (whose padding-top below reserves
+		   exactly this bar's height), the rows genuinely slide under the pill and the blur
+		   finally has something to frost. */
+		position: absolute;
+		top: 0;
+		left: 0;
+		right: 0;
+		z-index: 2;
 		/* Its own view-transition group, like the dashboard sections have: left to the root
 		   snapshot, the bar's recolor between deployments cut hard while everything around it
 		   crossfaded — named, its old and new light swap in an isolated pair on the same beat. */
@@ -3903,6 +3956,10 @@
 		--bar-inset: clamp(0.7rem, 1.3vw, 1rem);
 		padding-inline: var(--app-inset);
 		padding-bottom: 2rem;
+		/* The overlaid bar's height, reserved: 42px row + the inset above and below it + the
+		   1px border either side. The body starts where the in-flow bar used to end, so the
+		   app sits exactly where it always did — until it scrolls, and rows pass under glass. */
+		padding-top: calc(44px + 2 * var(--bar-inset));
 	}
 	/* The header's control row: Back at the left, a panel's own action (Weather's search) at the
 	   right. It replaces the bare Back button, so the gap below it is the one Back used to set.
@@ -4869,6 +4926,7 @@
 	:global(html:root .pud-boost),
 	:global(html:root .pud-buy),
 	:global(html:root .pud-reset),
+	:global(html:root .pud-pauseall),
 	:global(html:root .beta),
 	:global(html:root .pud-item-switch) {
 		transition:
@@ -4930,6 +4988,7 @@
 	:global(html:root .pud-boost:active:not(:disabled)),
 	:global(html:root .pud-buy:active:not(:disabled)),
 	:global(html:root .pud-reset:active:not(:disabled)),
+	:global(html:root .pud-pauseall:active:not(:disabled)),
 	:global(html:root .beta:active:not(:disabled)),
 	:global(html:root .pud-item-switch:active:not(:disabled)) {
 		box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.07);
@@ -4957,6 +5016,7 @@
 		:global(html:root .pud-boost:hover:not(:disabled)),
 		:global(html:root .pud-buy:hover:not(:disabled)),
 		:global(html:root .pud-reset:hover:not(:disabled)),
+		:global(html:root .pud-pauseall:hover:not(:disabled)),
 		:global(html:root .beta:hover:not(:disabled)),
 		:global(html:root .pud-item-switch:hover:not(:disabled)) {
 			transform: scale(var(--btn-hover-scale));
@@ -4981,6 +5041,7 @@
 		:global(html:root .pud-boost:active:not(:disabled)),
 		:global(html:root .pud-buy:active:not(:disabled)),
 		:global(html:root .pud-reset:active:not(:disabled)),
+		:global(html:root .pud-pauseall:active:not(:disabled)),
 		:global(html:root .beta:active:not(:disabled)),
 		:global(html:root .pud-item-switch:active:not(:disabled)) {
 			transform: scale(var(--btn-press-scale));

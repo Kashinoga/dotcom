@@ -106,7 +106,13 @@ export const FLIGHT_MS = 1800;
 // A clear point well past the last moving part: the wipe is done at COVER+HOLD+REVEAL, and the
 // flight runs its own FLIGHT after the reveal begins, so the sum is the safe moment to drop
 // `transit` and let the scene settle to its resting render.
+// This is the ASCEND total. Descent gets its own, below — the legs spend FLIGHT differently.
 export const TRANSIT_TOTAL_MS = WIPE_COVER_MS + WIPE_HOLD_MS + WIPE_REVEAL_MS + FLIGHT_MS;
+// Descent flies its whole flight UNDER the cover — the dive to closest approach IS the first
+// 350ms, hidden by design — so after the reveal there is nothing left to watch: charging the
+// full FLIGHT here left 1.8s of a ranger staring at a still forest before the hatch moved.
+// The deck lands as the reveal settles instead: cover + hold + reveal + a breath.
+export const DESCEND_TOTAL_MS = WIPE_COVER_MS + WIPE_HOLD_MS + WIPE_REVEAL_MS + 250;
 
 // The bar's button can't call into PudIdle to flip the bit, so the flip lives here where both
 // sides can reach it. It only turns the switch; the ledger note is narrated by PudIdle's own
@@ -174,9 +180,10 @@ export function setDeployment(d: Deployment) {
 		ranger.transit = null;
 		// Arrival opens the hatch straight onto the deck: the cabin already left at boarding
 		// commit, so there's nothing to wait out — the destination's dashboard slides in as the
-		// flight settles.
+		// flight settles (ascend) or as the reveal does (descend, whose flight flew under the
+		// cover — see DESCEND_TOTAL_MS).
 		ranger.aboard = false;
-	}, TRANSIT_TOTAL_MS);
+	}, d === 'orbit' ? TRANSIT_TOTAL_MS : DESCEND_TOTAL_MS);
 }
 
 // Leaving the panel ENDS the boarding. board()/disembark() and the crossing are LIVE gestures —

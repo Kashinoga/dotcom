@@ -1387,7 +1387,16 @@
 		position: relative;
 		height: 6px;
 		border-radius: 999px;
-		background: color-mix(in srgb, var(--accent, #f06030) 14%, transparent);
+		/* AEROPALITE, not the flat accent wash: the trough drinks the panel's shared --opalite
+		   (the page defines it for the ranger's chrome — the same stone as the shard, the
+		   cards, the bar's pill), so the heartbeat stops being a plain orange stripe and joins
+		   the material. Accent stays as the fallback for any context outside the panel. */
+		background: color-mix(in srgb, var(--opalite, var(--accent, #f06030)) 20%, transparent);
+		/* …and the family's LIGHT, scaled to a 6px capsule: the hairline edge is most of what
+		   "aero" means at this size, and the gloss's top rim + glow read as a sheen along the
+		   trough. Without them the pour was the right colour lying flat. */
+		border: 1px solid var(--line-edge);
+		box-shadow: var(--aero-gloss), var(--aero-drop);
 		overflow: hidden;
 		view-transition-name: pud-mining;
 		/* Running ↔ paused is a state change worth SEEING happen: the band warms from accent to
@@ -1399,7 +1408,24 @@
 		inset: 0;
 		width: 40%;
 		border-radius: 999px;
-		background: linear-gradient(90deg, transparent, var(--accent, #f06030), transparent);
+		/* The travelling peak IS the opal now — the gem's three stops crossing the band in
+		   order (iced blue, lilac, pink), day arms by day and night arms by night, so the
+		   sweep reads as the shard's glint running the trough rather than a hot accent line.
+		   Paused overrides below still swap the whole thing to the idle yellow — a STATE has
+		   to outrank a material. */
+		background: linear-gradient(
+			90deg,
+			transparent 0%,
+			light-dark(#a8cbe8, #7fa8d9) 28%,
+			light-dark(#c9b5e4, #a08ed6) 46%,
+			/* the GLINT — a near-white hairline riding the peak's centre, the shard's own
+			   sparkle crossing the band; narrow on purpose (46→50→54) so it reads as a catch
+			   of light, not a white stripe */
+			light-dark(#ffffff, #e8f0ff) 50%,
+			light-dark(#c9b5e4, #a08ed6) 54%,
+			light-dark(#eab8d4, #d290bb) 72%,
+			transparent 100%
+		);
 		/* The travelling peak spreads into a full-width line as the works stop, and gathers back
 		   into a peak as they start. Transform is left out on purpose — the sweep animation owns
 		   it while running, and transitioning a property an animation is driving fights it. */
@@ -1631,9 +1657,9 @@
 	}
 	/* The wholesale pause, as a compact disc in the same aero material as .pud-boost — clear
 	   face, line-edge ring, ink glyph — sized down to a 28px icon button so it reads as a
-	   control ON the header rather than another requisition. Paused, it fills like .pud-boost.on
-	   (ink disc, paper glyph) so the stopped state is legible at a glance. The lead's own bottom
-	   margin would push the disc down with it, so the disc shrugs it off to stay centred. */
+	   control ON the header rather than another requisition. Paused, only the GLYPH changes —
+	   same glass both ways (see the note below). The lead's own bottom margin would push the
+	   disc down with it, so the disc shrugs it off to stay centred. */
 	.pud-pauseall {
 		display: inline-flex;
 		align-items: center;
@@ -1649,23 +1675,19 @@
 		border: 1.5px solid var(--line-edge);
 		border-radius: 999px;
 		cursor: pointer;
-		/* Same aero disc as .pud-boost — gloss + air, no blur. */
+		/* Same aero disc as .pud-boost — gloss + air, no blur. No transition here: the disc is
+		   enrolled in the page's universal button spring (the html:root roster, which outranks
+		   component rules by design), so its press thock, hover pop and colour eases all come
+		   from there — a local list would be dead CSS pretending to run. */
 		box-shadow: var(--aero-gloss), var(--aero-drop);
-		/* Compose, don't clobber: border/background keep their quick 0.15s hover beat; only the
-		   glyph colour is added, at the 0.45s recolour beat (see .pud-item). */
-		transition: border-color 0.15s ease, background 0.15s ease, color 0.45s ease;
 	}
 	.pud-pauseall:hover {
 		border-color: var(--line-strong);
 	}
-	/* Paused, the disc fills with ink like .pud-boost.on — and drops the gloss for the same
-	   reason: rim light on a dark fill reads wrong. */
-	.pud-pauseall.on {
-		color: var(--paper);
-		background: var(--ink);
-		border-color: var(--ink);
-		box-shadow: none;
-	}
+	/* Paused, the disc STAYS AERO and stays QUIET — an ink fill made the play glyph the
+	   panel's one flat control, and an amber face shouted a state the glyph swap and the
+	   yellowed mining band beside it already tell. Same glass both ways; the icon is the
+	   message. */
 	.pud-pauseall :global(svg) {
 		width: 16px;
 		height: 16px;

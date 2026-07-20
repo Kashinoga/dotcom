@@ -16,7 +16,8 @@ const B = process.env.BASE || 'http://localhost:5199';
 // slow machine that lands a beat late still reads the right state.
 const EXIT_END_MS = 460; // stage.svelte.ts — every dashboard section's exit lands here
 const BOARD_CLEAR_MS = 560; // location-state.svelte.ts — EXIT_END_MS(460)+100; the cabin mounts here
-const TRANSIT_TOTAL_MS = 2750; // location-state.svelte.ts — COVER350+HOLD150+REVEAL450+FLIGHT1800
+const TRANSIT_TOTAL_MS = 2750; // location-state.svelte.ts — ASCEND: COVER350+HOLD150+REVEAL450+FLIGHT1800
+const DESCEND_TOTAL_MS = 1200; // location-state.svelte.ts — descent's flight flies UNDER the cover: COVER350+HOLD150+REVEAL450+250
 
 const PUD = '/apps/intergalactic-park-ranger';
 
@@ -178,7 +179,10 @@ await settle(page);
 ok('re-boarded in orbit: cabin destination reads "Descend to Basecamp"',
 	(await page.getByRole('button', { name: 'Descend to Basecamp' }).count()) === 1);
 await page.getByRole('button', { name: 'Descend to Basecamp' }).click();
-await page.waitForTimeout(TRANSIT_TOTAL_MS + 800);
+// Descent lands on ITS OWN, shorter clock — the ascend total would pass here too, but waiting
+// only DESCEND_TOTAL + headroom asserts the improvement itself: a regression back to charging
+// descent for ascend's flight (1.8s of a ranger staring at a still forest) fails this wait.
+await page.waitForTimeout(DESCEND_TOTAL_MS + 800);
 await settle(page);
 ok('descended: Basecamp place restored', await hasLead(page, 'Basecamp'));
 ok('descended: requisitions back on stage', (await count(page, '.pud-shop')) === 1);
