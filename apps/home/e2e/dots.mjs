@@ -26,7 +26,11 @@ const want = {
 	'/apps/weather': { accent: ORANGE, model: 'badge' },
 	'/apps/emoji-viewer': { accent: ORANGE, model: 'badge' },
 	'/apps/court-of-public-opinion': { accent: ORANGE, model: 'badge' },
-	'/apps/intergalactic-park-ranger': { accent: ORANGE, model: 'badge' }
+	// The Park Ranger is on the badge model too, but its bar is DENSE (BAR_HEADER): a full-viewport
+	// app spends its vertical room on content, so the title sits IN the bar (.head-title) beside the
+	// badge — there's no big body title to scroll away. `bar: true` swaps the body-title assertion
+	// for "the bar carries the name", the same split header.mjs makes.
+	'/apps/intergalactic-park-ranger': { accent: ORANGE, model: 'badge', bar: true }
 };
 
 /** Computed colours come back as `rgb(r, g, b)` or `color(srgb r g b / a)` — normalise to 0-255. */
@@ -78,6 +82,8 @@ for (const vp of [{ width: 1400, height: 820 }, { width: 1024, height: 800 }, { 
 				markColor: mark ? cs(mark).color : null,
 				bodyTitle: !!bodyTitle,
 				headTitle: !!headTitle,
+				// the dense bar names itself in-bar (.head-title), not in a body title that scrolls away
+				headBar: !!head.querySelector('.head-title'),
 				// dot-model geometry: the bullet rests on its own title's baseline, inside the panel
 				ratio: dot && headTitle
 					? (box(headTitle).bottom - box(dot).bottom) / parseFloat(cs(headTitle).fontSize)
@@ -101,10 +107,21 @@ for (const vp of [{ width: 1400, height: 820 }, { width: 1024, height: 800 }, { 
 		ok(`${tag} mark carries the solid accent`, sameColor(g.markColor, exp.accent), g.markColor ?? 'none');
 		ok(`${tag} bullet stays inside the panel`, g.inside === true && g.titleFits);
 		if (exp.model === 'badge') {
-			// The title moved to the body so it can scroll away; the header keeps controls only.
-			ok(`${tag} big title lives in the body`, g.bodyTitle && !g.headTitle,
-				`body=${g.bodyTitle} head=${g.headTitle}`);
-			ok(`${tag} badge sits between Back and the controls`, g.afterBack === true && g.beforeActions !== false);
+			// A dense-bar panel names itself in the bar (.head-title) with no body title to scroll
+			// away; every other badge panel moves its big title into the body. Assert the right one.
+			if (exp.bar)
+				ok(`${tag} the dense bar carries the name`, g.headBar && !g.bodyTitle,
+					`headBar=${g.headBar} body=${g.bodyTitle}`);
+			else
+				ok(`${tag} big title lives in the body`, g.bodyTitle && !g.headTitle,
+					`body=${g.bodyTitle} head=${g.headTitle}`);
+			// A dense bar (BAR_HEADER) drops its Back cap on a phone — no room for it — so the badge
+			// LEADS the row there (afterBack null) rather than following Back. Every other badge panel
+			// keeps Back at all widths, so only a bar panel is allowed the missing cap. Either way the
+			// badge must still sit before the panel's controls.
+			const backOk = g.afterBack === true || (exp.bar && g.afterBack === null);
+			ok(`${tag} badge leads the control row`, backOk && g.beforeActions !== false,
+				`afterBack=${g.afterBack} beforeActions=${g.beforeActions}`);
 		} else {
 			ok(`${tag} title stays in the header`, g.headTitle && !g.bodyTitle);
 			// The bullet rests on its OWN title's baseline: its bottom sits above the title's by

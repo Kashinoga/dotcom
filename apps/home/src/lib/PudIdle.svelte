@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { flip } from 'svelte/animate';
+	import { fade, fly, scale } from 'svelte/transition';
 	import { backOut } from 'svelte/easing';
 	import { popSpring } from '$lib/pop-spring';
 	import SplitFlap from '$lib/SplitFlap.svelte';
-	import { GEM_SVG, CLOSE_SVG } from '$lib/icons';
+	import { GEM_OPAL_SVG, CLOSE_SVG, PLAY_SVG, PAUSE_SVG } from '$lib/icons';
+	import { ranger, togglePaused, setDeployment, board, disembark, leaveShuttle } from '$lib/location-state.svelte';
+	import { createStage } from '$lib/stage.svelte';
 
 	// The settings popout is opened from the PANEL BAR, which belongs to the catch-all page —
 	// so the page owns the open/closed flag and the button, and this component draws the card
@@ -14,6 +17,41 @@
 		settingsOpen?: boolean;
 		onCloseSettings?: () => void;
 	} = $props();
+
+	// THE STAGE — the boarding choreography, its rules and its motion-preference read now living in
+	// one module (stage.svelte.ts). Every dashboard section asks it for the transition params for
+	// its own door; the six laws that shape them (shared exit end, nearest door, reduced motion,
+	// the first-mount gate) are documented there. `stage.used` is what everAboard used to be.
+	const stage = createStage();
+
+	// Does this browser drive the deployment swap with a View Transition (see setDeployment)? Still
+	// read, still true where the API lives: the transit machinery (the bar, the scenes, the tally
+	// and the surviving named boxes) morphs on it. But the DASHBOARD sections no longer animate on
+	// a deployment swap at all — deployment can only change from inside the cabin now, so the
+	// sections are always unmounted when a swap fires (see the boarding gates below). Their motion
+	// is BOARDING's, not the swap's, and boarding is deliberately outside the View Transition. Read
+	// once; capability doesn't change mid-session.
+	const viewTransitions = typeof document !== 'undefined' && 'startViewTransition' in document;
+
+	// A11y — where focus stands once you're aboard. Boarding UNMOUNTS the whole dashboard, the
+	// shuttle card the ranger just pressed included, so focus would fall back to <body> and a
+	// keyboard user would lose their place. This effect catches the element as the cabin mounts
+	// (the bind is live only while aboard) and moves focus onto the destination button — the
+	// first thing you'd reach for in there. SSR-guarded by the element itself: cabinDestEl is
+	// undefined on the server and until the cabin renders, so focus() only fires client-side once
+	// the button is really in the DOM. It settles focus even while the in:fly is still playing,
+	// which is fine — the transform doesn't move the focus ring off the control.
+	// Mark the stage used the first time the ranger boards. From then on the entrances play live
+	// (until now they were parked at duration 0 — the first-mount gate, law 4 in stage.svelte.ts)
+	// and .pud wears .reboarded, which mutes the pud-settle arrival flourish on the remounts that
+	// now belong to boarding.
+	$effect(() => {
+		if (ranger.aboard) stage.use();
+	});
+	let cabinDestEl = $state<HTMLButtonElement | undefined>(undefined);
+	$effect(() => {
+		if (ranger.cabin && cabinDestEl) cabinDestEl.focus();
+	});
 
 	// Intergalactic Park Ranger — the Pocket Universe Division's clicker (you're the
 	// ranger; PUD is the park service), revived from the standalone pud-idle repo
@@ -168,8 +206,10 @@
 	let owned = $state<Record<string, number>>(Object.fromEntries(RIGS.map((r) => [r.id, 0])));
 	let boostUntil = $state(0);
 	let boostReadyAt = $state(0);
-	let paused = $state(false); // the rigs down tools; the hand extractor still works
-	let rigPaused = $state<Record<string, boolean>>({}); // …and any ONE rig can down its own
+	// The wholesale pause moved up to location-state (ranger.paused) so the panel bar's global
+	// play/pause and this component's own switch drive one bit — see that module. Any ONE rig can
+	// still down its own tools, and that stays local: it's a per-rig thing nothing outside touches.
+	let rigPaused = $state<Record<string, boolean>>({});
 	let nowMs = $state(0); // ticked by the loop; drives the countdowns
 	let armReset = $state(false); // the two-step abandon
 
@@ -201,6 +241,30 @@
 	function note(kind: LogKind, message: string) {
 		log = [{ id: ++logSeq, kind, message, at: Date.now() }, ...log].slice(0, LOG_MAX);
 	}
+	// The pause bit lives in location-state now, and any of three hands can flip it: this
+	// component's header switch, the panel bar's global twin, or a restored save. None of them
+	// narrates the change — this single effect does, so the ledger gets exactly one line per real
+	// flip no matter who threw the switch. `pausePrev` is a sentinel (undefined until first read):
+	// the effect's first pass ADOPTS whatever value it finds without logging, which is how a
+	// reload that comes back paused doesn't announce a pause you did a week ago. restore() also
+	// seeds it (below), so even if that first pass lands before onMount the adopted value is the
+	// restored one — the note only fires on a change made AFTER the board has settled.
+	let pausePrev: boolean | undefined;
+	$effect(() => {
+		const down = ranger.paused;
+		if (pausePrev === undefined) {
+			pausePrev = down;
+			return;
+		}
+		if (down === pausePrev) return;
+		pausePrev = down;
+		note(
+			'time',
+			down
+				? 'All rigs down tools. The division rests; your hands don’t have to.'
+				: 'The rigs spin back up — extraction resumes.'
+		);
+	});
 	// Coarse clock for the "3m ago" stamps. Its own 20s beat, NOT the game loop's 200ms one:
 	// the stamps only change by the minute, and re-rendering twenty rows five times a second to
 	// move nothing would be the most expensive thing on screen.
@@ -272,11 +336,11 @@
 	const lit = $derived(nowMs > 0 && nowMs < fireUntil);
 	// The fire and the overclock MULTIPLY rather than override: they're bought with different
 	// things (timber and shards), so stacking them is the reward for running both.
-	const cps = $derived(paused ? 0 : baseCps * (boosted ? 2 : 1) * (lit ? FIRE_MULT : 1));
+	const cps = $derived(ranger.paused ? 0 : baseCps * (boosted ? 2 : 1) * (lit ? FIRE_MULT : 1));
 	// Enough in the stores for a fire, and nothing already burning. Kept as its own derived so
 	// the button can say WHY it's out — the cost is listed either way.
 	const canLight = $derived(!lit && FIRE_COST.every((c) => (stores[c.id] ?? 0) >= c.n));
-	const canBoost = $derived(nowMs >= boostReadyAt && baseCps > 0 && !paused);
+	const canBoost = $derived(nowMs >= boostReadyAt && baseCps > 0 && !ranger.paused);
 
 	const rigCost = (r: Rig) => Math.round(r.base * Math.pow(1.15, owned[r.id] ?? 0));
 	// Sharpening starts at the price of your first Field Probe — the anchor is deliberate: the
@@ -443,16 +507,11 @@
 		note('boost', 'Overclock engaged — the whole division hums at ×2.');
 		save();
 	}
-	function togglePause() {
-		paused = !paused;
-		note(
-			'time',
-			paused
-				? 'All rigs down tools. The division rests; your hands don’t have to.'
-				: 'The rigs spin back up — extraction resumes.'
-		);
-		save();
-	}
+	// Deployment used to be flipped from a pair of pills on the shuttle card, through a local
+	// `deploy()` that logged the move. It's a place you BOARD now: the choice lives inside the
+	// cabin (see the .pud-cabin section) and goes straight through setDeployment, which owns the
+	// no-op guard and the transit cinema. The old wrapper — and its ledger line — retired with the
+	// pills; boarding is its own visible event, and the crossing tells its own story on screen.
 	function toggleRig(r: Rig) {
 		rigPaused[r.id] = !rigPaused[r.id];
 		note(
@@ -517,7 +576,7 @@
 				owned: { ...owned },
 				boostUntil,
 				boostReadyAt,
-				paused,
+				paused: ranger.paused,
 				rigPaused: { ...rigPaused },
 				log: log.slice(0, LOG_MAX),
 				stores: { ...stores },
@@ -547,7 +606,11 @@
 				owned = { ...owned, ...(s.owned ?? {}) };
 				boostUntil = s.boostUntil ?? 0;
 				boostReadyAt = s.boostReadyAt ?? 0;
-				paused = s.paused ?? false;
+				ranger.paused = s.paused ?? false;
+				// Seed the effect's sentinel to the restored value, so the pause we're coming back
+				// INTO isn't narrated as a pause you just made — this holds whichever side of the
+				// effect's first run this assignment lands on (see the $effect above).
+				pausePrev = ranger.paused;
 				rigPaused = { ...(s.rigPaused ?? {}) };
 				stores = { ...(s.stores ?? s.wood ?? {}) };
 				dropAt = s.dropAt ?? 0;
@@ -563,7 +626,7 @@
 				logSeq = log.reduce((m, e) => Math.max(m, e.id ?? 0), 0);
 				// The rigs kept working: credit the time away, unboosted, capped — unless
 				// they were left DOWN (wholesale or one by one), in which case down they stayed.
-				if (!paused) {
+				if (!ranger.paused) {
 					const away = Math.min(Math.max(Date.now() - (s.savedAt ?? Date.now()), 0), OFFLINE_CAP_MS);
 					const gain =
 						(RIGS.reduce(
@@ -600,7 +663,7 @@
 			const dt = (now - lastTick) / 1000;
 			lastTick = now;
 			nowMs = now;
-			if (baseCps > 0 && !paused) {
+			if (baseCps > 0 && !ranger.paused) {
 				const gain = baseCps * (now < boostUntil ? 2 : 1) * dt;
 				shards += gain;
 				lifetime += gain;
@@ -625,11 +688,16 @@
 			window.removeEventListener('pagehide', save);
 			document.removeEventListener('pointerdown', onAwayPointer, true);
 		}
+		// Step off the shuttle as the dashboard leaves: cancels any pending handoff/transit timers
+		// and clears the transient in-cabin state, so reopening lands on the dashboard rather than
+		// mid-boarding — and a crossing left in the air can't complete under a future panel and
+		// reveal the Shuttle card a second time (see leaveShuttle in location-state).
+		leaveShuttle();
 		save();
 	});
 </script>
 
-<div class="pud">
+<div class="pud" class:reboarded={stage.used}>
 	<!-- (The "while you were away" banner used to sit here. The ledger carries that line now,
 	     as its newest entry — arriving in the accent, so it's still the first thing you see on
 	     a return — and printing the same sentence twice on one screen read as a stutter.) -->
@@ -642,7 +710,7 @@
 	<div class="pud-main">
 		<!-- The tally: the shard mark, the count, and what's flowing in. -->
 		<div class="pud-count">
-		<span class="pud-gem" class:boosted aria-hidden="true">{@html GEM_SVG}</span>
+		<span class="pud-gem" class:boosted aria-hidden="true">{@html GEM_OPAL_SVG}</span>
 		<div>
 			<div class="pud-num">
 				<!-- Two flap segments, keyed apart: the DIGITS re-flap on the throttled
@@ -654,7 +722,7 @@
 				{#key flapNum}<SplitFlap text={flapNum} from={flapNumPrev} delay={0} base={130} stagger={0} tick={35} />{/key}{#if flapUnit}{#key flapUnit}<SplitFlap text={flapUnit} delay={0} base={130} tick={35} />{/key}{/if}
 			</div>
 			<div class="pud-sub">
-				Data Shards · {paused
+				Data Shards · {ranger.paused
 					? 'paused'
 					: `${fmtRate(cps)}/s${boosted ? ' · overclocked ×2' : ''}${lit ? ` · fire ×${FIRE_MULT}` : ''}`}
 			</div>
@@ -668,38 +736,103 @@
 	     division mining whether or not you're pulling. It runs hot with the overclock,
 	     and stands STILL (dimmed, not gone) while the rigs are paused. -->
 	{#if baseCps > 0}
-		<div class="pud-mining" class:boosted class:paused aria-hidden="true">
+		<div class="pud-mining" class:boosted class:paused={ranger.paused} aria-hidden="true">
 			<span class="pud-mining-sweep"></span>
 		</div>
 	{/if}
 
-	<!-- The hands-on half: the pull, and the overclock beside it. -->
-	<div class="pud-actions">
-		<button type="button" class="pud-extract" onclick={extract}>
-			{#key pullSeq}
-				{#if pullSeq > 0}
-					<!-- The pull's own bar, along the bottom edge of the pill. Decorative: the count
-					     above is what actually reports the shards, and this is aria-hidden so a
-					     screen reader isn't told about a 240ms flourish on every press. -->
-					<span class="pud-pull" aria-hidden="true"></span>
-				{/if}
-			{/key}
-			<span class="pud-extract-label">Extract <span class="pud-per">+{perClick}</span></span>
-		</button>
-		<button type="button" class="pud-boost" class:on={boosted} disabled={!canBoost && !boosted} onclick={overclock}>
-			{#if boosted}×2 · {secsLeft(boostUntil)}s
-			{:else if canBoost}Overclock
-			{:else if baseCps === 0 || paused}Overclock
-			{:else}Recharging · {secsLeft(boostReadyAt)}s{/if}
-		</button>
-		<!-- ONE button, two words: it pauses every rig and, paused, offers the way back.
-		     Only meaningful once something can run, so it waits for the first rig. -->
-		{#if baseCps > 0}
-			<button type="button" class="pud-boost" onclick={togglePause}>
-				{paused ? 'Resume' : 'Pause'}
+	<!-- THE CABIN — where the dashboard's heart is once you're aboard. It stands right under the
+	     persistent chrome (the tally and the mining band, which never leave), in the space the
+	     actions row, the band, and the forestry detail vacate as they board away. For now it holds
+	     the one thing a shuttle is for — the destination — and a quiet way back out; more controls
+	     will strap in beside these later.
+	     It MOUNTS late, not just animates late: an incoming element takes its box in the layout
+	     the moment it mounts, delay or no delay, and a cabin gated on `aboard` alone landed in
+	     the flow while the cards were still flying off — the two shoved each other mid-move. So
+	     the cabin waits on `ranger.cabin`, raised by the module's handoff clock only once the
+	     deck has cleared (BOARD_CLEAR_MS), and dropped FIRST on the way out, with the dashboard
+	     returning only after CABIN_EXIT_MS. Neither ever shares the floor with the other.
+	     COMMITTING DROPS THE CABIN — the moment a destination is chosen, setDeployment lowers
+	     `cabin` and this card flies off (280ms), clearing the glass just before the wipe covers
+	     it at 350: the crossing plays as pure window — chrome, sky, camera — with no furniture
+	     riding along. `aboard` stays raised through the flight so the dashboard holds offstage,
+	     and arrival opens the hatch straight onto the destination's deck. -->
+	{#if ranger.cabin}
+		<section
+			class="pud-place pud-cabin-sec"
+			in:fly={stage.enterUp()}
+			out:fly={stage.exitDown()}
+			aria-label="Shuttle cabin"
+		>
+			<p class="pud-lead">Shuttle</p>
+			<div class="pud-cabin">
+				<div class="pud-ship-id">
+					<span class="pud-item-name">Division shuttle</span>
+					<span class="pud-item-blurb">Strapped in. The pad hums.</span>
+				</div>
+				<div class="pud-cabin-controls">
+					<!-- The destination: one press flies you the other way. It goes straight through
+					     setDeployment, which runs the transit cinema and, on arrival, disembarks you.
+					     Disabled while a crossing is already in the air. Focus lands here on board. -->
+					<button
+						type="button"
+						class="pud-boost"
+						bind:this={cabinDestEl}
+						disabled={ranger.transit !== null}
+						onclick={() => setDeployment(ranger.deployment === 'basecamp' ? 'orbit' : 'basecamp')}
+					>
+						{ranger.deployment === 'basecamp' ? 'Enter Orbit' : 'Descend to Basecamp'}
+					</button>
+					<!-- The way back out, before you commit to a destination. Also refused mid-flight —
+					     once the shuttle's in the air, arrival is the only way off. -->
+					<button type="button" class="pud-boost" disabled={ranger.transit !== null} onclick={disembark}>
+						Disembark
+					</button>
+				</div>
+			</div>
+		</section>
+	{/if}
+
+	<!-- The hands-on half: the pull, and the overclock beside it. Both are BASECAMP verbs — you
+	     work the extractor and clock the works with your hands on the ground. In orbit the row is
+	     gone ENTIRELY — nothing in it survives leaving the surface now that the shuttle keeps its
+	     own pad down in the places column. The rigs go on earning while you're aboard, and an
+	     overclock already lit keeps burning to its timer: the gate hides the controls, it doesn't
+	     stop the works.
+	     TWO gates now. The INNER one is the same deployment gate — Extract and Overclock are
+	     planetside-only, so the row lives and dies with Basecamp. The OUTER `!aboard` gate is the
+	     BOARDING choreography: deployment can only change from inside the cabin, so this row is
+	     always unmounted when a deployment swap fires — its old VT-aware fly/fade was dead weight
+	     drawing nothing. What moves it now is boarding: it leaves by the LEFT door with the places
+	     (these controls sit on the panel's left edge) and returns the same way — see the stage's
+	     exitLeft/enterLeft (stage.svelte.ts). -->
+	{#if !ranger.aboard}
+		{#if ranger.deployment === 'basecamp'}
+		<div class="pud-actions" in:fly|global={stage.enterLeft(60)} out:fly|global={stage.exitLeft()}>
+			<button type="button" class="pud-extract" onclick={extract}>
+				{#key pullSeq}
+					{#if pullSeq > 0}
+						<!-- The pull's own bar, along the bottom edge of the pill. Decorative: the count
+						     above is what actually reports the shards, and this is aria-hidden so a
+						     screen reader isn't told about a 240ms flourish on every press. -->
+						<span class="pud-pull" aria-hidden="true"></span>
+					{/if}
+				{/key}
+				<span class="pud-extract-label">Extract <span class="pud-per">+{perClick}</span></span>
 			</button>
+			<button type="button" class="pud-boost" class:on={boosted} disabled={!canBoost && !boosted} onclick={overclock}>
+				{#if boosted}×2 · {secsLeft(boostUntil)}s
+				{:else if canBoost}Overclock
+				{:else if baseCps === 0 || ranger.paused}Overclock
+				{:else}Recharging · {secsLeft(boostReadyAt)}s{/if}
+			</button>
+			<!-- (Pause moved OUT of here. It stops the RIGS, so it now rides the requisitions head
+			     where the rigs are listed — see .pud-shop-head below — with a global twin up on the
+			     panel bar. The hands-on row is left to the things your hands do. Deployment moved out
+			     too — it's a place you board now, not a switch on this row: see the Shuttle below.) -->
+		</div>
 		{/if}
-	</div>
+	{/if}
 
 	<!-- The requisition sheet: the click upgrade first (it's the one you feel), then the
 	     rigs by price. Each row splits its jobs: the CARD BODY is that rig's own switch
@@ -707,59 +840,136 @@
 	     COST CHIP at the right is the buy. Unowned rigs have nothing to switch, so their
 	     body waits inert until the first unit comes online. -->
 	<!-- Requisitions and the courier sit side by side: both are places you spend, and neither
-	     fills a whole panel's width on its own. Stacks below the app's own seam. -->
-	<div class="pud-cols">
-		<!-- THE PLACES — Basecamp and the Courier, the two spots the ranger works out of (the
-		     ancestor listed them together as Locations). Requisitions sits beside them. -->
-		<div class="pud-places">
-			<!-- BASECAMP — where the timber goes. Cut, burn, extract faster. -->
-			<div class="pud-camp" class:lit>
+	     fills a whole panel's width on its own. Stacks below the app's own seam. In orbit the
+	     requisitions column is gone, so the band drops to one column (class:orbit below). -->
+	<div class="pud-cols" class:orbit={ranger.deployment === 'orbit'}>
+		<!-- THE PLACES — Basecamp and the Courier. One shows at a time now: where you are is what
+		     you see, so a planetside ranger gets the camp and a ranger aboard gets the courier. The
+		     other place still runs (the camp fire burns to its clock either way); deployment sets
+		     the view, not the world. Requisitions sits beside them, at Basecamp only.
+		     BOARDING GATE — the whole left column, shuttle card included, is the FIRST thing to
+		     leave the stage when you board: it slides out to the left (it's the leftmost column, so
+		     it exits the way it sits) and slides back from the left when you disembark. Attached to
+		     .pud-places ITSELF, no wrapper — it's a grid child of .pud-cols, and a div around it
+		     would become the grid cell and break the band. The `view-transition-name` stays for the
+		     bar/scene machinery, but boarding isn't VT-wrapped, so on a swap this just unmounts
+		     plainly. It leaves and returns by the LEFT door — see the stage's exitLeft/enterLeft
+		     (stage.svelte.ts), which handles the reduced-motion case too. -->
+		{#if !ranger.aboard}
+		<div
+			class="pud-places"
+			out:fly|global={stage.exitLeft()}
+			in:fly|global={stage.enterLeft(60)}
+		>
+			<!-- BASECAMP — where the timber goes. Cut, burn, extract faster. Shown planetside. The
+			     inner deployment gate stays, but its own fly/fade is gone: this element is always
+			     unmounted when a swap happens (deployment only changes from the cabin), so it never
+			     animated visibly — the boarding slide on .pud-places above is what moves it now. -->
+			{#if ranger.deployment === 'basecamp'}
+			<div class="pud-place">
 				<p class="pud-lead">Basecamp</p>
-				<div class="pud-ship-id">
-					<span class="pud-item-name">Camp fire</span>
-					<span class="pud-item-blurb">
-						{lit
-							? `Burning — the division works at ×${FIRE_MULT} for ${Math.max(0, Math.ceil((fireUntil - nowMs) / 1000))}s.`
-							: `Costs ${FIRE_COST.map((c) => `${c.n}× ${TREES.find((t) => t.id === c.id)?.name}`).join(', ')}. Burns a minute.`}
-					</span>
+				<div class="pud-camp" class:lit>
+					<div class="pud-ship-id">
+						<span class="pud-item-name">Camp fire</span>
+						<span class="pud-item-blurb">
+							{lit
+								? `Burning — the division works at ×${FIRE_MULT} for ${Math.max(0, Math.ceil((fireUntil - nowMs) / 1000))}s.`
+								: `Costs ${FIRE_COST.map((c) => `${c.n}× ${TREES.find((t) => t.id === c.id)?.name}`).join(', ')}. Burns a minute.`}
+						</span>
+					</div>
+					<button type="button" class="pud-boost" disabled={!canLight} onclick={lightFire}>
+						{lit ? 'Burning' : 'Light the fire'}
+					</button>
 				</div>
-				<button type="button" class="pud-boost" disabled={!canLight} onclick={lightFire}>
-					{lit ? 'Burning' : 'Light the fire'}
-				</button>
 			</div>
+			{/if}
 
-		<!-- THE COURIER — the ancestor's starship panel with its clock running: a named ship in
-		     orbit, a transit window, and a supply drop that actually lands (see landDrop). -->
-		<div class="pud-ship">
-			<p class="pud-lead">Courier</p>
-			<div class="pud-ship-id">
-				<span class="pud-item-name">{SHIP.name}</span>
-				<span class="pud-item-blurb">In orbit · {SHIP.where}</span>
+			<!-- THE COURIER — the ancestor's starship panel with its clock running: a named ship in
+			     orbit, a transit window, and a supply drop that actually lands (see landDrop). Shown
+			     in orbit: you're aboard, and the rush is the one verb you have out here. -->
+			{#if ranger.deployment === 'orbit'}
+			<div class="pud-place">
+				<p class="pud-lead">Courier</p>
+				<div class="pud-ship">
+					<div class="pud-ship-id">
+						<span class="pud-item-name">{SHIP.name}</span>
+						<span class="pud-item-blurb">In orbit · {SHIP.where}</span>
+					</div>
+					<dl class="pud-ship-stat">
+						<div>
+							<dt>Next drop</dt>
+							<dd>{dropIn > 0 ? `${dropIn}s` : 'overhead'}</dd>
+						</div>
+						<div>
+							<dt>Priority</dt>
+							<dd>{rushed ? 'Expedited' : 'Standard'}</dd>
+						</div>
+					</dl>
+					<button
+						type="button"
+						class="pud-boost"
+						disabled={!canRush}
+						onclick={requestRush}
+						title={rushed ? 'The window is already forward' : `Costs ${fmt(RUSH_COST)} shards`}
+					>
+						{rushed ? 'Expedited' : `Request priority · ${fmt(RUSH_COST)}`}
+					</button>
+				</div>
 			</div>
-			<dl class="pud-ship-stat">
-				<div>
-					<dt>Next drop</dt>
-					<dd>{dropIn > 0 ? `${dropIn}s` : 'overhead'}</dd>
+			{/if}
+
+			<!-- THE SHUTTLE — the way BETWEEN the places became a place of its own, and now a DOOR
+			     rather than a switch. It stood in both deployments with a pair of pills that set the
+			     backdrop in place; the segmented control is gone, replaced by one verb: Enter Shuttle.
+			     Pressing it doesn't move you — it BOARDS you (see board()), clearing the dashboard and
+			     sliding the cabin in, where the choice of destination actually lives. The card is a
+			     plain door now, so no role=group, no aria-pressed pair to name — just a button.
+			     Disabled mid-flight: you can't board a shuttle already in the air. It rides the
+			     .pud-places boarding slide out with its siblings the instant it's pressed. -->
+			<div class="pud-place">
+				<p class="pud-lead">Shuttle</p>
+				<div class="pud-shuttle">
+					<div class="pud-ship-id">
+						<span class="pud-item-name">Division shuttle</span>
+						<span class="pud-item-blurb">Ferries the ranger between the surface and the Courier.</span>
+					</div>
+					<button type="button" class="pud-boost" disabled={ranger.transit !== null} onclick={board}>Enter Shuttle</button>
 				</div>
-				<div>
-					<dt>Priority</dt>
-					<dd>{rushed ? 'Expedited' : 'Standard'}</dd>
-				</div>
-			</dl>
-			<button
-				type="button"
-				class="pud-boost"
-				disabled={!canRush}
-				onclick={requestRush}
-				title={rushed ? 'The window is already forward' : `Costs ${fmt(RUSH_COST)} shards`}
-			>
-				{rushed ? 'Expedited' : `Request priority · ${fmt(RUSH_COST)}`}
-			</button>
 			</div>
 		</div>
+		{/if}
 
-		<div class="pud-shop">
-		<p class="pud-lead">Division requisitions</p>
+		<!-- Requisitions live at Basecamp: buying and standing rigs down is a planetside job, and
+		     its pause disc goes with it. In orbit the whole column lifts out — the rigs keep
+		     running, the bar's global pause still reaches them, you just can't shop from up here.
+		     BOARDING GATE — the shop sits in the dashboard's CENTRE, between the places and the
+		     rail, so it doesn't pick a side: it recedes, the same shrink Forestry leaves by, a
+		     touch after the columns start (delay 40) — the stage's exitBack/enterBack
+		     (stage.svelte.ts). Inner deployment gate kept. -->
+
+		{#if !ranger.aboard}
+		{#if ranger.deployment === 'basecamp'}
+		<div
+			class="pud-shop"
+			out:scale|global={stage.exitBack(40)}
+			in:scale|global={stage.enterBack(100)}
+		>
+		<!-- The pause lives HERE, in the requisitions head, because the rigs are what it stops and
+		     this is where the rigs are listed. The hand extractor never pauses, so it stays out of
+		     the actions row above; and the panel bar carries the same switch (see the page's PUD
+		     head-actions) for when the shop has scrolled away. Icon only — the state is the label. -->
+		<div class="pud-shop-head">
+			<p class="pud-lead">Division requisitions</p>
+			<button
+				type="button"
+				class="pud-pauseall"
+				class:on={ranger.paused}
+				aria-pressed={ranger.paused}
+				aria-label={ranger.paused ? 'Resume the works' : 'Pause the works'}
+				title={ranger.paused ? 'Resume the works' : 'Pause the works'}
+				onclick={togglePaused}
+			>{@html ranger.paused ? PLAY_SVG : PAUSE_SVG}</button>
+		</div>
 		<div class="pud-item">
 			<span class="pud-item-main">
 				<span class="pud-item-copy">
@@ -783,8 +993,8 @@
 					>
 						<span
 							class="pud-ring"
-							class:off={rigPaused[r.id] || paused}
-							class:boosted={boosted && !rigPaused[r.id] && !paused}
+							class:off={rigPaused[r.id] || ranger.paused}
+							class:boosted={boosted && !rigPaused[r.id] && !ranger.paused}
 							aria-hidden="true"
 						>
 							<svg viewBox="0 0 20 20">
@@ -811,12 +1021,23 @@
 			</div>
 			{/each}
 		</div>
+		{/if}
+		{/if}
 		</div>
 
 		<!-- WOODCUTTING — the active half. The rigs pay while you're away; this pays attention.
 		     One stand at a time (see startChop): pressing the one that's running calls it off,
-		     pressing another while one runs is refused. -->
-		<div class="pud-wood">
+		     pressing another while one runs is refused. Planetside work: shown at Basecamp. A cut
+		     in progress keeps cutting after you deploy — the axe swings on, you just don't watch.
+		     BOARDING GATE — the forestry detail is the MIDDLE of the dashboard (a full-width band
+		     under the two-column places/requisitions), so it doesn't slide off an edge; it scales
+		     away and back, fading with scale's own opacity — the stage's exitBack/enterBack
+		     (stage.svelte.ts), which holds the scale at 1 under reduced motion. It returns a touch
+		     quicker than the shop (enterBack's 400), so the override is passed. Inner deployment
+		     gate kept, its dead fly/fade dropped. -->
+		{#if !ranger.aboard}
+		{#if ranger.deployment === 'basecamp'}
+		<div class="pud-wood" in:scale|global={stage.enterBack(100, 400)} out:scale|global={stage.exitBack(40)}>
 			<p class="pud-lead">Forestry detail</p>
 			{#each TREES as t (t.id)}
 				{@const busy = chop?.id === t.id}
@@ -846,66 +1067,91 @@
 				</button>
 			{/each}
 		</div>
+		{/if}
+		{/if}
 	</div>
 
 	<!-- The SIDE column: what the division has to show for itself. Wrapped, like .pud-main, so
 	     the two-column grid stays exactly two cells — assigning both cards to column 2 and
 	     letting auto-flow find rows for them is how the last layout ended up paying row-gap on
-	     99 empty rows. -->
-	<div class="pud-side">
-		{#if log.length}
+	     99 empty rows.
+	     BOARDING GATE — on the WRAPPER, not the sections. The per-section gates sat above inner
+	     conditionals (log.length, the deployment), and their transitions went quietly missing on
+	     the swap; the places column never misbehaved because its transition sits on a bare
+	     element directly inside its own gate. Same shape here now: the whole rail leaves by the
+	     RIGHT door as one piece, ledger and stores riding together — the stage's
+	     exitRight/enterRight (stage.svelte.ts). -->
+	{#if !ranger.aboard}
+	<div
+		class="pud-side"
+		out:fly={stage.exitRight(40)}
+		in:fly={stage.enterRight(100)}
+	>
 		<!-- THE LEDGER — the division's log, newest first (see `note`). It replaced a single
 		     line that only held the last thing that happened; an idle game is a thing you look
 		     away from, and one sentence can't tell you what you missed.
 		     Each row keeps its own entrance: `animate:flip` slides the standing rows down as a
 		     new one lands, and the newest wears the arrival keyframe (accent, cooling to the
 		     note's ink) that the single line used to. aria-live on the list is what the old
-		     role="status" was doing — additions get announced, the history doesn't. -->
+		     role="status" was doing — additions get announced, the history doesn't.
+		     (Boarding is the WRAPPER's job now — see .pud-side above; the per-section gate's
+		     transitions went missing above inner conditionals, so the rail travels whole.) -->
+		{#if log.length}
 		<section class="pud-ledger" aria-label="Division ledger">
 			<p class="pud-lead">Division ledger</p>
-			<ul
-				class="pud-log"
-				class:scrolled={logScrolled}
-				class:more={logMore}
-				bind:this={logEl}
-				aria-live="polite"
-				onscroll={(e) => syncLogEdges(e.currentTarget)}
-			>
-				{#each log as entry, i (entry.id)}
-					<li
-						class="pud-log-row"
-						class:newest={i === 0}
-						data-kind={entry.kind}
-						animate:flip={{ duration: 320, easing: backOut }}
-					>
-						<span class="pud-log-dot" aria-hidden="true"></span>
-						<span class="pud-log-msg">{entry.message}</span>
-						<time class="pud-log-at" datetime={new Date(entry.at).toISOString()}>{stamp(entry.at)}</time>
-					</li>
-				{/each}
-			</ul>
+			<div class="pud-ledger-card">
+				<ul
+					class="pud-log"
+					class:scrolled={logScrolled}
+					class:more={logMore}
+					bind:this={logEl}
+					aria-live="polite"
+					onscroll={(e) => syncLogEdges(e.currentTarget)}
+				>
+					{#each log as entry, i (entry.id)}
+						<li
+							class="pud-log-row"
+							class:newest={i === 0}
+							data-kind={entry.kind}
+							animate:flip={{ duration: 320, easing: backOut }}
+						>
+							<span class="pud-log-dot" aria-hidden="true"></span>
+							<span class="pud-log-msg">{entry.message}</span>
+							<time class="pud-log-at" datetime={new Date(entry.at).toISOString()}>{stamp(entry.at)}</time>
+						</li>
+					{/each}
+				</ul>
+			</div>
 		</section>
 		{/if}
 
 		<!-- THE STORES — what the forestry detail has actually brought in. Only what you HAVE is
 		     listed: an inventory of zeroes is a list of things you haven't done, and the stands
-		     above already say what's out there to cut. -->
+		     above already say what's out there to cut. Shelved at Basecamp: it's the planetside
+		     stores, so it travels with the camp. Crates keep landing while you're in orbit (the
+		     courier's drops don't wait on your eyes) — you'll find them here on your return.
+		     (Boarding is the WRAPPER's job now — see .pud-side above.) -->
+		{#if ranger.deployment === 'basecamp'}
 		<section class="pud-inv" aria-label="Division stores">
 			<p class="pud-lead">Division stores</p>
-			{#if held.length}
-				<ul class="pud-inv-list">
-					{#each held as h (h.id)}
-						<li class="pud-inv-row">
-							<span class="pud-inv-name">{h.name}</span>
-							<span class="pud-inv-count">{fmt(h.count)}</span>
-						</li>
-					{/each}
-				</ul>
-			{:else}
-				<p class="pud-inv-empty">Nothing in the stores. The forestry detail is idle.</p>
-			{/if}
+			<div class="pud-inv-card">
+				{#if held.length}
+					<ul class="pud-inv-list">
+						{#each held as h (h.id)}
+							<li class="pud-inv-row">
+								<span class="pud-inv-name">{h.name}</span>
+								<span class="pud-inv-count">{fmt(h.count)}</span>
+							</li>
+						{/each}
+					</ul>
+				{:else}
+					<p class="pud-inv-empty">Nothing in the stores. The forestry detail is idle.</p>
+				{/if}
+			</div>
 		</section>
+		{/if}
 	</div>
+	{/if}
 
 	<!-- The division's settings: the lifetime tally, and the way out. They used to sit in a foot
 	     rule under the shop, where a destructive button lived one mis-click from the buy pills;
@@ -983,13 +1229,22 @@
 			grid-column: 2;
 			align-self: start;
 		}
-		/* Its own frame, so it reads as a panel beside the game rather than a stray list. */
-		.pud-ledger,
-		.pud-inv {
+		/* The frame sits on the CARD, not the section: the lead names the panel from its own
+		   edge, the way the shop's and the places' leads do, and the card below holds the list. */
+		.pud-ledger-card,
+		.pud-inv-card {
 			padding: 0.9rem 1rem;
 			border: 1px solid var(--line-edge);
 			border-radius: 14px;
 			background: var(--aero-face);
+			/* A SECTION card, so it earns true glass — face, rim light, air, AND the backdrop
+			   blur. The four big cards are few enough to afford it (settings-card values); the
+			   rows can't (see .pud-item). */
+			box-shadow: var(--aero-gloss), var(--aero-drop);
+			-webkit-backdrop-filter: blur(6px) saturate(1.3);
+			backdrop-filter: blur(6px) saturate(1.3);
+			/* Recolour beat, same as the camp and courier (see .pud-item). */
+			transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease;
 		}
 		/* Taller here than in the stacked layout: a column of its own has the height to spend,
 		   and the whole point is seeing more than the last thing you did.
@@ -1006,11 +1261,28 @@
 		.pud-side > * {
 			animation: pud-settle 0.45s ease backwards;
 		}
+		/* …but only on the panel's ARRIVAL. The settle is an entrance flourish, and it re-fired
+		   on every boarding remount for the sections that are DIRECT children here (the actions
+		   row, the forestry detail) — its backwards-filled, nth-child-delayed keyframes held
+		   them off their mark and dropped them a step AFTER the boarding slide had already
+		   landed them. Once the shuttle's been used (stage.used raises .reboarded — see
+		   stage.svelte.ts), remounts belong to the boarding choreography alone. */
+		.pud.reboarded .pud-main > *,
+		.pud.reboarded .pud-side > * {
+			animation: none;
+		}
 		/* …but NOT the settings card. It's a child of .pud, so it was picking this up on top of
 		   its own popSpring and playing two entrances at once — springing out of the gear while
 		   also settling down from above. This one is a popout, not part of the page's arrival:
 		   it comes and goes on a press, long after the panel has landed. */
 		.pud > .pud-settings {
+			animation: none;
+		}
+		/* …and NOT the cabin. It's a .pud-main child, so it caught pud-settle on TOP of its own
+		   in:fly — the same double-entrance the settings card had, a -6px settle fighting the 28px
+		   arrival. The cabin comes and goes on a board/disembark, long after the panel landed; its
+		   fly is its whole entrance. */
+		.pud-main > .pud-cabin-sec {
 			animation: none;
 		}
 		.pud-main > :nth-child(2) {
@@ -1041,16 +1313,41 @@
 	}
 
 
+	/* VIEW-TRANSITION NAMES — the dashboard's moving parts, one name each. When a deployment swaps
+	   sections (see setDeployment), the browser FLIP-morphs every named box from its old place to
+	   its new one, so the survivors glide while the leavers fade. Only the SECTIONS are named, and
+	   each name is unique (a duplicate silently kills the whole transition — these are all
+	   singletons, so that holds): the sections travel as whole UNITS. Nothing inside them is named
+	   — a name per row or pill would blow the snapshot count up into the dozens over a live scene
+	   for no gain, since a section and its contents move together anyway. The settings card is left
+	   out on purpose: it's absolutely positioned, a popout, and has no business morphing. */
 	.pud-count {
 		display: flex;
 		align-items: center;
 		gap: 0.9rem;
+		view-transition-name: pud-count;
 	}
 	.pud-gem :global(svg) {
 		width: 44px;
 		height: 44px;
 		display: block;
-		color: var(--accent, #f06030);
+	}
+	/* The shard is cut as OPALITE now — reicon's gem-sparkle geometry, painted from the
+	   gradient baked into GEM_OPAL_SVG rather than the accent. The stones are tuned HERE,
+	   not in the icon: the stops carry classes for exactly this, so theming stays in CSS
+	   the way currentColor keeps it for every other glyph. Light theme wears milky
+	   pastels; dark lifts the same run a little so the gem reads lit, not dusty. */
+	.pud-gem :global(.op1) {
+		stop-color: light-dark(#a8cbe8, #7fa8d9);
+	}
+	.pud-gem :global(.op2) {
+		stop-color: light-dark(#c9b5e4, #a08ed6);
+	}
+	.pud-gem :global(.op3) {
+		stop-color: light-dark(#eab8d4, #d290bb);
+	}
+	.pud-gem :global(.op4) {
+		stop-color: light-dark(#a8d9c3, #7fc4a6);
 	}
 	/* Overclocked, the shard itself runs hot — a pulse, not a spin: it's a gem, not a fan. */
 	@media (prefers-reduced-motion: no-preference) {
@@ -1078,6 +1375,9 @@
 		font-size: 0.85rem;
 		color: var(--sub);
 		font-variant-numeric: tabular-nums;
+		/* Rides the recolour beat too — the tally ink flips with the scheme (see the fallback note
+		   on .pud-item); only its colour changes, so that's all it transitions. */
+		transition: color 0.45s ease;
 	}
 
 	/* The works' heartbeat: a soft accent band with a sweep crossing it while the rigs
@@ -1089,6 +1389,7 @@
 		border-radius: 999px;
 		background: color-mix(in srgb, var(--accent, #f06030) 14%, transparent);
 		overflow: hidden;
+		view-transition-name: pud-mining;
 		/* Running ↔ paused is a state change worth SEEING happen: the band warms from accent to
 		   yellow and back rather than cutting between them. */
 		transition: background-color 0.45s ease;
@@ -1170,7 +1471,11 @@
 		display: flex;
 		align-items: stretch;
 		gap: 0.6rem;
+		view-transition-name: pud-actions;
 	}
+	/* (.pud-deploy retired with the segmented place-pills. Deployment is a door you board now,
+	   not a two-capsule toggle on the shuttle card — the single Enter Shuttle button wears the
+	   plain .pud-boost, and the choice of destination moved inside the cabin.) */
 	/* The pull: the family's chip clothes at working size — this is the button the whole
 	   app is about, so it takes the accent when pressed-worthy attention isn't needed
 	   elsewhere. The universal spring gives the tap its thock. Overclock wears the SAME
@@ -1277,6 +1582,8 @@
 		background: color-mix(in srgb, var(--ink) 4%, transparent);
 		border: 1.5px solid var(--line-edge);
 		font-variant-numeric: tabular-nums;
+		/* Aero pill: rim light + air. No blur — see .pud-item. */
+		box-shadow: var(--aero-gloss), var(--aero-drop);
 		transition: border-color 0.15s ease, background 0.15s ease;
 	}
 	.pud-boost:hover:not(:disabled) {
@@ -1286,10 +1593,14 @@
 		opacity: 0.55;
 		cursor: default;
 	}
+	/* Lit, the pill fills with INK, and puhig's selected state (--aero-lit stays unworn; the
+	   app says "on" with the fill) never wears the gloss — a top-glow rim light over a dark
+	   fill reads as a smudge, not glass. So the on state drops the shadow entirely. */
 	.pud-boost.on {
 		color: var(--paper);
 		background: var(--ink);
 		border-color: var(--ink);
+		box-shadow: none;
 	}
 
 	/* No top rule. It divided the shop from the actions row above it back when the shop was the
@@ -1300,6 +1611,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.55rem;
+		view-transition-name: pud-shop;
 	}
 	.pud-lead {
 		margin: 0 0 0.2rem;
@@ -1309,9 +1621,66 @@
 		text-transform: uppercase;
 		color: var(--sub);
 	}
+	/* The requisitions head is a ROW now: the lead on the left, the pause-the-works disc on the
+	   right. The lead keeps its own bottom margin (it sets the gap to the first row); the row
+	   just lays the two out and pulls them to opposite ends. */
+	.pud-shop-head {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+	}
+	/* The wholesale pause, as a compact disc in the same aero material as .pud-boost — clear
+	   face, line-edge ring, ink glyph — sized down to a 28px icon button so it reads as a
+	   control ON the header rather than another requisition. Paused, it fills like .pud-boost.on
+	   (ink disc, paper glyph) so the stopped state is legible at a glance. The lead's own bottom
+	   margin would push the disc down with it, so the disc shrugs it off to stay centred. */
+	.pud-pauseall {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		box-sizing: border-box;
+		flex: none;
+		width: 28px;
+		height: 28px;
+		margin-bottom: 0.2rem;
+		padding: 0;
+		color: var(--ink);
+		background: color-mix(in srgb, var(--ink) 4%, transparent);
+		border: 1.5px solid var(--line-edge);
+		border-radius: 999px;
+		cursor: pointer;
+		/* Same aero disc as .pud-boost — gloss + air, no blur. */
+		box-shadow: var(--aero-gloss), var(--aero-drop);
+		/* Compose, don't clobber: border/background keep their quick 0.15s hover beat; only the
+		   glyph colour is added, at the 0.45s recolour beat (see .pud-item). */
+		transition: border-color 0.15s ease, background 0.15s ease, color 0.45s ease;
+	}
+	.pud-pauseall:hover {
+		border-color: var(--line-strong);
+	}
+	/* Paused, the disc fills with ink like .pud-boost.on — and drops the gloss for the same
+	   reason: rim light on a dark fill reads wrong. */
+	.pud-pauseall.on {
+		color: var(--paper);
+		background: var(--ink);
+		border-color: var(--ink);
+		box-shadow: none;
+	}
+	.pud-pauseall :global(svg) {
+		width: 16px;
+		height: 16px;
+		display: block;
+	}
 	/* A requisition row: the app cards' shape, holding two jobs — the switch (left, the
 	   whole body) and the buy (right, the cost chip). The frame is the row's; each half
 	   lights on its own hover. */
+	/* Over scenery the cards stopped being drawn ON anything — the paper page that used to sit
+	   under them is gone — so they wear the bubble material proper: face, rim light, air. A ROW
+	   takes the cheap half only, gloss + drop and no backdrop-filter. Real glass (the blur) is
+	   reserved for the four big section cards; a blur region on every row and pill — a dozen of
+	   them over the live WebGL orbit scene, which never stops recompositing — is the one
+	   expensive version of this. The rows stay cheap because there are so many of them.
+	   (.pud-tree wears .pud-item, so a forestry stand inherits this same cheap gloss.) */
 	.pud-item {
 		display: flex;
 		align-items: stretch;
@@ -1321,6 +1690,14 @@
 		background: var(--aero-face);
 		border: 1px solid var(--line-edge);
 		border-radius: 12px;
+		box-shadow: var(--aero-gloss), var(--aero-drop);
+		/* A deployment RECOLOURS the whole chrome — in orbit the panel flips to the ship's night
+		   world (see +page's .orbit re-theme), and every card's face, ink and edge change with it.
+		   The controls ease that change on the same 0.45s the mining band already speaks, so the
+		   swap reads as the LIGHT changing, not the UI being replaced. On browsers that drive the
+		   swap with a View Transition the morph crossfade carries the recolour instead and these
+		   never run; they're the glide for the fallback path (and for a plain theme toggle). */
+		transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease;
 	}
 	/* The switch half — a rig's own on/off, its ring saying which. As a plain span (the
 	   click upgrade, or an unowned rig) it's inert: no ring, no pointer. */
@@ -1434,6 +1811,10 @@
 		border: 1px solid var(--line-edge);
 		border-radius: 8px;
 		cursor: pointer;
+		/* The cost chip wears the same face value as --aero-face (5% ink), so it joins the aero
+		   family too — gloss + air, no blur. Its hover/disabled states touch background and
+		   opacity, never box-shadow, so the rim light rides through every state. */
+		box-shadow: var(--aero-gloss), var(--aero-drop);
 		transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
 	}
 	.pud-buy:hover:not(:disabled) {
@@ -1455,12 +1836,24 @@
 		gap: 1.05rem;
 		min-width: 0;
 	}
-	/* Basecamp and the Courier stack as one column — they're the two PLACES, and reading them
-	   together is the point. */
+	/* Basecamp and the Courier are the two PLACES, but only one stands here at a time now —
+	   where you are is what you see. The column holds whichever the deployment shows; it kept
+	   the flex stack from when both sat together, and it costs nothing with a single child. */
 	.pud-places {
 		display: flex;
 		flex-direction: column;
 		gap: 1.05rem;
+		min-width: 0;
+		/* The real mover of the band: when the requisitions and forestry cells leave, this column
+		   slides from its two-column slot to the single capped one — so it's named, not .pud-cols. */
+		view-transition-name: pud-places;
+	}
+	/* Each place is header-then-card, the way the shop and the forestry detail read: the
+	   label names the section from its edge, and the card below it is the place itself. */
+	.pud-place {
+		display: flex;
+		flex-direction: column;
+		gap: 0.55rem;
 		min-width: 0;
 	}
 	@media (min-width: 961px) {
@@ -1471,6 +1864,14 @@
 			grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
 			gap: 1.05rem;
 			align-items: start;
+		}
+		/* In orbit the requisitions cell is gone and only the courier stands in the places
+		   column — the two-column grid would leave it half-width beside an empty 1.5fr void.
+		   Drop to a single column and cap it: one card alone shouldn't wear the whole band's
+		   width, so the courier reads as a modest card, not a full-bleed slab. */
+		.pud-cols.orbit {
+			grid-template-columns: minmax(0, 1fr);
+			max-width: 28rem;
 		}
 	}
 	/* The camp wears the courier's card, because it's the same kind of thing: a place, its
@@ -1483,7 +1884,13 @@
 		border: 1px solid var(--line-edge);
 		border-radius: 12px;
 		background: var(--aero-face);
-		transition: border-color 0.2s ease;
+		/* A section card: true glass, like the ledger and stores. The .lit state only swaps the
+		   border to accent — the face keeps its rim light and blur. */
+		box-shadow: var(--aero-gloss), var(--aero-drop);
+		-webkit-backdrop-filter: blur(6px) saturate(1.3);
+		backdrop-filter: blur(6px) saturate(1.3);
+		/* Keep the .lit border on its own 0.2s beat; add the face and ink to the recolour beat. */
+		transition: border-color 0.2s ease, background-color 0.45s ease, color 0.45s ease;
 	}
 	/* Lit, the camp says so in its edge — the fire is a state you should be able to see from
 	   across the panel, not something you have to read. */
@@ -1503,6 +1910,12 @@
 		border: 1px solid var(--line-edge);
 		border-radius: 12px;
 		background: var(--aero-face);
+		/* A section card: true glass, same as the camp it stands in for. */
+		box-shadow: var(--aero-gloss), var(--aero-drop);
+		-webkit-backdrop-filter: blur(6px) saturate(1.3);
+		backdrop-filter: blur(6px) saturate(1.3);
+		/* Recolour beat, same as the camp. */
+		transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease;
 	}
 	.pud-ship-id {
 		display: flex;
@@ -1538,6 +1951,45 @@
 	.pud-ship .pud-boost {
 		align-self: flex-start;
 	}
+	/* The shuttle wears the courier's card too — it's the same kind of thing, a place with its
+	   identity and the one control it holds. Mirrors .pud-ship exactly (it has no .lit state of
+	   its own, so there's nothing to add): same glass, same recolour beat. The CABIN wears the
+	   very same recipe — it IS the shuttle, seen from inside — so it's grouped here rather than
+	   copied, one place to tune the whole ride. */
+	.pud-shuttle,
+	.pud-cabin {
+		display: flex;
+		flex-direction: column;
+		gap: 0.7rem;
+		padding: 0.9rem 1rem 1rem;
+		border: 1px solid var(--line-edge);
+		border-radius: 12px;
+		background: var(--aero-face);
+		/* A section card: true glass, same as the camp and courier it stands beside. */
+		box-shadow: var(--aero-gloss), var(--aero-drop);
+		-webkit-backdrop-filter: blur(6px) saturate(1.3);
+		backdrop-filter: blur(6px) saturate(1.3);
+		/* Recolour beat, same as the camp and courier. */
+		transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease;
+	}
+	/* The shuttle card's one control (Enter Shuttle) sits left, like the camp's and courier's
+	   buttons — it was a .pud-deploy inline row before the pills retired to one door. */
+	.pud-shuttle .pud-boost {
+		align-self: flex-start;
+	}
+	/* THE CABIN section stands in .pud-main, full-width like the actions row — but a lone card
+	   shouldn't wear the whole panel's width, so it's capped the way the orbit band caps the
+	   courier standing alone (max-width: 28rem). The lead + card stack is .pud-place's, shared. */
+	.pud-cabin-sec {
+		max-width: 28rem;
+	}
+	/* The cabin's controls sit in a row and wrap if the panel's narrow — the destination first
+	   (the reason you boarded), Disembark beside it. */
+	.pud-cabin-controls {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.6rem;
+	}
 
 	/* ── Woodcutting ─────────────────────────────────────────────────────────────
 	   The stands read as the requisition rows do — a name, a blurb, and a figure at the right —
@@ -1547,6 +1999,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
+		view-transition-name: pud-wood;
 	}
 	/* A stand IS a requisition row — it wears .pud-item for the card itself (face, border,
 	   radius, padding) so the two lists read as one kind of thing, which they are: a row you
@@ -1649,6 +2102,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
+		view-transition-name: pud-inv;
 	}
 	.pud-inv-list {
 		list-style: none;
@@ -1692,6 +2146,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
+		view-transition-name: pud-ledger;
 	}
 	/* BOTH edges shade, each saying the same thing in the direction it faces: there are rows past
 	   this line. Said the way the panel's bar says it — an inset breath on the SCROLLER, pinned
@@ -1858,15 +2313,12 @@
 		font-weight: 700;
 	}
 
-	/* Bubble: the rows, the buy chips, and the boost join the aero family — frost, rim
-	   light, drop. */
-	:global(html[data-ui='bubble']) .pud-item,
-	:global(html[data-ui='bubble']) .pud-buy,
-	:global(html[data-ui='bubble']) .pud-boost {
-		-webkit-backdrop-filter: blur(6px) saturate(1.3);
-		backdrop-filter: blur(6px) saturate(1.3);
-		box-shadow: var(--aero-gloss), var(--aero-drop);
-	}
+	/* The rows, the buy chips, and the boosts used to join the aero family only under
+	   data-ui='bubble', with a backdrop-blur each. That's the expensive version — a dozen blur
+	   regions over the live orbit scene — and it's now moved to the base rules WITHOUT the blur
+	   (gloss + air only): those surfaces float over scenery in every ui mode, so the material is
+	   no longer bubble's alone. What's left bubble-only is the extract pill's gloss and its
+	   flood — the one control that keeps its own bubble flourish. */
 	:global(html[data-ui='bubble']) .pud-extract {
 		box-shadow: var(--aero-gloss), var(--aero-drop);
 	}
@@ -1878,5 +2330,26 @@
 	   the face — the bubble-gloss rule, same as the badge's arrival disc. */
 	:global(html[data-ui='bubble']) .pud-pull {
 		box-shadow: var(--aero-gloss);
+	}
+
+	/* HOUSE CADENCE for the morph. A view-transition group animates for ~0.25s by default; the
+	   panel speaks 0.45s, so every named section morphs on that same beat — the swap reads as one
+	   motion, not a fast crossfade under a slow everything-else. These pseudo-elements are
+	   document-level (they live outside any component's scope), so :global, and each is pinned by
+	   NAME rather than a universal ::view-transition-group so no other app's transitions are
+	   touched. setDeployment already skips the transition under reduced motion, but the media guard
+	   makes that belt-and-braces. */
+	@media (prefers-reduced-motion: no-preference) {
+		:global(::view-transition-group(pud-count)),
+		:global(::view-transition-group(pud-mining)),
+		:global(::view-transition-group(pud-actions)),
+		:global(::view-transition-group(pud-places)),
+		:global(::view-transition-group(pud-shop)),
+		:global(::view-transition-group(pud-wood)),
+		:global(::view-transition-group(pud-ledger)),
+		:global(::view-transition-group(pud-inv)) {
+			animation-duration: 0.45s;
+			animation-timing-function: ease;
+		}
 	}
 </style>

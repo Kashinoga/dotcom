@@ -13,6 +13,12 @@ importers:
       '@kashinoga/puhig':
         specifier: workspace:*
         version: link:../../packages/puhig
+      '@threlte/core':
+        specifier: ^8.5.16
+        version: 8.5.16(svelte@5.56.4)(three@0.185.1)
+      three:
+        specifier: ^0.185.1
+        version: 0.185.1
     devDependencies:
       '@sveltejs/adapter-cloudflare':
         specifier: ^7.2.9
@@ -23,6 +29,9 @@ importers:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^7.1.2
         version: 7.1.2(svelte@5.56.4)(vite@8.1.3(esbuild@0.28.1))
+      '@types/three':
+        specifier: ^0.185.1
+        version: 0.185.1
       playwright:
         specifier: ^1.61.1
         version: 1.61.1
@@ -92,6 +101,9 @@ packages:
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
     engines: {node: '>=12'}
+
+  '@dimforge/rapier3d-compat@0.12.0':
+    resolution: {integrity: sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow==}
 
   '@emnapi/core@1.11.1':
     resolution: {integrity: sha512-RSvbQmHzdKzNsLYa/wHrbc3KN4sYLKAdPZxqiM2HATqv/SBk2/ENSHpvXGaLOMcsAyz0poEGqkmmKYG3OWiJEQ==}
@@ -597,6 +609,15 @@ packages:
       svelte: ^5.46.4
       vite: ^8.0.0-beta.7 || ^8.0.0
 
+  '@threlte/core@8.5.16':
+    resolution: {integrity: sha512-+aa9Zgz0/Qat82H0hTm1pTEtS2BIP1Nfu7pKaei+3+TvDqER0YnZ4hdgI9fYU9Z5r1lrzY3JxMyrdISp4B0kfw==}
+    peerDependencies:
+      svelte: '>=5'
+      three: '>=0.160'
+
+  '@tweenjs/tween.js@23.1.3':
+    resolution: {integrity: sha512-vJmvvwFxYuGnF2axRtPYocag6Clbb5YS7kLL+SO/TeVFzHqDIWrNKYtcsPMibjDx9O+bu+psAy9NKfWklassUA==}
+
   '@tybys/wasm-util@0.10.3':
     resolution: {integrity: sha512-F3fo1MYrRJYL3zER0OUOmkutjr1Vp23m7OsSgp7nq4SP6OqX6C/56XFIPAl5bt3zaBRjmW7SGz3u/6LwFpYcOg==}
 
@@ -606,8 +627,17 @@ packages:
   '@types/estree@1.0.9':
     resolution: {integrity: sha512-GhdPgy1el4/ImP05X05Uw4cw2/M93BCUmnEvWZNStlCzEKME4Fkk+YpoA5OiHNQmoS7Cafb8Xa3Pya8m1Qrzeg==}
 
+  '@types/stats.js@0.17.4':
+    resolution: {integrity: sha512-jIBvWWShCvlBqBNIZt0KAshWpvSjhkwkEu4ZUcASoAvhmrgAUI2t1dXrjSL4xXVLB4FznPrIsX3nKXFl/Dt4vA==}
+
+  '@types/three@0.185.1':
+    resolution: {integrity: sha512-db1xTb+EgYF2didW+eudSvVPtn75zo+fGsY8ShQrJY/B5ZBmC2Fiaykv3aImHAlCNEGuMPkPGXBJGLwzu5mC7A==}
+
   '@types/trusted-types@2.0.7':
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
+
+  '@types/webxr@0.5.24':
+    resolution: {integrity: sha512-h8fgEd/DpoS9CBrjEQXR+dIDraopAEfu4wYVNY2tEPwk60stPWhvZMf4Foo5FakuQ7HFZoa8WceaWFervK2Ovg==}
 
   acorn@8.17.0:
     resolution: {integrity: sha512-xRQbDb9BnwDafYNn6Vwl839DYVjqXYb1XVGtWAZ1kcDc6iwAL4hg3B1dZlRiuENFeO2H53gFG3in621AdERVAg==}
@@ -679,6 +709,9 @@ packages:
     peerDependenciesMeta:
       picomatch:
         optional: true
+
+  fflate@0.8.3:
+    resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
 
   fsevents@2.3.2:
     resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
@@ -776,6 +809,9 @@ packages:
 
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
+
+  meshoptimizer@1.1.1:
+    resolution: {integrity: sha512-oRFNWJRDA/WTrVj7NWvqa5HqE1t9MYDj2VaWirQCzCCrAd2GHrqR/sQezCxiWATPNlKTcRaPRHPJwIRoPBAp5g==}
 
   miniflare@4.20260701.0:
     resolution: {integrity: sha512-L6eAAi6IKtyb/7J6L+YsH2vb1yBrJWKRXI293JYDiMl70+6nncdAgigex58w6WBd+CwvdMsqOyNyGs95Op5gWQ==}
@@ -878,6 +914,9 @@ packages:
   svelte@5.56.4:
     resolution: {integrity: sha512-/d0QHehmRuJW8gVz395MTkPcPozxzdjBMBE8oEYGz8O3b9KTMzzQ9ZHJQLuFKOHOPQbU6kx/X4iid/EBBzH7iw==}
     engines: {node: '>=18'}
+
+  three@0.185.1:
+    resolution: {integrity: sha512-5aojFCXKwnjBRZvUnt3WFfEcvUJgkN5LlijRFN95hMy8WVkG4I0QNcJE+OuWvuJ0bOdStrbfXn0pkd6/QyiAlg==}
 
   tinyglobby@0.2.17:
     resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
@@ -1023,6 +1062,8 @@ snapshots:
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
+
+  '@dimforge/rapier3d-compat@0.12.0': {}
 
   '@emnapi/core@1.11.1':
     dependencies:
@@ -1360,6 +1401,13 @@ snapshots:
       vite: 8.1.3(esbuild@0.28.1)
       vitefu: 1.1.3(vite@8.1.3(esbuild@0.28.1))
 
+  '@threlte/core@8.5.16(svelte@5.56.4)(three@0.185.1)':
+    dependencies:
+      svelte: 5.56.4
+      three: 0.185.1
+
+  '@tweenjs/tween.js@23.1.3': {}
+
   '@tybys/wasm-util@0.10.3':
     dependencies:
       tslib: 2.8.1
@@ -1369,7 +1417,20 @@ snapshots:
 
   '@types/estree@1.0.9': {}
 
+  '@types/stats.js@0.17.4': {}
+
+  '@types/three@0.185.1':
+    dependencies:
+      '@dimforge/rapier3d-compat': 0.12.0
+      '@tweenjs/tween.js': 23.1.3
+      '@types/stats.js': 0.17.4
+      '@types/webxr': 0.5.24
+      fflate: 0.8.3
+      meshoptimizer: 1.1.1
+
   '@types/trusted-types@2.0.7': {}
+
+  '@types/webxr@0.5.24': {}
 
   acorn@8.17.0: {}
 
@@ -1435,6 +1496,8 @@ snapshots:
   fdir@6.5.0(picomatch@4.0.5):
     optionalDependencies:
       picomatch: 4.0.5
+
+  fflate@0.8.3: {}
 
   fsevents@2.3.2:
     optional: true
@@ -1502,6 +1565,8 @@ snapshots:
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  meshoptimizer@1.1.1: {}
 
   miniflare@4.20260701.0:
     dependencies:
@@ -1652,6 +1717,8 @@ snapshots:
       zimmerframe: 1.1.4
     transitivePeerDependencies:
       - '@typescript-eslint/types'
+
+  three@0.185.1: {}
 
   tinyglobby@0.2.17:
     dependencies:

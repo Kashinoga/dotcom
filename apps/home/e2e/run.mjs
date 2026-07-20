@@ -55,6 +55,7 @@ const SUITES = [
 	'scope', // ?field= / ?range= / ?refresh=
 	'field', // the field selector
 	'settings', // the settings panel
+	'ranger', // the Park Ranger's Location/Shuttle system — board, cross, re-theme, reopen, pause
 	'reset', // reset to defaults
 	'masthead', // the homepage chrome: wordmark, bullets, tagline, the station nav
 	'dots', // the accent bullet: a badge on the header model, beside the title off it
@@ -116,6 +117,15 @@ const NARROW = [
 	// component to reach a panel, so a broken nav fails them too.
 	{ re: /^src\/lib\/Masthead\.svelte$/, suites: ['masthead', 'deeplink', 'field'] },
 	{ re: /^src\/lib\/PresentationBuilder\.svelte$/, suites: ['ticker', 'ticker-edge', 'repeat'] },
+	// The Park Ranger's dashboard, its Location/Shuttle module, the boarding stage, and the two
+	// Location backdrops. `ranger` drives the whole board/cross/reopen choreography; `buttons`
+	// exercises this panel's own controls (Extract/Overclock/Buy/rig-switch spring). A change to any
+	// of these can regress either, so both come along.
+	{ re: /^src\/lib\/PudIdle\.svelte$/, suites: ['ranger', 'buttons'] },
+	{ re: /^src\/lib\/location-state\.svelte\.ts$/, suites: ['ranger', 'buttons'] },
+	{ re: /^src\/lib\/stage\.svelte\.ts$/, suites: ['ranger', 'buttons'] },
+	{ re: /^src\/lib\/LocaleForest\.svelte$/, suites: ['ranger', 'buttons'] },
+	{ re: /^src\/lib\/LocaleSpace(Scene)?\.svelte$/, suites: ['ranger', 'buttons'] },
 	{ re: /^src\/lib\/TrafficBoard\.svelte$/, suites: ['scope', 'field', 'oplong', 'pcclose', 'dots'] },
 	{ re: /^src\/lib\/SplitFlap\.svelte$/, suites: ['scope', 'field', 'oplong', 'pcclose'] },
 	{ re: /^src\/routes\/api\/traffic\/\+server\.ts$/, suites: ['scope', 'field', 'oplong', 'pcclose'] },

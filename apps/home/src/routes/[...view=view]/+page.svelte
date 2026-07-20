@@ -12,6 +12,8 @@
 	import Weather from '$lib/Weather.svelte';
 	import Aita from '$lib/Aita.svelte';
 	import PudIdle from '$lib/PudIdle.svelte';
+	import LocaleForest from '$lib/LocaleForest.svelte';
+	import { ranger, togglePaused } from '$lib/location-state.svelte';
 	import EmojiViewer from '$lib/EmojiViewer.svelte';
 	import EmojiSearch from '$lib/EmojiSearch.svelte';
 	import { emojiSearch } from '$lib/emoji-search.svelte';
@@ -37,7 +39,9 @@
 		PLANET_SVG,
 		SMILE_SVG,
 		MAXIMIZE_SVG,
-		MINIMIZE_SVG
+		MINIMIZE_SVG,
+		PLAY_SVG,
+		PAUSE_SVG
 	} from '$lib/icons';
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
@@ -961,6 +965,13 @@
 	// panels and reloads.
 	const EXPAND_KEY = 'ksh-panel-expanded';
 	let panelExpanded = $state(false);
+	// Has the ranger EVER gone up this visit? The space scene mounts on the first orbit and
+	// then stays — a mounted-once layer just turns its opacity, so later deployments can't
+	// race a snapshot the way mount/unmount fades did. Until then three.js stays unpaid-for.
+	let everOrbited = $state(false);
+	$effect(() => {
+		if (ranger.deployment === 'orbit') everOrbited = true;
+	});
 	// The Park Ranger's own settings popout, opened from its bar (see the PUD head-actions).
 	// The BUTTON lives up here because the bar is the page's; the CARD is drawn by PudIdle,
 	// which owns the numbers in it (the lifetime tally, and abandoning the universe).
@@ -2079,7 +2090,7 @@
 			<!-- Frosted glass pane. Held OFF the scroller (a static, non-scrolling layer) so
 			     WebKit rasterises the backdrop blur once instead of re-blurring every scroll
 			     frame - the fix for Safari big-surface backdrop-filter cost. -->
-			<div class="surface-backdrop" aria-hidden="true"></div>
+			<div class="surface-backdrop" aria-hidden="true" class:orbit={v.code === 'PUD' && ranger.deployment === 'orbit'}></div>
 			<!-- No generic expand toggle: only the Air Traffic board, the Star Map, the
 			     Presentation Builder, and the Court are designed to fill the viewport (ATFC
 			     and the Court render their own toggles; PRES and STAR are always full).
@@ -2091,6 +2102,51 @@
 			     inner key (no transition) just remounts content so the arrival-board
 			     titles re-flip on each destination. -->
 			<div class="surface-scroll">
+			{#if v?.kind === 'port' && v.code === 'PUD'}
+				<!-- The Location backdrop — scenery behind the ranger's chrome.
+				     It lives INSIDE the panel because the sheet is opaque: there is no "behind the
+				     panel" the viewer can see. The space scene is imported lazily so three.js is
+				     never paid for until the ranger first goes up.
+				     NOTHING MOUNTS OR UNMOUNTS on a deployment. Svelte in/out fades here raced the
+				     view transition's snapshots — the capture caught scenes mid-intro and the sheet
+				     flashed through every swap. So the forest is the PERMANENT base layer, always
+				     opaque beneath everything, and the space scene above it is the only thing that
+				     moves: one CSS opacity transition, compositor-driven, nothing for a snapshot to
+				     catch half-dressed. Either direction, the fade happens over an opaque scene. -->
+				<!-- The wrapper is an ISOLATED stacking context: space pins itself over the forest
+				     with a z-index that must never escape to outrank the chrome, which sits above
+				     these scenes by DOM order alone. -->
+				<div class="locale-scenes" aria-hidden="true">
+					<div class="locale-scene">
+						<LocaleForest />
+					</div>
+					{#if everOrbited}
+						<!-- class:instant kills the 0.7s opacity fade WHILE a transit is in the air: the
+						     scene swap is timed to land at WIPE_COVER_MS, when the white owns the screen,
+						     so it must be INSTANT — a fade would still be crossing when the white lifts
+						     and the seam would show. Either direction, the swap happens unseen. And the
+						     space loop must keep running through BOTH legs (the descend dives while
+						     deployment has already flipped planetside under the wash), so `active` reads
+						     the transit too, not just the resting deployment. -->
+						<div
+							class="locale-scene scene-orbit"
+							class:shown={ranger.deployment === 'orbit'}
+							class:instant={ranger.transit !== null}
+						>
+							{#await import('$lib/LocaleSpace.svelte') then m}
+								<m.default active={ranger.deployment === 'orbit' || ranger.transit !== null} />
+							{/await}
+						</div>
+					{/if}
+					<!-- THE WIPE — an atmosphere flash over both scenes (z above them, inside the isolated
+					     wrapper), mounted only for the length of a transit. One keyframes animation
+					     (fill-mode forwards) covers, holds, then reveals; the world is swapped under it
+					     during the hold, so the change is never seen. See .locale-wipe for the phasing. -->
+					{#if ranger.transit}
+						<div class="locale-wipe"></div>
+					{/if}
+				</div>
+			{/if}
 			{#if !contentHeld}
 			{#key v.code + ':' + editRev + ':' + arriveRev}
 					{@const port = airports[v.code]}
@@ -2143,6 +2199,7 @@
 						class:head-collapsed={surfHeadCollapsed}
 						class:csb-on={surfHeadCollapsed}
 						class:bar={BAR_HEADER.includes(v.code)}
+						class:orbit={ranger.deployment === 'orbit'}
 						class:court={v.code === 'AITA'}
 						class:scrolled={surfScrolled}
 					>
@@ -2191,6 +2248,19 @@
 								<!-- A dense bar names itself outright: no big title below to hand over
 								     FROM, so the title simply sits here beside the badge. -->
 								<span class="head-title">{port.title}</span>
+								{#if v.code === 'PUD'}
+									<!-- The beta tag reads as part of the NAME — "Intergalactic Park Ranger ‹Beta›"
+									     — so it sits right after the title rather than off in the corner with the
+									     global controls, where it looked like one more thing to press. Still
+									     puhig's .beta, twin of the Presentation Builder's; the head-row's 0.5rem
+									     gap sets the space to the title. -->
+									<button
+										type="button"
+										class="beta"
+										aria-label="Intergalactic Park Ranger is in beta"
+										title="This app is in beta — expect it to change"
+									>Beta</button>
+								{/if}
 							{:else if NEW_HEADER.includes(v.code) && headTitleShown && !(v.code === 'EMOJ' && emojiSearch.open && isMobile)}
 								<!-- The compact title flies in beside the badge once the big title (in the
 								     scrolling body) has gone by — but yields when the Emoji Viewer's grown
@@ -2254,18 +2324,23 @@
 								</div>
 							{/if}
 							{#if v.code === 'PUD'}
-								<!-- The Park Ranger says it's still finding its feet, and says it in the
-								     bar's right-hand corner — the same corner every other panel keeps its
-								     global controls in, rather than inline with the tally it was sitting
-								     beside. The Presentation Builder wears the twin of this at the right
-								     end of its own bar (both are puhig's .beta). -->
+								<!-- The bar's right-hand corner keeps the GLOBAL controls, the same corner
+								     every other panel uses: the pause twin and the gear. (The beta tag used to
+								     ride here too; it reads as part of the name, so it moved up beside the
+								     title — see the BAR_HEADER block above.) -->
 								<div class="head-actions">
+									<!-- The global twin of the shop's pause disc — the game's one verb you
+									     might reach for mid-scroll, when the requisitions head has slid away.
+									     So it rides the bar (shared .icon-btn) beside the gear, driving the
+									     same ranger.paused bit the header switch does. -->
 									<button
 										type="button"
-										class="beta"
-										aria-label="Intergalactic Park Ranger is in beta"
-										title="This app is in beta — expect it to change"
-									>Beta</button>
+										class="icon-btn"
+										aria-pressed={ranger.paused}
+										aria-label={ranger.paused ? 'Resume the works' : 'Pause the works'}
+										title={ranger.paused ? 'Resume the works' : 'Pause the works'}
+										onclick={togglePaused}
+									>{@html ranger.paused ? PLAY_SVG : PAUSE_SVG}</button>
 									<button
 										type="button"
 										class="icon-btn"
@@ -2294,6 +2369,7 @@
 						class:settings={v.code === 'STG'}
 						class:court={v.code === 'AITA'}
 						class:ranger={v.code === 'PUD'}
+						class:orbit={v.code === 'PUD' && ranger.deployment === 'orbit'}
 						class:scrolled={surfScrolled}
 						onscroll={onSurfaceScroll}
 					>
@@ -3509,6 +3585,153 @@
 		flex-direction: column;
 		overflow-y: auto;
 	}
+	/* The Location backdrop, filling the panel interior behind the ranger's chrome. It's
+	   absolutely positioned inside .surface-scroll (already position: relative), so it sits
+	   above the panel's own fill — .surface-backdrop is a SIBLING that comes BEFORE .surface-scroll
+	   in the DOM, so this scroller's children paint over it. */
+	.locale-scenes {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		pointer-events: none;
+		/* The scenes' z-order is a private argument: isolate keeps space's z-index from ever
+		   outranking the chrome, which beats this wrapper by DOM order alone. */
+		isolation: isolate;
+		/* Its own view-transition group: snapshotted apart from the root, old and new scenery
+		   crossfade in an isolated image pair (the UA's plus-lighter blend — dip-free) instead
+		   of riding the root's crossfade alongside the recoloring chrome. */
+		view-transition-name: pud-scenes;
+	}
+	.locale-scene {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		pointer-events: none;
+	}
+	/* Space rides above the always-opaque forest and is the only layer that fades — one
+	   opacity turn on a mounted-once element, so no deployment ever shows the sheet. */
+	.locale-scene.scene-orbit {
+		z-index: 1;
+		opacity: 0;
+	}
+	.locale-scene.scene-orbit.shown {
+		opacity: 1;
+	}
+	/* While a transit is in the air the scene swap must be INSTANT: it's timed to land at
+	   WIPE_COVER_MS, when the white fully covers the screen, so a lingering 0.7s opacity fade would
+	   still be crossing as the white lifts and the seam between the two skies would show. This kills
+	   the transition just for the swap under the wash; the RESTING fade (a plain planetside↔orbit
+	   change with no transit — reduced motion, say) keeps it. Higher specificity than the base rule,
+	   so it wins wherever it applies. */
+	.locale-scene.scene-orbit.instant {
+		transition: none;
+	}
+	/* THE WIPE — the atmosphere, absolute over BOTH scenes inside the isolated wrapper
+	   (z-index 2, above space's z-index 1), mounted only for the length of a transit.
+	   A FULL-BLEED FADE, not a directional slide: the cover is the whole glass brightening at
+	   once, because what it plays against is the CAMERA — descending, the dive to closest
+	   approach runs exactly the cover's 350ms (see LocaleSpaceScene), so the planet swelling
+	   up and the air thickening over the lens arrive together and read as entering the
+	   atmosphere; ascending, the reveal fades off the planet-filling close-up just as the
+	   FLIGHT starts pulling the camera away, the air thinning as you leave it. An edge-wipe
+	   said "slide"; a bleed timed to the zoom says "through".
+	   It follows the viewer's theme — by day the air is bright haze, by night a deep indigo
+	   sky, indigo rather than pure black so it still reads as SKY. (This layer sits outside
+	   the orbit re-theme's color-scheme scope, so light-dark() answers to the user's theme,
+	   not the ship's.)
+	   One keyframes animation carries all three phases, so nothing can drift from a missed
+	   timer the way separate setTimeouts could. The clock is location-state's: COVER 350 +
+	   HOLD 150 + REVEAL 450 = 950ms total; the percentages are those milestones over the
+	   total — cover 350/950 = 36.842%, hold-end 500/950 = 52.632% — so this animation and the
+	   module's setTimeout(flip, WIPE_COVER_MS) read the same clock: the swap lands exactly
+	   inside the hold, fully covered. fill-mode forwards holds the cleared end until the
+	   element unmounts at TRANSIT_TOTAL_MS. */
+	.locale-wipe {
+		position: absolute;
+		inset: 0;
+		z-index: 2;
+		pointer-events: none;
+		background: light-dark(#eef2f6, #0b1120);
+		animation: locale-wipe 950ms linear forwards;
+	}
+	@keyframes locale-wipe {
+		0% {
+			opacity: 0;
+			animation-timing-function: ease-in;
+		}
+		36.842% {
+			opacity: 1;
+		}
+		52.632% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+		}
+	}
+	@media (prefers-reduced-motion: no-preference) {
+		.locale-scene.scene-orbit {
+			transition: opacity 0.7s ease;
+		}
+		/* The deployment's view transition is the only one this site starts, so the root's
+		   crossfade (the recoloring chrome) and the scenes' own group ride the panel's 0.45s
+		   like the named sections do — the browser's 0.25s default finished ahead of everything
+		   else and the mismatch read as a flicker. */
+		:global(::view-transition-group(root)),
+		:global(::view-transition-group(pud-scenes)),
+		:global(::view-transition-group(pud-bar)) {
+			animation-duration: 0.45s;
+			animation-timing-function: ease;
+		}
+	}
+	/* But an absolutely-positioned layer paints ABOVE its static in-flow siblings, so left alone
+	   the scene would cover the head and body it's meant to sit behind. Lifting the chrome to
+	   position: relative makes them positioned too, and among positioned siblings with auto
+	   z-index DOM ORDER wins: the scene is written first (behind), the chrome after (in front).
+	   No z-index needed. (PudIdle's settings card pins to .pud, its own relative ancestor, so
+	   naming these positioning contexts doesn't disturb it.) */
+	.surface-head.bar,
+	.surface-body.ranger {
+		position: relative;
+	}
+	/* Scenery pulled the panel's solid ground out from under the glass: 5% ink over a dark
+	   scene is a card you can't find, and light-theme ink can't read against space. Mixing
+	   the face toward PAPER hands every control back a local page to sit on — both themes,
+	   panel-wide, the scene still glowing through the rest. A color swap costs nothing;
+	   it's blur that's expensive, and this adds none.
+	   Pulled back from the first cut's 62% to 45%: less paper, so the cards give a little
+	   contrast back to stay GLASS rather than reading as flat chips. The lost contrast is
+	   worth it — it's just a game — and the material below the face now does the separating:
+	   the bubble gloss and air on every card, and true backdrop-blur on the four big ones. */
+	.surface-head.bar,
+	.surface-body.ranger {
+		--aero-face: color-mix(in srgb, var(--paper) 45%, transparent);
+	}
+	/* IN ORBIT the chrome stops being the PAGE's and becomes the SHIP's. Planetside the panel is
+	   a lit page over daylit ground; aboard the courier it hangs in the void, and a white raft
+	   against space reads as a mistake — so the panel joins the scene's colour world. One line
+	   does it: color-scheme flips every light-dark() token in puhig's family to its NIGHT arm —
+	   ink to light, edges and the aero face re-derive from that flipped ink — even when the app's
+	   theme is light. Those tokens read --ink at use time (--line-edge, --aero-face are ink
+	   mixes), so they follow the scheme with no per-component edits. Then one --paper override
+	   hands the dark its cast: not neutral black but the sky's own indigo, so the glass reads as
+	   cut FROM the space it floats on rather than laid over it.
+	   The backdrop rides along too, and it has to: .surface-backdrop is a SIBLING of the scroll
+	   that holds the head and body, so the flip on those two doesn't reach it — and it's the panel's
+	   actual FILL (the head and body are transparent, background: none). Left out, its --panel-fill
+	   (a light-dark rgba) and --panel-glass (a --paper mix) would stay the light arm under a light
+	   theme: dark indigo cards stranded on a 75%-white sheet, the exact raft-against-void this
+	   fixes. So it carries the same class and inherits the same two overrides. */
+	.surface-head.bar.orbit,
+	.surface-body.ranger.orbit,
+	.surface-backdrop.orbit {
+		color-scheme: dark;
+		color: var(--ink);
+		/* LocaleSpace's dark-arm gradient at the radial's bright centre (72% 18%, where the panel
+		   floats) is #0a1020 — the most indigo of its three stops and a step up from the void-edge
+		   #030409. Taking it as paper cuts the glass from exactly the sky behind it. */
+		--paper: #0a1020;
+	}
 	/* Expanded: fill the viewport (desktop) — useful for the wide Traffic board. Same frosted
 	   background + backdrop blur as the compact state; only the width and edge treatment change. */
 	.surface.expanded {
@@ -3606,6 +3829,41 @@
 	.surface-head.bar {
 		--bar-inset: clamp(0.7rem, 1.3vw, 1rem);
 		padding: var(--bar-inset);
+		/* Its own view-transition group, like the dashboard sections have: left to the root
+		   snapshot, the bar's recolor between deployments cut hard while everything around it
+		   crossfaded — named, its old and new light swap in an isolated pair on the same beat. */
+		view-transition-name: pud-bar;
+		/* The pill's geometry is worn even while flat — a radius with no face, no edge and no
+		   inset is invisible, and a border that's merely transparent holds the box's size — so
+		   the scrolled state is a change of MATERIAL, not of layout: nothing pops, the corners
+		   are simply revealed. */
+		border: 1px solid transparent;
+		border-radius: 999px;
+		/* The MOVE springs, the MATERIAL fades: margin rides the app's one overshoot curve
+		   (puhig --spring) so the pill lands with a small bounce — both lifting off and
+		   settling back — while the face, edge and shadow cross on a plain ease; light
+		   overshooting reads as a glitch, geometry overshooting reads as weight. */
+		transition:
+			margin 0.35s var(--spring),
+			background-color 0.25s ease,
+			border-color 0.25s ease,
+			box-shadow 0.25s ease,
+			color 0.45s ease;
+	}
+	/* Scrolled, the bar lifts OFF the panel: it pulls in from the edges, puts on the aero
+	   material (face, rim gloss, drop — the bubble family's one light, see puhig base.css),
+	   and floats as a long pill over the content sliding by below. The glass blur matches the
+	   settings card's, so the two pieces of PUD chrome read as one stock. */
+	.surface-head.bar.scrolled {
+		/* …and steps DOWN off the viewport edge by the same beat it steps in from the sides: a
+		   pill flush against the browser chrome reads as stuck to it, not floating off it. */
+		margin-top: var(--bar-inset);
+		margin-inline: var(--bar-inset);
+		background: var(--aero-face);
+		border-color: var(--line-edge);
+		box-shadow: var(--aero-gloss), var(--aero-drop);
+		-webkit-backdrop-filter: blur(6px) saturate(1.3);
+		backdrop-filter: blur(6px) saturate(1.3);
 	}
 	/* The row's gap is NOT --bar-inset. E-ATFC spends that inset on its FRAME and on the space
 	   between its big groups (ident / deck / corner); the controls inside a cluster sit much
@@ -3627,6 +3885,11 @@
 		   1.55, measured, not guessed: Jost's ink box runs ~1.51em (34px of ink in a 22.5px
 		   line), so 1.3 still cropped 2.4px off the top and bottom. */
 		line-height: 1.55;
+		/* The title inherits its ink, and inherited colour doesn't transition on its own — so when
+		   orbit flips the bar's scheme the word "Intergalactic Park Ranger" would SNAP light while
+		   the cards below eased. On browsers with View Transitions the root snapshot crossfades it;
+		   this is the glide for the fallback path, on the panel's 0.45s recolour beat. */
+		transition: color 0.45s ease;
 	}
 	/* The body's own inset — E-ATFC's exact value, so the two apps sit their content the same
 	   distance off the edge. Deliberately WIDER than the bar's --bar-inset: the board does the
@@ -3687,8 +3950,13 @@
 	   the Park Ranger's gear into a 28x42 oval on a phone (26x42 at 360px) while everything else
 	   stayed round. The field still takes the overflow — it's the only elastic thing left in the
 	   cluster, which is what the allowance was always for. */
-	.head-actions > .icon-btn,
-	.head-actions > .beta {
+	.head-actions > .icon-btn {
+		flex: none;
+	}
+	/* The beta chip rides the TITLE now (right after it, part of the name), not the actions
+	   cluster — but it must still never shrink: on a tight bar the long title clips first
+	   (.head-title's overflow: hidden), and the tag stays whole beside it. */
+	.head-row > .beta {
 		flex: none;
 	}
 	/* The panel's own actions, clustered at the right end of the Back row. */
@@ -3883,6 +4151,12 @@
 	   shade, not a drawn band: long blur, light hand. At every width. */
 	.surface-body.scrolled {
 		box-shadow: inset 0 26px 22px -22px light-dark(rgba(8, 10, 14, 0.15), rgba(0, 0, 0, 0.35));
+	}
+	/* …except under the dense bar, whose scrolled answer is the pill above: the bar itself
+	   lifts and floats to say "content has gone under", and a shade beneath a floating pill
+	   would be saying it twice. */
+	.surface-head.bar + .surface-body.scrolled {
+		box-shadow: none;
 	}
 	/* E-COPO: expanded, the Court reads as a CENTRED column — the docket is prose, and
 	   full-viewport line lengths are unreadable. Head and body share the measure so the

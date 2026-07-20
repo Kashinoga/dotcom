@@ -114,6 +114,10 @@ for (const ui of ['flat','bubble']) {
     await p.evaluate(seed);
     await p.goto(B+PUD,{waitUntil:'networkidle'}); await p.waitForTimeout(1800);
     await settle(p);
+    // Abandon-universe moved OUT of the footer and BEHIND the bar's gear: it's the destructive
+    // control, so it lives in the settings card that springs from [data-pud-settings], one click
+    // from nothing else. Pop that card before reaching for .pud-reset, or it isn't in the DOM.
+    if (sel === '.pud-reset') { await p.locator('[data-pud-settings]').first().click(); await p.waitForTimeout(400); }
     const loc = p.locator(sel).first();
     if (!(await loc.count())) { ok(`${ui}: ${label} is present`, false, 'absent'); continue; }
     await loc.scrollIntoViewIfNeeded().catch(()=>{});

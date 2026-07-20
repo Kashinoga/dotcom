@@ -137,6 +137,14 @@ export const GAVEL_SVG =
 // the family's 24.)
 export const GEM_SVG =
 	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><g transform="scale(1.33333)"><path d="M16.0096 2.3203L15 1.98173L14.6628 0.963857C14.5539 0.634958 14.0128 0.634958 13.9039 0.963857L13.5667 1.98173L12.5571 2.3203C12.3938 2.37512 12.2828 2.52882 12.2828 2.70294C12.2828 2.87706 12.3938 3.03077 12.5571 3.08558L13.5667 3.42416L13.9039 4.44202C13.9584 4.60647 14.111 4.71718 14.2828 4.71718C14.4546 4.71718 14.6083 4.6054 14.6617 4.44202L14.9989 3.42416L16.0085 3.08558C16.1718 3.03077 16.2828 2.87706 16.2828 2.70294C16.2828 2.52882 16.1729 2.37512 16.0096 2.3203Z" fill="currentColor"/><path d="M1.75 3C2.16421 3 2.5 2.66421 2.5 2.25C2.5 1.83579 2.16421 1.5 1.75 1.5C1.33579 1.5 1 1.83579 1 2.25C1 2.66421 1.33579 3 1.75 3Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M5.41101 2.5C4.92601 2.5 4.45801 2.702 4.12601 3.054L1.72301 5.61C1.14201 6.228 1.09001 7.167 1.60001 7.844L7.59301 15.8C7.92801 16.245 8.44101 16.5 9.00001 16.5C9.55901 16.5 10.072 16.245 10.407 15.8L16.4 7.844C16.6468 7.51635 16.762 7.12709 16.7493 6.74266C16.7452 6.33196 16.4102 6 15.9985 6H12.398L10.7852 2.90354C10.656 2.65555 10.3996 2.5 10.12 2.5H5.41101ZM8.99901 13.905L10.933 7.5H7.06501L8.99901 13.905ZM5.41001 4C5.33701 4 5.26701 4.03 5.21801 4.082L3.41501 6H5.60101L6.64301 4H5.41001Z" fill="currentColor"/></g></svg>';
+// The same gem-sparkle, cut as OPALITE: reicon's geometry untouched, but the paths paint
+// from an in-SVG gradient instead of currentColor — a milky pastel run, iced blue through
+// lilac and pink to mint. The stops carry attribute fallbacks and classes (op1…op4) so the
+// component that inlines this can retune the stones in CSS (light-dark and all) the way the
+// family retunes every other glyph through `color`. The id is prefixed (pud-) because
+// inline SVG ids are document-global.
+export const GEM_OPAL_SVG =
+	'<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="pud-opal" x1="1" y1="1" x2="17" y2="17" gradientUnits="userSpaceOnUse"><stop class="op1" offset="0" stop-color="#a8cbe8"/><stop class="op2" offset="0.38" stop-color="#c9b5e4"/><stop class="op3" offset="0.7" stop-color="#eab8d4"/><stop class="op4" offset="1" stop-color="#a8d9c3"/></linearGradient></defs><g transform="scale(1.33333)"><path d="M16.0096 2.3203L15 1.98173L14.6628 0.963857C14.5539 0.634958 14.0128 0.634958 13.9039 0.963857L13.5667 1.98173L12.5571 2.3203C12.3938 2.37512 12.2828 2.52882 12.2828 2.70294C12.2828 2.87706 12.3938 3.03077 12.5571 3.08558L13.5667 3.42416L13.9039 4.44202C13.9584 4.60647 14.111 4.71718 14.2828 4.71718C14.4546 4.71718 14.6083 4.6054 14.6617 4.44202L14.9989 3.42416L16.0085 3.08558C16.1718 3.03077 16.2828 2.87706 16.2828 2.70294C16.2828 2.52882 16.1729 2.37512 16.0096 2.3203Z" fill="url(#pud-opal)"/><path d="M1.75 3C2.16421 3 2.5 2.66421 2.5 2.25C2.5 1.83579 2.16421 1.5 1.75 1.5C1.33579 1.5 1 1.83579 1 2.25C1 2.66421 1.33579 3 1.75 3Z" fill="url(#pud-opal)"/><path fill-rule="evenodd" clip-rule="evenodd" d="M5.41101 2.5C4.92601 2.5 4.45801 2.702 4.12601 3.054L1.72301 5.61C1.14201 6.228 1.09001 7.167 1.60001 7.844L7.59301 15.8C7.92801 16.245 8.44101 16.5 9.00001 16.5C9.55901 16.5 10.072 16.245 10.407 15.8L16.4 7.844C16.6468 7.51635 16.762 7.12709 16.7493 6.74266C16.7452 6.33196 16.4102 6 15.9985 6H12.398L10.7852 2.90354C10.656 2.65555 10.3996 2.5 10.12 2.5H5.41101ZM8.99901 13.905L10.933 7.5H7.06501L8.99901 13.905ZM5.41001 4C5.33701 4 5.26701 4.03 5.21801 4.082L3.41501 6H5.60101L6.64301 4H5.41001Z" fill="url(#pud-opal)"/></g></svg>';
 // reicon "planet" (Filled, astronomy set — the set calls it saturn / gas giant) — the
 // Intergalactic Park Ranger's brand mark, and its favicon. The GEM stays in the app as the
 // DATA SHARD itself: the planet is where the ranger works, the shard is what they pull out
@@ -149,6 +157,18 @@ export const SMILE_SVG =
 // reicon "gear" — Settings.
 export const GEAR_SVG =
 	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M2.51888 16.0495C1.96542 15.0892 2.29369 13.861 3.25278 13.3063C4.25649 12.7257 4.25649 11.274 3.25278 10.6935C2.29369 10.1388 1.96542 8.9106 2.51888 7.95027L3.75832 5.79967C4.31192 4.8391 5.53845 4.50967 6.49777 5.06452C7.50054 5.64451 8.75537 4.92 8.75537 3.75827C8.75537 2.64955 9.65268 1.75 10.7605 1.75H13.2395C14.3474 1.75 15.2447 2.64957 15.2447 3.7583C15.2447 4.92008 16.4995 5.64461 17.5023 5.06462C18.4616 4.50976 19.6881 4.8392 20.2417 5.79978L21.4812 7.95045C22.0346 8.91074 21.7064 10.1389 20.7473 10.6936C19.7437 11.2741 19.7437 12.7257 20.7473 13.3062C21.7064 13.8609 22.0346 15.089 21.4812 16.0493L20.2417 18.2C19.6881 19.1605 18.4616 19.49 17.5023 18.9351C16.4995 18.3552 15.2447 19.0797 15.2447 20.2416C15.2447 21.3503 14.3473 22.25 13.2394 22.25H10.7606C9.65272 22.25 8.75537 21.3504 8.75537 20.2416C8.75537 19.0798 7.50053 18.3553 6.49774 18.9353C5.53841 19.4901 4.31192 19.1607 3.75832 18.2001L2.51888 16.0495ZM8.75006 12C8.75006 10.2051 10.2051 8.75 12.0001 8.75C13.795 8.75 15.2501 10.2051 15.2501 12C15.2501 13.7949 13.795 15.25 12.0001 15.25C10.2051 15.25 8.75006 13.7949 8.75006 12Z" fill="currentColor"/></svg>';
+
+// The works' one verb — play / pause — cut by hand to sit with the reicon set, since the set's
+// own transport glyphs weren't among those imported. Same 24 grid and the same soft-cornered
+// filled language as everything above: a triangle rounded at its three points, two bars rounded
+// at theirs. PLAY balances by its BOUNDING BOX, not its centroid: the first cut centred the
+// centroid and the whole triangle sat visibly right of the bubble's middle (its box ran 8→21).
+// The box lives at 6→19 now — centre 12.5, the half-unit right bias that reads as centred for
+// a right-pointing wedge, and no more than that.
+export const PLAY_SVG =
+	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5.14v13.72c0 1.23 1.34 1.99 2.4 1.36l10.06-6.86c.98-.58.98-2.14 0-2.72L8.4 3.78C7.34 3.15 6 3.91 6 5.14Z" fill="currentColor"/></svg>';
+export const PAUSE_SVG =
+	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="2" fill="currentColor"/><rect x="14" y="4" width="4" height="16" rx="2" fill="currentColor"/></svg>';
 
 // reicon "arrow-up-right-circle" (Filled) — appended to any link that LEAVES the site, so an
 // outbound trip is marked before it's taken. Same cropped viewBox trick as the disc controls:
