@@ -1,14 +1,22 @@
 <script lang="ts">
 	import { EMOJI_GROUPS } from '$lib/emoji';
 	import { emojiSearch } from '$lib/emoji-search.svelte';
+	import { SEARCH_SVG } from '$lib/icons';
 
 	// Emoji Viewer — browse the SYSTEM emoji set (bare Unicode, drawn by the visitor's own
 	// platform font) and copy one with a tap. No images shipped; the OS does the drawing.
-	// The search lives in the panel HEADER now (see EmojiSearch), sharing its query through
-	// $lib/emoji-search; here it just narrows the wall by name across every group.
+	// The search shares its query through $lib/emoji-search and narrows the wall by name across
+	// every group. Under AEROPALITE it's the panel-header disc (EmojiSearch); under PIXELITE docs
+	// mode there's no panel header, so this component grows its own sticky search bar instead —
+	// gated on `docs`, so Aeropalite is untouched (it never renders the bar).
+	let { docs = false }: { docs?: boolean } = $props();
 
 	let copied = $state(''); // the emoji just copied — echoed back for a beat
 	let copiedTimer = 0;
+
+	function onSearchKey(e: KeyboardEvent) {
+		if (e.key === 'Escape') emojiSearch.query = '';
+	}
 
 	// Filter within each group, then drop groups the search emptied — so a query collapses
 	// the view to just the groups that still have a hit, headers and all.
@@ -49,8 +57,36 @@
 	}
 </script>
 
-<div class="ev">
-	<!-- The search lives in the header now (EmojiSearch, in the super bar's right edge). -->
+<div class="ev" class:ev-docs={docs}>
+	{#if docs}
+		<!-- Pixelite docs mode: a full-width search bar under the chapter head. In FLOW, not
+		     sticky — once it scrolls away, the shell's superbar reveals its own search control
+		     (see DocsShell). Bound to the SAME shared query as the Aeropalite header disc and
+		     the superbar's field — one search, several mouths. -->
+		<div class="ev-searchbar">
+			<div class="ev-search-field">
+				<span class="ev-search-ico" aria-hidden="true">{@html SEARCH_SVG}</span>
+				<input
+					class="ev-search"
+					type="search"
+					placeholder="Search emoji by name"
+					autocomplete="off"
+					spellcheck="false"
+					aria-label="Search emoji by name"
+					bind:value={emojiSearch.query}
+					onkeydown={onSearchKey}
+				/>
+				{#if emojiSearch.query}
+					<button
+						type="button"
+						class="ev-search-clear"
+						aria-label="Clear search"
+						onclick={() => (emojiSearch.query = '')}>×</button
+					>
+				{/if}
+			</div>
+		</div>
+	{/if}
 	<!-- One-line note, fixed height (see .ev-note) so swapping the hint for the copy
 	     confirmation never nudges the grid below it. -->
 	{#if copied}
@@ -89,6 +125,90 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
+	}
+
+	/* ── Docs-mode search bar (Pixelite only; never rendered under Aeropalite) ────────────────
+	   Full width of the content column: it negative-margins back out of the .docs-body gutter
+	   (--docs-pad, published by the shell) to the column's true SIDE edges, then re-pads its
+	   own inner content to the gutter so the field lines up over the wall. Seated directly
+	   below the chapter head (the negative top margin swallows the head's 1.75rem bottom
+	   margin) and stays IN FLOW — no sticky, no rules of its own: once it scrolls away the
+	   shell's superbar reveals its search control instead (see DocsShell). */
+	.ev-searchbar {
+		/* No bottom margin of its own — the .ev column's gap already parts it from the note. */
+		margin: -1.75rem calc(-1 * var(--docs-pad)) 0;
+		padding: 0.55rem var(--docs-pad) 0;
+	}
+	/* The keyed field material (same tokens as .field under Pixelite): white/50 face, ink rule,
+	   the plastic bevel, cobalt on focus. */
+	.ev-search-field {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		height: 40px;
+		padding: 0 0.7rem;
+		background: var(--pixel-key-face);
+		border: 1px solid var(--pixel-key-border);
+		border-radius: 4px;
+		box-shadow: var(--pixel-bevel);
+	}
+	.ev-search-field:focus-within {
+		border-color: var(--orange);
+	}
+	.ev-search-ico {
+		flex: none;
+		display: grid;
+		place-items: center;
+		color: var(--sub);
+	}
+	.ev-search-ico :global(svg) {
+		display: block;
+		width: 1.05rem;
+		height: 1.05rem;
+	}
+	.ev-search {
+		flex: 1 1 auto;
+		min-width: 0;
+		height: 100%;
+		padding: 0;
+		border: 0;
+		background: none;
+		font-family: var(--font-mono, ui-monospace, monospace);
+		/* 16px so iOS Safari doesn't zoom the page on focus. */
+		font-size: 16px;
+		color: var(--ink);
+	}
+	.ev-search::placeholder {
+		color: var(--sub);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		font-size: 0.74rem;
+	}
+	.ev-search:focus-visible {
+		outline: none; /* the field's focus-within border is the affordance */
+	}
+	/* Hide the native search clear (WebKit) — the bar carries its own mono × instead. */
+	.ev-search::-webkit-search-cancel-button {
+		display: none;
+	}
+	.ev-search-clear {
+		flex: none;
+		display: grid;
+		place-items: center;
+		width: 1.4rem;
+		height: 1.4rem;
+		padding: 0;
+		font-family: var(--font-mono, monospace);
+		font-size: 1.1rem;
+		line-height: 1;
+		color: var(--sub);
+		background: none;
+		border: 0;
+		border-radius: 3px;
+		cursor: pointer;
+	}
+	.ev-search-clear:hover {
+		color: var(--orange);
 	}
 	/* Entrance — the pieces settle top-to-bottom, the Weather/Court/game cadence. */
 	@media (prefers-reduced-motion: no-preference) {

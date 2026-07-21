@@ -299,6 +299,28 @@
 	let polling = $state(false);
 	let nowTs = $state(Date.now()); // ticks so the refresh ring can count down
 	let paused = $state(false); // auto-refresh on/off
+	// Measured height of the expanded super bar (bound off the header). Under Pixelite the bar
+	// floats as a frosted overlay over the scrolling table, so the body reserves this as top
+	// padding — the rows then scroll up BEHIND the bar and smear through its blur. Seeded near
+	// the docs superbar's ~52px so the first paint isn't a jump before it's measured.
+	let barH = $state(52);
+	let headEl = $state<HTMLElement>();
+	// Measure the bar off a ResizeObserver (DocsShell's proven pattern) rather than
+	// bind:clientHeight, which captured a transient two-row layout on mount and never
+	// re-settled. getBoundingClientRect in the observer always reflects the current height.
+	$effect(() => {
+		const el = headEl;
+		if (!el) return;
+		const measure = () => (barH = el.getBoundingClientRect().height);
+		measure();
+		// The bar can mount two-row (web fonts not yet loaded → wider labels wrap), then
+		// reflow to one row when the mono face lands. Re-measure after fonts settle so the
+		// body's reserved top padding matches the final height, not the transient one.
+		document.fonts?.ready.then(measure);
+		const ro = new ResizeObserver(measure);
+		ro.observe(el);
+		return () => ro.disconnect();
+	});
 	// reicon play / pause (outline).
 	const PLAY_SVG =
 		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M7.23832 3.04445C5.65196 2.1818 3.75 3.31957 3.75 5.03299L3.75 18.9672C3.75 20.6806 5.65196 21.8184 7.23832 20.9557L20.0503 13.9886C21.6499 13.1188 21.6499 10.8814 20.0503 10.0116L7.23832 3.04445ZM2.25 5.03299C2.25 2.12798 5.41674 0.346438 7.95491 1.72669L20.7669 8.6938C23.411 10.1317 23.411 13.8685 20.7669 15.3064L7.95491 22.2735C5.41674 23.6537 2.25 21.8722 2.25 18.9672L2.25 5.03299Z" fill="currentColor"/></svg>';
@@ -1226,11 +1248,11 @@
 <!-- head-collapsed only ever pairs with the COMPACT header: between 900 and 960px an
      expanded board shows the deck (showDeck), whose super bar is already one row —
      gating here keeps the class honest instead of leaning on its selectors missing. -->
-<div class="tfc" class:expanded class:head-collapsed={headCollapsed && !showDeck} style:--accent={accent}>
+<div class="tfc" class:expanded class:head-collapsed={headCollapsed && !showDeck} class:has-bar={showDeck} style:--accent={accent} style:--bar-h="{barH}px">
 	<!-- csb / csb-on: the shared collapsed-super-bar recipe (puhig base.css) — this board
 	     is where it grew; the root's head-collapsed stays for local seasoning (the corner
 	     pin below). -->
-	<header class="tfc-head csb" class:bar={showDeck} class:csb-on={headCollapsed && !showDeck}>
+	<header class="tfc-head csb" class:bar={showDeck} class:csb-on={headCollapsed && !showDeck} class:scrolled={bodyScrolled} bind:this={headEl}>
 		{#if showDeck}
 			<!-- Expanded: ONE super bar. No Back cap up here — full-viewport has nowhere to
 			     peel back to mid-thought, so the global controls gather at the right end:
@@ -2082,6 +2104,48 @@
 		gap: var(--bar-inset);
 		padding: var(--bar-inset);
 	}
+
+	/* ── Pixelite: the docs superbar's slim, frosted material ────────────────────────
+	   Under Pixelite the expanded super bar borrows DocsShell's .docs-superbar look — an
+	   opaque page face at the top that turns translucent over an 8px backdrop blur once the
+	   table scrolls under it, a 1px ink hairline bottom edge, and slim 0.7rem padding. It
+	   FLOATS as an overlay (absolute, above the body) so the rows smear THROUGH the frost as
+	   they pass beneath it; the body reserves the bar's measured height (--bar-h, bound off
+	   the header) as top padding so nothing opens hidden. Aeropalite keeps its flush,
+	   in-flow header untouched — every rule here is gated on html[data-look='pixelite']. */
+	:global(html[data-look='pixelite']) .tfc-head.bar {
+		position: absolute;
+		inset: 0 0 auto 0;
+		z-index: 6;
+		--bar-inset: 0.7rem; /* the docs superbar's slim padding */
+		background: color-mix(in srgb, var(--page) 100%, transparent);
+		border-bottom: 1px solid var(--pixel-hairline);
+		transition: background 0.2s ease, -webkit-backdrop-filter 0.2s ease,
+			backdrop-filter 0.2s ease;
+	}
+	/* Frost once rows have scrolled under it — the same scrolled-toggle as DocsShell, wired
+	   off the board's own bodyScrolled (already tracked on the body's onscroll). */
+	:global(html[data-look='pixelite']) .tfc-head.bar.scrolled {
+		background: color-mix(in srgb, var(--page) 78%, transparent);
+		-webkit-backdrop-filter: blur(8px);
+		backdrop-filter: blur(8px);
+	}
+	/* Reserve the floating bar's height so the first rows sit just below it, then scroll up
+	   behind the frost. Only when the deck bar is shown (.has-bar). */
+	:global(html[data-look='pixelite']) .tfc.has-bar .tfc-body {
+		padding-top: var(--bar-h, 3.25rem);
+	}
+	/* Keep the bar slim though its plastic keys stay full-size and usable: negative block
+	   margins let the tall controls overhang the slim padding instead of stretching the bar
+	   (the docs search-key trick), landing it near the docs superbar's ~52px. */
+	:global(html[data-look='pixelite']) .bar .field,
+	:global(html[data-look='pixelite']) .bar .field-select,
+	:global(html[data-look='pixelite']) .bar .corner .icon-btn,
+	:global(html[data-look='pixelite']) .bar .deck-summary .stat {
+		/* The readout is two stacked lines (~40px) — overhang it too, or it alone would
+		   keep the bar tall while every control slimmed. */
+		margin-block: -0.35rem;
+	}
 	/* (The expanded body used to halve its top gap here; the base .tfc-body now carries
 	   that tight top at every size, so there's nothing left to override.) */
 	/* Global-control end caps — matched to the parent's expand button so back/expand
@@ -2296,6 +2360,41 @@
 	.field-select:focus-visible {
 		outline: var(--focus-ring);
 		outline-offset: 2px;
+	}
+
+	/* ── Pixelite plastic-key alignment ────────────────────────────────────────
+	   The shared themes/pixelite.css lumps .field and .field-select with the TEXT
+	   INPUTS (a value face, no hover/press) — but here they're the field pills and the
+	   Range/Refresh dropdowns, keyed controls that should behave like .seg/.icon-btn.
+	   Give them the family's hover (text + border → cobalt), pressed bevel, and a
+	   selected pill that matches .seg.on. Aeropalite is untouched — every rule is
+	   gated on html[data-look='pixelite']. */
+	:global(html[data-look='pixelite']) .field:hover:not(:disabled),
+	:global(html[data-look='pixelite']) .field-select:hover:not(:disabled) {
+		color: var(--orange);
+		border-color: var(--orange);
+	}
+	:global(html[data-look='pixelite']) .field.on {
+		color: var(--orange);
+		border-color: var(--orange);
+		background: var(--pixel-key-on); /* light cobalt fill, like .seg.on */
+	}
+	:global(html[data-look='pixelite']) .field:active:not(:disabled),
+	:global(html[data-look='pixelite']) .field-select:active:not(:disabled) {
+		box-shadow: var(--pixel-bevel-press);
+	}
+	/* Item 3 — drop the decorative station-accent dot beside the bar title (the app
+	   badge already carries the mark under Pixelite). Aeropalite keeps its dot. */
+	:global(html[data-look='pixelite']) .head-refresh {
+		display: none;
+	}
+	/* Item 4 — the vertical separators between the bar's control groups fade out at
+	   their ends via a gradient. Under Pixelite they're solid ink hairlines, edge to
+	   edge, full control height. */
+	:global(html[data-look='pixelite']) .deck::before,
+	:global(html[data-look='pixelite']) .bar .corner-bar::before,
+	:global(html[data-look='pixelite']) .deck-controls .ctl + .ctl::before {
+		background: var(--pixel-hairline);
 	}
 	.board-head {
 		display: flex;
@@ -2773,6 +2872,14 @@
 		outline: var(--focus-ring);
 		outline-offset: 2px;
 		border-radius: 3px;
+	}
+	/* Item 1 — under Pixelite the type cell is a plastic key (border + bevel from
+	   themes/pixelite.css), but the base .type-btn is a borderless underline link with
+	   padding:0, so the code sat tight against the key's edges. Give it room to breathe
+	   and drop the now-redundant underline. Aeropalite keeps the bare underline link. */
+	:global(html[data-look='pixelite']) .type-btn {
+		padding: 0.1rem 0.45rem;
+		text-decoration: none;
 	}
 	/* Photo card that slides in when a type is tapped. */
 	.photo-card {

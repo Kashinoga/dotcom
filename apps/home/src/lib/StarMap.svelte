@@ -997,6 +997,58 @@
 		--line-strong: rgba(255, 255, 255, 0.34);
 		--aero-face: rgba(255, 255, 255, 0.07);
 	}
+	/* ── Pixelite: the floating chrome becomes a paper-and-ink toolbar ──────────────────────
+	   Same idiom as the bubble branches elsewhere. The starfield/canvas is left ALONE — only
+	   the top bar flips from the night-ink frosted strip to the manual's paper sheet with ink
+	   text and mono-uppercase labels. Buttons are already plastic keys (the global
+	   html[data-look='pixelite'] control rules), and the accent dot is already cobalt (the page
+	   passes cobalt in place of the station orange). The bar re-reads paper tokens for its whole
+	   subtree, overriding the night ink the .sm block forces above. */
+	:global(html[data-look='pixelite']) .sm-head.bar {
+		background: var(--surface);
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+		border-bottom: 1px solid var(--pixel-hairline, rgba(0, 0, 0, 0.2));
+		--ink: light-dark(#000000, #f2f2f2);
+		--sub: light-dark(rgba(0, 0, 0, 0.4), rgba(242, 242, 242, 0.4));
+		--line-edge: light-dark(rgba(0, 0, 0, 0.2), rgba(255, 255, 255, 0.2));
+		--line-strong: light-dark(rgba(0, 0, 0, 0.45), rgba(255, 255, 255, 0.45));
+		--aero-face: rgba(255, 255, 255, 0.5);
+		color: var(--ink);
+	}
+	:global(html[data-look='pixelite']) .sm-head.bar .dest,
+	:global(html[data-look='pixelite']) .sm-head.bar .stat dd {
+		color: var(--ink);
+	}
+	/* Sky-summary labels → the manual's mono uppercase running-head voice. */
+	:global(html[data-look='pixelite']) .sm-head.bar .stat dt {
+		font-family: var(--font-mono);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: var(--sub);
+	}
+	/* The location/search disc → a plastic key, matching the Home disc (.icon-btn) beside it:
+	   white/50 face, ink border, raised bevel, 4px corners; cobalt on hover, the bevel sinking
+	   on press. The morph keeps its white face when opened into the search field. */
+	:global(html[data-look='pixelite']) .sm-cs {
+		background: var(--pixel-key-face);
+		border: 1px solid var(--pixel-key-border);
+		border-radius: 4px;
+		box-shadow: var(--pixel-bevel);
+		color: var(--ink);
+	}
+	:global(html[data-look='pixelite']) .sm-cs:not(.open):hover {
+		color: var(--orange);
+		border-color: var(--orange);
+		background: var(--pixel-key-face);
+	}
+	:global(html[data-look='pixelite']) .sm-cs:not(.open):active {
+		box-shadow: var(--pixel-bevel-press);
+	}
+	:global(html[data-look='pixelite']) .sm-cs.open {
+		background: var(--pixel-key-face);
+		border-color: var(--orange);
+	}
 	/* Panel chrome, matched to the generic .surface-head (this map just renders it itself).
 	   Back caps the left of the row, the location disc the right. No bottom margin: this
 	   is the narrow header's ONLY row now (the title signs the map instead), so the

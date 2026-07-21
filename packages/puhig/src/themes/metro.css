@@ -7,8 +7,8 @@
  * those primitives consume.
  *
  * Scoped to :root[data-look='metro'] so it applies when the look is explicitly
- * Metro. Lab is the default (bare :root, see ./lab.css); selecting Metro sets
- * data-look='metro' on <html>, and this block — higher specificity than Lab's
+ * Metro. Aeropalite is the default (bare :root, see ./aeropalite.css); selecting Metro
+ * sets data-look='metro' on <html>, and this block — higher specificity than the bare :root's
  * bare :root — wins. Core neutrals use light-dark(): the display-mode override in
  * base flips the used color-scheme, re-theming them without a duplicate dark block. */
 :root[data-look='metro'] {
@@ -85,7 +85,7 @@
 	 * and expanded states (their background is identical); --head is the near-opaque
 	 * sticky-header tint.
 	 * Dark side lighter than light's 0.75 on purpose: 0.75 black over the dark skies
-	 * (dusk, night) went dead black — see lab.css; 0.45 keeps the night showing through. */
+	 * (dusk, night) went dead black — see aeropalite.css; 0.45 keeps the night showing through. */
 	--panel-fill: light-dark(rgba(255, 255, 255, 0.75), rgba(0, 0, 0, 0.45));
 	/* Flat mode's panel body: opaque, and pure — white in light, black in dark. A panel is a
 	   sheet laid over the map, separated by its edge, not a pane of glass separated by what

@@ -30,7 +30,8 @@ export const airports: Record<string, { title: string }> = {
 	STAR: { title: 'Star Map' },
 	AITA: { title: 'Court of Public Opinion' },
 	PUD: { title: 'Intergalactic Park Ranger' },
-	EMOJ: { title: 'Emoji Viewer' }
+	EMOJ: { title: 'Emoji Viewer' },
+	DENS: { title: 'Densette' }
 };
 
 // The hierarchy — a place's children. This is the ONE structure the site's shape comes from: it
@@ -40,8 +41,8 @@ export const airports: Record<string, { title: string }> = {
 // It reads as the site's outline because that's what it is. Add a place by adding it here.
 export const children: Record<string, string[]> = {
 	KSH: ['ABT', 'APP', 'STG'],
-	ABT: ['WRK', 'PRJ'],
-	APP: ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA', 'PUD', 'EMOJ']
+	ABT: ['PRJ', 'WRK'],
+	APP: ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA', 'PUD', 'EMOJ', 'DENS']
 };
 
 /** A place's parent, inverted from `children`. The hub has none. */
@@ -76,7 +77,10 @@ export const accent: Record<string, string> = {
 	STAR: '#f06030',
 	AITA: '#f06030',
 	PUD: '#f06030',
-	EMOJ: '#f06030'
+	EMOJ: '#f06030',
+	// Densette carries its own ink, not the Apps-branch orange: Pixelite cobalt, the one
+	// accent of the printed manual it renders as. The card and badge turn cobalt to match.
+	DENS: '#103dff'
 };
 
 // A one-line blurb per place, used as the shared-link preview description and on the Apps cards.
@@ -93,5 +97,6 @@ export const portDescriptions: Record<string, string> = {
 	STAR: 'The constellations overhead right now, from wherever you are.',
 	AITA: 'An r/AmItheAsshole reader — judge the story first, then unseal the jury.',
 	PUD: 'An idle game — ranger the Pocket Universe Division’s parks, gathering Data Shards.',
-	EMOJ: 'Browse and copy the system emojis, drawn by your own device.'
+	EMOJ: 'Browse and copy the system emojis, drawn by your own device.',
+	DENS: 'The Curriculum — a tabletop RPG from The Peaks University, 2172.'
 };

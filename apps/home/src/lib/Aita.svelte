@@ -705,6 +705,27 @@
 		box-shadow: var(--aero-gloss), var(--aero-drop);
 	}
 
+	/* Pixelite: the case buttons (Open the case, Back, Another case, Update) become plastic
+	   keys — white/50 face, ink border, raised bevel, mono uppercase label; cobalt on hover,
+	   the bevel sinking on press. Mirrors the shared control family in pixelite.css. */
+	:global(html[data-look='pixelite']) .aita-go {
+		background: var(--pixel-key-face);
+		border: 1px solid var(--pixel-key-border);
+		border-radius: 4px;
+		box-shadow: var(--pixel-bevel);
+		font-family: var(--font-mono);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+	:global(html[data-look='pixelite']) .aita-go:hover:not(:disabled) {
+		color: var(--orange);
+		border-color: var(--orange);
+		background: var(--pixel-key-face);
+	}
+	:global(html[data-look='pixelite']) .aita-go:active:not(:disabled) {
+		box-shadow: var(--pixel-bevel-press);
+	}
+
 	/* ── The reveal. The crowd's word flips in on the split-flap — the site's own way
 	   of announcing an arrival — wearing the verdict's colour. */
 	.aita-crowd {

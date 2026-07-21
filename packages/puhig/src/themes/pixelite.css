@@ -1,0 +1,402 @@
+/* Theme: Pixelite — the print-manual counterpart. ⚠️ DRAFT.
+ *
+ * A printed-technical-manual-meets-pixel aesthetic (after "Making Software" by Dan
+ * Hollick, makingsoftware.com): content sits on white "sheets of paper" over a barely-
+ * grey page, every rule is a hairline, the one accent is a cobalt ink scale, the chrome
+ * speaks a pixel monospace in uppercase, and headings wear a quiet serif. Where
+ * Aeropalite is glass and gloss, Pixelite is paper and ink — flat, printed, precise.
+ *
+ * Scoped to :root[data-look='pixelite'] so it applies only when the look is explicitly
+ * Pixelite (Aeropalite is the bare-:root default, see ./aeropalite.css). This block's
+ * specificity beats that bare :root regardless of import order, so it cleanly overrides
+ * every token. The token *set* mirrors Aeropalite's exactly: every token Aeropalite
+ * defines is redefined here, or switching themes would leave a stale value stuck on.
+ *
+ * The Pixelite-only shared tokens (the print shadow, the plastic-key bevel, the ink
+ * hairline) live at the very bottom, past the mirrored set. */
+:root[data-look='pixelite'] {
+	/* ── Palette (Making-Software print) ─────────────────────────────────────── */
+	--ink: light-dark(#000000, #f2f2f2); /* pure black ink on paper */
+	/* The page is a barely-off-white sheet; the app's surfaces are the white "sheets of
+	   paper" that sit on it (--surface below). Separation comes from the print shadow and
+	   the hairline, not from tint steps. */
+	/* On dark stock the gutter drops a touch below the sheet (#202023, set in the @media block)
+	   so the sheets read as paper laid on a page, not flat patches merging into it. */
+	--paper: light-dark(#fbfbfb, #0e0e10);
+	--page: light-dark(#fbfbfb, #0e0e10);
+	--surface: #ffffff; /* a white sheet of paper */
+	--card-edge: rgba(0, 0, 0, 0.5); /* the sheet's ink border line */
+	/* No paper tooth and no foil: print is flat, matte, and unglittered. The tokens stay
+	   defined (Aeropalite fills them) so a card that reads them just gets nothing. */
+	--card-grain: none;
+	--foil-sparkle: none;
+	--orange: light-dark(#103dff, #607ffd); /* cobalt-600 — the one accent (ink scale below) */
+	--sub: light-dark(rgba(0, 0, 0, 0.4), rgba(242, 242, 242, 0.4)); /* muted = ink at 40% */
+
+	/* Grid line colour over the page field (tile size --grid-size lives in base). */
+	--grid-line: rgba(0, 0, 0, 0.06);
+
+	/* ── Card geometry — MTG standard 2.5in × 3.5in (5:7) ────────────────────── */
+	/* Width/ratio are mechanics, shared as-is; the RADII are the theme's to set, and print
+	   sheets are square-cornered — 2px, the Making-Software sheet radius, not the card's
+	   rounded plastic. The border is a thin ink rule, not the thick MTG bevel. */
+	--card-w: clamp(230px, 184px + 9vw, 290px);
+	--card-ratio: 5 / 7;
+	--card-radius: 2px;
+	--card-border: rgba(0, 0, 0, 0.5); /* hairline ink rule round the sheet */
+	--card-border-w: 1px;
+	--card-face-radius: 1px;
+	--card-face-seam: rgba(0, 0, 0, 0.05);
+	--card-face-groove: rgba(0, 0, 0, 0.2); /* ink/20 hairline */
+	--card-edge-seam: rgba(255, 255, 255, 0.75); /* print top-bevel white */
+	--card-edge-groove: rgba(0, 0, 0, 0.1);
+	--card-shadow: var(--pixel-paper-shadow); /* the print/paper shadow (defined below) */
+
+	/* ── Name-plate — flattened to a printed cobalt label ─────────────────────── */
+	/* Metro's gold plate has no place in a manual, so the plate reads as a flat cobalt
+	   ink label: the scale's tints stand in for the metal bands, and the grain is gone. */
+	--plate-hi: #e6ebff; /* cobalt-100 */
+	--plate-mid: #b9c7fd; /* cobalt-200 */
+	--plate-lo: #607ffd; /* cobalt-400 */
+	--plate-edge: #103dff; /* cobalt-600 frame line */
+	--plate-ink: #06144d; /* deep cobalt, legible on the light label */
+	--plate-grain: none;
+
+	/* ── Sleeve — a slipsheet, square-cut ─────────────────────────────────────── */
+	--sleeve-lip: calc(var(--card-w) * 0.025);
+	--sleeve-radius: 2px; /* square-cut, like the sheet */
+	--sleeve-bg: rgba(255, 255, 255, 0.05);
+	--sleeve-rim-hi: rgba(255, 255, 255, 0.75);
+	--sleeve-drop: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 1px 0 rgba(0, 0, 0, 0.3);
+
+	/* ── Panel material — a white sheet, not glass ────────────────────────────── */
+	/* Pixelite panels are opaque sheets of paper, so the "glass" is a solid white fill and
+	   the blur/sheen are switched off. (The bubble-only rules in +page never match under
+	   Pixelite — there's no data-ui — so the flat path is what renders; these tokens set it.) */
+	--panel-fill: light-dark(#ffffff, #1a1a1c);
+	--panel-fill-solid: light-dark(#ffffff, #1a1a1c);
+	--panel-veil: 1; /* fully opaque — a sheet you can't see through */
+	--panel-glass: light-dark(#ffffff, #1a1a1c); /* solid sheet, no measured wash */
+	--panel-head: var(--panel-glass);
+	--panel-blur: none; /* no backdrop blur — paper isn't glass */
+	--panel-sheen: none; /* no top gloss */
+	--panel-edge: var(--pixel-hairline); /* the panel's edge is an ink hairline */
+
+	/* ── Type ────────────────────────────────────────────────────────────────── */
+	/* Pixelite's own voice (no longer borrowing the design source's faces): IBM Plex Sans for
+	   body, Iowan Old Style for serif display headings (a system face — Georgia carries it
+	   off-Apple), Space Mono as the workhorse mono for UI chrome (labels, captions, buttons),
+	   and VT323 as the pixel ACCENT for numerals/marks. */
+	--font-body: 'IBM Plex Sans', system-ui, sans-serif;
+	--font-motto: 'Iowan Old Style', Georgia, serif; /* the serif display voice */
+	--font-mono: 'Space Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+	/* The pixel accent — bitmap numerals and chrome marks ONLY (the wordmark, chapter/section
+	   numerals, FIG numbers, the ruler digits). NEVER body or table text: VT323 is unreadable at
+	   length and can't be tracked wide. Bump its size ~15–20% over a Space Mono equivalent to
+	   match optical size (it runs small). */
+	--font-pixel: 'VT323', 'Space Mono', monospace;
+
+	/* ── Base geometry + motion overrides ─────────────────────────────────────── */
+	/* The panel frame's radius lives in base (--panel-radius); print sheets are 2px, so
+	   it's overridden here rather than in a component (token, not selector). */
+	--panel-radius: 2px;
+	/* Calmer keys: a printed manual doesn't bounce. The site's press squash and page
+	   transitions stay (movement is the site's), but the hover pop is stilled and the
+	   press eased to a small, un-springy dip — same tokens every control reads. */
+	--btn-hover-scale: 1;
+	--btn-press-scale: 0.97;
+
+	/* ── Pixelite-only shared tokens ──────────────────────────────────────────── */
+	/* The Making-Software "sheet of paper" shadow: a soft drop, a firm 1px ink line under
+	   the sheet, and an inset white top-light. Worn by the sheets and cards (--card-shadow
+	   above) and by the plastic keys' panels. */
+	--pixel-paper-shadow: 0 1px 4px 1px rgba(0, 0, 0, 0.05), 0 1px 1px 0 rgba(0, 0, 0, 0.5),
+		inset 0 -1px 1px 1px #fff;
+	/* The plastic-key bevel and its pressed inversion — a raised white/dark rim that flips
+	   to sunken when a key is held down. (Dark stock re-tunes both in the @media block below:
+	   the bright white rim would flare on a dark face, so it drops to a faint top-light over a
+	   firm dark seat.) */
+	--pixel-bevel: inset 1px 1px 0 2px rgba(255, 255, 255, 0.75),
+		inset -1px -1px 0 2px rgba(0, 0, 0, 0.1);
+	--pixel-bevel-press: inset -1px -1px 0 2px rgba(255, 255, 255, 0.75),
+		inset 1px 1px 0 2px rgba(0, 0, 0, 0.1);
+	/* The plastic-key material, tokenised so it can flip by colour-scheme (every control below
+	   reads these instead of literals). Light is unchanged — the white/50 face and ink/50 rule
+	   the keys always wore. Dark reverses the logic a translucent white face can't survive on a
+	   dark sheet: a faint raised white wash (~10%) over the sheet, a legible white rule (~42%),
+	   and a deep-cobalt seat for the selected key so its bright cobalt-100 patch stops glaring. */
+	--pixel-key-face: light-dark(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.1));
+	--pixel-key-border: light-dark(rgba(0, 0, 0, 0.5), rgba(255, 255, 255, 0.42));
+	--pixel-key-on: light-dark(#e6ebff, #16244f); /* selected-key fill (cobalt-100 / deep cobalt) */
+	/* The universal ink hairline — black/20 on paper; on dark stock a legible white/26 (a faint
+	   white/20 rule vanished against the near-black gutter). */
+	--pixel-hairline: light-dark(rgba(0, 0, 0, 0.2), rgba(255, 255, 255, 0.26));
+}
+
+/* Dark stock this round tuned or added — the sheet surface, its edge/border/shadow, and the
+ * plastic-key bevel — keyed to the .scheme-dark CLASS, not the OS media query. The class is
+ * stamped on <html> by app.html's pre-paint script (before first paint, so no light flash) and
+ * kept in sync by a +page effect, whenever the RESOLVED scheme is dark. So these follow the
+ * in-app Display Mode toggle exactly as the light-dark() tokens above do — a forced-Dark on a
+ * light-OS machine (or forced-Light on a dark-OS one) renders wholly, not half, in the target
+ * scheme. Class specificity (0,3,0) beats the base :root[data-look] (0,2,0), so it wins cleanly. */
+:root[data-look='pixelite'].scheme-dark {
+	--surface: #202023; /* a dark sheet — lifted off the #0e0e10 gutter for separation */
+	--card-edge: rgba(255, 255, 255, 0.28);
+	--card-border: rgba(255, 255, 255, 0.28);
+	/* The print shadow's inset white would glow on a dark sheet — a plain grounding drop and a
+	   firm under-line, plus a faint top rim-light so the sheet still reads as raised paper. */
+	--card-shadow: 0 1px 4px 1px rgba(0, 0, 0, 0.45), 0 1px 1px 0 rgba(0, 0, 0, 0.6),
+		inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
+	/* Plastic-key bevel for dark: a faint top-left light rim over a firm bottom-right dark seat
+	   (the light bevel's bright white rim would flare on the dark face). Pressed inverts it. */
+	--pixel-bevel: inset 1px 1px 0 2px rgba(255, 255, 255, 0.14),
+		inset -1px -1px 0 2px rgba(0, 0, 0, 0.5);
+	--pixel-bevel-press: inset -1px -1px 0 2px rgba(255, 255, 255, 0.14),
+		inset 1px 1px 0 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Pre-existing OS-keyed dark stock (the puhig Card's seams/grooves/grid/sleeve — not touched
+ * this round, and not rendered in the docs shell). Left on the @media query as it was. */
+@media (prefers-color-scheme: dark) {
+	:root[data-look='pixelite'] {
+		--card-face-seam: rgba(0, 0, 0, 0.28);
+		--card-face-groove: rgba(255, 255, 255, 0.15);
+		--card-edge-seam: rgba(255, 255, 255, 0.1);
+		--card-edge-groove: rgba(0, 0, 0, 0.45);
+		--grid-line: rgba(255, 255, 255, 0.05);
+		--sleeve-bg: rgba(255, 255, 255, 0.04);
+		--sleeve-rim-hi: rgba(255, 255, 255, 0.14);
+		--sleeve-drop: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 1px 0 rgba(0, 0, 0, 0.6);
+	}
+}
+
+/* ════════════════════════════════════════════════════════════════════════════════════
+ * DRAFT component pass — just enough to make Pixelite legible without touching components.
+ *
+ * Scoped to html[data-look='pixelite'] and kept deliberately small. Where a token could
+ * carry the change it was set above (the panels became white sheets via --panel-glass);
+ * these selectors exist only where no token reaches — the plastic-key material on the
+ * shared controls, and the paper shadow on the panel sheet. NOT full coverage.
+ * ════════════════════════════════════════════════════════════════════════════════════ */
+
+/* Shared panel disc (base .icon-btn) → a round-cornered plastic key: white/50 face, a
+ * 1px ink border, the raised bevel, 4px corners. Ink turns cobalt on hover; the bevel
+ * inverts (sinks) on press. */
+html[data-look='pixelite'] .icon-btn {
+	color: var(--ink);
+	background: var(--pixel-key-face);
+	border: 1px solid var(--pixel-key-border);
+	border-radius: 4px;
+	box-shadow: var(--pixel-bevel);
+}
+html[data-look='pixelite'] .icon-btn:hover {
+	color: var(--orange);
+	border-color: var(--orange);
+	background: var(--pixel-key-face);
+}
+html[data-look='pixelite'] .icon-btn:active:not(:disabled) {
+	background: var(--pixel-key-face);
+	box-shadow: var(--pixel-bevel-press);
+}
+
+/* Settings segmented controls (.seg) and the sky picker (.sky-opt) → plastic keys with a
+ * mono, uppercase label. Same white/50 face, ink border, bevel and 4px corners; the
+ * selected key fills cobalt-50 with a cobalt edge, and hover/press behave like the disc. */
+html[data-look='pixelite'] .seg,
+html[data-look='pixelite'] .sky-opt {
+	color: var(--ink); /* label resolves through --ink, so it flips with the scheme */
+	background: var(--pixel-key-face);
+	border: 1px solid var(--pixel-key-border);
+	border-radius: 4px;
+	box-shadow: var(--pixel-bevel);
+	font-family: var(--font-mono);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+html[data-look='pixelite'] .seg-title {
+	font-size: 12px;
+	font-weight: 700;
+}
+html[data-look='pixelite'] .seg-sub {
+	font-size: 10px;
+}
+html[data-look='pixelite'] .seg:hover:not(:disabled),
+html[data-look='pixelite'] .sky-opt:hover:not(:disabled) {
+	color: var(--orange);
+	border-color: var(--orange);
+	background: var(--pixel-key-face);
+}
+html[data-look='pixelite'] .seg.on,
+html[data-look='pixelite'] .sky-opt.on {
+	color: var(--orange);
+	border-color: var(--orange);
+	background: var(--pixel-key-on); /* cobalt-100 on paper, deep cobalt on dark stock */
+}
+html[data-look='pixelite'] .seg:active:not(:disabled),
+html[data-look='pixelite'] .sky-opt:active:not(:disabled) {
+	box-shadow: var(--pixel-bevel-press);
+}
+
+/* The rest of the shared control family (chips, board buttons, editor keys, the sky/photo
+ * toggles) → the same plastic key as the disc and the segments: mono uppercase label, white
+ * face, ink border, raised bevel, 4px corners; cobalt on hover, sunken on press. These
+ * appear INSIDE the app bodies that render on the docs sheet (Settings, Weather, the Court,
+ * the board, the Builder), so they earn the treatment even though the panel chrome is gone. */
+html[data-look='pixelite'] .chip,
+html[data-look='pixelite'] .tb,
+html[data-look='pixelite'] .mini,
+html[data-look='pixelite'] .swatch-btn,
+html[data-look='pixelite'] .manual,
+html[data-look='pixelite'] .edit-enter,
+html[data-look='pixelite'] .edit-btn,
+html[data-look='pixelite'] .wx-add,
+html[data-look='pixelite'] .legend-btn,
+html[data-look='pixelite'] .type-btn,
+html[data-look='pixelite'] .photo-toggle,
+html[data-look='pixelite'] .pc-close {
+	/* The label always resolves through --ink so it flips with the scheme. Several of these
+	   (.edit-enter, .edit-btn.save) are inverted buttons whose base is color:var(--paper) on an
+	   ink face — on the plastic key that paper label went near-black on a dark face. Forcing
+	   --ink here (the .on/hover states still win with their higher-specificity cobalt) keeps every
+	   keyed label legible in both schemes; disabled keys dim via opacity, not a colour swap. */
+	color: var(--ink);
+	background: var(--pixel-key-face);
+	border: 1px solid var(--pixel-key-border);
+	border-radius: 4px;
+	box-shadow: var(--pixel-bevel);
+	font-family: var(--font-mono);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+html[data-look='pixelite'] .chip:hover:not(:disabled),
+html[data-look='pixelite'] .tb:hover:not(:disabled),
+html[data-look='pixelite'] .mini:hover:not(:disabled),
+html[data-look='pixelite'] .swatch-btn:hover:not(:disabled),
+html[data-look='pixelite'] .manual:hover:not(:disabled),
+html[data-look='pixelite'] .edit-enter:hover:not(:disabled),
+html[data-look='pixelite'] .edit-btn:hover:not(:disabled),
+html[data-look='pixelite'] .wx-add:hover:not(:disabled),
+html[data-look='pixelite'] .legend-btn:hover:not(:disabled),
+html[data-look='pixelite'] .type-btn:hover:not(:disabled),
+html[data-look='pixelite'] .photo-toggle:hover:not(:disabled),
+html[data-look='pixelite'] .pc-close:hover:not(:disabled) {
+	color: var(--orange);
+	border-color: var(--orange);
+}
+html[data-look='pixelite'] .chip.on,
+html[data-look='pixelite'] .tb.on,
+html[data-look='pixelite'] .mini.on,
+html[data-look='pixelite'] .swatch-btn.on,
+html[data-look='pixelite'] .legend-btn.on,
+html[data-look='pixelite'] .type-btn.on {
+	color: var(--orange);
+	border-color: var(--orange);
+	background: var(--pixel-key-on); /* cobalt-100 on paper, deep cobalt on dark stock */
+}
+html[data-look='pixelite'] .chip:active:not(:disabled),
+html[data-look='pixelite'] .tb:active:not(:disabled),
+html[data-look='pixelite'] .mini:active:not(:disabled),
+html[data-look='pixelite'] .swatch-btn:active:not(:disabled),
+html[data-look='pixelite'] .manual:active:not(:disabled),
+html[data-look='pixelite'] .edit-enter:active:not(:disabled),
+html[data-look='pixelite'] .edit-btn:active:not(:disabled),
+html[data-look='pixelite'] .wx-add:active:not(:disabled),
+html[data-look='pixelite'] .legend-btn:active:not(:disabled),
+html[data-look='pixelite'] .type-btn:active:not(:disabled),
+html[data-look='pixelite'] .photo-toggle:active:not(:disabled),
+html[data-look='pixelite'] .pc-close:active:not(:disabled) {
+	box-shadow: var(--pixel-bevel-press);
+}
+/* Text inputs / value fields → the plastic face WITHOUT forcing the type: uppercasing a
+ * search field would uppercase what the visitor types. Mono is fine; transform is not. */
+html[data-look='pixelite'] .field,
+html[data-look='pixelite'] .field-select {
+	color: var(--ink); /* typed value resolves through --ink, legible in both schemes */
+	background: var(--pixel-key-face);
+	border: 1px solid var(--pixel-key-border);
+	border-radius: 4px;
+	box-shadow: var(--pixel-bevel);
+	font-family: var(--font-mono);
+}
+/* App cards (the Apps index, About's branches) → a hairline-ruled CATALOG, not floating
+ * sheets: the cards sit ON the prose sheet, so a white-sheet-with-shadow each would be a sheet
+ * inside a sheet. Instead each is a ruled row — a mono course-code-style title over a serif
+ * blurb, a small ink-chip mark — reading down like a manual's index of figures. */
+html[data-look='pixelite'] .app-card {
+	background: transparent;
+	border: 0;
+	border-bottom: 1px solid var(--pixel-hairline);
+	border-radius: 0;
+	box-shadow: none;
+	padding: 0.85rem 0.4rem;
+}
+html[data-look='pixelite'] .app-card:hover,
+html[data-look='pixelite'] .app-card:focus-visible {
+	background: color-mix(in srgb, var(--orange) 6%, transparent);
+}
+html[data-look='pixelite'] .app-card:hover .app-name,
+html[data-look='pixelite'] .app-card:focus-visible .app-name {
+	color: var(--orange);
+}
+/* The station-accent squircle → a neutral catalog chip: cobalt glyph on a hairline-ruled tile. */
+html[data-look='pixelite'] .app-ico {
+	background: var(--page);
+	color: var(--orange);
+	border: 1px solid var(--pixel-hairline);
+	border-radius: 2px;
+	box-shadow: none;
+}
+html[data-look='pixelite'] .app-name {
+	font-family: var(--font-mono);
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	font-size: 0.85rem;
+}
+html[data-look='pixelite'] .app-blurb {
+	font-family: var(--font-motto);
+	font-size: 0.95rem;
+}
+
+/* The Beta pill (base.css .beta, worn by the Park Ranger and the Builder) fills with the place's
+ * --accent — orange for the Apps branch. Repoint it to the manual's cobalt. */
+html[data-look='pixelite'] .beta {
+	background: var(--orange);
+}
+
+/* The header badge (the app mark beside Back — worn by the self-chrome apps embedded as docs
+ * figures) → a plastic key with the mark in cobalt, so the station orange doesn't clash with
+ * the manual's ink-and-cobalt palette. */
+html[data-look='pixelite'] .app-badge {
+	background: var(--pixel-key-face);
+	border: 1px solid var(--pixel-key-border);
+	border-radius: 4px;
+	box-shadow: var(--pixel-bevel);
+}
+html[data-look='pixelite'] .app-badge::before {
+	background: var(--orange); /* the arrival face, cobalt not orange */
+	border-radius: 4px;
+}
+html[data-look='pixelite'] .app-badge-mark {
+	color: var(--orange);
+}
+
+/* Settings group labels (.seg-lead) → the manual's section voice: mono, uppercase, muted. The
+ * label and generous whitespace do the separating — so BOTH per-group hairlines are dropped: the
+ * base .seg-lead --rule-fade above each lead AND the extra .stg-group border that used to stack on
+ * top of it (the double rules the page read as too busy). Only the chapter head keeps a rule. */
+html[data-look='pixelite'] .seg-lead {
+	font-family: var(--font-mono);
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	font-size: 0.72rem;
+	color: color-mix(in srgb, var(--ink) 45%, transparent);
+	/* Kill the base fading rule above the lead; whitespace at the group boundary (below) parts them. */
+	margin-top: 0;
+	padding-top: 0;
+	border-top: none;
+	border-image: none;
+}
+html[data-look='pixelite'] .stg-group + .stg-group {
+	margin-top: 2.75rem; /* a calm gap between groups — no rule */
+}

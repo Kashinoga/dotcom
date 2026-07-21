@@ -6,15 +6,19 @@
  *                       vocabulary (spring, entrance choreography, button feel),
  *                       spacing/geometry primitives, the reset, the grid renderer,
  *                       the shared icon button, and the display-mode + sky mechanisms.
- *   ./themes/metro.css  the original transit-map identity (Penguin palette, MTG-card
- *                       anatomy, gold nameplate, premium-plastic panels). Opt-in via
- *                       data-look='metro' on <html>.
- *   ./themes/lab.css    the DEFAULT theme (bare :root). Currently a scaffold copy of
- *                       Metro pending design — retune its TODO(lab) tokens.
+ *   ./themes/metro.css      the original transit-map identity (Penguin palette, MTG-card
+ *                           anatomy, gold nameplate, premium-plastic panels). Opt-in via
+ *                           data-look='metro' on <html>.
+ *   ./themes/aeropalite.css the DEFAULT theme (bare :root) — glass, gloss, and springy
+ *                           bubble buttons. Its TODO(aeropalite) tokens still trace back
+ *                           to Metro and want a pass to fully part ways.
+ *   ./themes/pixelite.css   the print-manual counterpart — paper sheets, pixel type, and
+ *                           cobalt ink. Opt-in via data-look='pixelite' on <html>.
  *
  * Themes are imported before base so base's sky rules land after the theme tokens
  * (the sky must win while active). Import this one file at the app root
  * (e.g. in +layout.svelte); switching themes is just an attribute swap on <html>. */
 @import './themes/metro.css';
-@import './themes/lab.css';
+@import './themes/aeropalite.css';
+@import './themes/pixelite.css';
 @import './base.css';

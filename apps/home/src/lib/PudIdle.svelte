@@ -2374,4 +2374,45 @@
 			animation-timing-function: ease;
 		}
 	}
+
+	/* ── Pixelite: ink-and-cobalt chrome (bars, buttons, labels only) ──────────────────────
+	   The game reads --accent (orange by default — nothing sets it on this subtree) all over: the
+	   pull flood, the tree fill, the gauges, the armed reset. Repoint --accent/--orange/--opalite
+	   to cobalt for the whole subtree and each turns to the manual's ink. The game's own pill
+	   buttons and buy chips become plastic keys. Scenes, stage choreography, and timings are
+	   UNTOUCHED — this recolours and re-materials CHROME only. (Same idiom as the bubble branches
+	   above; under Pixelite there's no data-ui, so those never match.) */
+	:global(html[data-look='pixelite']) .pud {
+		--accent: #103dff;
+		--orange: #103dff;
+		--opalite: #103dff;
+	}
+	:global(html[data-look='pixelite']) .pud-extract,
+	:global(html[data-look='pixelite']) .pud-boost,
+	:global(html[data-look='pixelite']) .pud-buy {
+		background: rgba(255, 255, 255, 0.5);
+		border: 1px solid rgba(0, 0, 0, 0.5);
+		border-radius: 4px;
+		box-shadow: var(--pixel-bevel);
+		font-family: var(--font-mono);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+	}
+	:global(html[data-look='pixelite']) .pud-extract:hover:not(:disabled),
+	:global(html[data-look='pixelite']) .pud-boost:hover:not(:disabled),
+	:global(html[data-look='pixelite']) .pud-buy:hover:not(:disabled) {
+		color: var(--orange);
+		border-color: var(--orange);
+		background: rgba(255, 255, 255, 0.5);
+	}
+	:global(html[data-look='pixelite']) .pud-boost.on {
+		color: var(--orange);
+		border-color: var(--orange);
+		background: #e6ebff; /* cobalt-100 fill for the pressed-on key */
+	}
+	:global(html[data-look='pixelite']) .pud-extract:active:not(:disabled),
+	:global(html[data-look='pixelite']) .pud-boost:active:not(:disabled),
+	:global(html[data-look='pixelite']) .pud-buy:active:not(:disabled) {
+		box-shadow: var(--pixel-bevel-press);
+	}
 </style>

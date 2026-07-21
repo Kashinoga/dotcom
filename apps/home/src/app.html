@@ -1,21 +1,26 @@
 <!doctype html>
-<html lang="en" data-ui="bubble">
+<html lang="en" data-look="pixelite">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
 		<script>
-			// Apply a saved theme + display-mode override + time-of-day sky + button style before paint.
+			// Apply a saved named theme + display-mode override + time-of-day sky before paint.
 			try {
-				// Named theme (Lab is the default and carries no attribute; Metro opts in).
-				if (localStorage.getItem('ksh-look') === 'metro')
-					document.documentElement.dataset.look = 'metro';
+				// Named theme. Pixelite is now the DEFAULT: <html> ships data-look="pixelite" (and no
+				// data-ui), so no-JS and fresh visitors get the docs look. Only a saved 'aeropalite'
+				// opts out — strip data-look and stamp the bubble button style. Anything else (absent,
+				// legacy 'metro', legacy values) keeps the hard-coded Pixelite default.
+				if (localStorage.getItem('ksh-look') === 'aeropalite') {
+					document.documentElement.removeAttribute('data-look');
+					document.documentElement.dataset.ui = 'bubble';
+				}
 				var t = localStorage.getItem('ksh-theme');
 				if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
-				// Bubble is the DEFAULT button style — the attribute ships on <html> itself so even
-				// a no-JS load gets it; only a saved 'flat' strips it.
-				if (localStorage.getItem('ksh-ui') === 'flat')
-					document.documentElement.removeAttribute('data-ui');
+				// Pixelite renders no sky, and data-sky FORCES color-scheme in base.css — stamping
+				// it would let a night phase overrule Display Mode → Light with nothing on screen
+				// to show for it. So the sky only stamps for Aeropalite (data-look was stripped).
+				var aero = !document.documentElement.hasAttribute('data-look');
 				// Auto is the DEFAULT sky: a visitor who has never chosen (null) gets the time-of-day
 				// phase, same as an explicit 'auto'. Only 'off' opts out to a solid background. This
 				// runs pre-paint so the phase is on <html> before the first frame — the page's own
@@ -27,7 +32,9 @@
 				// Marking <html> here, pre-paint, lets the CSS hide that decor before its first frame;
 				// the page's own skyMode is seeded from the same key, so hydration builds none of it.
 				if (sky === 'photo') document.documentElement.dataset.skyPhoto = '';
-				if (['dawn', 'morning', 'noon', 'dusk', 'night'].indexOf(sky) >= 0) {
+				if (!aero) {
+					// no sky stamp — the display mode owns the scheme under Pixelite
+				} else if (['dawn', 'morning', 'noon', 'dusk', 'night'].indexOf(sky) >= 0) {
 					document.documentElement.dataset.sky = sky;
 				} else if (sky === 'auto' || sky === null) {
 					// Season-aware clock — MUST match currentPhase() in the page, which owns the

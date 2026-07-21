@@ -1,0 +1,883 @@
+<script lang="ts">
+	import { onMount, onDestroy, tick, type Snippet } from 'svelte';
+	import { HUB, children, airports, parentOf } from '$lib/network';
+	import { viewPath, type View } from '$lib/views';
+	import { emojiSearch } from '$lib/emoji-search.svelte';
+	import { SEARCH_SVG } from '$lib/icons';
+
+	// The Pixelite shell: a printed-manual documentation site (after makingsoftware.com) that
+	// stands in for the whole map/panel world when the look is Pixelite. A full-width SUPERBAR
+	// sits above everything (wordmark at its left end, the breadcrumb trail beside it); beneath
+	// it, three columns scroll — a sticky left sidebar carrying the site tree as a numbered TOC,
+	// the content column, and a right rail carrying an on-this-page table of contents. The page
+	// bodies are handed in as a snippet from +page.svelte (`body`), so every app renders here
+	// exactly as it does in a panel — the shell owns the chrome, the page owns its content.
+	//
+	// It derives its tree from network.ts (children/airports), never a hardcoded list: add a
+	// place there and it appears here. Navigation goes back through the page's own machinery
+	// via onNavigate (a real URL push), so links behave like the rest of the site.
+	let {
+		view = null,
+		activeCode = null,
+		onNavigate,
+		body
+	}: {
+		view?: View | null;
+		activeCode?: string | null;
+		onNavigate: (code: string) => void;
+		body: Snippet<[View]>;
+	} = $props();
+
+	// The site outline: the hub leads as "1. Home" (the cover), then its children as the
+	// numbered sections, each with its own children as sub-entries. One level of nesting
+	// is all the tree has, and all a docs TOC needs. The Apps shelf lists alphabetically
+	// by title (like the Apps panel's own cards); other sections keep their curated order.
+	const sections = $derived([
+		{ code: HUB, kids: [] as string[] },
+		...(children[HUB] ?? []).map((code) => ({
+			code,
+			kids:
+				code === 'APP'
+					? [...(children[code] ?? [])].sort((a, b) => airports[a].title.localeCompare(airports[b].title))
+					: (children[code] ?? [])
+		}))
+	]);
+
+	// Breadcrumb: walk parents up from the open page, drop the hub, title-case → "APPS / DENSETTE".
+	const crumbs = $derived.by(() => {
+		if (!view || view.kind !== 'port') return [] as string[];
+		const chain: string[] = [];
+		let c: string | undefined = view.code;
+		while (c && c !== HUB) {
+			chain.unshift(c);
+			c = parentOf[c];
+		}
+		return chain;
+	});
+
+	const nav = (e: MouseEvent, code: string) => {
+		// Modified clicks stay the browser's (new tab etc.), like every in-app link.
+		if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+		e.preventDefault();
+		sidebarOpen = false;
+		onNavigate(code);
+	};
+
+	// Mobile: the sidebar folds away; the superbar's plastic-key discloses it as a dropdown.
+	let sidebarOpen = $state(false);
+
+	// The superbar goes translucent-and-blurred only once the page has scrolled under it — at
+	// the very top it's a clean edge (makingsoftware's own behaviour). Measured height feeds
+	// --superbar-h so the sticky rails start below it and anchor jumps clear it. Measured with
+	// a ResizeObserver reading the FRACTIONAL rect height, not bind:clientHeight — the bar's
+	// rem paddings land on a sub-pixel height, and the integer round-down left the rails
+	// calc(100dvh - h) a hair too tall: the page gained a phantom ~1px scroll range (a
+	// scrollbar on pages with nothing to scroll).
+	let scrolled = $state(false);
+	let superbarEl = $state<HTMLElement | undefined>(undefined);
+	let superbarH = $state(52);
+
+	onMount(() => {
+		const onScroll = () => (scrolled = window.scrollY > 4);
+		onScroll();
+		window.addEventListener('scroll', onScroll, { passive: true });
+		// Measure synchronously first — ResizeObserver delivery rides the render frame, which
+		// a hidden/background tab suspends, and the first paint shouldn't wait for it anyway.
+		if (superbarEl) superbarH = superbarEl.getBoundingClientRect().height;
+		const ro = new ResizeObserver(() => {
+			if (superbarEl) superbarH = superbarEl.getBoundingClientRect().height;
+		});
+		if (superbarEl) ro.observe(superbarEl);
+		return () => {
+			window.removeEventListener('scroll', onScroll);
+			ro.disconnect();
+		};
+	});
+
+	// ── On-this-page rail ─────────────────────────────────────────────────────────
+	// A quiet table of contents for the current view: the rendered section headings, in reading
+	// order, as smooth-scroll anchors with cobalt hover/active. Detected by querying the content
+	// after each render — Densette chapters/sub-heads, prose sub-heads, and Settings group labels
+	// — never a hand-kept list, so it can't drift from the page. Missing ids are slugged in.
+	type TocItem = { id: string; text: string; level: number };
+	let contentEl = $state<HTMLElement | undefined>(undefined);
+	let toc = $state<TocItem[]>([]);
+	let activeId = $state<string | null>(null);
+	let observer: IntersectionObserver | null = null;
+
+	// The section headings worth listing: Densette's chapter/sub titles, the prose column's own
+	// h3/h4 sub-heads, Settings' group leads, and the Emoji Viewer's group names. Deliberately
+	// narrow — specific classes, so it lists real sections and never leaks a full-bleed view's
+	// internal chrome or the page's own h1 title into the rail.
+	const TOC_SEL = '.ch-title, .sub-head, .docs-prose h3, .docs-prose h4, .seg-lead, .ev-group-name';
+
+	const slug = (s: string) =>
+		s
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, '-')
+			.replace(/^-|-$/g, '')
+			.slice(0, 48) || 'sec';
+
+	async function buildToc() {
+		await tick();
+		observer?.disconnect();
+		observer = null;
+		const root = contentEl;
+		if (!root) {
+			toc = [];
+			return;
+		}
+		const nodes = Array.from(root.querySelectorAll<HTMLElement>(TOC_SEL));
+		const seen = new Set<string>();
+		const items: TocItem[] = [];
+		for (const n of nodes) {
+			const text = (n.textContent ?? '').trim();
+			if (!text) continue;
+			let id = n.id;
+			if (!id) {
+				const base = slug(text);
+				let u = base;
+				let k = 1;
+				while (seen.has(u)) u = `${base}-${k++}`;
+				id = u;
+				n.id = id;
+			}
+			seen.add(id);
+			// Chapters, top-level prose heads and Settings leads sit flush; sub-heads indent.
+			const level = n.matches('.sub-head, h4') ? 3 : 2;
+			items.push({ id, text, level });
+		}
+		toc = items;
+		if (items.length && typeof IntersectionObserver !== 'undefined') {
+			// A heading is "current" once it reaches the top third of the viewport.
+			observer = new IntersectionObserver(
+				(entries) => {
+					for (const e of entries) if (e.isIntersecting) activeId = (e.target as HTMLElement).id;
+				},
+				{ rootMargin: '0px 0px -70% 0px', threshold: 0 }
+			);
+			for (const n of nodes) observer.observe(n);
+		}
+	}
+
+	// Rebuild whenever the open view changes (the body re-renders under it) — and when the Emoji
+	// Viewer's live filter changes its heading set, so the rail follows the groups the search
+	// leaves standing rather than going stale. (Harmless for every other view: the query never
+	// changes there, so this adds no reruns off the Emoji page.)
+	$effect(() => {
+		view;
+		activeCode;
+		emojiSearch.query;
+		buildToc();
+	});
+
+	// ── Superbar search (Emoji page) ─────────────────────────────────────────────
+	// The viewer's own search bar sits in flow under the chapter head; once it scrolls out of
+	// sight, the superbar reveals a search icon to the right of the breadcrumb that expands
+	// into a field — same shared query, so either mouth filters the same wall.
+	//
+	// THE MODEL for superbar controls on other pages/apps (per the user): a page-owned
+	// control lives in flow; when it scrolls away the superbar reveals its stand-in
+	// (IntersectionObserver, offset by the superbar's height); the stand-in is ONE element
+	// morphing between icon and expanded states (width on one box, contents always mounted —
+	// the CitySearch lesson); reveal/retreat are one mirrored Svelte transition; state is
+	// SHARED with the in-flow control and survives the retreat; negative block margins keep
+	// the superbar's height constant. Copy this shape, not just its idea.
+	let evBarGone = $state(false);
+	let sbSearchOpen = $state(false);
+	let sbInput = $state<HTMLInputElement | undefined>(undefined);
+	let evObserver: IntersectionObserver | null = null;
+	const onEmojiPage = $derived(view?.kind === 'port' && view.code === 'EMOJ');
+
+	$effect(() => {
+		view;
+		evObserver?.disconnect();
+		evObserver = null;
+		evBarGone = false;
+		sbSearchOpen = false;
+		if (onEmojiPage && typeof IntersectionObserver !== 'undefined') {
+			tick().then(() => {
+				const bar = contentEl?.querySelector('.ev-searchbar');
+				if (!bar) return;
+				// The bar counts as gone once it has slipped under the superbar, not the viewport top.
+				evObserver = new IntersectionObserver(
+					(entries) => {
+						for (const e of entries) evBarGone = !e.isIntersecting;
+					},
+					{ rootMargin: `-${Math.ceil(superbarH)}px 0px 0px 0px` }
+				);
+				evObserver.observe(bar);
+			});
+		}
+	});
+	function openSbSearch() {
+		sbSearchOpen = true;
+		tick().then(() => sbInput?.focus());
+	}
+	function closeSbSearch() {
+		emojiSearch.query = '';
+		sbSearchOpen = false;
+	}
+	function onSbSearchKey(e: KeyboardEvent) {
+		if (e.key === 'Escape') closeSbSearch();
+	}
+	// The whole control's reveal: slides down-and-in when the in-flow bar scrolls away, and
+	// plays the same motion in reverse (up-and-out) when it returns — a Svelte transition,
+	// since a CSS keyframe can only play the way in. Honors reduced motion.
+	function sbReveal(_node: Element, { duration = 200 } = {}) {
+		const still =
+			typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+		return {
+			duration: still ? 0 : duration,
+			css: (t: number) => `opacity: ${t}; transform: translateY(${-4 * (1 - t)}px);`
+		};
+	}
+	// Wandering off with nothing typed folds the field back to its icon; a live query keeps
+	// it open (the field showing WHAT'S filtering is the point). Focusout on the CONTAINER,
+	// so tabbing between the input and the icon never counts as leaving. And a focusout
+	// caused by the control SLIDING AWAY (scrolled back to the in-flow bar, evBarGone just
+	// flipped false, unmount steals focus) is not the user leaving — skip it, so the
+	// expanded state survives the retreat and the control returns still open.
+	function onSbFocusOut(e: FocusEvent) {
+		if (!evBarGone) return;
+		const to = e.relatedTarget as Node | null;
+		if (to && (e.currentTarget as HTMLElement).contains(to)) return;
+		if (!emojiSearch.query) sbSearchOpen = false;
+	}
+	onDestroy(() => {
+		// onDestroy runs during SSR too, where cancelAnimationFrame doesn't exist — guard it.
+		// (jumpRaf/jumpFallback are only ever set client-side in tocJump, so they're 0 here.)
+		observer?.disconnect();
+		evObserver?.disconnect();
+		if (typeof cancelAnimationFrame !== 'undefined') cancelAnimationFrame(jumpRaf);
+		clearTimeout(jumpFallback);
+	});
+
+	// Scroll to a section, clearing the sticky superbar (scroll-margin can't reach the scoped page
+	// headings from here, so the offset is done by hand). All the sections here live in the WINDOW
+	// scroll — the docs columns flow in the document, nothing owns an inner scroller — so the target
+	// is a window offset. The tween is hand-rolled on window.scrollTo(x, y) rather than
+	// `behavior: 'smooth'`: native smooth-scroll on the document root no-ops in some engines, whereas
+	// the instant two-arg form is universal. A rAF loop eases it for the common case; a setTimeout
+	// SAFETY NET then lands it outright if rAF never advanced (a throttled/occluded tab suspends rAF
+	// entirely, which would otherwise leave the jump stuck at the start). setTimeout still fires
+	// there, so the section is always reached — smooth when it can be, instant when it can't.
+	let jumpRaf = 0;
+	let jumpFallback = 0;
+	function tocJump(e: MouseEvent, id: string) {
+		if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+		e.preventDefault();
+		const el = document.getElementById(id);
+		if (!el) return;
+		activeId = id;
+		// A view can add its own bar that sticks BELOW the superbar (the Emoji Viewer's search),
+		// marked with [data-docs-substick]. Fold its live height into the offset so a jump lands
+		// clear of it, not tucked underneath. Zero for views without one.
+		const sub = contentEl?.querySelector<HTMLElement>('[data-docs-substick]');
+		const subH = sub ? sub.getBoundingClientRect().height : 0;
+		const target = Math.max(0, el.getBoundingClientRect().top + window.scrollY - superbarH - subH - 14);
+		const start = window.scrollY;
+		const dist = target - start;
+		if (Math.abs(dist) < 2) return;
+		cancelAnimationFrame(jumpRaf);
+		clearTimeout(jumpFallback);
+		if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+			window.scrollTo(0, target);
+			return;
+		}
+		const dur = 440;
+		const t0 = performance.now();
+		const ease = (p: number) => 1 - Math.pow(1 - p, 3);
+		const step = (now: number) => {
+			const p = Math.min(1, (now - t0) / dur);
+			window.scrollTo(0, start + dist * ease(p));
+			if (p < 1) jumpRaf = requestAnimationFrame(step);
+		};
+		jumpRaf = requestAnimationFrame(step);
+		// If the eased scroll didn't reach the target (rAF suspended, or interrupted), land it.
+		jumpFallback = window.setTimeout(() => {
+			if (Math.abs(window.scrollY - target) > 4) window.scrollTo(0, target);
+		}, dur + 140);
+	}
+</script>
+
+<div class="docs" class:sidebar-open={sidebarOpen} style="--superbar-h: {superbarH}px">
+	<!-- Full-width superbar over all three columns: the wordmark at its left end, the breadcrumb
+	     trail beside it, and (on mobile) a plastic-key MENU that discloses the sidebar. It sticks
+	     to the top and blurs once the page scrolls under it. -->
+	<header class="docs-superbar" class:scrolled bind:this={superbarEl}>
+		<a class="docs-wordmark" href={viewPath({ kind: 'port', code: HUB })} onclick={(e) => nav(e, HUB)}
+			>KASHINOGA</a
+		>
+		{#if crumbs.length}
+			<span class="docs-brand-sep" aria-hidden="true"></span>
+			<nav class="docs-crumbs" aria-label="Breadcrumb">
+				{#each crumbs as c, i}{#if i > 0}<span class="docs-crumb-sep">/</span>{/if}{#if i < crumbs.length - 1}<a
+						class="docs-crumb"
+						href={viewPath({ kind: 'port', code: c })}
+						onclick={(e) => nav(e, c)}>{airports[c].title}</a
+					>{:else}<span class="docs-crumb" aria-current="page">{airports[c].title}</span>{/if}{/each}
+			</nav>
+		{/if}
+		{#if onEmojiPage && evBarGone}
+			<!-- Right of the breadcrumb: the Emoji page's search, revealed once the in-flow bar
+			     scrolls away. ONE control in two states (the CitySearch lesson): the width morphs
+			     on a single element, the input lives inside it the whole time, and the icon is the
+			     right-edge anchor the field grows away from — never a field swapped for a button. -->
+			<span class="docs-sb-search" transition:sbReveal>
+				<span class="docs-sb-ctl" class:open={sbSearchOpen} onfocusout={onSbFocusOut}>
+					<input
+						class="docs-sb-input"
+						type="search"
+						placeholder="SEARCH EMOJI"
+						autocomplete="off"
+						spellcheck="false"
+						aria-label="Search emoji by name"
+						tabindex={sbSearchOpen ? 0 : -1}
+						bind:this={sbInput}
+						bind:value={emojiSearch.query}
+						onkeydown={onSbSearchKey}
+					/>
+					<button
+						type="button"
+						class="docs-sb-ico-btn"
+						aria-expanded={sbSearchOpen}
+						aria-label={sbSearchOpen ? 'Close search' : 'Search emoji'}
+						title={sbSearchOpen ? 'Close' : 'Search emoji'}
+						onclick={() => (sbSearchOpen ? closeSbSearch() : openSbSearch())}
+						>{@html SEARCH_SVG}</button
+					>
+				</span>
+			</span>
+		{/if}
+		<button
+			type="button"
+			class="docs-menu"
+			aria-expanded={sidebarOpen}
+			aria-label={sidebarOpen ? 'Hide contents' : 'Show contents'}
+			onclick={() => (sidebarOpen = !sidebarOpen)}>{sidebarOpen ? 'CLOSE' : 'MENU'}</button
+		>
+	</header>
+
+	<div class="docs-cols">
+		<!-- Sticky sidebar: the numbered docs TOC (the wordmark now lives in the superbar). -->
+		<aside class="docs-sidebar" aria-label="Site contents">
+			<nav class="docs-toc">
+				<ol>
+					{#each sections as { code, kids }, i}
+						<li class="docs-sec">
+							<a
+								class="docs-sec-head"
+								class:active={activeCode === code || (code === HUB && activeCode === null)}
+								href={viewPath({ kind: 'port', code })}
+								onclick={(e) => nav(e, code)}
+								><span class="docs-num">{i + 1}.</span> {airports[code].title}</a
+							>
+							{#if kids.length}
+								<ul>
+									{#each kids as kid}
+										<li>
+											<a
+												class="docs-leaf"
+												class:active={activeCode === kid}
+												href={viewPath({ kind: 'port', code: kid })}
+												onclick={(e) => nav(e, kid)}
+											>
+												<span class="docs-bullet" aria-hidden="true"></span>{airports[kid].title}
+											</a>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</li>
+					{/each}
+				</ol>
+			</nav>
+		</aside>
+
+		<!-- Content column (grid col 2): the page body. The body owns its own container — a prose
+		     sheet, a bare self-sheeting reading (Densette), or a full-width figure. -->
+		<main class="docs-content" bind:this={contentEl}>
+			<div class="docs-body">
+				{#if !view}
+					<!-- Homepage under Pixelite: a documentation cover/index rather than the route map. -->
+					<div class="docs-cover">
+						<h1 class="docs-cover-title">Different, Together</h1>
+						<p class="docs-cover-lede">
+							A hand-built site and a small shelf of live apps. Pick a chapter from the contents.
+						</p>
+					</div>
+				{:else}
+					{@render body(view)}
+				{/if}
+			</div>
+		</main>
+
+		<!-- Right rail (grid col 3, desktop only): an on-this-page table of contents for the current
+		     view. Empty on pages with no sections; collapses away on mobile. -->
+		<nav class="docs-rail" aria-label="On this page">
+			<div class="docs-rail-scroll">
+				{#if toc.length}
+					<p class="docs-rail-head">On this page</p>
+					<ul class="docs-rail-list">
+						{#each toc as item}
+							<li class="docs-rail-item lvl-{item.level}">
+								<a
+									class="docs-rail-link"
+									class:active={activeId === item.id}
+									href={`#${item.id}`}
+									onclick={(e) => tocJump(e, item.id)}>{item.text}</a
+								>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
+		</nav>
+	</div>
+</div>
+
+<style>
+	/* The frame: a full-width superbar stacked over a three-column grid (TOC | content |
+	   on-this-page rail, after makingsoftware's 5-col grid). Both rails are desktop-only; the
+	   grid collapses to one content column on mobile (see the media block). */
+	.docs {
+		/* The content gutter, defined at the root so BOTH the body (its padding) and the
+		   rails (their vertical insets) share one measure — content ink and rail
+		   furniture start on the same line. Also consumed by full-bleed
+		   children (the Emoji Viewer's sticky search bar) to margin back out. */
+		--docs-pad: clamp(0.75rem, 2vw, 1.5rem);
+		display: flex;
+		flex-direction: column;
+		min-height: 100vh;
+		min-height: 100dvh;
+		background: var(--page);
+		color: var(--ink);
+	}
+	.docs-cols {
+		flex: 1;
+		display: grid;
+		grid-template-columns: clamp(240px, 22vw, 300px) minmax(0, 1fr) clamp(150px, 15vw, 230px);
+		min-height: 0;
+	}
+	/* ── Superbar ────────────────────────────────────────────────────────────── */
+	.docs-superbar {
+		position: sticky;
+		top: 0;
+		z-index: 20;
+		display: flex;
+		align-items: center;
+		gap: clamp(1rem, 3vw, 2rem);
+		/* Left inset matches the vertical rhythm so the wordmark sits square in the corner. */
+		padding: 0.7rem clamp(1rem, 3vw, 2rem) 0.7rem 0.7rem;
+		border-bottom: 1px solid var(--pixel-hairline);
+		background: color-mix(in srgb, var(--page) 100%, transparent);
+		transition:
+			background 0.2s ease,
+			backdrop-filter 0.2s ease;
+	}
+	/* Translucent + blurred once the page scrolls under it; a clean edge at the top. */
+	.docs-superbar.scrolled {
+		background: color-mix(in srgb, var(--page) 78%, transparent);
+		-webkit-backdrop-filter: blur(8px);
+		backdrop-filter: blur(8px);
+	}
+	/* The wordmark speaks in the body voice; the pixel accent stays with the numerals.
+	   (VT323 ran optically small at 1.4rem — the body face sits right at 1.15rem/600.) */
+	.docs-wordmark {
+		flex: none;
+		font-family: var(--font-body);
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		font-weight: 600;
+		font-size: 1.15rem;
+		line-height: 1;
+		color: var(--orange);
+		text-decoration: none;
+	}
+	/* ── Superbar search (Emoji page): ONE plastic key that morphs into a keyed field. ──
+	   The width animates on the single .docs-sb-ctl element — open and closed are the same
+	   box, so expanding and folding are one continuous motion (the CitySearch lesson). The
+	   icon sits at the RIGHT end, exactly where the closed key stands: it is the anchor the
+	   field grows leftward away from, and folds back into. Taller than the bar's text line,
+	   so negative block margins let it overhang instead of stretching the superbar (whose
+	   height feeds every sticky offset). */
+	.docs-sb-search {
+		flex: none;
+		display: flex;
+		align-items: center;
+		margin-block: -0.4rem;
+	}
+	.docs-sb-ctl {
+		display: flex;
+		align-items: center;
+		width: 1.9rem;
+		height: 1.9rem;
+		overflow: hidden;
+		background: var(--pixel-key-face, rgba(255, 255, 255, 0.5));
+		border: 1px solid var(--pixel-key-border, rgba(0, 0, 0, 0.5));
+		border-radius: 4px;
+		box-shadow: var(--pixel-bevel);
+		transition:
+			width 0.18s ease,
+			border-color 0.15s ease;
+	}
+	.docs-sb-ctl.open {
+		width: clamp(10rem, 24vw, 15rem);
+	}
+	.docs-sb-ctl.open:focus-within {
+		border-color: var(--orange);
+	}
+	/* The icon is the button in both states — open it, or fold it shut. It never moves. */
+	.docs-sb-ico-btn {
+		flex: none;
+		display: grid;
+		place-items: center;
+		width: calc(1.9rem - 2px);
+		height: 100%;
+		padding: 0;
+		color: var(--ink);
+		background: none;
+		border: 0;
+		cursor: pointer;
+	}
+	.docs-sb-ico-btn:hover {
+		color: var(--orange);
+	}
+	.docs-sb-ico-btn :global(svg) {
+		display: block;
+		width: 1rem;
+		height: 1rem;
+	}
+	/* The input is always mounted — width 0 and silent while closed, so the morph never
+	   swaps elements; it just uncovers what was already there. */
+	.docs-sb-input {
+		flex: 1 1 auto;
+		min-width: 0;
+		width: 0;
+		height: 100%;
+		padding: 0;
+		border: 0;
+		background: none;
+		font-family: var(--font-mono);
+		font-size: 0.78rem;
+		letter-spacing: 0.04em;
+		color: var(--ink);
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.15s ease;
+	}
+	.docs-sb-ctl.open .docs-sb-input {
+		padding: 0 0.15rem 0 0.6rem;
+		opacity: 1;
+		pointer-events: auto;
+	}
+	.docs-sb-input::placeholder {
+		color: var(--sub);
+		letter-spacing: 0.08em;
+	}
+	.docs-sb-input:focus-visible {
+		outline: none;
+	}
+	.docs-sb-input::-webkit-search-cancel-button {
+		display: none;
+	}
+	/* The control's reveal/retreat lives in the sbReveal Svelte transition (both directions). */
+	@media (prefers-reduced-motion: reduce) {
+		.docs-sb-ctl {
+			transition: none;
+		}
+	}
+	/* Hairline post between the wordmark and the breadcrumb trail. Its air matches the
+	   wordmark's 0.7rem frame (bar padding), overriding the bar's wider flex gap. */
+	.docs-brand-sep {
+		flex: none;
+		align-self: stretch;
+		width: 1px;
+		margin-inline: calc(0.7rem - clamp(1rem, 3vw, 2rem));
+		background: var(--pixel-hairline);
+	}
+	.docs-crumbs {
+		flex: 1;
+		min-width: 0;
+		font-family: var(--font-mono);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		font-size: 0.72rem;
+		color: color-mix(in srgb, var(--ink) 40%, transparent);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.docs-crumb:last-child {
+		color: var(--ink);
+	}
+	/* Ancestor crumbs navigate — quiet until hovered, then cobalt like every docs link. */
+	a.docs-crumb {
+		color: inherit;
+		text-decoration: none;
+	}
+	a.docs-crumb:hover,
+	a.docs-crumb:focus-visible {
+		color: var(--orange);
+	}
+	.docs-crumb-sep {
+		margin: 0 0.5rem;
+		font-family: var(--font-pixel);
+		font-size: 1.15em;
+		color: color-mix(in srgb, var(--ink) 30%, transparent);
+	}
+	/* The pixel accent for numerals — TOC section numbers, cover numbers. Bumped ~15% to match
+	   the optical size of the mono around it. */
+	.docs-num {
+		font-family: var(--font-pixel);
+		font-size: 1.15em;
+		letter-spacing: 0;
+	}
+	/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+	.docs-sidebar {
+		position: sticky;
+		top: var(--superbar-h);
+		align-self: start;
+		height: calc(100vh - var(--superbar-h));
+		height: calc(100dvh - var(--superbar-h));
+		overflow-y: auto;
+		box-sizing: border-box;
+		/* The same measure as the content gutter — the three columns share one rhythm. */
+		padding: var(--docs-pad);
+		border-right: 1px solid var(--pixel-hairline);
+	}
+	.docs-toc ol {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		counter-reset: none;
+	}
+	.docs-sec {
+		margin-bottom: 1.4rem;
+	}
+	/* The list mirrors the superbar's pairing: parents in the body voice (like the
+	   wordmark), children in mono (like the breadcrumbs). */
+	.docs-sec-head {
+		display: block;
+		font-family: var(--font-body);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		font-weight: 600;
+		font-size: 0.82rem;
+		color: var(--ink);
+		text-decoration: none;
+		margin-bottom: 0.5rem;
+	}
+	.docs-sec-head:hover,
+	.docs-sec-head.active {
+		color: var(--orange);
+	}
+	.docs-toc ul {
+		list-style: none;
+		margin: 0;
+		/* Leaves step clearly in from their numbered section head. */
+		padding: 0 0 0 1.1rem;
+	}
+	.docs-toc ul li {
+		margin: 0.15rem 0;
+	}
+	.docs-leaf {
+		display: flex;
+		align-items: baseline;
+		gap: 0.55rem;
+		font-family: var(--font-mono);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		font-size: 0.75rem;
+		line-height: 1.7;
+		color: color-mix(in srgb, var(--ink) 80%, transparent);
+		text-decoration: none;
+	}
+	.docs-bullet {
+		flex: none;
+		width: 4px;
+		height: 4px;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--ink) 40%, transparent);
+		transform: translateY(-0.2em);
+	}
+	.docs-leaf:hover,
+	.docs-leaf.active {
+		color: var(--orange);
+	}
+	.docs-leaf:hover .docs-bullet,
+	.docs-leaf.active .docs-bullet {
+		background: var(--orange);
+	}
+	/* ── Content column ──────────────────────────────────────────────────────── */
+	.docs-content {
+		position: relative;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	/* The content column's gutter. The page body renders its OWN container inside this — a bare
+	   .docs-prose column (block pages + Settings), a full-bleed self-chrome reading, or Densette's
+	   own paper — all defined with the body in +page.svelte. */
+	.docs-body {
+		/* The gutter itself — --docs-pad now lives on .docs so the rails share it. */
+		flex: 1;
+		padding: var(--docs-pad);
+	}
+	/* ── Homepage cover ──────────────────────────────────────────────────────── */
+	.docs-cover {
+		max-width: 65ch;
+		/* The content column already pads the top; only the bottom needs its own air. */
+		padding: 0 0 clamp(1rem, 4vw, 3rem);
+	}
+	/* Entrance — the cover settles top-to-bottom in the same cadence as the docs pages. */
+	@media (prefers-reduced-motion: no-preference) {
+		.docs-cover > * {
+			animation: docs-cover-settle 0.45s ease backwards;
+		}
+		.docs-cover > :nth-child(2) {
+			animation-delay: 0.06s;
+		}
+		.docs-cover > :nth-child(n + 3) {
+			animation-delay: 0.12s;
+		}
+	}
+	@keyframes docs-cover-settle {
+		from {
+			opacity: 0;
+			transform: translateY(-6px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+	.docs-cover-title {
+		font-family: var(--font-motto);
+		font-weight: 400;
+		font-size: clamp(2.4rem, 6vw, 3.6rem);
+		letter-spacing: -0.02em;
+		line-height: 1.05;
+		color: color-mix(in srgb, var(--ink) 88%, transparent);
+		margin: 0 0 1rem;
+	}
+	.docs-cover-lede {
+		font-family: var(--font-motto);
+		font-size: 1.2rem;
+		line-height: 1.6;
+		color: color-mix(in srgb, var(--ink) 70%, transparent);
+		margin: 0 0 2.5rem;
+	}
+	/* ── Right rail (grid col 3): the on-this-page TOC ── */
+	.docs-rail {
+		position: sticky;
+		top: var(--superbar-h);
+		align-self: start;
+		height: calc(100vh - var(--superbar-h));
+		height: calc(100dvh - var(--superbar-h));
+		box-sizing: border-box;
+		/* The same measure as the content gutter — the three columns share one rhythm. The
+		   rail itself never scrolls — the text strip inside owns the scrolling. */
+		padding: var(--docs-pad);
+		border-left: 1px solid var(--pixel-hairline);
+		overflow: hidden;
+	}
+	.docs-rail-scroll {
+		height: 100%;
+		min-width: 0;
+		overflow-y: auto;
+	}
+	/* Same pairing as the superbar and sidebar: head in the body voice, links in mono. */
+	.docs-rail-head {
+		margin: 0 0 0.9rem;
+		font-family: var(--font-body);
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.1em;
+		font-size: 0.68rem;
+		color: color-mix(in srgb, var(--ink) 40%, transparent);
+	}
+	.docs-rail-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.docs-rail-item {
+		margin: 0.1rem 0;
+	}
+	.docs-rail-item.lvl-3 {
+		padding-left: 0.85rem;
+	}
+	.docs-rail-link {
+		display: block;
+		font-family: var(--font-mono);
+		font-size: 0.7rem;
+		line-height: 1.4;
+		letter-spacing: 0.01em;
+		padding: 0.15rem 0;
+		color: color-mix(in srgb, var(--ink) 55%, transparent);
+		text-decoration: none;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.docs-rail-item.lvl-3 .docs-rail-link {
+		color: color-mix(in srgb, var(--ink) 42%, transparent);
+	}
+	/* The lvl-3 mute above is more specific than .active alone — repeat it here so
+	   sub-items light up cobalt exactly like their parents. */
+	.docs-rail-link:hover,
+	.docs-rail-link.active,
+	.docs-rail-item.lvl-3 .docs-rail-link:hover,
+	.docs-rail-item.lvl-3 .docs-rail-link.active {
+		color: var(--orange);
+	}
+	/* ── Mobile MENU key (superbar) ──────────────────────────────────────────── */
+	.docs-menu {
+		display: none;
+		flex: none;
+		font-family: var(--font-mono);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		font-size: 0.72rem;
+		font-weight: 700;
+		color: var(--ink);
+		background: var(--pixel-key-face);
+		border: 1px solid var(--pixel-key-border);
+		border-radius: 4px;
+		box-shadow: var(--pixel-bevel);
+		padding: 0.4rem 0.7rem;
+		cursor: pointer;
+	}
+	.docs-menu:active {
+		box-shadow: var(--pixel-bevel-press);
+	}
+
+	@media (max-width: 860px) {
+		.docs-cols {
+			grid-template-columns: 1fr;
+		}
+		/* The breadcrumb steps aside for the MENU key on a phone; the wordmark keeps the left end. */
+		.docs-crumbs {
+			display: none;
+		}
+		.docs-menu {
+			display: inline-flex;
+			align-items: center;
+		}
+		.docs-sidebar {
+			display: none;
+			position: static;
+			height: auto;
+			border-right: 0;
+			border-bottom: 1px solid var(--pixel-hairline);
+		}
+		.docs.sidebar-open .docs-sidebar {
+			display: block;
+		}
+		/* Both margins fold away — the content column takes the whole width. */
+		.docs-rail {
+			display: none;
+		}
+	}
+</style>

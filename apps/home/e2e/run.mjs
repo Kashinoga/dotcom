@@ -153,7 +153,7 @@ function changedFiles(ref) {
 	const root = git(['rev-parse', '--show-toplevel'])[0] ?? APP;
 	const puhig = (args) => git([...args, '--', 'packages/puhig'], root);
 	// A caller that already knows the file list (a pre-commit hook, CI) can pass it directly and
-	// skip git entirely: E2E_FILES="src/lib/network.ts,packages/puhig/src/themes/lab.css".
+	// skip git entirely: E2E_FILES="src/lib/network.ts,packages/puhig/src/themes/aeropalite.css".
 	const raw = process.env.E2E_FILES
 		? process.env.E2E_FILES.split(/[\s,]+/).filter(Boolean)
 		: ref

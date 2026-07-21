@@ -16,8 +16,10 @@
 	import { ranger, togglePaused } from '$lib/location-state.svelte';
 	import EmojiViewer from '$lib/EmojiViewer.svelte';
 	import EmojiSearch from '$lib/EmojiSearch.svelte';
+	import Densette from '$lib/Densette.svelte';
 	import { emojiSearch } from '$lib/emoji-search.svelte';
 	import StarMap from '$lib/StarMap.svelte';
+	import DocsShell from '$lib/DocsShell.svelte';
 	import CitySearch from '$lib/CitySearch.svelte';
 	import {
 		CLOUD_SVG,
@@ -38,6 +40,7 @@
 		GAVEL_SVG,
 		PLANET_SVG,
 		SMILE_SVG,
+		WAND_SVG,
 		MAXIMIZE_SVG,
 		MINIMIZE_SVG,
 		PLAY_SVG,
@@ -62,7 +65,7 @@
 	import faviconAita from '$lib/assets/favicon-aita.svg';
 	import faviconPud from '$lib/assets/favicon-pud.svg';
 	import faviconEmoji from '$lib/assets/favicon-emoji.svg';
-	import { airports, accent, portDescriptions, HUB } from '$lib/network';
+	import { airports, accent, portDescriptions, HUB, parentOf } from '$lib/network';
 	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
 	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
 	import { rangeToken, refreshToken, expandedToken } from '$lib/scope';
@@ -210,7 +213,12 @@
 			return;
 		}
 		skyPhase = skyMode === 'auto' ? currentPhase() : skyMode;
-		document.documentElement.dataset.sky = skyPhase;
+		// Pixelite renders no sky — and data-sky FORCES color-scheme in base.css, which let a
+		// night phase overrule Display Mode → Light with nothing on screen to justify it. The
+		// phase math still runs (darkScheme's Aeropalite branch reads it); only the stamp is
+		// withheld, so under Pixelite the display mode owns the scheme outright.
+		if (look === 'pixelite') document.documentElement.removeAttribute('data-sky');
+		else document.documentElement.dataset.sky = skyPhase;
 	}
 
 	// Bing's wallpaper archive. The metadata comes through our own route (the upstream sends no CORS
@@ -457,54 +465,55 @@
 		}
 	}
 
-	// Button style: 'bubble' (the default) gives every panel button a glossy, gel-like,
-	// pops-forward look borrowed from the presentation deck's controls; 'flat' opts out
-	// to minimal chrome. data-ui="bubble" on the html element drives the global button
-	// CSS (see the :global bubble block in the style section); app.html ships the
-	// attribute on <html> itself and its pre-paint script strips it for a saved 'flat',
-	// so there's no flash on load either way.
+	// The legacy button-style key. Button style is no longer a choice of its own — the
+	// theme owns it now (Aeropalite wears bubble, Pixelite its own plastic keys) — but the
+	// key stays named so Reset can still clear a value left behind by an older visit.
 	const UI_KEY = 'ksh-ui';
-	type UiStyle = 'flat' | 'bubble';
-	const uiOptions: { id: UiStyle; label: string; sub: string }[] = [
-		{ id: 'bubble', label: 'Bubble', sub: 'glossy & springy' },
-		{ id: 'flat', label: 'Flat', sub: 'clean & minimal' }
-	];
-	let uiStyle = $state<UiStyle>('bubble');
-	function setUiStyle(s: UiStyle) {
-		uiStyle = s;
-		if (typeof document !== 'undefined') {
-			if (s === 'bubble') document.documentElement.dataset.ui = s;
-			else document.documentElement.removeAttribute('data-ui');
-		}
-		try {
-			if (s === 'flat') localStorage.setItem(UI_KEY, s);
-			else localStorage.removeItem(UI_KEY);
-		} catch {
-			/* storage unavailable — keep the in-memory choice */
-		}
-	}
 
-	// Named theme (the whole visual identity): 'lab' is the default and carries no
-	// attribute; 'metro' opts back into the original transit-map look. data-look on
-	// <html> selects the token set (see @kashinoga/puhig themes/*.css); a pre-paint
-	// script in app.html applies the saved choice so there's no flash on load.
+	// Named theme (the whole visual identity, button style and all): 'aeropalite' is the
+	// default and carries no attribute; 'pixelite' opts into the print-manual look. data-look
+	// on <html> selects the token set (see @kashinoga/puhig themes/*.css); a pre-paint script
+	// in app.html applies the saved choice so there's no flash on load. Each theme also owns
+	// data-ui (Aeropalite keeps bubble, Pixelite drops it for its own keys), so the legacy
+	// standalone ksh-ui key is cleared on every switch.
 	const LOOK_KEY = 'ksh-look';
-	type Look = 'lab' | 'metro';
-	// Metro was retired as a choice — Lab is the site's look. The 'metro' branch of setLook and the
-	// metro token set stay put, so re-listing it here is all it would take to bring it back.
+	type Look = 'aeropalite' | 'pixelite';
+	// Pixelite is the DEFAULT, so it leads the picker and needs no stored key; Aeropalite is the
+	// opt-out that carries one.
 	const lookOptions: { id: Look; label: string; sub: string }[] = [
-		{ id: 'lab', label: 'Lab', sub: 'the new default' }
+		{ id: 'pixelite', label: 'Pixelite', sub: 'print & pixel — the default' },
+		{ id: 'aeropalite', label: 'Aeropalite', sub: 'glossy & springy' }
 	];
-	let look = $state<Look>('lab');
+	// Seeded from the attribute app.html already stamped pre-paint (guarded for SSR, where the
+	// document doesn't exist). Pixelite is the default, so it carries no key and is what the
+	// SERVER renders: a fresh or Pixelite visitor is 'pixelite' from the first client render, no
+	// flash. Only a saved 'aeropalite' opts out — app.html strips data-look for it, so the absence
+	// of data-look='pixelite' on the client means Aeropalite; that visitor takes the one-frame
+	// map-over-docs flash instead (SSR can't read localStorage). See the report's flash note.
+	let look = $state<Look>(
+		typeof document !== 'undefined' && document.documentElement.dataset.look !== 'pixelite'
+			? 'aeropalite'
+			: 'pixelite'
+	);
 	function setLook(l: Look) {
 		look = l;
 		if (typeof document !== 'undefined') {
-			if (l === 'metro') document.documentElement.dataset.look = l;
-			else document.documentElement.removeAttribute('data-look');
+			if (l === 'aeropalite') {
+				document.documentElement.removeAttribute('data-look');
+				document.documentElement.dataset.ui = 'bubble'; // Aeropalite is the bubble theme
+			} else {
+				document.documentElement.dataset.look = l;
+				document.documentElement.removeAttribute('data-ui'); // Pixelite wears no bubble
+			}
+			// The sky stamp is look-dependent (Pixelite withholds data-sky so the display mode
+			// keeps the scheme) — re-apply it so a theme switch lands on the right rules.
+			applySky();
 		}
 		try {
-			if (l === 'metro') localStorage.setItem(LOOK_KEY, l);
+			// The default (Pixelite) needs no key; only the opt-out (Aeropalite) stores one.
+			if (l === 'aeropalite') localStorage.setItem(LOOK_KEY, l);
 			else localStorage.removeItem(LOOK_KEY);
+			localStorage.removeItem(UI_KEY); // button style is the theme's now, not a saved key
 		} catch {
 			/* storage unavailable — keep the in-memory choice */
 		}
@@ -535,19 +544,14 @@
 	// Compared against what's on screen, not against what's stored: an explicit pick of
 	// the default value reads as "already default", which is what the button implies.
 	const settingsAreDefault = $derived(
-		theme === 'system' &&
-			uiStyle === 'bubble' &&
-			look === 'lab' &&
-			skyMode === 'auto' &&
-			starsOn
+		theme === 'system' && look === 'pixelite' && skyMode === 'auto' && starsOn
 	);
 
 	function resetSettings() {
 		skyMode = 'auto';
 		starsOn = true;
 		setTheme('system'); // also strips data-theme and its key
-		setUiStyle('bubble'); // also restores data-ui and drops the key
-		setLook('lab'); // also strips data-look and its key
+		setLook('pixelite'); // the default: stamps data-look, drops data-ui and both keys
 		applySky();
 		// Forget the stored picks rather than saving the defaults over them, so a reset
 		// leaves exactly the state a first-ever visitor has.
@@ -589,11 +593,12 @@
 		}));
 	let SHOOT = $state<ReturnType<typeof makeShooting>>([]);
 	// Which colour scheme is actually in use — the same decision base.css makes with `color-scheme`,
-	// mirrored here so the DOM can follow it. An opted-into sky wins over the display mode (dusk and
-	// night are the dark phases); otherwise it's the display mode, with 'system' asking the OS.
+	// mirrored here so the DOM can follow it. Under Aeropalite an opted-into sky wins over the
+	// display mode (dusk and night are the dark phases); under Pixelite there IS no sky on screen,
+	// so the display mode always rules, with 'system' asking the OS.
 	let osDark = $state(false);
 	const darkScheme = $derived(
-		skyMode !== 'off' && skyMode !== 'photo'
+		look !== 'pixelite' && skyMode !== 'off' && skyMode !== 'photo'
 			? skyPhase === 'dusk' || skyPhase === 'night'
 			: theme === 'dark' || (theme === 'system' && osDark)
 	);
@@ -634,15 +639,10 @@
 					? 'Photo — Bing’s wallpaper of the day. The display mode above still sets the palette.'
 					: `Fixed to ${skyMode}.`
 	);
-	const uiStatus = $derived(
-		uiStyle === 'bubble'
-			? 'Bubble (the default) — glossy, airy buttons that pop forward across the site.'
-			: 'Flat — minimal buttons, no gloss.'
-	);
 	const lookStatus = $derived(
-		look === 'metro'
-			? 'Metro — the original transit-map identity.'
-			: 'Lab — the new default look.'
+		look === 'pixelite'
+			? 'Pixelite (the default) — print-manual paper, pixel type, cobalt ink.'
+			: 'Aeropalite — glass, gloss, and springy bubble buttons.'
 	);
 	const starsStatus = $derived(
 		starsOn ? 'A field of twinkling stars and a few shooting stars, in dark mode.' : 'Stars off.'
@@ -663,13 +663,14 @@
 
 	// ─── Page content per destination ───────────────────────────────────────────
 	// A block list rendered into the content surface. Swap the placeholder copy for
-	// real writing; add { h }, { p }, { img }, { quote } blocks freely.
+	// real writing; add { h }, { p }, { img }, { quote }, { code } blocks freely.
 	type Block =
 		| { h: string }
 		| { sub: string }
 		| { p: string }
 		| { img: string }
 		| { quote: string }
+		| { code: string }
 		| { email: string };
 	// reicon "mailbox", tucked at the end of the contact address.
 	const MAILBOX_SVG =
@@ -728,7 +729,21 @@
 	// build their own header (see the branch above), so there's no shared bar here to move a
 	// bullet in. Moving them over means editing those components, not this list. KSH never
 	// reaches this branch either — Home is the map, not a panel.
-	const NEW_HEADER = ['APP', 'EMOJ', 'ABT', 'WRK', 'PRJ', 'STG', 'WTHR', 'AITA', 'PUD'];
+	const NEW_HEADER = ['APP', 'EMOJ', 'ABT', 'WRK', 'PRJ', 'STG', 'WTHR', 'AITA', 'PUD', 'DENS'];
+	// Pixelite docs mode (see pixeliteBody): the self-chrome readings that title and lay themselves
+	// out, so they render FULL-BLEED on the gutter — no docs chapter head, no measure wrapper.
+	// Everything else (the block pages + Settings) gets the bare prose treatment: a chapter head
+	// over a readable measure.
+	const DOCS_BLEED = ['WTHR', 'AITA', 'EMOJ'];
+	// The self-chrome full-viewport apps: the board, the Builder, the Star Map, and the Park Ranger.
+	// They own their whole interior and are always full-viewport (force-expanded), so in EITHER theme
+	// they render through the stage's existing full-viewport path — never inside the docs shell. Under
+	// Pixelite their interior chrome is restyled in-component via :global(html[data-look='pixelite'])
+	// branches (bars/buttons/labels only — PUD's stage choreography and scenes are left untouched).
+	const FULL_APPS = ['ATFC', 'PRES', 'STAR', 'PUD'];
+	// Pixelite's one accent — cobalt-600. Passed to the full apps in place of their orange station
+	// accent so their internal dots/highlights read cobalt, matching the manual's ink-and-cobalt.
+	const PIXEL_INK = '#103dff';
 	// …and the panels whose bar is DENSE: one row, the title in it beside the badge, the
 	// header's generous inset traded for the Traffic board's bar inset. A full-viewport app
 	// wants its vertical space for content, and a wordmark that scrolls away is a luxury a
@@ -738,7 +753,7 @@
 	// The apps the Apps panel shows as CARDS in its body.
 	// Alphabetical by TITLE: the cards' order is presentation, not hierarchy, so a new
 	// app files itself in rather than landing wherever it was added.
-	const APP_CARDS = ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA', 'PUD', 'EMOJ'].sort((a, b) =>
+	const APP_CARDS = ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA', 'PUD', 'EMOJ', 'DENS'].sort((a, b) =>
 		airports[a].title.localeCompare(airports[b].title)
 	);
 	const APP_ICONS: Record<string, string> = {
@@ -748,7 +763,8 @@
 		STAR: STARS_SVG,
 		AITA: GAVEL_SVG,
 		PUD: PLANET_SVG,
-		EMOJ: SMILE_SVG
+		EMOJ: SMILE_SVG,
+		DENS: WAND_SVG
 	};
 	// A mark per destination, worn by its chip in the Related rail. It replaced a plain accent dot:
 	// the dot named the LINE a stop sits on and nothing about the stop itself. The mark says what the
@@ -766,7 +782,7 @@
 	// chip rail this replaced is gone everywhere: each panel ends on its own content, and
 	// Back/Home already lead out.) Apps deals its live apps; About fans out to its two
 	// branches.
-	const PANEL_CARDS: Record<string, string[]> = { APP: APP_CARDS, ABT: ['WRK', 'PRJ'] };
+	const PANEL_CARDS: Record<string, string[]> = { APP: APP_CARDS, ABT: ['PRJ', 'WRK'] };
 
 	// Where to cut the card list into the two desktop columns (see .app-cols). The cut is
 	// CONTIGUOUS — column one takes a prefix, column two the rest — so that when the columns
@@ -812,7 +828,7 @@
 	let toast = $state('');
 	let toastTimer = 0;
 	// Which block fields are editable text, per the block's shape.
-	const EDIT_FIELDS = ['h', 'sub', 'p', 'quote', 'email'] as const;
+	const EDIT_FIELDS = ['h', 'sub', 'p', 'quote', 'code', 'email'] as const;
 	type EditField = (typeof EDIT_FIELDS)[number];
 	// Non-reactive staging: `${code}.${index}.${field}` → edited text.
 	let drafts: Record<string, string> = {};
@@ -930,9 +946,7 @@
 		starsLead: 'Starry Night',
 		starsNote: '',
 		resetLead: 'Start Over',
-		uiLead: 'Button Style',
-		uiNote: '',
-		lookLead: 'Base Theme',
+		lookLead: 'Theme',
 		lookNote: '',
 		// Air Traffic board intro copy. `atfcLead` uses a `{}` token for the live range
 		// (NM); the demo variant has none. Edited via Edit Mode inside the board itself.
@@ -1405,9 +1419,6 @@
 	const urlRefresh = $derived(
 		page.state.refresh !== undefined ? page.state.refresh : data.refresh
 	);
-	const urlExpanded = $derived(
-		page.state.expanded !== undefined ? page.state.expanded : data.expanded
-	);
 
 	// The Traffic board's three controls, mirrored into the query. Seeded from the URL; see
 	// the note on `view` above for why reading `data` once is right. `null` means "the
@@ -1492,14 +1503,13 @@
 		view = nv;
 		// A fresh open starts the board on its defaults — the previous visit's `?field=` and
 		// friends belong to the history entry we left, not to this new one. On a history-driven
-		// open (`push` false) the reconciler has already set them. The board's SIZE is the
-		// exception: ATFC opens at the remembered toggle (see below), and the URL must say so
-		// from the first push or the address bar would name a compact board over a full one.
+		// open (`push` false) the reconciler has already set them. ATFC is always full now, so its
+		// URL names the expanded board from the first push (it no longer has a compact form to name).
 		if (push) {
 			field = null;
 			range = null;
 			refresh = null;
-			syncUrl(nv, nv.code === 'ATFC' ? { ...NO_PARAMS, expanded: panelExpanded } : NO_PARAMS);
+			syncUrl(nv, nv.code === 'ATFC' ? { ...NO_PARAMS, expanded: true } : NO_PARAMS);
 		}
 		// Only the Air Traffic board, the Star Map, the Presentation Builder, the Court and
 		// the Park Ranger are designed to fill the viewport. PRES, STAR and PUD force the
@@ -1512,8 +1522,17 @@
 		// glance at: the ancestor build it's drawing from (~/Downloads/Git/pud-idle) carries an
 		// inventory, equipment, skills and an activity log, and none of that fits a 640px
 		// column beside the map.
-		if (nv.code === 'PRES' || nv.code === 'STAR' || nv.code === 'PUD') panelExpanded = true;
-		else if (nv.code !== 'ATFC' && nv.code !== 'AITA') panelExpanded = false;
+		// ATFC now joins the force-expand set: the board dropped its compact/panel shape, so the
+		// full-viewport app is its only form in both themes. AITA is the last panel that keeps
+		// whatever the user last toggled; everything else is compact-only.
+		if (
+			nv.code === 'PRES' ||
+			nv.code === 'STAR' ||
+			nv.code === 'PUD' ||
+			nv.code === 'ATFC'
+		)
+			panelExpanded = true;
+		else if (nv.code !== 'AITA') panelExpanded = false;
 	}
 	// Reuse the open panel across destinations: slide the whole panel out, swap its
 	// content off-screen, then slide it back in. A fresh open (no panel yet) or
@@ -1610,6 +1629,9 @@
 	// The open station's code (or null) — drives the masthead nav's active highlight. A plain
 	// string so <Masthead> stays free of the View union.
 	const activeCode = $derived(view?.code ?? null);
+	// Is the open view a self-chrome full-viewport app? When true, the stage renders it (its own
+	// full-viewport path) in BOTH themes, and the Pixelite docs shell steps aside for it.
+	const stageFullApp = $derived(!!view && FULL_APPS.includes(view.code));
 
 	let wasMobile = false;
 	function onResize() {
@@ -1632,7 +1654,8 @@
 		// wins over the remembered toggle — a shared link must open the same for everyone.
 		// Everywhere else the remembered toggle seeds as before (and only ATFC reads it:
 		// applyView forces PRES/STAR/PUD full and every other panel compact).
-		if (data.view?.kind === 'port' && data.view.code === 'ATFC') panelExpanded = data.expanded;
+		// ATFC is always full now; a deep-linked board opens expanded regardless of any ?expanded.
+		if (data.view?.kind === 'port' && data.view.code === 'ATFC') panelExpanded = true;
 		else if (localStorage.getItem(EXPAND_KEY) === '1') panelExpanded = true;
 		const sky = localStorage.getItem(SKY_KEY);
 		if (sky && SKY_MODES.includes(sky as SkyMode)) skyMode = sky as SkyMode; // else default 'auto'
@@ -1650,8 +1673,11 @@
 		const swx = localStorage.getItem(STAGE_WX_KEY);
 		if (swx && ['storm', 'snow', 'rain', 'fog', 'cloudy', 'clear'].includes(swx))
 			stageWx = swx as WeatherKind;
-		if (localStorage.getItem(UI_KEY) === 'flat') setUiStyle('flat'); // else default bubble
-		if (localStorage.getItem(LOOK_KEY) === 'metro') setLook('metro'); // else default lab
+		// Aeropalite is the only saved look now (Pixelite is the default and carries no key); a
+		// saved 'aeropalite' opts out, anything else (absent, legacy 'metro', stale ksh-ui) resolves
+		// to the Pixelite default — matching app.html's pre-paint. setLook reconciles keys/attrs.
+		if (localStorage.getItem(LOOK_KEY) === 'aeropalite') setLook('aeropalite');
+		else setLook('pixelite');
 		// While on Auto, keep the phase current if the tab is left open across a boundary.
 		skyTimer = window.setInterval(() => skyMode === 'auto' && applySky(), 5 * 60 * 1000);
 		if (dev) applySavedContent();
@@ -1673,10 +1699,8 @@
 		const nextField = urlField;
 		const nextRange = urlRange;
 		const nextRefresh = urlRefresh;
-		const nextExpanded = urlExpanded;
-		// The board's size follows history like its other controls — but only when the
-		// entry is the board's; other panels' entries carry expanded:false, which must
-		// not collapse a full PRES/STAR or re-run their forcing in applyView.
+		// A board entry always expands now (ATFC dropped its compact shape); it never follows a
+		// ?expanded param back to compact, and other panels' entries don't touch panelExpanded here.
 		const boardEntry = nextView?.kind === 'port' && nextView.code === 'ATFC';
 		untrack(() => {
 			if (sameView(nextView, view)) {
@@ -1688,7 +1712,9 @@
 				if (nextField !== field) field = nextField;
 				if (nextRange !== range) range = nextRange;
 				if (nextRefresh !== refresh) refresh = nextRefresh;
-				if (boardEntry && nextExpanded !== panelExpanded) panelExpanded = nextExpanded;
+				// ATFC is always full now, so a board entry always expands — a param-less URL (no
+				// ?expanded) must not collapse it back to the retired compact shape.
+				if (boardEntry && !panelExpanded) panelExpanded = true;
 				return;
 			}
 			// Set the controls before the panel swaps: the board reads them as props when the
@@ -1696,7 +1722,7 @@
 			field = nextField;
 			range = nextRange;
 			refresh = nextRefresh;
-			if (boardEntry) panelExpanded = nextExpanded;
+			if (boardEntry) panelExpanded = true; // ATFC is always full now
 			// History moved without us — a Back or Forward. Keep the count of our own entries
 			// honest, or Back would keep stepping past the site's own first page.
 			if (ownPushes > 0) ownPushes--;
@@ -1811,6 +1837,8 @@
 				<p>{b.p}</p>
 			{:else if 'quote' in b}
 				<blockquote>{b.quote}</blockquote>
+			{:else if 'code' in b}
+				<pre><code>{b.code}</code></pre>
 			{:else if 'email' in b}
 				<p>
 					<a class="mail" href="mailto:{b.email}">
@@ -1825,8 +1853,339 @@
 	</div>
 {/snippet}
 
+{#snippet appBody(v: View)}
+	{@const port = airports[v.code]}
+	{@const blocks = pages[v.code] ?? stub(port.title)}
+						{#if v.code === 'WTHR'}
+							<!-- Weather lives INSIDE the ordinary panel — it's a reading, not a workspace, so
+							     it doesn't take over the viewport the way the board and the Builder do.
+							     Under Pixelite (docs) it grows a pixel sky window beside the reading to fill
+							     the wide column; Aeropalite passes docs=false and keeps its arrangement. -->
+							<Weather docs={look === 'pixelite'} />
+						{:else if v.code === 'AITA'}
+							<!-- The Court of Public Opinion makes the same bargain as Weather: a reading
+							     inside the ordinary panel, its chrome the panel's own. -->
+							<Aita />
+						{:else if v.code === 'PUD'}
+							<!-- Intergalactic Park Ranger makes it too: the game lives in the ordinary panel — a clicker
+							     is a thing you visit, not a workspace that takes the viewport. -->
+							<PudIdle settingsOpen={pudSettings} onCloseSettings={() => (pudSettings = false)} />
+						{:else if v.code === 'EMOJ'}
+							<!-- The Emoji Viewer: a wall of the system's own emojis to browse and copy.
+							     Its big title is the shared one above, at the top of the scroll body.
+							     Under Pixelite docs mode (docs), the viewer grows its own sticky search
+							     bar (the header EmojiSearch disc isn't rendered on the docs path); under
+							     Aeropalite that disc stays, so docs is false and no bar is added. -->
+							<EmojiViewer docs={look === 'pixelite'} />
+						{:else if v.code === 'DENS'}
+							<!-- Densette: The Curriculum, an in-universe RPG manual. A reading like Weather
+							     and the Court, but printed — it renders as a Pixelite technical manual under
+							     any theme, and comes home when the look is set to Pixelite. -->
+							<Densette />
+						{:else if v.code === 'STG'}
+							{@const editStg = dev && editMode}
+							<div class="stg-group">
+							<p
+								class="seg-lead"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('displayLead', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{settingsText('displayLead')}</p>
+							<div class="segmented three" role="radiogroup" aria-label="Display mode">
+								{#each themeModes as m}
+									<button
+										type="button"
+										class="seg"
+										class:on={theme === m.id}
+										role="radio"
+										aria-checked={theme === m.id}
+										onclick={() => setTheme(m.id)}
+									>
+										<span class="seg-icon">{@html m.svg}</span>
+										<span class="seg-title">{m.label}</span>
+									</button>
+								{/each}
+							</div>
+							<p
+								class="seg-note"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('displayNote', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{noteText('displayNote', displayValue, editStg)}</p>
+							</div>
+							<div class="stg-group">
+							<p
+								class="seg-lead"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('lookLead', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{settingsText('lookLead')}</p>
+							<div class="segmented" role="radiogroup" aria-label="Theme">
+								{#each lookOptions as o}
+									<button
+										type="button"
+										class="seg"
+										class:on={look === o.id}
+										role="radio"
+										aria-checked={look === o.id}
+										onclick={() => setLook(o.id)}
+									>
+										<span class="seg-title">{o.label}</span>
+										<span class="seg-sub">{o.sub}</span>
+									</button>
+								{/each}
+							</div>
+							<p
+								class="seg-note"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('lookNote', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{noteText('lookNote', lookStatus, editStg)}</p>
+							</div>
+							<div class="stg-group">
+							<p
+								class="seg-lead"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('skyLead', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{settingsText('skyLead')}</p>
+							<div class="sky-picker" role="radiogroup" aria-label="Sky background">
+								{#each skyOptions as o}
+									<button
+										type="button"
+										class="sky-opt"
+										class:on={skyMode === o.id}
+										role="radio"
+										aria-checked={skyMode === o.id}
+										onclick={() => setSkyMode(o.id)}
+									>
+										{o.label}
+									</button>
+								{/each}
+							</div>
+							<p
+								class="seg-note"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('skyNote', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{noteText('skyNote', skyStatus, editStg)}</p>
+							</div>
+							<div class="stg-group">
+							<p
+								class="seg-lead"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('starsLead', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{settingsText('starsLead')}</p>
+							<div class="sky-picker" role="radiogroup" aria-label="Stars">
+								<button
+									type="button"
+									class="sky-opt"
+									class:on={!starsOn}
+									role="radio"
+									aria-checked={!starsOn}
+									onclick={() => setStars(false)}
+								>
+									Off
+								</button>
+								<button
+									type="button"
+									class="sky-opt"
+									class:on={starsOn}
+									role="radio"
+									aria-checked={starsOn}
+									onclick={() => setStars(true)}
+								>
+									On
+								</button>
+							</div>
+							<p
+								class="seg-note"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('starsNote', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{noteText('starsNote', starsStatus, editStg)}</p>
+							</div>
+							<div class="stg-group">
+							<p
+								class="seg-lead"
+								class:editable={editStg}
+								contenteditable={editStg}
+								oninput={editStg
+									? (e) => stageSettings('resetLead', e.currentTarget.textContent ?? '')
+									: undefined}
+							>{settingsText('resetLead')}</p>
+							<div class="reset-row">
+								<button
+									type="button"
+									class="edit-enter ghost"
+									onclick={resetSettings}
+									disabled={settingsAreDefault}
+								>
+									Reset to Defaults
+								</button>
+							</div>
+							<!-- Not editable copy: it states what the button does, and it swaps on state. -->
+							<p class="seg-note">
+								{settingsAreDefault
+									? 'No changes have been made.'
+									: 'Revert all changes.'}
+							</p>
+							</div>
+							{#if dev}
+								<div class="stg-group">
+								<p class="seg-lead">Other</p>
+								<div class="dev-actions">
+									<button
+										type="button"
+										class="edit-enter"
+										onclick={enterEditMode}
+										disabled={editMode}
+									>
+										{editMode ? 'Editing…' : 'Enter Edit Mode'}
+									</button>
+									<button type="button" class="edit-enter ghost" onclick={clearLocalStorage}>
+										Clear Saved Settings
+									</button>
+								</div>
+								</div>
+							{/if}
+						{:else}
+						{@const edit = dev && editMode && !!pages[v.code]}
+						{#each blocks as b, i}
+							{#if 'h' in b}
+								<h3
+									class:editable={edit}
+									contenteditable={edit}
+									oninput={edit
+										? (e) => stageEdit(v.code, i, 'h', e.currentTarget.textContent ?? '')
+										: undefined}
+								>{fieldText(v.code, i, 'h', b.h)}</h3>
+							{:else if 'sub' in b}
+								<h4
+									class:editable={edit}
+									contenteditable={edit}
+									oninput={edit
+										? (e) => stageEdit(v.code, i, 'sub', e.currentTarget.textContent ?? '')
+										: undefined}
+								>{fieldText(v.code, i, 'sub', b.sub)}</h4>
+							{:else if 'quote' in b}
+								<blockquote
+									class:editable={edit}
+									contenteditable={edit}
+									oninput={edit
+										? (e) => stageEdit(v.code, i, 'quote', e.currentTarget.textContent ?? '')
+										: undefined}
+								>{fieldText(v.code, i, 'quote', b.quote)}</blockquote>
+							{:else if 'code' in b}
+								<pre
+									class:editable={edit}
+									contenteditable={edit}
+									oninput={edit
+										? (e) => stageEdit(v.code, i, 'code', e.currentTarget.textContent ?? '')
+										: undefined}><code>{fieldText(v.code, i, 'code', b.code)}</code></pre>
+							{:else if 'img' in b}
+								<figure class="img">
+									<div class="img-ph" style:--tint={accent[v.code]}><span>image</span></div>
+									<figcaption>{b.img}</figcaption>
+								</figure>
+							{:else if 'email' in b}
+								<p>
+									Say hello:
+									{#if edit}
+										<span
+											class="editable mail-edit"
+											contenteditable="true"
+											oninput={(e) =>
+												stageEdit(v.code, i, 'email', e.currentTarget.textContent ?? '')}
+										>{fieldText(v.code, i, 'email', b.email)}</span>
+									{:else}
+										<a class="mail" href="mailto:{b.email}">
+											{b.email}<span class="mail-ico">{@html MAILBOX_SVG}</span>
+										</a>
+									{/if}
+								</p>
+							{:else if 'p' in b}
+								<p
+									class:editable={edit}
+									contenteditable={edit}
+									oninput={edit
+										? (e) => stageEdit(v.code, i, 'p', e.currentTarget.textContent ?? '')
+										: undefined}
+								>{fieldText(v.code, i, 'p', b.p)}</p>
+							{/if}
+						{/each}
+						{/if}
+
+						<!-- Onward destinations as cards in the body — each its own icon, name and
+						     blurb: the Apps panel's live apps, About's two branches (see PANEL_CARDS).
+						     They're the panel's real content, not a rail under it. -->
+						{#if PANEL_CARDS[v.code]}
+							{@render appCards(PANEL_CARDS[v.code])}
+						{/if}
+{/snippet}
+
+{#snippet pixeliteBody(v: View)}
+	{#if v.code === 'DENS'}
+		<!-- Densette draws its own paper (gutter + sheets), so it renders bare — no wrapper. -->
+		<Densette />
+	{:else if DOCS_BLEED.includes(v.code)}
+		<!-- Self-chrome readings — Weather, the Court, the Emoji wall — sit FULL-BLEED on the
+		     content gutter at the whole column width: no sheet, no frame. They still open on the
+		     serif chapter title (like Work's "Work"), keyed so navigation replays the entrance. -->
+		{#key v.code}
+			<header class="docs-page-head docs-bleed-head">
+				<h1 class="docs-page-title">{airports[v.code].title}</h1>
+			</header>
+			{@render appBody(v)}
+		{/key}
+	{:else}
+		<!-- Prose + Settings: bare on the gutter (no sheet/shadow box), a docs chapter head — mono
+		     running-head over a serif title — above the body, held to a readable measure.
+		     Keyed so page-to-page navigation remounts the column and replays the entrance. -->
+		{#key v.code}
+			<div class="docs-prose">
+				<header class="docs-page-head">
+					<h1 class="docs-page-title">{airports[v.code].title}</h1>
+				</header>
+				{@render appBody(v)}
+			</div>
+		{/key}
+	{/if}
+{/snippet}
+
+{#if look === 'pixelite' && !stageFullApp}
+	<!-- Docs world and stage crossfade when a full app opens or closes under Pixelite —
+	     the stage sits fixed above the flow, so its fade dissolves onto the docs page. -->
+	<div transition:fade={{ duration: 200 }}>
+		<DocsShell {view} {activeCode} onNavigate={(code) => (code === HUB ? home() : board(code))} body={pixeliteBody} />
+	</div>
+{/if}
+{#if look !== 'pixelite' || stageFullApp}
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="stage" class:photo={photoSky} onclick={onStageClick}>
+<!-- Under Aeropalite the stage never unmounts, so the zero duration keeps it inert there. -->
+<div
+	class="stage"
+	class:photo={photoSky}
+	onclick={onStageClick}
+	transition:fade={{ duration: look === 'pixelite' ? 200 : 0 }}
+>
 	{#if photoSky && photo}
 		<!-- Bing's photo of the day. Two layers, not one: the picture, and a veil over it. The panels
 		     are opaque so they're fine, but the masthead and nav sit straight on the sky — over a
@@ -2156,15 +2515,19 @@
 						     controls + a live summary fill the header beside the title. It gets the
 						     panel chrome it can't reach from a child: title, code, back, expanded.
 						     (No Connections snippet: the Related rail is gone site-wide — onward
-						     destinations are body cards now, see PANEL_CARDS.) -->
+						     destinations are body cards now, see PANEL_CARDS.)
+						     It's always full-viewport — force-expanded on open (applyView) — so it is
+						     handed NO onToggleExpand: the collapse toggle would peel back to a compact
+						     shape the board no longer has. Without the callback, TrafficBoard's two
+						     {#if onToggleExpand} collapse buttons (the deck super bar's and the compact
+						     header's) simply don't render, in either theme. -->
 						<TrafficBoard
-							accent={accent[v.code]}
+							accent={look === 'pixelite' ? PIXEL_INK : accent[v.code]}
 							code={v.code}
 							title={port.title}
 							expanded={panelExpanded}
 							onback={goBack}
 							onhome={() => home()}
-							onToggleExpand={toggleExpand}
 							edit={dev && editMode}
 							copyText={settingsText}
 							onCopyEdit={stageSettings}
@@ -2179,14 +2542,14 @@
 						<!-- The Presentation Builder owns its whole panel interior (its own toolbar +
 						     three-column editor), like the Traffic board. It's always full-viewport —
 						     forced expanded on open (applyView), with no collapse toggle. -->
-						<PresentationBuilder accent={accent[v.code]} title={port.title} onback={goBack} />
+						<PresentationBuilder accent={look === 'pixelite' ? PIXEL_INK : accent[v.code]} title={port.title} onback={goBack} />
 					{:else if v.code === 'STAR'}
 						<!-- The Star Map owns its interior the same way, and — like the Builder —
 						     it's always full-viewport: forced expanded on open (applyView), with no
 						     collapse toggle. Its header is the board's super bar, with the location
 						     control and a sky summary riding beside the title. -->
 						<StarMap
-							accent={accent[v.code]}
+							accent={look === 'pixelite' ? PIXEL_INK : accent[v.code]}
 							title={port.title}
 							onback={goBack}
 							onhome={() => home()}
@@ -2382,305 +2745,7 @@
 							     header to the scroller. Bound so its own height is the handover threshold. -->
 							<h2 class="dest body-title" bind:this={bodyTitleEl} style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
 						{/if}
-						{#if v.code === 'WTHR'}
-							<!-- Weather lives INSIDE the ordinary panel — it's a reading, not a workspace, so
-							     it doesn't take over the viewport the way the board and the Builder do. -->
-							<Weather />
-						{:else if v.code === 'AITA'}
-							<!-- The Court of Public Opinion makes the same bargain as Weather: a reading
-							     inside the ordinary panel, its chrome the panel's own. -->
-							<Aita />
-						{:else if v.code === 'PUD'}
-							<!-- Intergalactic Park Ranger makes it too: the game lives in the ordinary panel — a clicker
-							     is a thing you visit, not a workspace that takes the viewport. -->
-							<PudIdle settingsOpen={pudSettings} onCloseSettings={() => (pudSettings = false)} />
-						{:else if v.code === 'EMOJ'}
-							<!-- The Emoji Viewer: a wall of the system's own emojis to browse and copy.
-							     Its big title is the shared one above, at the top of the scroll body. -->
-							<EmojiViewer />
-						{:else if v.code === 'STG'}
-							{@const editStg = dev && editMode}
-							<div class="stg-group">
-							<p
-								class="seg-lead"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('displayLead', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{settingsText('displayLead')}</p>
-							<div class="segmented three" role="radiogroup" aria-label="Display mode">
-								{#each themeModes as m}
-									<button
-										type="button"
-										class="seg"
-										class:on={theme === m.id}
-										role="radio"
-										aria-checked={theme === m.id}
-										onclick={() => setTheme(m.id)}
-									>
-										<span class="seg-icon">{@html m.svg}</span>
-										<span class="seg-title">{m.label}</span>
-									</button>
-								{/each}
-							</div>
-							<p
-								class="seg-note"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('displayNote', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{noteText('displayNote', displayValue, editStg)}</p>
-							</div>
-							<div class="stg-group">
-							<p
-								class="seg-lead"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('lookLead', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{settingsText('lookLead')}</p>
-							<div class="segmented" role="radiogroup" aria-label="Site look">
-								{#each lookOptions as o}
-									<button
-										type="button"
-										class="seg"
-										class:on={look === o.id}
-										role="radio"
-										aria-checked={look === o.id}
-										onclick={() => setLook(o.id)}
-									>
-										<span class="seg-title">{o.label}</span>
-										<span class="seg-sub">{o.sub}</span>
-									</button>
-								{/each}
-							</div>
-							<p
-								class="seg-note"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('lookNote', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{noteText('lookNote', lookStatus, editStg)}</p>
-							</div>
-							<div class="stg-group">
-							<p
-								class="seg-lead"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('uiLead', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{settingsText('uiLead')}</p>
-							<div class="segmented" role="radiogroup" aria-label="Button style">
-								{#each uiOptions as o}
-									<button
-										type="button"
-										class="seg"
-										class:on={uiStyle === o.id}
-										role="radio"
-										aria-checked={uiStyle === o.id}
-										onclick={() => setUiStyle(o.id)}
-									>
-										<span class="seg-title">{o.label}</span>
-										<span class="seg-sub">{o.sub}</span>
-									</button>
-								{/each}
-							</div>
-							<p
-								class="seg-note"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('uiNote', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{noteText('uiNote', uiStatus, editStg)}</p>
-							</div>
-							<div class="stg-group">
-							<p
-								class="seg-lead"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('skyLead', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{settingsText('skyLead')}</p>
-							<div class="sky-picker" role="radiogroup" aria-label="Sky background">
-								{#each skyOptions as o}
-									<button
-										type="button"
-										class="sky-opt"
-										class:on={skyMode === o.id}
-										role="radio"
-										aria-checked={skyMode === o.id}
-										onclick={() => setSkyMode(o.id)}
-									>
-										{o.label}
-									</button>
-								{/each}
-							</div>
-							<p
-								class="seg-note"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('skyNote', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{noteText('skyNote', skyStatus, editStg)}</p>
-							</div>
-							<div class="stg-group">
-							<p
-								class="seg-lead"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('starsLead', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{settingsText('starsLead')}</p>
-							<div class="sky-picker" role="radiogroup" aria-label="Stars">
-								<button
-									type="button"
-									class="sky-opt"
-									class:on={!starsOn}
-									role="radio"
-									aria-checked={!starsOn}
-									onclick={() => setStars(false)}
-								>
-									Off
-								</button>
-								<button
-									type="button"
-									class="sky-opt"
-									class:on={starsOn}
-									role="radio"
-									aria-checked={starsOn}
-									onclick={() => setStars(true)}
-								>
-									On
-								</button>
-							</div>
-							<p
-								class="seg-note"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('starsNote', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{noteText('starsNote', starsStatus, editStg)}</p>
-							</div>
-							<div class="stg-group">
-							<p
-								class="seg-lead"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('resetLead', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{settingsText('resetLead')}</p>
-							<div class="reset-row">
-								<button
-									type="button"
-									class="edit-enter ghost"
-									onclick={resetSettings}
-									disabled={settingsAreDefault}
-								>
-									Reset to Defaults
-								</button>
-							</div>
-							<!-- Not editable copy: it states what the button does, and it swaps on state. -->
-							<p class="seg-note">
-								{settingsAreDefault
-									? 'No changes have been made.'
-									: 'Revert all changes.'}
-							</p>
-							</div>
-							{#if dev}
-								<div class="stg-group">
-								<p class="seg-lead">Other</p>
-								<div class="dev-actions">
-									<button
-										type="button"
-										class="edit-enter"
-										onclick={enterEditMode}
-										disabled={editMode}
-									>
-										{editMode ? 'Editing…' : 'Enter Edit Mode'}
-									</button>
-									<button type="button" class="edit-enter ghost" onclick={clearLocalStorage}>
-										Clear Saved Settings
-									</button>
-								</div>
-								</div>
-							{/if}
-						{:else}
-						{@const edit = dev && editMode && !!pages[v.code]}
-						{#each blocks as b, i}
-							{#if 'h' in b}
-								<h3
-									class:editable={edit}
-									contenteditable={edit}
-									oninput={edit
-										? (e) => stageEdit(v.code, i, 'h', e.currentTarget.textContent ?? '')
-										: undefined}
-								>{fieldText(v.code, i, 'h', b.h)}</h3>
-							{:else if 'sub' in b}
-								<h4
-									class:editable={edit}
-									contenteditable={edit}
-									oninput={edit
-										? (e) => stageEdit(v.code, i, 'sub', e.currentTarget.textContent ?? '')
-										: undefined}
-								>{fieldText(v.code, i, 'sub', b.sub)}</h4>
-							{:else if 'quote' in b}
-								<blockquote
-									class:editable={edit}
-									contenteditable={edit}
-									oninput={edit
-										? (e) => stageEdit(v.code, i, 'quote', e.currentTarget.textContent ?? '')
-										: undefined}
-								>{fieldText(v.code, i, 'quote', b.quote)}</blockquote>
-							{:else if 'img' in b}
-								<figure class="img">
-									<div class="img-ph" style:--tint={accent[v.code]}><span>image</span></div>
-									<figcaption>{b.img}</figcaption>
-								</figure>
-							{:else if 'email' in b}
-								<p>
-									Say hello:
-									{#if edit}
-										<span
-											class="editable mail-edit"
-											contenteditable="true"
-											oninput={(e) =>
-												stageEdit(v.code, i, 'email', e.currentTarget.textContent ?? '')}
-										>{fieldText(v.code, i, 'email', b.email)}</span>
-									{:else}
-										<a class="mail" href="mailto:{b.email}">
-											{b.email}<span class="mail-ico">{@html MAILBOX_SVG}</span>
-										</a>
-									{/if}
-								</p>
-							{:else if 'p' in b}
-								<p
-									class:editable={edit}
-									contenteditable={edit}
-									oninput={edit
-										? (e) => stageEdit(v.code, i, 'p', e.currentTarget.textContent ?? '')
-										: undefined}
-								>{fieldText(v.code, i, 'p', b.p)}</p>
-							{/if}
-						{/each}
-						{/if}
-
-						<!-- Onward destinations as cards in the body — each its own icon, name and
-						     blurb: the Apps panel's live apps, About's two branches (see PANEL_CARDS).
-						     They're the panel's real content, not a rail under it. -->
-						{#if PANEL_CARDS[v.code]}
-							{@render appCards(PANEL_CARDS[v.code])}
-						{/if}
+						{@render appBody(v)}
 					</div>
 					{/if}
 			{/key}
@@ -2726,6 +2791,7 @@
 		</div>
 	{/if}
 </div>
+{/if}
 
 <style>
 	.stage {
@@ -2747,6 +2813,18 @@
 		   clean white/black the stars sit on, independent of the theme's softer
 		   page-field token, and so it matches the panel's own pure stock exactly. */
 		background: var(--sky, light-dark(#ffffff, #000000));
+	}
+	/* Pixelite: the stage only mounts as the full apps' floor, and its world is paper — never
+	   the sky. Without this the Aeropalite skybox (gradient, photo, stars) shows on load and
+	   around the full apps until their own chrome covers it. */
+	:global(html[data-look='pixelite']) .stage {
+		background: var(--page, light-dark(#fbfbfb, #0e0e10));
+	}
+	:global(html[data-look='pixelite']) .stage .photo-bg,
+	:global(html[data-look='pixelite']) .stage .photo-veil,
+	:global(html[data-look='pixelite']) .stage .photo-credit,
+	:global(html[data-look='pixelite']) .stage .stars {
+		display: none;
 	}
 	/* Photo mode, before hydration: the server can't know what the visitor chose, so any decor in its
 	   HTML would paint for a frame or two underneath the picture. The pre-paint script in app.html
@@ -4277,6 +4355,19 @@
 		font-style: italic;
 		color: var(--ink);
 	}
+	/* A code listing in the panel voice — quiet ink wash, the data font, its own scroll. */
+	.surface-body pre {
+		margin: 0.4rem 0;
+		padding: 0.85rem 1rem;
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		border: 1px solid var(--line-edge);
+		border-radius: 8px;
+		overflow-x: auto;
+		font-family: var(--font-mono);
+		font-size: 0.82rem;
+		line-height: 1.6;
+		color: var(--ink);
+	}
 	/* A nav flyout's copy — the panel body's voice at card scale (see navPop). */
 	.pop-copy h3 {
 		margin: 0 0 0.55rem;
@@ -5308,6 +5399,120 @@
 		background: var(--aero-face);
 		border-color: var(--line-edge);
 		box-shadow: var(--aero-gloss), var(--aero-drop);
+	}
+
+	/* ══ Pixelite docs bodies ═══════════════════════════════════════════════════════════
+	   These render INSIDE DocsShell's content gutter, but the elements are built by the
+	   pixeliteBody snippet in THIS file, so they carry this file's scope hash — hence styled
+	   here, not in DocsShell. All page-scoped (they only exist in the look === 'pixelite'
+	   branch), so Aeropalite/Metro never see them. Tokens are Pixelite's (pixelite.css). */
+
+	/* Prose column — bare on the content gutter (no sheet, no shadow box), just held to a readable
+	   measure. The self-chrome readings (Weather, the Court, the Emoji wall) opt out of this too and
+	   run full-bleed; only the block pages + Settings wear it. */
+	.docs-prose {
+		display: block;
+		max-width: 72ch;
+		/* Left-aligned to the content gutter — the measure hugs the column's left edge (after
+		   makingsoftware), never centred. The column's own padding is the only inset. */
+		margin: 0;
+	}
+	/* Docs chapter head — the serif page title alone, parted from the body by air (no
+	   rule). Stands in for the panel's big flap title. (The mono running-head above it
+	   was a metro-era motif and came off with the map.) */
+	.docs-page-head {
+		margin: 0 0 1.75rem;
+		padding-bottom: 0.5rem;
+	}
+	/* The full-bleed readings' chapter head: same voice, and its hairline runs the FULL
+	   column width (edge to edge, matching the full-bleed chrome below it) while the title
+	   stays on the gutter line — the head bleeds out and re-pads back in. */
+	.docs-bleed-head {
+		margin-inline: calc(-1 * var(--docs-pad));
+		padding-inline: var(--docs-pad);
+	}
+	/* Its own settle — it lives outside .docs-prose, so the prose cadence doesn't reach it. */
+	@media (prefers-reduced-motion: no-preference) {
+		.docs-bleed-head {
+			animation: docs-settle 0.45s ease backwards;
+		}
+	}
+	.docs-page-title {
+		margin: 0;
+		font-family: var(--font-motto);
+		font-weight: 400;
+		font-size: clamp(2rem, 4.5vw, 2.9rem);
+		letter-spacing: -0.02em;
+		line-height: 1.05;
+		color: color-mix(in srgb, var(--ink) 88%, transparent);
+	}
+	/* Quotes in the manual voice: serif italic between two hairline rules, the same
+	   treatment as Densette's pull-quotes, left-aligned to the measure. */
+	.docs-prose blockquote {
+		margin: 1.75rem 0;
+		padding: 1rem 0;
+		border-top: 1px solid var(--pixel-hairline);
+		border-bottom: 1px solid var(--pixel-hairline);
+		font-family: var(--font-motto);
+		font-style: italic;
+		font-size: 1.15rem;
+		line-height: 1.6;
+		color: color-mix(in srgb, var(--ink) 75%, transparent);
+	}
+	/* Code sets in the data voice on a faint ink wash — a printed listing, not a terminal:
+	   hairline border, the theme's 2px cut, and its own horizontal scroll when wide. */
+	.docs-prose pre {
+		margin: 1.5rem 0;
+		padding: 1rem 1.15rem;
+		background: color-mix(in srgb, var(--ink) 4%, transparent);
+		border: 1px solid var(--pixel-hairline);
+		border-radius: 2px;
+		overflow-x: auto;
+		font-family: var(--font-mono);
+		font-size: 0.8rem;
+		line-height: 1.65;
+		color: var(--ink);
+	}
+	.docs-prose code {
+		font-family: var(--font-mono);
+		font-size: 0.85em;
+		padding: 0.1em 0.35em;
+		background: color-mix(in srgb, var(--ink) 6%, transparent);
+		border: 1px solid var(--pixel-hairline);
+		border-radius: 2px;
+	}
+	/* Inside a listing the inline chrome comes back off — the block already carries it. */
+	.docs-prose pre code {
+		padding: 0;
+		background: none;
+		border: none;
+		font-size: inherit;
+	}
+	/* Entrance — docs pages settle top-to-bottom in the Weather/Court cadence: the head
+	   leads, the next blocks follow, everything deeper arrives on the last beat. */
+	@media (prefers-reduced-motion: no-preference) {
+		.docs-prose > * {
+			animation: docs-settle 0.45s ease backwards;
+		}
+		.docs-prose > :nth-child(2) {
+			animation-delay: 0.06s;
+		}
+		.docs-prose > :nth-child(3) {
+			animation-delay: 0.12s;
+		}
+		.docs-prose > :nth-child(n + 4) {
+			animation-delay: 0.18s;
+		}
+	}
+	@keyframes docs-settle {
+		from {
+			opacity: 0;
+			transform: translateY(-6px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
 	}
 
 </style>

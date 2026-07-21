@@ -14,6 +14,7 @@
 		PLUS_SVG
 	} from '$lib/icons';
 	import { weather, current, load, show, closeTab, openSearch, restore, reorder, weatherKind } from '$lib/weather-state.svelte';
+	import CitySearch from '$lib/CitySearch.svelte';
 	import { flip } from 'svelte/animate';
 
 	// Current conditions from the National Weather Service, for any US city.
@@ -25,10 +26,317 @@
 	// US only, and that's the API's boundary rather than a shortcut — NWS covers the United States
 	// and its territories, full stop. It's free and keyless in exchange, and the city search is
 	// filtered to match, so it never offers a place the app can't then report on.
+	// Pixelite docs mode fills the current-conditions row with a pixel "sky window" on the right
+	// (the wide full-bleed layout otherwise leaves that third empty). Aeropalite renders Weather in
+	// a ~640px panel with no empty third, so it passes docs=false and gets its arrangement unchanged.
+	let { docs = false }: { docs?: boolean } = $props();
+
 	const place = $derived(current());
 	const now = $derived(weather.readings[place.id] ?? null);
 	// Named `phase`, not `state`: a local called `state` shadows the $state rune.
 	const phase = $derived(weather.status[place.id] ?? 'loading');
+
+	// ── The pixel sky window (Pixelite docs mode) ──────────────────────────────────────────────
+	// A small framed viewport that paints the CITY's sky, REUSING the homepage stage's per-phase
+	// gradient palette (packages/puhig base.css :root[data-sky=…] → --sky) and the stage's day/night
+	// phase idea — but at a coarse pixel scale on our own tiny canvas, with chunky particles driven
+	// by the current condition. The stage's DOM (full-viewport layer + star field) isn't reused;
+	// its PALETTE and phase logic are.
+	type Phase = 'dawn' | 'morning' | 'noon' | 'dusk' | 'night';
+	// The gradient stops lifted verbatim from base.css's --sky per phase (top → mid → bottom).
+	const SKY_STOPS: Record<Phase, [number, number, number][]> = {
+		dawn: [[246, 205, 184], [231, 211, 228], [219, 230, 242]],
+		morning: [[188, 216, 241], [216, 232, 246], [234, 242, 251]],
+		noon: [[158, 201, 239], [196, 224, 246], [230, 242, 252]],
+		dusk: [[124, 74, 94], [74, 58, 106], [28, 24, 48]],
+		night: [[22, 32, 58], [13, 20, 36], [9, 13, 24]]
+	};
+	// The CITY's local hour, read straight off the forecast ISO string (…T22:00:00-05:00): the wall
+	// clock is written in the city's own offset, so new Date() (which renormalises to the viewer's
+	// timezone) would give the wrong hour. now.night (the API's day/night flag) picks the dark
+	// phases; the hour refines the light ones.
+	function cityHour(): number {
+		const iso = now?.hours?.[0]?.t ?? now?.observedAt ?? '';
+		const m = iso.match(/T(\d{2}):/);
+		return m ? +m[1] : 12;
+	}
+	const skyPhase = $derived.by<Phase>(() => {
+		if (!now) return 'noon';
+		const h = cityHour();
+		if (now.night) return h >= 17 && h < 21 ? 'dusk' : 'night';
+		if (h < 8) return 'dawn';
+		if (h < 11) return 'morning';
+		return 'noon';
+	});
+	const skyKind = $derived(now ? weatherKind(now.conditions) : 'cloudy');
+	const cityClockLabel = $derived.by(() => {
+		const m = now?.hours?.[0]?.t?.match(/T(\d{2}):/);
+		if (!m) return '';
+		let h = +m[1];
+		const ap = h >= 12 ? 'PM' : 'AM';
+		h = h % 12 || 12;
+		return `${h} ${ap}`;
+	});
+	const skyCaption = $derived(
+		['Local sky', cityClockLabel, skyPhase].filter(Boolean).join(' · ')
+	);
+
+	// The canvas is a fixed, DPR-independent pixel grid — that's the point; CSS upscales it with
+	// image-rendering: pixelated, so the pixels stay chunky at any size.
+	// Doubled from the first 64×36 to 128×72 (still 16:9): more pixels for finer art — twice the
+	// gradient steps, longer rain, denser stars, and room for real pixel silhouettes (lumpy
+	// clouds, a notched sun, a crescent moon) rather than the old plain rects.
+	const CW = 128;
+	const CH = 72;
+	let skyCanvas = $state<HTMLCanvasElement | undefined>(undefined);
+	let skyFrame = $state<HTMLElement | undefined>(undefined);
+	type Particle = {
+		x?: number; y?: number; v?: number; len?: number; ph?: number; amp?: number;
+		w?: number; h?: number; sun?: boolean; moon?: boolean; star?: boolean; tw?: boolean; big?: boolean;
+	};
+	let particles: Particle[] = [];
+	let flash = 0;
+	let raf = 0;
+	let looping = false;
+	let inView = false;
+	const skyReduceMotion = () =>
+		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	// A field of particles per condition — counts (and speeds) roughly double with the doubled grid,
+	// so the scene reads as finer art rather than the old one stretched: more rain and stars, longer
+	// streaks, bigger clouds. Cheap to run, charming to watch.
+	function seed() {
+		const rnd = Math.random;
+		const kind = skyKind;
+		const night = !!now?.night;
+		const p: Particle[] = [];
+		if (kind === 'rain' || kind === 'storm') {
+			const n = kind === 'storm' ? 40 : 28;
+			for (let i = 0; i < n; i++) p.push({ x: rnd() * CW, y: rnd() * CH, v: 1.6 + rnd() * 1.5, len: 6 + ((rnd() * 4) | 0) });
+		} else if (kind === 'snow') {
+			// A few fatter flakes (a stubby pixel plus) among the fine ones.
+			for (let i = 0; i < 30; i++) p.push({ x: rnd() * CW, y: rnd() * CH, v: 0.3 + rnd() * 0.4, ph: rnd() * 6.28, amp: 0.8 + rnd() * 1.4, big: rnd() < 0.25 });
+		} else if (kind === 'fog') {
+			for (let i = 0; i < 6; i++) p.push({ x: rnd() * CW, y: CH - 8 - i * 9, v: (rnd() < 0.5 ? -1 : 1) * (0.08 + rnd() * 0.1), ph: rnd() * 6.28 });
+		} else if (kind === 'wind') {
+			for (let i = 0; i < 16; i++) p.push({ x: rnd() * CW, y: 6 + rnd() * (CH - 12), v: 1.1 + rnd() * 1.5, len: 8 + ((rnd() * 6) | 0) });
+		} else if (kind === 'cloudy' || kind === 'partly') {
+			const n = kind === 'partly' ? 4 : 6;
+			for (let i = 0; i < n; i++) p.push({ x: rnd() * CW, y: 6 + rnd() * (CH * 0.5), v: 0.06 + rnd() * 0.09, w: 22 + ((rnd() * 16) | 0), h: 9 + ((rnd() * 5) | 0) });
+			if (kind === 'partly' && !night) p.push({ sun: true, x: CW * 0.22, y: CH * 0.26 });
+			if (kind === 'partly' && night) for (let i = 0; i < 18; i++) p.push({ star: true, x: rnd() * CW, y: rnd() * CH * 0.6, ph: rnd() * 6.28, tw: rnd() < 0.5 });
+		} else {
+			// clear
+			if (night) {
+				p.push({ moon: true, x: CW * 0.74, y: CH * 0.24 });
+				for (let i = 0; i < 32; i++) p.push({ star: true, x: rnd() * CW, y: rnd() * CH * 0.72, ph: rnd() * 6.28, tw: rnd() < 0.55 });
+			} else p.push({ sun: true, x: CW * 0.72, y: CH * 0.28 });
+		}
+		particles = p;
+	}
+
+	const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+	function bandColor(stops: [number, number, number][], pos: number) {
+		const [s0, s1, s2] = stops;
+		const [c0, c1, tt] = pos < 0.5 ? [s0, s1, pos / 0.5] : [s1, s2, (pos - 0.5) / 0.5];
+		return [Math.round(lerp(c0[0], c1[0], tt)), Math.round(lerp(c0[1], c1[1], tt)), Math.round(lerp(c0[2], c1[2], tt))];
+	}
+
+	// ── Pixel-art drawing helpers ── a handful of shape routines the render loop leans on, so the
+	// silhouettes are real (round disc, notched sun, crescent moon, lumpy cloud) instead of plain
+	// rects. All draw in whole pixels on the fixed buffer; the current fillStyle is the caller's.
+	type Ctx = CanvasRenderingContext2D;
+	// A filled disc, drawn as horizontal spans — the bounding box's corners fall outside the radius,
+	// so the circle is naturally corner-notched, exactly the pixel-art read we want.
+	function disc(ctx: Ctx, cx: number, cy: number, r: number) {
+		cx |= 0; cy |= 0;
+		for (let dy = -r; dy <= r; dy++) {
+			const span = Math.floor(Math.sqrt(Math.max(0, r * r - dy * dy)));
+			ctx.fillRect(cx - span, cy + dy, span * 2 + 1, 1);
+		}
+	}
+	// A stubby half-disc rising from a flat baseline — one hump of a cloud.
+	function hump(ctx: Ctx, cx: number, base: number, r: number) {
+		cx |= 0; base |= 0;
+		for (let dy = -r; dy <= 0; dy++) {
+			const span = Math.floor(Math.sqrt(Math.max(0, r * r - dy * dy)));
+			ctx.fillRect(cx - span, base + dy, span * 2 + 1, 1);
+		}
+	}
+	// The sun: a soft double halo, a bright notched disc, a paler core, and four short rays.
+	function pxSun(ctx: Ctx, cx: number, cy: number, r: number, halo: boolean) {
+		cx |= 0; cy |= 0;
+		if (halo) {
+			ctx.fillStyle = 'rgba(255,236,170,0.14)';
+			disc(ctx, cx, cy, r + 4);
+			ctx.fillStyle = 'rgba(255,240,190,0.20)';
+			disc(ctx, cx, cy, r + 2);
+			ctx.fillStyle = 'rgba(255,236,170,0.55)';
+			for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]] as const) {
+				ctx.fillRect(cx + dx * (r + 3), cy + dy * (r + 3), dx ? 2 : 1, dy ? 2 : 1);
+			}
+		}
+		ctx.fillStyle = 'rgba(255,243,200,0.97)';
+		disc(ctx, cx, cy, r);
+		ctx.fillStyle = 'rgba(255,250,225,0.95)';
+		disc(ctx, cx - 1, cy - 1, Math.max(1, r - 2));
+	}
+	// The moon: a pale disc with a crescent carved out by overpainting an offset disc in the local
+	// sky colour, plus a couple of dim crater pixels on the lit face.
+	function pxMoon(ctx: Ctx, cx: number, cy: number, r: number, sky: number[]) {
+		cx |= 0; cy |= 0;
+		ctx.fillStyle = 'rgba(232,236,245,0.96)';
+		disc(ctx, cx, cy, r);
+		ctx.fillStyle = 'rgba(210,216,230,0.9)';
+		ctx.fillRect(cx - 1, cy + 1, 1, 1);
+		ctx.fillRect(cx + 1, cy - 1, 1, 1);
+		ctx.fillStyle = `rgb(${sky[0]} ${sky[1]} ${sky[2]})`;
+		disc(ctx, cx + Math.round(r * 0.6), cy - Math.round(r * 0.35), r);
+	}
+	// A cloud: a flat-bottomed slab with three lumpy humps rising off it — the fill carries any
+	// alpha the caller set. Slightly different hump radii keep it from reading as a pill.
+	function pxCloud(ctx: Ctx, x: number, y: number, w: number, h: number) {
+		const base = (y + h) | 0;
+		const slab = (y + h * 0.5) | 0;
+		ctx.fillRect(x | 0, slab, w | 0, base - slab);
+		hump(ctx, x + w * 0.24, slab, h * 0.62);
+		hump(ctx, x + w * 0.52, slab, h * 0.78);
+		hump(ctx, x + w * 0.78, slab, h * 0.55);
+	}
+
+	function render(ts: number, animate: boolean) {
+		const ctx = skyCanvas?.getContext('2d');
+		if (!ctx) return;
+		const stops = SKY_STOPS[skyPhase];
+		const kind = skyKind;
+		const night = !!now?.night;
+		// Fine horizontal bands of the phase gradient — 3px on the 72px buffer, so the sky steps
+		// through ~24 shades (twice the old count) and reads as a smoother wash while staying banded.
+		const BAND = 3;
+		for (let y = 0; y < CH; y += BAND) {
+			const [r, g, b] = bandColor(stops, Math.min(1, (y + BAND / 2) / CH));
+			ctx.fillStyle = `rgb(${r} ${g} ${b})`;
+			ctx.fillRect(0, y, CW, BAND);
+		}
+		const t = ts / 1000;
+		for (const p of particles) {
+			if (p.star) {
+				const a = p.tw ? 0.35 + 0.5 * Math.abs(Math.sin(t * 1.4 + (p.ph ?? 0))) : 0.85;
+				ctx.fillStyle = `rgba(255,255,255,${a.toFixed(2)})`;
+				ctx.fillRect(p.x! | 0, p.y! | 0, 1, 1);
+			} else if (p.sun) {
+				pxSun(ctx, p.x!, p.y!, 4, true);
+			} else if (p.moon) {
+				pxMoon(ctx, p.x!, p.y!, 5, bandColor(stops, Math.min(1, p.y! / CH)));
+			} else if (kind === 'rain' || kind === 'storm') {
+				ctx.fillStyle = 'rgba(188,214,255,0.85)';
+				ctx.fillRect(p.x! | 0, p.y! | 0, 1, p.len ?? 6);
+				if (animate) {
+					p.y! += p.v!;
+					if (p.y! > CH) { p.y = -(p.len ?? 6); p.x = Math.random() * CW; }
+				}
+			} else if (kind === 'snow') {
+				const x = (p.x! + Math.sin(t + (p.ph ?? 0)) * (p.amp ?? 0.5)) | 0;
+				const y = p.y! | 0;
+				ctx.fillStyle = 'rgba(255,255,255,0.9)';
+				if (p.big) {
+					// a stubby pixel plus — a fatter flake among the fine ones
+					ctx.fillRect(x, y, 1, 1);
+					ctx.fillRect(x, y - 1, 1, 1);
+					ctx.fillRect(x, y + 1, 1, 1);
+					ctx.fillRect(x - 1, y, 1, 1);
+					ctx.fillRect(x + 1, y, 1, 1);
+				} else ctx.fillRect(x, y, 1, 1);
+				if (animate) { p.y! += p.v!; if (p.y! > CH) { p.y = -1; p.x = Math.random() * CW; } }
+			} else if (kind === 'fog') {
+				const a = 0.2 + 0.12 * Math.abs(Math.sin(t * 0.6 + (p.ph ?? 0)));
+				ctx.fillStyle = `rgba(226,230,235,${a.toFixed(2)})`;
+				ctx.fillRect(0, p.y! | 0, CW, 4);
+				if (animate) p.ph = (p.ph ?? 0) + 0.01;
+			} else if (kind === 'wind') {
+				ctx.fillStyle = 'rgba(230,236,244,0.5)';
+				ctx.fillRect(p.x! | 0, p.y! | 0, p.len ?? 8, 1);
+				if (animate) { p.x! += p.v!; if (p.x! > CW) { p.x = -(p.len ?? 8); p.y = 6 + Math.random() * (CH - 12); } }
+			} else {
+				// lumpy cloud silhouette (cloudy / partly)
+				const w = p.w ?? 24, h = p.h ?? 10;
+				ctx.fillStyle = night ? 'rgba(70,78,102,0.6)' : 'rgba(255,255,255,0.62)';
+				pxCloud(ctx, p.x!, p.y!, w, h);
+				if (animate) { p.x! += p.v!; if (p.x! > CW) p.x = -w; }
+			}
+		}
+		if (kind === 'storm') {
+			if (animate && Math.random() < 0.004) flash = 1;
+			if (flash > 0) {
+				ctx.fillStyle = `rgba(255,255,255,${(flash * 0.55).toFixed(2)})`;
+				ctx.fillRect(0, 0, CW, CH);
+				if (animate) flash = Math.max(0, flash - 0.08);
+			}
+		}
+	}
+
+	function loop(ts: number) {
+		if (!looping) return;
+		render(ts, true);
+		raf = requestAnimationFrame(loop);
+	}
+	function startLoop() {
+		if (looping) return;
+		looping = true;
+		raf = requestAnimationFrame(loop);
+	}
+	function stopLoop() {
+		looping = false;
+		if (raf) cancelAnimationFrame(raf);
+		raf = 0;
+	}
+	// Run only when the window is on-screen, the tab is visible, motion is welcome, and there's a
+	// reading to paint. Otherwise a single static frame stands (also the whole story under
+	// prefers-reduced-motion — one frame, no loop).
+	function syncLoop() {
+		const should = inView && !document.hidden && !skyReduceMotion() && !!now && !!skyCanvas;
+		if (should) startLoop();
+		else {
+			stopLoop();
+			if (skyCanvas && now) render(performance.now(), false);
+		}
+	}
+
+	// Reseed + repaint whenever the city or its sky changes (a static repaint even while paused).
+	$effect(() => {
+		if (!docs) return;
+		// deps:
+		skyKind;
+		skyPhase;
+		place.id;
+		now;
+		if (!skyCanvas) return;
+		seed();
+		render(performance.now(), false);
+		syncLoop();
+	});
+
+	// Pause the loop when the window scrolls off-screen or the tab is hidden; resume on return.
+	onMount(() => {
+		if (!docs) return;
+		const io = new IntersectionObserver(
+			(entries) => {
+				inView = entries[0]?.isIntersecting ?? false;
+				syncLoop();
+			},
+			{ threshold: 0.05 }
+		);
+		if (skyFrame) io.observe(skyFrame);
+		const onVis = () => syncLoop();
+		document.addEventListener('visibilitychange', onVis);
+		seed();
+		render(performance.now(), false);
+		return () => {
+			io.disconnect();
+			document.removeEventListener('visibilitychange', onVis);
+			stopLoop();
+		};
+	});
 
 	onMount(restore);
 
@@ -46,6 +354,20 @@
 		if (!el) return;
 		atStart = el.scrollLeft <= 1;
 		atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 1;
+	}
+
+	// The hours rail fades only toward the side that still hides content — the same
+	// contract as the city tabs. A permanent left fade lied at scroll start, dimming
+	// the first hour when there was nothing to scroll back to.
+	let hoursEl = $state<HTMLElement | undefined>(undefined);
+	let hoursAtStart = $state(true);
+	let hoursAtEnd = $state(true);
+
+	function measureHours() {
+		const el = hoursEl;
+		if (!el) return;
+		hoursAtStart = el.scrollLeft <= 1;
+		hoursAtEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 1;
 	}
 
 	function onTabsWheel(e: WheelEvent) {
@@ -226,6 +548,11 @@
 	$effect(() => {
 		weather.places.length;
 		requestAnimationFrame(measureTabs);
+	});
+	// Same for the hours rail: a city switch or fresh fetch changes how much it hides.
+	$effect(() => {
+		now?.hours?.length;
+		requestAnimationFrame(measureHours);
 	});
 
 	// On touch, the strip's touch-action: pan-x hands horizontal panning to the browser — which
@@ -448,14 +775,21 @@
 			</div>
 		{/each}
 	</div>
-	<button
-		type="button"
-		class="wx-add"
-		style="--n:{weather.places.length}"
-		aria-label="Add another city"
-		title="Add another city"
-		onclick={() => openSearch('add')}>{@html PLUS_SVG}</button
-	>
+	{#if docs && weather.searchOpen}
+		<!-- Docs mode draws no panel header, so the + expands IN PLACE into the search
+		     field (the same CitySearch the Aeropalite header hosts — shared state, so
+		     choosing or dismissing folds it back to the +). -->
+		<div class="wx-add-search"><CitySearch /></div>
+	{:else}
+		<button
+			type="button"
+			class="wx-add"
+			style="--n:{weather.places.length}"
+			aria-label="Add another city"
+			title="Add another city"
+			onclick={() => openSearch('add')}>{@html PLUS_SVG}</button
+		>
+	{/if}
 	</div>
 
 	<!-- The carried tab's ghost: what the hand is holding, floating free of the strip while
@@ -486,29 +820,50 @@
 	{:else if phase === 'loading' && !now}
 		<p class="wx-msg">Reading the sky over {place.name}…</p>
 	{:else if now}
-		<!-- The reading itself: the mark, the number, and what the sky is doing. -->
-		<div class="wx-now" class:stale={phase === 'loading'}>
-			<span class="wx-mark" aria-hidden="true">
-				{@html conditionIcon(now.conditions, now.night)}
-			</span>
-			<div class="wx-read">
-				{#if typeof temp === 'number'}
-					<p class="wx-temp">
-						{Math.round(temp)}<span class="wx-unit">°{weather.unit}</span>
-					</p>
-				{:else}
-					<p class="wx-temp wx-temp-none">—</p>
-				{/if}
-				<p class="wx-cond">{now.conditions || 'No conditions reported'}</p>
-				{#if feelsDiffers}
-					<p class="wx-feels">Feels like {Math.round(feels as number)}°{weather.unit}</p>
-				{/if}
-				{#if verdict}
-					<p class="wx-verdict">{verdict}</p>
-				{/if}
+		<!-- The current-conditions row. Default it's just the reading (.wx-hero is display:contents,
+		     so Aeropalite/narrow is byte-identical). In Pixelite docs mode, once the column is wide
+		     enough, .wx-hero becomes a two-column row and the pixel sky window fills the right. -->
+		<div class="wx-hero">
+			<!-- The reading itself: the mark, the number, and what the sky is doing. -->
+			<div class="wx-now" class:stale={phase === 'loading'}>
+				<span class="wx-mark" aria-hidden="true">
+					{@html conditionIcon(now.conditions, now.night)}
+				</span>
+				<div class="wx-read">
+					{#if typeof temp === 'number'}
+						<p class="wx-temp">
+							{Math.round(temp)}<span class="wx-unit">°{weather.unit}</span>
+						</p>
+					{:else}
+						<p class="wx-temp wx-temp-none">—</p>
+					{/if}
+					<p class="wx-cond">{now.conditions || 'No conditions reported'}</p>
+					{#if feelsDiffers}
+						<p class="wx-feels">Feels like {Math.round(feels as number)}°{weather.unit}</p>
+					{/if}
+					{#if verdict}
+						<p class="wx-verdict">{verdict}</p>
+					{/if}
+				</div>
+				<!-- No unit control here any more: °F/°C folded into ONE disc and moved up to the
+				     panel header's action row (the page's), beside Refresh and Search. -->
 			</div>
-			<!-- No unit control here any more: °F/°C folded into ONE disc and moved up to the
-			     panel header's action row (the page's), beside Refresh and Search. -->
+			{#if docs}
+				<!-- The pixel sky window: the city's sky, in the stage's phase palette, framed like a
+				     manual figure. Hidden below the desktop breakpoint (see the @container rule). -->
+				<figure class="wx-skywin">
+					<div class="wx-sky-frame" bind:this={skyFrame}>
+						<canvas
+							class="wx-sky-canvas"
+							bind:this={skyCanvas}
+							width={CW}
+							height={CH}
+							aria-hidden="true"
+						></canvas>
+					</div>
+					<figcaption class="wx-sky-cap">{skyCaption}</figcaption>
+				</figure>
+			{/if}
 		</div>
 
 		<!-- The rest of the reading. Each stat is dropped rather than shown empty: plenty of stations
@@ -543,7 +898,16 @@
 		     they're worth carrying an umbrella over. Absent hours (an older cached
 		     reading, or the forecast upstream sulking) just drop the rail. -->
 		{#if now.hours?.length}
-			<div class="wx-hours" role="list" aria-label="The next hours" onwheel={hoursWheel}>
+			<div
+				class="wx-hours"
+				class:fade-start={!hoursAtStart}
+				class:fade-end={!hoursAtEnd}
+				role="list"
+				aria-label="The next hours"
+				bind:this={hoursEl}
+				onscroll={measureHours}
+				onwheel={hoursWheel}
+			>
 				{#each now.hours as h, i (h.t)}
 					<div class="wx-hour" role="listitem" style="--n:{i}">
 						<span class="wxh-time">{hourLabel(h.t)}</span>
@@ -584,8 +948,12 @@
 							{/if}
 						</span>
 						<span class="wxd-temps">
-							<span class="wxd-hi">{d.hiF === null ? '—' : `${Math.round(toUnit(d.hiF))}°`}</span>
-							<span class="wxd-lo">{d.loF === null ? '—' : `${Math.round(toUnit(d.loF))}°`}</span>
+							<span class="wxd-hi" class:empty={d.hiF === null}
+								>{d.hiF === null ? '—' : `${Math.round(toUnit(d.hiF))}°`}</span
+							>
+							<span class="wxd-lo" class:empty={d.loF === null}
+								>{d.loF === null ? '—' : `${Math.round(toUnit(d.loF))}°`}</span
+							>
 						</span>
 					</div>
 				{/each}
@@ -865,6 +1233,14 @@
 		border-radius: 999px;
 		cursor: pointer;
 	}
+	/* Docs mode: the + expands in place into the city search — the grown field takes the
+	   row's trailing end where the disc sat. */
+	.wx-add-search {
+		flex: none;
+		margin-left: 0.15rem;
+		display: flex;
+		align-items: center;
+	}
 	.wx-add:hover {
 		color: var(--ink);
 		border-color: var(--line-strong);
@@ -904,6 +1280,65 @@
 		align-items: center;
 		gap: 1.1rem;
 		transition: opacity 0.2s ease;
+	}
+
+	/* ── Pixel sky window (Pixelite docs mode) ───────────────────────────────────────────────
+	   The hero row is display:contents by default, so Aeropalite / narrow render exactly as before
+	   (the window is never even rendered there — it's behind {#if docs}). Under Pixelite the .wx root
+	   becomes a query container (its inline size = the content-column width), and once that's wide
+	   enough the reading and the window sit side by side. */
+	.wx-hero {
+		display: contents;
+	}
+	.wx-skywin {
+		display: none;
+		margin: 0;
+	}
+	:global(html[data-look='pixelite']) .wx {
+		container-type: inline-size;
+	}
+	@container (min-width: 720px) {
+		.wx-hero {
+			display: flex;
+			align-items: stretch;
+			gap: clamp(1.25rem, 4cqi, 3rem);
+		}
+		.wx-now {
+			flex: 1 1 auto;
+			min-width: 0;
+			align-self: center;
+		}
+		.wx-skywin {
+			display: flex;
+			flex-direction: column;
+			gap: 0.5rem;
+			flex: 0 0 auto;
+			width: clamp(240px, 34cqi, 340px);
+			align-self: center;
+		}
+	}
+	/* The frame: a manual figure — hairline border, 2px radius, the canvas upscaled with chunky
+	   pixels. Fixed 128×72 aspect so the pixels stay square at any width. */
+	.wx-sky-frame {
+		width: 100%;
+		aspect-ratio: 128 / 72;
+		border: 1px solid var(--pixel-hairline, rgba(0, 0, 0, 0.2));
+		border-radius: 2px;
+		overflow: hidden;
+		background: #0d1424;
+	}
+	.wx-sky-canvas {
+		display: block;
+		width: 100%;
+		height: 100%;
+		image-rendering: pixelated;
+	}
+	.wx-sky-cap {
+		font-family: var(--font-mono, ui-monospace, monospace);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		font-size: 0.66rem;
+		color: color-mix(in srgb, var(--ink) 45%, transparent);
 	}
 	/* A refresh in flight: dim what's up, don't tear it down. The old reading is still true. */
 	.wx-now.stale {
@@ -972,6 +1407,19 @@
 		scrollbar-width: none;
 		padding: 0.1rem 0.3rem;
 		--fade: 2rem;
+		/* Like the tabs: no mask at rest — an edge fades only while it still hides hours. */
+		mask-image: none;
+	}
+	.wx-hours::-webkit-scrollbar {
+		display: none;
+	}
+	.wx-hours.fade-end {
+		mask-image: linear-gradient(to right, #000 calc(100% - var(--fade)), transparent 100%);
+	}
+	.wx-hours.fade-start {
+		mask-image: linear-gradient(to left, #000 calc(100% - var(--fade)), transparent 100%);
+	}
+	.wx-hours.fade-start.fade-end {
 		mask-image: linear-gradient(
 			to right,
 			transparent 0,
@@ -979,9 +1427,6 @@
 			#000 calc(100% - var(--fade)),
 			transparent 100%
 		);
-	}
-	.wx-hours::-webkit-scrollbar {
-		display: none;
 	}
 	.wx-hour {
 		flex: 0 0 auto;
@@ -1100,6 +1545,19 @@
 		display: flex;
 		gap: 0.7rem;
 		font-variant-numeric: tabular-nums;
+	}
+	/* Fixed-width, right-aligned cells: the whole pair is end-justified, so a missing
+	   temperature ("—", narrower than "68°") would otherwise shove its neighbour out of
+	   column with the rows above and below. 4ch seats up to "100°" and "-10°". */
+	.wxd-hi,
+	.wxd-lo {
+		min-width: 4ch;
+		text-align: right;
+	}
+	/* A missing temperature's "—" reads as a mark, not a number — centre it in the cell. */
+	.wxd-hi.empty,
+	.wxd-lo.empty {
+		text-align: center;
 	}
 	.wxd-hi {
 		font-weight: 700;
