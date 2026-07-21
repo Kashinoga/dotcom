@@ -79,11 +79,16 @@
 	let scrolled = $state(false);
 	let superbarEl = $state<HTMLElement | undefined>(undefined);
 	let superbarH = $state(52);
+	// The shell's OWN scroller (see .docs-scroll): the window never scrolls this layout.
+	// The bar overlays the scroller (E-ATFC's recipe), so the scroller's scrollbar runs the
+	// full shell height and passes UNDER the bar's frost — the bar's right-end keys sit over
+	// the scrollbar lane, matching the traffic and ranger bars. A window scrollbar can never
+	// do this: nothing paints over browser chrome.
+	let scrollEl = $state<HTMLElement | undefined>(undefined);
+	const onDocsScroll = () => (scrolled = (scrollEl?.scrollTop ?? 0) > 4);
 
 	onMount(() => {
-		const onScroll = () => (scrolled = window.scrollY > 4);
-		onScroll();
-		window.addEventListener('scroll', onScroll, { passive: true });
+		onDocsScroll();
 		// Measure synchronously first — ResizeObserver delivery rides the render frame, which
 		// a hidden/background tab suspends, and the first paint shouldn't wait for it anyway.
 		if (superbarEl) superbarH = superbarEl.getBoundingClientRect().height;
@@ -92,7 +97,6 @@
 		});
 		if (superbarEl) ro.observe(superbarEl);
 		return () => {
-			window.removeEventListener('scroll', onScroll);
 			ro.disconnect();
 		};
 	});
@@ -152,12 +156,12 @@
 		}
 		toc = items;
 		if (items.length && typeof IntersectionObserver !== 'undefined') {
-			// A heading is "current" once it reaches the top third of the viewport.
+			// A heading is "current" once it reaches the top third of the scroller.
 			observer = new IntersectionObserver(
 				(entries) => {
 					for (const e of entries) if (e.isIntersecting) activeId = (e.target as HTMLElement).id;
 				},
-				{ rootMargin: '0px 0px -70% 0px', threshold: 0 }
+				{ root: scrollEl ?? null, rootMargin: '0px 0px -70% 0px', threshold: 0 }
 			);
 			for (const n of nodes) observer.observe(n);
 		}
@@ -202,12 +206,13 @@
 			tick().then(() => {
 				const bar = contentEl?.querySelector('.ev-searchbar');
 				if (!bar) return;
-				// The bar counts as gone once it has slipped under the superbar, not the viewport top.
+				// The bar counts as gone once it has slipped under the superbar (which overlays
+				// the scroller's top), not the scroller's own edge.
 				evObserver = new IntersectionObserver(
 					(entries) => {
 						for (const e of entries) evBarGone = !e.isIntersecting;
 					},
-					{ rootMargin: `-${Math.ceil(superbarH)}px 0px 0px 0px` }
+					{ root: scrollEl ?? null, rootMargin: `-${Math.ceil(superbarH)}px 0px 0px 0px` }
 				);
 				evObserver.observe(bar);
 			});
@@ -256,12 +261,12 @@
 		clearTimeout(jumpFallback);
 	});
 
-	// Scroll to a section, clearing the sticky superbar (scroll-margin can't reach the scoped page
-	// headings from here, so the offset is done by hand). All the sections here live in the WINDOW
-	// scroll — the docs columns flow in the document, nothing owns an inner scroller — so the target
-	// is a window offset. The tween is hand-rolled on window.scrollTo(x, y) rather than
-	// `behavior: 'smooth'`: native smooth-scroll on the document root no-ops in some engines, whereas
-	// the instant two-arg form is universal. A rAF loop eases it for the common case; a setTimeout
+	// Scroll to a section, clearing the overlaid superbar (scroll-margin can't reach the scoped
+	// page headings from here, so the offset is done by hand). The sections live in the shell's
+	// OWN scroller now (.docs-scroll — the window never scrolls this layout), so the target is
+	// a scroller offset. The tween is hand-rolled on scrollTo(x, y) rather than
+	// `behavior: 'smooth'` (the instant two-arg form is universal). A rAF loop eases it for the
+	// common case; a setTimeout
 	// SAFETY NET then lands it outright if rAF never advanced (a throttled/occluded tab suspends rAF
 	// entirely, which would otherwise leave the jump stuck at the start). setTimeout still fires
 	// there, so the section is always reached — smooth when it can be, instant when it can't.
@@ -271,21 +276,27 @@
 		if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
 		e.preventDefault();
 		const el = document.getElementById(id);
-		if (!el) return;
+		const sc = scrollEl;
+		if (!el || !sc) return;
 		activeId = id;
 		// A view can add its own bar that sticks BELOW the superbar (the Emoji Viewer's search),
 		// marked with [data-docs-substick]. Fold its live height into the offset so a jump lands
 		// clear of it, not tucked underneath. Zero for views without one.
 		const sub = contentEl?.querySelector<HTMLElement>('[data-docs-substick]');
 		const subH = sub ? sub.getBoundingClientRect().height : 0;
-		const target = Math.max(0, el.getBoundingClientRect().top + window.scrollY - superbarH - subH - 14);
-		const start = window.scrollY;
+		// The bar overlays the scroller's top, so the landing clears its height (plus any
+		// view-owned substick bar).
+		const target = Math.max(
+			0,
+			el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - superbarH - subH - 14
+		);
+		const start = sc.scrollTop;
 		const dist = target - start;
 		if (Math.abs(dist) < 2) return;
 		cancelAnimationFrame(jumpRaf);
 		clearTimeout(jumpFallback);
 		if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) {
-			window.scrollTo(0, target);
+			sc.scrollTo(0, target);
 			return;
 		}
 		const dur = 440;
@@ -293,13 +304,13 @@
 		const ease = (p: number) => 1 - Math.pow(1 - p, 3);
 		const step = (now: number) => {
 			const p = Math.min(1, (now - t0) / dur);
-			window.scrollTo(0, start + dist * ease(p));
+			sc.scrollTo(0, start + dist * ease(p));
 			if (p < 1) jumpRaf = requestAnimationFrame(step);
 		};
 		jumpRaf = requestAnimationFrame(step);
 		// If the eased scroll didn't reach the target (rAF suspended, or interrupted), land it.
 		jumpFallback = window.setTimeout(() => {
-			if (Math.abs(window.scrollY - target) > 4) window.scrollTo(0, target);
+			if (Math.abs(sc.scrollTop - target) > 4) sc.scrollTo(0, target);
 		}, dur + 140);
 	}
 </script>
@@ -377,6 +388,11 @@
 		onclick={() => (sidebarOpen = !sidebarOpen)}>{@html pageIcon}</button
 	>
 
+	<!-- The shell's own scroller — the window never scrolls this layout. The superbar
+	     OVERLAYS this box, so content passes behind its frost; the styled scrollbar track's
+	     top margin keeps the thumb's travel wholly in the content area (see .docs-scroll) —
+	     the frost is real AND the scrollbar is never obscured. -->
+	<div class="docs-scroll" bind:this={scrollEl} onscroll={onDocsScroll}>
 	<div class="docs-cols">
 		<!-- Sticky sidebar: the numbered docs TOC (the wordmark now lives in the superbar). -->
 		<aside class="docs-sidebar" aria-label="Site contents">
@@ -453,6 +469,7 @@
 			</div>
 		</nav>
 	</div>
+	</div>
 </div>
 
 <style>
@@ -467,27 +484,97 @@
 		--docs-pad: clamp(0.75rem, 2vw, 1.5rem);
 		display: flex;
 		flex-direction: column;
-		min-height: 100vh;
-		min-height: 100dvh;
+		/* The shell OWNS the viewport and its scrolling (see .docs-scroll): fixed height,
+		   nothing overflows the window, so no window scrollbar ever appears beside the bar. */
+		height: 100vh;
+		height: 100dvh;
+		overflow: hidden;
+		position: relative;
 		background: var(--page);
 		color: var(--ink);
 	}
-	.docs-cols {
+	/* The scroller the superbar OVERLAYS (bar absolute, scroller padded under it) — this is
+	   what lets content genuinely pass behind the bar and smear through its frost. The
+	   scrollbar problem that arrangement caused (the bar frosting over the thumb's top) is
+	   solved at the TRACK, not the box: the styled track below carries margin-top by the
+	   bar's measure, so the thumb's whole travel lives in the content area while the scroll
+	   box still runs behind the frost. Both wants, one scroller. */
+	.docs-scroll {
 		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+		box-sizing: border-box;
+		padding-top: var(--superbar-h);
+	}
+	/* The manual's own scrollbar (styling any ::-webkit-scrollbar part opts out of the
+	   native overlay bars, so the whole set is stated): a slim transparent gutter, the
+	   thumb an ink wash on the key radius. Firefox has no track margins — scrollbar-color
+	   keeps it on-palette there, and its full-height thumb simply shows through the bar's
+	   78% frost, dimmed. */
+	.docs-scroll::-webkit-scrollbar {
+		width: 10px;
+	}
+	.docs-scroll::-webkit-scrollbar-track {
+		background: transparent;
+		margin-top: var(--superbar-h);
+	}
+	/* LITERALS in the scrollbar pseudos — custom properties and color-mix() don't resolve
+	   inside ::-webkit-scrollbar parts (the declaration silently dies and the thumb paints
+	   NOTHING), so the ink wash is stated raw, with the dark arm keyed to the .scheme-dark
+	   root class the way pixelite.css's dark stock is. */
+	.docs-scroll::-webkit-scrollbar-thumb {
+		background: rgba(0, 0, 0, 0.28);
+		border-radius: 4px;
+		border: 2px solid transparent;
+		background-clip: padding-box;
+	}
+	.docs-scroll::-webkit-scrollbar-thumb:hover {
+		background: rgba(0, 0, 0, 0.45);
+		border: 2px solid transparent;
+		background-clip: padding-box;
+	}
+	:global(html.scheme-dark) .docs-scroll::-webkit-scrollbar-thumb {
+		background: rgba(255, 255, 255, 0.3);
+	}
+	:global(html.scheme-dark) .docs-scroll::-webkit-scrollbar-thumb:hover {
+		background: rgba(255, 255, 255, 0.5);
+	}
+	/* Firefox ONLY (no ::-webkit-scrollbar there): scrollbar-color keeps the thumb
+	   on-palette. It must NOT reach Chrome — a non-auto scrollbar-color DISABLES every
+	   ::-webkit-scrollbar rule above, track margin included, which is the whole trick. */
+	@supports not selector(::-webkit-scrollbar) {
+		.docs-scroll {
+			scrollbar-color: color-mix(in srgb, var(--ink) 30%, transparent) transparent;
+		}
+	}
+	.docs-cols {
 		display: grid;
 		grid-template-columns: clamp(240px, 22vw, 300px) minmax(0, 1fr) clamp(150px, 15vw, 230px);
-		min-height: 0;
+		/* Fill the scroller's content box (its height minus the bar's padding-top), so the
+		   rail borders run the full visible height even on short pages. */
+		min-height: 100%;
 	}
 	/* ── Superbar ────────────────────────────────────────────────────────────── */
 	.docs-superbar {
-		position: sticky;
+		/* Absolute over the scroller: content passes BEHIND the bar (the frost is real),
+		   while the styled scrollbar track's margin keeps the thumb below it — see
+		   .docs-scroll. */
+		position: absolute;
 		top: 0;
+		left: 0;
+		right: 0;
 		z-index: 20;
 		display: flex;
 		align-items: center;
 		gap: clamp(1rem, 3vw, 2rem);
+		/* ONE bar height across the site — 42px exactly, not padding-derived: every app bar
+		   (traffic, ranger, star map) pins to the same measure, so crossing pages never
+		   nudges the chrome. Flex centring seats the content; --superbar-h still reads the
+		   real rect, so the rails don't care how the height is made. */
+		box-sizing: border-box;
+		height: 42px;
 		/* Left inset matches the vertical rhythm so the wordmark sits square in the corner. */
-		padding: 0.7rem clamp(1rem, 3vw, 2rem) 0.7rem 0.7rem;
+		padding: 0 clamp(1rem, 3vw, 2rem) 0 0.7rem;
 		border-bottom: 1px solid var(--pixel-hairline);
 		background: color-mix(in srgb, var(--page) 100%, transparent);
 		transition:
@@ -525,6 +612,11 @@
 		display: flex;
 		align-items: center;
 		margin-block: -0.4rem;
+		/* Even air around the key's corner: the 28px key sits 7px off the bar's top and
+		   bottom edges ((42px bar − 28px key)/2), but the bar's wide right padding — sized
+		   for the TEXT row — left it up to 2rem off the right edge. Pull right by the
+		   difference so the key's right gap matches its vertical air. */
+		margin-right: calc(7px - clamp(1rem, 3vw, 2rem));
 	}
 	.docs-sb-ctl {
 		display: flex;
@@ -537,8 +629,10 @@
 		border: 1px solid var(--pixel-key-border, rgba(0, 0, 0, 0.5));
 		border-radius: 4px;
 		box-shadow: var(--pixel-bevel);
+		/* The manual's minor bounce (--pixel-pop, pixelite.css) — the same landing pop the
+		   Weather and Star Map fields make, opening and closing alike. */
 		transition:
-			width 0.18s ease,
+			width 0.24s var(--pixel-pop, ease),
 			border-color 0.15s ease;
 	}
 	.docs-sb-ctl.open {
@@ -613,6 +707,10 @@
 		flex: none;
 		align-self: stretch;
 		width: 1px;
+		/* The bar's block padding used to bound the stretch; with the bar's height now fixed
+		   (padding-block 0), the same 0.7rem air is restated as the post's own margins — the
+		   full-height line read as a column rule, not a separator. */
+		margin-block: 0.7rem;
 		margin-inline: calc(0.7rem - clamp(1rem, 3vw, 2rem));
 		background: var(--pixel-hairline);
 	}
@@ -656,7 +754,11 @@
 	/* ── Sidebar ─────────────────────────────────────────────────────────────── */
 	.docs-sidebar {
 		position: sticky;
-		top: var(--superbar-h);
+		/* top 0, not var(--superbar-h): sticky offsets resolve against the scroller's CONTENT
+		   edge, and .docs-scroll's padding-top already clears the bar — the bar-height offset
+		   here stacked ON TOP of that padding and shoved the rail (and its column rule) 42px
+		   below the bar's hairline on any page tall enough to scroll. */
+		top: 0;
 		align-self: start;
 		height: calc(100vh - var(--superbar-h));
 		height: calc(100dvh - var(--superbar-h));
@@ -799,7 +901,7 @@
 	/* ── Right rail (grid col 3): the on-this-page TOC ── */
 	.docs-rail {
 		position: sticky;
-		top: var(--superbar-h);
+		top: 0; /* the scroller's padding clears the bar — see the sidebar's note */
 		align-self: start;
 		height: calc(100vh - var(--superbar-h));
 		height: calc(100dvh - var(--superbar-h));

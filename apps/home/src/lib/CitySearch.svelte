@@ -268,11 +268,11 @@
 		border: 1px solid var(--pixel-key-border);
 		border-radius: 4px;
 		box-shadow: var(--pixel-bevel);
-		/* A printed manual doesn't bounce: the width grows on a plain ease (the superbar
-		   key's cadence — see DocsShell's .docs-sb-ctl) instead of the overshoot spring.
-		   The press squash keeps its curve; pixelite's tokens already still the hover pop. */
+		/* The width morphs on the manual's minor bounce (--pixel-pop, pixelite.css): a small
+		   landing pop both opening and closing — a whisper of the aero spring, not its
+		   overshoot. The press squash keeps its curve; pixelite's tokens still the hover pop. */
 		transition:
-			width 0.2s ease,
+			width 0.24s var(--pixel-pop, ease),
 			transform 0.3s var(--btn-spring),
 			background 0.2s ease,
 			color 0.2s ease,

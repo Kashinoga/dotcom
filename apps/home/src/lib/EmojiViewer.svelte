@@ -130,14 +130,15 @@
 	/* ── Docs-mode search bar (Pixelite only; never rendered under Aeropalite) ────────────────
 	   Full width of the content column: it negative-margins back out of the .docs-body gutter
 	   (--docs-pad, published by the shell) to the column's true SIDE edges, then re-pads its
-	   own inner content to the gutter so the field lines up over the wall. Seated directly
-	   below the chapter head (the negative top margin swallows the head's 1.75rem bottom
-	   margin) and stays IN FLOW — no sticky, no rules of its own: once it scrolls away the
-	   shell's superbar reveals its search control instead (see DocsShell). */
+	   own inner content to the gutter so the field lines up over the wall. Seated below the
+	   chapter head on the head's own (now modest) air — the old negative top margin that
+	   swallowed the head's margin is gone; a bar that must overlap its neighbour to look
+	   right is a spacing bug wearing a workaround. In FLOW — no sticky, no rules of its own:
+	   once it scrolls away the shell's superbar reveals its search control (see DocsShell). */
 	.ev-searchbar {
 		/* No bottom margin of its own — the .ev column's gap already parts it from the note. */
-		margin: -1.75rem calc(-1 * var(--docs-pad)) 0;
-		padding: 0.55rem var(--docs-pad) 0;
+		margin: 0 calc(-1 * var(--docs-pad));
+		padding: 0 var(--docs-pad);
 	}
 	/* The keyed field material (same tokens as .field under Pixelite): white/50 face, ink rule,
 	   the plastic bevel, cobalt on focus. */

@@ -105,6 +105,10 @@
 	   press eased to a small, un-springy dip — same tokens every control reads. */
 	--btn-hover-scale: 1;
 	--btn-press-scale: 0.97;
+	/* …with ONE sanctioned exception: the search fields' key ⇄ field morph lands with a
+	   MINOR bounce — a whisper of the aero spring, not its overshoot; the keys are plastic,
+	   after all. Shared here so the docs superbar, Weather and the Star Map all pop alike. */
+	--pixel-pop: cubic-bezier(0.3, 1.28, 0.55, 1);
 
 	/* ── Pixelite-only shared tokens ──────────────────────────────────────────── */
 	/* The Making-Software "sheet of paper" shadow: a soft drop, a firm 1px ink line under
@@ -150,6 +154,22 @@
 		inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
 	/* Plastic-key bevel for dark: a faint top-left light rim over a firm bottom-right dark seat
 	   (the light bevel's bright white rim would flare on the dark face). Pressed inverts it. */
+	--pixel-bevel: inset 1px 1px 0 2px rgba(255, 255, 255, 0.14),
+		inset -1px -1px 0 2px rgba(0, 0, 0, 0.5);
+	--pixel-bevel-press: inset -1px -1px 0 2px rgba(255, 255, 255, 0.14),
+		inset 1px 1px 0 2px rgba(0, 0, 0, 0.5);
+}
+
+/* IN ORBIT the ranger's chrome joins the night side even under a light scheme. The shared
+ * orbit rule (+page) flips color-scheme: dark on this subtree, which carries every
+ * light-dark() token — ink, sub, the key face/border/on-fill, the hairline, cobalt — to its
+ * dark arm for free. The BEVELS are the one thing that can't ride along: they're keyed to
+ * the .scheme-dark ROOT class above, not to light-dark(), so in light-theme orbit the keys
+ * kept their bright white rims flaring on night faces. Restate the dark pair for the orbit
+ * subtree (same values as .scheme-dark). */
+html[data-look='pixelite'] .surface-head.bar.orbit,
+html[data-look='pixelite'] .surface-body.ranger.orbit,
+html[data-look='pixelite'] .surface-backdrop.orbit {
 	--pixel-bevel: inset 1px 1px 0 2px rgba(255, 255, 255, 0.14),
 		inset -1px -1px 0 2px rgba(0, 0, 0, 0.5);
 	--pixel-bevel-press: inset -1px -1px 0 2px rgba(255, 255, 255, 0.14),
@@ -366,20 +386,35 @@ html[data-look='pixelite'] .app-blurb {
 	font-size: 0.95rem;
 }
 
-/* The Beta pill (base.css .beta, worn by the Park Ranger and the Builder) fills with the place's
- * --accent — orange for the Apps branch. Repoint it to the manual's cobalt. */
+/* The Beta pill (base.css .beta, worn by the Park Ranger and the Builder) → a printed tag,
+ * not a solid accent pill: mono voice, near-square corners, the selected-key cobalt wash
+ * under cobalt ink with a faded cobalt rule. Every piece is a light-dark token, so the tag
+ * follows dark stock and the ranger's orbit flip on its own. */
 html[data-look='pixelite'] .beta {
-	background: var(--orange);
+	font-family: var(--font-mono);
+	color: var(--orange);
+	background: var(--pixel-key-on);
+	border: 1px solid color-mix(in srgb, var(--orange) 55%, transparent);
+	border-radius: 3px;
 }
 
 /* The header badge (the app mark beside Back — worn by the self-chrome apps embedded as docs
  * figures) → a plastic key with the mark in cobalt, so the station orange doesn't clash with
  * the manual's ink-and-cobalt palette. */
 html[data-look='pixelite'] .app-badge {
+	/* The 28px control line (see .icon-btn above) — the badge rides the same bars as the
+	   keys, so it wears the same measure; the mark bumps to 60% so the glyph lands on the
+	   family's 1.05rem. */
+	width: 28px;
+	height: 28px;
 	background: var(--pixel-key-face);
 	border: 1px solid var(--pixel-key-border);
 	border-radius: 4px;
 	box-shadow: var(--pixel-bevel);
+}
+html[data-look='pixelite'] .app-badge-mark {
+	width: 60%;
+	height: 60%;
 }
 html[data-look='pixelite'] .app-badge::before {
 	background: var(--orange); /* the arrival face, cobalt not orange */

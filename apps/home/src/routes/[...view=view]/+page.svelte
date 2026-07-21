@@ -1301,8 +1301,12 @@
 		const { x = 0, y = 0, duration = 380 } = p;
 		return {
 			duration,
+			// No offsets means FADE (the pixelite arrival, below): the manual's pages turn,
+			// they don't drive in. With offsets it's the aero slide as ever.
 			css: (t: number) =>
-				`transform-origin: ${y ? 'center bottom' : 'right center'}; transform: ${openTransform(t, x, y)};`
+				x || y
+					? `transform-origin: ${y ? 'center bottom' : 'right center'}; transform: ${openTransform(t, x, y)};`
+					: `opacity: ${t};`
 		};
 	}
 	// A panel→panel move never unmounts the panel (its content swaps off-screen), so
@@ -2439,12 +2443,16 @@
 			class="surface"
 			class:leaving={panelLeaving}
 			class:expanded={panelExpanded}
-			in:panelIn|global={isMobile
-				? { y: 900, duration: 380 }
-				: { x: panelExpanded ? vw : 680, duration: 380 }}
-			out:fly|global={isMobile
-				? { y: 900, opacity: 1, duration: 380 }
-				: { x: panelExpanded ? vw : 680, opacity: 1, duration: 380 }}
+			in:panelIn|global={look === 'pixelite'
+				? { duration: 300 }
+				: isMobile
+					? { y: 900, duration: 380 }
+					: { x: panelExpanded ? vw : 680, duration: 380 }}
+			out:fly|global={look === 'pixelite'
+				? { duration: 300 }
+				: isMobile
+					? { y: 900, opacity: 1, duration: 380 }
+					: { x: panelExpanded ? vw : 680, opacity: 1, duration: 380 }}
 		>
 			<!-- Frosted glass pane. Held OFF the scroller (a static, non-scrolling layer) so
 			     WebKit rasterises the backdrop blur once instead of re-blurring every scroll
@@ -2567,13 +2575,13 @@
 						class:scrolled={surfScrolled}
 					>
 						<div class="head-row csb-fold">
-							{#if BAR_HEADER.includes(v.code) && isMobile}
-								<!-- A dense bar on a PHONE drops its Back cap. There's barely a row's
-								     worth of width there, and the cap plus its gap was the 50px that
-								     squeezed everything to its right — the badge, the name, and the
-								     controls. The way out is the browser's own back gesture, which
-								     works because every panel is a real URL (pushState, see applyView);
-								     desktop keeps the cap, where the room was never in question. -->
+							{#if BAR_HEADER.includes(v.code)}
+								<!-- A dense bar draws NO Back cap at all now (it was already gone on
+								     phones, where the cap's 50px squeezed everything to its right) —
+								     and no badge either, so the TITLE takes the left end outright.
+								     Leaving goes through the bar's Home key (see the PUD head-actions)
+								     or the browser's own back gesture, which works because every panel
+								     is a real URL (pushState, see applyView). -->
 							{:else if v.code === 'AITA' && panelExpanded}
 								<!-- E-COPO trades Back for Home, like the other full-viewport apps:
 								     expanded has nowhere to peel back to mid-thought, so the left cap
@@ -2592,11 +2600,12 @@
 									title={ownPushes > 0 ? 'Back' : 'Home'}>{@html ARROW_LEFT_SVG}</button
 								>
 							{/if}
-							{#if NEW_HEADER.includes(v.code)}
+							{#if NEW_HEADER.includes(v.code) && !BAR_HEADER.includes(v.code)}
 								<!-- NEW HEADER MODEL: the accent bullet leaves the title and becomes a
 								     badge here, right of Back — the app's mark in its accent circle,
 								     arriving solid then settling to the marked light wash (see
-								     .app-badge). Action TBD. -->
+								     .app-badge). Action TBD. (A dense BAR_HEADER bar carries no badge:
+								     with its Back cap gone too, the title takes the left end outright.) -->
 								<button
 									type="button"
 									class="app-badge"
@@ -2704,6 +2713,15 @@
 										title={ranger.paused ? 'Resume the works' : 'Pause the works'}
 										onclick={togglePaused}
 									>{@html ranger.paused ? PLAY_SVG : PAUSE_SVG}</button>
+									<!-- Home rides between the verbs and the gear: with the Back cap gone
+									     from the dense bar (see the head-row above), this is the one door
+									     out of the ranger's full-viewport world. -->
+									<button
+										type="button"
+										class="icon-btn"
+										onclick={() => home()}
+										aria-label="Close and go home"
+										title="Home">{@html HOME_SVG}</button>
 									<button
 										type="button"
 										class="icon-btn"
@@ -3995,6 +4013,72 @@
 		box-shadow: var(--aero-gloss), var(--aero-drop);
 		-webkit-backdrop-filter: blur(6px) saturate(1.3);
 		backdrop-filter: blur(6px) saturate(1.3);
+	}
+	/* Pixelite: the ranger's bar wears the manual's frost, not the aero pill. Flat and
+	   full-width like the docs and traffic superbars — the same page-mix face over the same
+	   8px blur once content has scrolled under it, a hairline rule at its bottom edge, and
+	   none of the pill's moves: no lift-off margins, no rounded ends, no gloss. (--page is a
+	   light-dark pair, so in orbit the same frost cuts from the night side via the subtree's
+	   color-scheme flip.) */
+	:global(html[data-look='pixelite']) .surface-head.bar {
+		border-radius: 0;
+		/* The site's ONE bar height — 42px exactly, matching the docs superbar (which pins
+		   the same number): fixed, not padding-derived, so no content rounding can drift it.
+		   Flex centring seats the row; the horizontal inset stays the slim 0.7rem. */
+		--bar-inset: 0.7rem;
+		box-sizing: border-box;
+		height: 42px;
+		padding-block: 0;
+		display: flex;
+		align-items: center;
+		/* The frost is WORN AT REST, not put on at scroll — the bar floats over live scenery
+		   (forest, orbit) from the first frame, so there's always something real behind the
+		   blur, and a bar that changed material mid-scroll read as two bars. */
+		background: color-mix(in srgb, var(--page) 78%, transparent);
+		border-bottom: 1px solid var(--pixel-hairline);
+		-webkit-backdrop-filter: blur(8px);
+		backdrop-filter: blur(8px);
+		transition:
+			background-color 0.2s ease,
+			border-color 0.2s ease,
+			color 0.45s ease;
+	}
+	/* The row fills the fixed-height bar and centres its keys — no overhang trims needed
+	   now that the height is pinned rather than content-derived. */
+	:global(html[data-look='pixelite']) .surface-head.bar .head-row {
+		flex: 1;
+		min-width: 0;
+	}
+	/* The bar ARRIVES rather than popping: an expanded arrival mounts content only after
+	   the held surface lands (holdContentForArrival), and everything below the bar settles
+	   in on the app's own cascade — the bar, with no entrance of its own, just appeared.
+	   It takes the docs pages' settle beat. Pixelite-only: the aero bar is transparent at
+	   rest, so it never popped. */
+	@media (prefers-reduced-motion: no-preference) {
+		:global(html[data-look='pixelite']) .surface-head.bar {
+			animation: pixel-bar-settle 0.45s ease backwards;
+		}
+	}
+	@keyframes pixel-bar-settle {
+		from {
+			opacity: 0;
+			transform: translateY(-6px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+	/* Scrolled changes nothing material now — this rule only holds the aero scrolled state's
+	   moves at bay (its pill margins, face, gloss and 6px blur share the selector). */
+	:global(html[data-look='pixelite']) .surface-head.bar.scrolled {
+		margin: 0;
+		background: color-mix(in srgb, var(--page) 78%, transparent);
+		border-color: transparent;
+		border-bottom: 1px solid var(--pixel-hairline);
+		box-shadow: none;
+		-webkit-backdrop-filter: blur(8px);
+		backdrop-filter: blur(8px);
 	}
 	/* The row's gap is NOT --bar-inset. E-ATFC spends that inset on its FRAME and on the space
 	   between its big groups (ident / deck / corner); the controls inside a cluster sit much
@@ -5419,9 +5503,11 @@
 	}
 	/* Docs chapter head — the serif page title alone, parted from the body by air (no
 	   rule). Stands in for the panel's big flap title. (The mono running-head above it
-	   was a metro-era motif and came off with the map.) */
+	   was a metro-era motif and came off with the map.) The air is a beat, not a gulf:
+	   1.75rem read as a hole under the title, and the Emoji page had taken to swallowing
+	   it with a negative margin rather than living with it. */
 	.docs-page-head {
-		margin: 0 0 1.75rem;
+		margin: 0 0 0.75rem;
 		padding-bottom: 0.5rem;
 	}
 	/* The full-bleed readings' chapter head: same voice, and its hairline runs the FULL

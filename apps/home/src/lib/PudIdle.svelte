@@ -195,6 +195,11 @@
 	// read (see the load), so nobody's timber disappears.
 	let stores = $state<Record<string, number>>({});
 	let dropAt = $state(0);
+	// The courier's HOLD: remaining window ms while drops are paused, null while flying.
+	// A remainder rather than a timestamp — a parked countdown must survive any amount of
+	// wall-clock (a night away, a reload), so the absolute dropAt goes stale on purpose
+	// while held and is rebuilt from this remainder on resume.
+	let dropHold = $state<number | null>(null);
 	let rushed = $state(false);
 	let fireUntil = $state(0);
 	// The cut in progress, or nothing. `ms` rides along so the bar can animate for exactly as
@@ -325,8 +330,9 @@
 	);
 	// Whole seconds until the courier is overhead; the tick already moves nowMs, so this needs
 	// no clock of its own.
-	const dropIn = $derived(Math.max(0, Math.ceil((dropAt - nowMs) / 1000)));
-	const canRush = $derived(!rushed && shards >= RUSH_COST && dropIn > DROP_RUSH_MS / 1000);
+	const dropIn = $derived(Math.max(0, Math.ceil((dropHold ?? dropAt - nowMs) / 1000)));
+	// No rushing a held line: priority on a parked window buys nothing.
+	const canRush = $derived(dropHold === null && !rushed && shards >= RUSH_COST && dropIn > DROP_RUSH_MS / 1000);
 	const perClick = $derived(1 + clickLevel);
 	const rigRunning = (id: string) => (owned[id] ?? 0) > 0 && !rigPaused[id];
 	const baseCps = $derived(
@@ -473,6 +479,19 @@
 		rushed = false;
 		save();
 	}
+	// Hold ⇄ resume the supply line, with a ledger line either way (the courier narrates
+	// its own schedule, same as its drops).
+	function toggleDrops() {
+		if (dropHold === null) {
+			dropHold = Math.max(0, dropAt - Date.now());
+			note('supply', `${SHIP.name} holds its drops — the window is parked.`);
+		} else {
+			dropAt = Date.now() + dropHold;
+			dropHold = null;
+			note('supply', `${SHIP.name} resumes drops.`);
+		}
+		save();
+	}
 	function requestRush() {
 		if (!canRush) return;
 		shards -= RUSH_COST;
@@ -535,6 +554,7 @@
 		boostReadyAt = 0;
 		stores = {};
 		dropAt = Date.now() + DROP_MS;
+		dropHold = null;
 		rushed = false;
 		fireUntil = 0;
 		clearTimeout(chopTimer);
@@ -562,6 +582,7 @@
 		wood?: Record<string, number>; // pre-courier name for `stores`; still read, never written
 		stores?: Record<string, number>;
 		dropAt?: number;
+		dropHold?: number | null;
 		rushed?: boolean;
 		fireUntil?: number;
 		savedAt: number;
@@ -581,6 +602,7 @@
 				log: log.slice(0, LOG_MAX),
 				stores: { ...stores },
 				dropAt,
+				dropHold,
 				rushed,
 				fireUntil,
 				savedAt: Date.now()
@@ -614,6 +636,7 @@
 				rigPaused = { ...(s.rigPaused ?? {}) };
 				stores = { ...(s.stores ?? s.wood ?? {}) };
 				dropAt = s.dropAt ?? 0;
+				dropHold = s.dropHold ?? null;
 				rushed = s.rushed ?? false;
 				fireUntil = s.fireUntil ?? 0;
 				// Restore the ledger, defensively: it's the one saved field that's a list of
@@ -648,9 +671,13 @@
 		nowMs = Date.now();
 		lastTick = nowMs;
 		// A courier that was overhead while you were gone unloads once on your return — not once
-		// per window missed, which after a night away would be a screenful of crates.
-		if (!dropAt) dropAt = nowMs + DROP_MS;
-		else if (nowMs >= dropAt) landDrop(nowMs);
+		// per window missed, which after a night away would be a screenful of crates. A HELD
+		// line skips all of it: the parked remainder is the whole state, and dropAt is stale
+		// by design until resume rebuilds it.
+		if (dropHold === null) {
+			if (!dropAt) dropAt = nowMs + DROP_MS;
+			else if (nowMs >= dropAt) landDrop(nowMs);
+		}
 		// Seed the board on the loaded count (no opening flap-from-zero).
 		const seed = fmtParts(shards);
 		flapNum = seed.num;
@@ -668,7 +695,7 @@
 				shards += gain;
 				lifetime += gain;
 			}
-			if (dropAt && now >= dropAt) landDrop(now);
+			if (dropHold === null && dropAt && now >= dropAt) landDrop(now);
 			syncFlap(now); // turn the board over when its window opens
 		}, 200);
 		saveTimer = window.setInterval(save, 5000);
@@ -898,22 +925,39 @@
 					<dl class="pud-ship-stat">
 						<div>
 							<dt>Next drop</dt>
-							<dd>{dropIn > 0 ? `${dropIn}s` : 'overhead'}</dd>
+							<!-- Held, the countdown parks and says so — a frozen "47s" alone read as
+							     a broken clock. -->
+							<dd>{dropHold !== null ? `held · ${dropIn}s` : dropIn > 0 ? `${dropIn}s` : 'overhead'}</dd>
 						</div>
 						<div>
 							<dt>Priority</dt>
 							<dd>{rushed ? 'Expedited' : 'Standard'}</dd>
 						</div>
 					</dl>
-					<button
-						type="button"
-						class="pud-boost"
-						disabled={!canRush}
-						onclick={requestRush}
-						title={rushed ? 'The window is already forward' : `Costs ${fmt(RUSH_COST)} shards`}
-					>
-						{rushed ? 'Expedited' : `Request priority · ${fmt(RUSH_COST)}`}
-					</button>
+					<div class="pud-ship-actions">
+						<button
+							type="button"
+							class="pud-boost"
+							disabled={!canRush}
+							onclick={requestRush}
+							title={rushed ? 'The window is already forward' : `Costs ${fmt(RUSH_COST)} shards`}
+						>
+							{rushed ? 'Expedited' : `Request priority · ${fmt(RUSH_COST)}`}
+						</button>
+						<!-- The supply line's own pause — the courier twin of the works' pause. Wears
+						     .on while held (the pressed-key state), and its label is the verb that's
+						     available, not the state: press it and that's what happens. -->
+						<button
+							type="button"
+							class="pud-boost"
+							class:on={dropHold !== null}
+							aria-pressed={dropHold !== null}
+							onclick={toggleDrops}
+							title={dropHold !== null ? 'Resume the supply drops' : 'Hold the supply drops'}
+						>
+							{dropHold !== null ? 'Resume drops' : 'Pause drops'}
+						</button>
+					</div>
 				</div>
 			</div>
 			{/if}
@@ -1939,6 +1983,12 @@
 		/* Recolour beat, same as the camp. */
 		transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease;
 	}
+	/* The courier's two verbs share a row, wrapping when the card runs narrow. */
+	.pud-ship-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
 	.pud-ship-id {
 		display: flex;
 		flex-direction: column;
@@ -2383,18 +2433,24 @@
 	   UNTOUCHED — this recolours and re-materials CHROME only. (Same idiom as the bubble branches
 	   above; under Pixelite there's no data-ui, so those never match.) */
 	:global(html[data-look='pixelite']) .pud {
-		--accent: #103dff;
-		--orange: #103dff;
-		--opalite: #103dff;
+		/* light-dark PAIRS, not the bare cobalt-600: the orbit re-theme (+page) flips
+		   color-scheme on the ranger's subtree even under a light app theme, and a literal
+		   #103dff would sit unreadably deep on the night chrome. The pair hands orbit (and
+		   plain dark mode) the lifted cobalt the rest of the manual's dark stock uses. */
+		--accent: light-dark(#103dff, #607ffd);
+		--orange: light-dark(#103dff, #607ffd);
+		--opalite: light-dark(#103dff, #607ffd);
 	}
 	:global(html[data-look='pixelite']) .pud-extract,
 	:global(html[data-look='pixelite']) .pud-boost,
 	:global(html[data-look='pixelite']) .pud-buy {
 		/* 28px: the manual's one control line (pixelite.css .icon-btn note) — extract/boost
-		   drop from the 42px rank, buy from its padding-derived height. */
+		   drop from the 42px rank, buy from its padding-derived height. TOKENS, not the
+		   white/50 + ink/50 literals these first shipped with: the tokens are light-dark
+		   pairs, so the keys follow the orbit flip (and dark mode) on their own. */
 		height: 28px;
-		background: rgba(255, 255, 255, 0.5);
-		border: 1px solid rgba(0, 0, 0, 0.5);
+		background: var(--pixel-key-face);
+		border: 1px solid var(--pixel-key-border);
 		border-radius: 4px;
 		box-shadow: var(--pixel-bevel);
 		font-family: var(--font-mono);
@@ -2413,16 +2469,120 @@
 	:global(html[data-look='pixelite']) .pud-buy:hover:not(:disabled) {
 		color: var(--orange);
 		border-color: var(--orange);
-		background: rgba(255, 255, 255, 0.5);
+		background: var(--pixel-key-face);
 	}
 	:global(html[data-look='pixelite']) .pud-boost.on {
 		color: var(--orange);
 		border-color: var(--orange);
-		background: #e6ebff; /* cobalt-100 fill for the pressed-on key */
+		background: var(--pixel-key-on); /* selected-key fill — cobalt-100 / deep cobalt */
 	}
 	:global(html[data-look='pixelite']) .pud-extract:active:not(:disabled),
 	:global(html[data-look='pixelite']) .pud-boost:active:not(:disabled),
 	:global(html[data-look='pixelite']) .pud-buy:active:not(:disabled) {
 		box-shadow: var(--pixel-bevel-press);
+	}
+	/* The header shard recut in COBALT: the opal's milky pastels are Aeropalite's stone, and
+	   the manual owns one accent. Same mechanism the stones were built for (the gradient
+	   stops carry classes so theming stays in CSS) — a four-stop cobalt run, pale to deep,
+	   so the shard still reads faceted rather than flood-filled. light-dark pairs lift the
+	   whole run on dark stock and in orbit, where the deep end would otherwise sink. */
+	:global(html[data-look='pixelite']) .pud-gem :global(.op1) {
+		stop-color: light-dark(#9db1ff, #b9c6ff);
+	}
+	:global(html[data-look='pixelite']) .pud-gem :global(.op2) {
+		stop-color: light-dark(#607ffd, #8fa5ff);
+	}
+	:global(html[data-look='pixelite']) .pud-gem :global(.op3) {
+		stop-color: light-dark(#2c50ff, #607ffd);
+	}
+	:global(html[data-look='pixelite']) .pud-gem :global(.op4) {
+		stop-color: light-dark(#103dff, #4d6bfa);
+	}
+	/* The requisitions-head pause disc joins its key kin — same face, rule, bevel and cobalt
+	   hover as the extract/boost/buy set above (it's already on the 28px line; only the
+	   material changes). Paused keeps the same key both ways: the glyph is the message. */
+	:global(html[data-look='pixelite']) .pud-pauseall {
+		background: var(--pixel-key-face);
+		border: 1px solid var(--pixel-key-border);
+		border-radius: 4px;
+		box-shadow: var(--pixel-bevel);
+	}
+	:global(html[data-look='pixelite']) .pud-pauseall:hover {
+		color: var(--orange);
+		border-color: var(--orange);
+		background: var(--pixel-key-face);
+	}
+	:global(html[data-look='pixelite']) .pud-pauseall:active {
+		box-shadow: var(--pixel-bevel-press);
+	}
+	/* The cards → the manual's print surfaces: the white/50 key face on an ink hairline,
+	   4px print corners, and NO glass — gloss, air and blur all come off (a manual doesn't
+	   frost). Covers the section cards (camp, courier, cabin, the ledger/stores) and the
+	   requisition rows; the stands inherit through .pud-item. Translucent on purpose: these
+	   float over the forest/orbit scenery, and the half-white face keeps the scene readable
+	   beneath the print. */
+	:global(html[data-look='pixelite']) .pud-camp,
+	:global(html[data-look='pixelite']) .pud-ship,
+	:global(html[data-look='pixelite']) .pud-shuttle,
+	:global(html[data-look='pixelite']) .pud-cabin,
+	:global(html[data-look='pixelite']) .pud-inv-card,
+	:global(html[data-look='pixelite']) .pud-ledger-card,
+	:global(html[data-look='pixelite']) .pud-item {
+		background: var(--pixel-key-face);
+		border: 1px solid var(--pixel-hairline);
+		border-radius: 4px;
+		box-shadow: none;
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+	}
+	/* The mining band → a printed gauge: square 2px corners and an ink hairline in EVERY
+	   state, while the colours split — running wears a cobalt wash with the sweep's opal
+	   glint becoming a plain cobalt peak, and paused keeps its idle yellow untouched
+	   (:not(.paused) on the colour rules only: a STATE outranks a material, and an ungated
+	   background here would outrank the state by specificity alone). */
+	:global(html[data-look='pixelite']) .pud-mining {
+		border-radius: 2px;
+		border: 1px solid var(--pixel-hairline);
+		box-shadow: none;
+	}
+	:global(html[data-look='pixelite']) .pud-mining .pud-mining-sweep {
+		border-radius: 0;
+	}
+	:global(html[data-look='pixelite']) .pud-mining:not(.paused) {
+		background: color-mix(in srgb, var(--orange) 12%, transparent);
+	}
+	:global(html[data-look='pixelite']) .pud-mining:not(.paused) .pud-mining-sweep {
+		background: linear-gradient(90deg, transparent 0%, var(--orange) 50%, transparent 100%);
+	}
+	/* The ledger's scroll shades → the manual's own: a crisp hairline RULE at the cut edge —
+	   print's fold line, marking "continues past here" — over an ink-derived breath, so both
+	   pieces follow the orbit/dark flip through --ink and --pixel-hairline instead of the
+	   baked rgba pair the aero shade carries. The slot composition (.pud-log declares both
+	   custom properties; .scrolled/.more light them) is untouched — only the values change,
+	   so any future scrolling card that adopts the same slots inherits this treatment. */
+	:global(html[data-look='pixelite']) .pud-log {
+		border-radius: 3px; /* the 10px curve was cut for a 14px frame; the print frame is 4px */
+		/* The RESTING slots restated in the lit rules' two-shadow shape (rule + breath, both
+		   transparent): box-shadow lists of different lengths can't interpolate, so with the
+		   base's single-shadow defaults the shade SNAPPED on and off; matched lists let the
+		   base 0.25s transition carry both the enter and the exit. */
+		--log-shade-top: inset 0 1px 0 0 transparent, inset 0 16px 14px -14px transparent;
+		--log-shade-bottom: inset 0 -1px 0 0 transparent, inset 0 -16px 14px -14px transparent;
+	}
+	:global(html[data-look='pixelite']) .pud-log.scrolled {
+		--log-shade-top: inset 0 1px 0 0 var(--pixel-hairline),
+			inset 0 16px 14px -14px color-mix(in srgb, var(--ink) 9%, transparent);
+	}
+	:global(html[data-look='pixelite']) .pud-log.more {
+		--log-shade-bottom: inset 0 -1px 0 0 var(--pixel-hairline),
+			inset 0 -16px 14px -14px color-mix(in srgb, var(--ink) 9%, transparent);
+	}
+	/* The settings popover joins the print surfaces: solid page face (it floats over the shop,
+	   so it stays opaque — --panel-fill-solid is a light-dark pair and follows the orbit flip),
+	   the key rule, square print corners, and the manual's ink-mix drop instead of aero air. */
+	:global(html[data-look='pixelite']) .pud-settings {
+		border: 1px solid var(--pixel-key-border);
+		border-radius: 4px;
+		box-shadow: 0 10px 24px color-mix(in srgb, var(--ink) 18%, transparent);
 	}
 </style>

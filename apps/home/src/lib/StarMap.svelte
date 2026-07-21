@@ -1005,9 +1005,18 @@
 	   passes cobalt in place of the station orange). The bar re-reads paper tokens for its whole
 	   subtree, overriding the night ink the .sm block forces above. */
 	:global(html[data-look='pixelite']) .sm-head.bar {
-		background: var(--surface);
-		-webkit-backdrop-filter: none;
-		backdrop-filter: none;
+		/* The site's ONE bar height — 42px exactly, matching the docs superbar: fixed, not
+		   padding-derived. The bar is already a centring flex row, so the keys just seat. */
+		--bar-inset: 0.7rem;
+		box-sizing: border-box;
+		height: 42px;
+		padding-block: 0;
+		/* The shell superbar's frost, worn at rest (the ranger bar's same reasoning): the bar
+		   floats over the live starfield, so there's always sky behind the blur — a solid
+		   paper sheet here read as a different bar from the rest of the manual's. */
+		background: color-mix(in srgb, var(--page) 78%, transparent);
+		-webkit-backdrop-filter: blur(8px);
+		backdrop-filter: blur(8px);
 		border-bottom: 1px solid var(--pixel-hairline, rgba(0, 0, 0, 0.2));
 		--ink: light-dark(#000000, #f2f2f2);
 		--sub: light-dark(rgba(0, 0, 0, 0.4), rgba(242, 242, 242, 0.4));
@@ -1020,21 +1029,92 @@
 	:global(html[data-look='pixelite']) .sm-head.bar .stat dd {
 		color: var(--ink);
 	}
+	/* The FIXED 42px bar seats a two-line stat, not the loose stack the padding-derived bar
+	   held: the pair compacts a step (label at 0.6rem — the mono runs optically large —
+	   value at 0.95rem, tight lines), and the coords caption folds INLINE after the place
+	   name below, so no stat ever stacks a third line the bar has no room for. */
+	:global(html[data-look='pixelite']) .sm-head.bar .stat dd {
+		font-size: 0.95rem;
+		line-height: 1.2;
+	}
+	:global(html[data-look='pixelite']) .sm-head.bar .stat-coords {
+		display: inline;
+		margin-left: 0.4rem;
+		font-size: 0.66rem;
+	}
+	/* Room for name + inline coords before the ellipsis cuts in. */
+	:global(html[data-look='pixelite']) .sm-head.bar .stat-place dd {
+		max-width: 20rem;
+	}
 	/* Sky-summary labels → the manual's mono uppercase running-head voice. */
 	:global(html[data-look='pixelite']) .sm-head.bar .stat dt {
 		font-family: var(--font-mono);
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
+		font-size: 0.6rem;
+		line-height: 1.15;
 		color: var(--sub);
 	}
 	/* The location/search disc → a plastic key, matching the Home disc (.icon-btn) beside it:
 	   white/50 face, ink border, raised bevel, 4px corners; cobalt on hover, the bevel sinking
 	   on press. The morph keeps its white face when opened into the search field. */
+	/* The bar's pipes → the manual's separator: solid ink hairlines edge to edge, no gradient
+	   fade at the ends (the traffic bar's same pixelite dress). */
+	:global(html[data-look='pixelite']) .deck::before,
+	:global(html[data-look='pixelite']) .bar .corner-bar::before {
+		background: var(--pixel-hairline);
+	}
+	/* The accent circle comes off the manual's header — it was the station line's bullet, and
+	   the printed bar names the place with type alone. (The brand signature's dot, down in
+	   the sky's corner, keeps it: that one signs the map, not the bar.) */
+	:global(html[data-look='pixelite']) .sm-head .head-refresh {
+		display: none;
+	}
+	/* The constellation's story card → a printed sheet laid on the night sky: paper face
+	   (--surface follows dark stock via .scheme-dark), ink rule, square print corners, the
+	   sheet's own drop — no frost, no night glass. The .sm block forces night ink on this
+	   subtree, so the paper tokens are restated here the same way the bar does above; the
+	   discs inside are .icon-btns and already wear the 28px plastic key. */
+	:global(html[data-look='pixelite']) .sm-story {
+		--ink: light-dark(#000000, #f2f2f2);
+		--sub: light-dark(rgba(0, 0, 0, 0.4), rgba(242, 242, 242, 0.4));
+		color: var(--ink);
+		background: var(--surface);
+		border: 1px solid var(--pixel-key-border);
+		border-radius: 4px;
+		-webkit-backdrop-filter: none;
+		backdrop-filter: none;
+		box-shadow: var(--card-shadow);
+	}
+	:global(html[data-look='pixelite']) .sm-story-extract {
+		color: color-mix(in srgb, var(--ink) 80%, transparent);
+	}
+	:global(html[data-look='pixelite']) .sm-story-note {
+		color: var(--sub);
+	}
+	:global(html[data-look='pixelite']) .sm-story-link {
+		color: var(--orange);
+	}
+	/* The bar's 28px keys overhang the slim inset rather than stretch it — the traffic bar's
+	   same trim; the title line sets the bar's height. */
+	:global(html[data-look='pixelite']) .sm-head.bar .icon-btn,
+	:global(html[data-look='pixelite']) .sm-head.bar .sm-cs {
+		margin-block: -0.2rem;
+	}
 	:global(html[data-look='pixelite']) .sm-cs {
 		/* 28px: the manual's one control line (pixelite.css .icon-btn note) — the Home key
 		   beside it wears the same measure, so the row stays flush. */
 		width: 28px;
 		height: 28px;
+		/* Weather's CitySearch kit, worn whole: the width morphs on the manual's minor
+		   bounce (--pixel-pop, pixelite.css), the press squash keeps its curve. */
+		transition:
+			width 0.24s var(--pixel-pop, ease),
+			transform 0.3s var(--btn-spring),
+			background 0.2s ease,
+			color 0.2s ease,
+			border-color 0.15s ease,
+			box-shadow 0.2s ease;
 		background: var(--pixel-key-face);
 		border: 1px solid var(--pixel-key-border);
 		border-radius: 4px;
@@ -1051,6 +1131,32 @@
 	:global(html[data-look='pixelite']) .sm-cs-icon :global(svg) {
 		width: 1.05rem;
 		height: 1.05rem;
+	}
+	/* The field speaks mono at 16px (CitySearch's iOS no-zoom note), with the manual's
+	   uppercase running-head placeholder. */
+	:global(html[data-look='pixelite']) .sm-cs-input {
+		font-family: var(--font-mono);
+		font-size: 16px;
+	}
+	:global(html[data-look='pixelite']) .sm-cs-input::placeholder {
+		color: var(--sub);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		font-size: 0.74rem;
+	}
+	/* The hits hang as a printed sheet — CitySearch's results treatment: the field's own ink
+	   rule so sheet and field read as one control, near-square corners, the sheet's drop. */
+	:global(html[data-look='pixelite']) .sm-hits {
+		background: var(--panel-fill-solid);
+		border: 1px solid var(--pixel-key-border);
+		border-radius: 4px;
+		box-shadow: var(--card-shadow);
+	}
+	:global(html[data-look='pixelite']) .sm-hits button {
+		border-radius: 3px;
+	}
+	:global(html[data-look='pixelite']) .sm-hits button.active {
+		background: var(--pixel-key-on);
 	}
 	:global(html[data-look='pixelite']) .sm-cs:not(.open):hover {
 		color: var(--orange);

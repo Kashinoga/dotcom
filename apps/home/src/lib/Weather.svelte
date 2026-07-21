@@ -94,6 +94,9 @@
 		x?: number; y?: number; v?: number; len?: number; ph?: number; amp?: number;
 		w?: number; h?: number; sun?: boolean; moon?: boolean; star?: boolean; tw?: boolean; big?: boolean;
 		cloud?: boolean; ghost?: boolean;
+		/* A stratus deck cloud's lumps: [dx, dy, r] per disc, rolled once in seed() so the
+		   band's shape holds frame to frame (the render loop must stay deterministic). */
+		lumps?: [number, number, number][];
 	};
 	let particles: Particle[] = [];
 	let flash = 0;
@@ -115,11 +118,37 @@
 		const night = !!now?.night;
 		const p: Particle[] = [];
 		if (kind === 'rain' || kind === 'storm' || kind === 'snow') {
-			// Precipitation FALLS FROM somewhere: a deck of three heavy clouds pinned along the top,
-			// drifting slowly. Pushed first so the falling particles draw over their base — leaving
-			// the cloud, not materialising from the frame's edge (they spawn just under the deck).
-			for (let i = 0; i < 3; i++)
-				p.push({ cloud: true, x: -6 + i * (CW / 3) + rnd() * 10, y: -2 + rnd() * 4, v: 0.04 + rnd() * 0.05, w: 40 + ((rnd() * 18) | 0), h: 10 + ((rnd() * 4) | 0) });
+			// Precipitation FALLS FROM somewhere: a deck of STRATA along the top — three long
+			// bands, each a run of overlapping discs with per-lump jitter (rolled here, held
+			// through the loop), drifting slowly at slightly different speeds. The first cut
+			// pinned lumpy pxClouds half off the frame, and what survived the clip was their
+			// flat slab: a bar with circles on top. These live wholly inside the frame, so the
+			// ragged tops and shaded undersides are the silhouette. Pushed first so the falling
+			// particles draw over their base — leaving the deck, not the frame's edge.
+			// The deck wears the CLOUDY blobs' construction (the shapes that earned it): SIX
+			// sine-arched masses of dense overlapping discs — big lumps mid-cloud, tapering
+			// ends — two per depth layer, overlapping along the top so real valleys open
+			// between cloud masses. h carries each blob's DEPTH LAYER (0 far … 2 near): its
+			// own tone pair in render(), sitting a step lower and drifting a touch faster
+			// when nearer. Pushed LAYER BY LAYER (far first) so paint order is depth order;
+			// the slots interleave across the width so each layer still spans the frame.
+			// render() also lays a far-tone CEILING band under all of them, so the valleys
+			// between blob tops reveal the layer behind — never bare sky through the top. */
+			for (let layer = 0; layer < 3; layer++) {
+				for (let k = 0; k < 2; k++) {
+					const slot = k * 3 + layer;
+					const w = 34 + ((rnd() * 16) | 0);
+					const ch = 12 + ((rnd() * 4) | 0);
+					const lumps: [number, number, number][] = [];
+					const ln = Math.max(8, (w / 4) | 0);
+					for (let j = 0; j < ln; j++) {
+						const t = j / (ln - 1);
+						const arc = Math.sin(Math.PI * t);
+						lumps.push([t * w + (rnd() * 4 - 2), -(arc * ch * 0.35) + (rnd() * 2 - 1), 3 + arc * ch * 0.4 + rnd() * 1.5]);
+					}
+					p.push({ cloud: true, h: layer, x: -8 + slot * (CW / 6) + rnd() * 8, y: 4 + layer * 2 + rnd() * 3, v: 0.03 + layer * 0.025 + rnd() * 0.02, w, lumps });
+				}
+			}
 		}
 		if (kind === 'rain' || kind === 'storm') {
 			const n = kind === 'storm' ? 40 : 28;
@@ -129,14 +158,36 @@
 			for (let i = 0; i < 30; i++) p.push({ x: rnd() * CW, y: 10 + rnd() * (CH - 10), v: 0.3 + rnd() * 0.4, ph: rnd() * 6.28, amp: 0.8 + rnd() * 1.4, big: rnd() < 0.25 });
 		} else if (kind === 'fog') {
 			// The sun (or moon) first, as a pale ghost the haze half-swallows; then the banks,
-			// bottom-up — amp carries each bank's density, thinning with height.
+			// bottom-up — amp carries each bank's density, thinning with height. Each bank
+			// rolls a CREST line (the cloud lumps' idiom, halved): hump positions/radii along
+			// its top, spaced with small gaps so the edge reads as wisps, not a dashed rule.
 			p.push({ ghost: true, x: CW * 0.72, y: CH * 0.2 });
-			for (let i = 0; i < 6; i++) p.push({ x: rnd() * CW, y: CH - 8 - i * 9, v: (rnd() < 0.5 ? -1 : 1) * (0.08 + rnd() * 0.1), ph: rnd() * 6.28, amp: 1 - i * 0.11 });
+			for (let i = 0; i < 6; i++) {
+				const crests: [number, number, number][] = [];
+				for (let cx = 0; cx < CW + 12; cx += 6 + ((rnd() * 5) | 0))
+					crests.push([cx, 0, 2 + ((rnd() * 3) | 0)]);
+				p.push({ x: rnd() * CW, y: CH - 8 - i * 9, v: (rnd() < 0.5 ? -1 : 1) * (0.08 + rnd() * 0.1), ph: rnd() * 6.28, amp: 1 - i * 0.11, lumps: crests });
+			}
 		} else if (kind === 'wind') {
 			for (let i = 0; i < 16; i++) p.push({ x: rnd() * CW, y: 6 + rnd() * (CH - 12), v: 1.1 + rnd() * 1.5, len: 8 + ((rnd() * 6) | 0) });
 		} else if (kind === 'cloudy' || kind === 'partly') {
 			const n = kind === 'partly' ? 4 : 6;
-			for (let i = 0; i < n; i++) p.push({ x: rnd() * CW, y: 6 + rnd() * (CH * 0.5), v: 0.06 + rnd() * 0.09, w: 22 + ((rnd() * 16) | 0), h: 9 + ((rnd() * 5) | 0) });
+			for (let i = 0; i < n; i++) {
+				const w = 22 + ((rnd() * 16) | 0);
+				const h = 9 + ((rnd() * 5) | 0);
+				// The deck strata's lump construction, arched into a free blob: dense overlapping
+				// discs whose radius and lift follow a sine across the width — big in the middle,
+				// tapering to the ends — so the cloud reads as one rounded mass, not a slab with
+				// bumps (the old pxCloud) and not a row of separate circles.
+				const lumps: [number, number, number][] = [];
+				const ln = Math.max(6, (w / 4) | 0);
+				for (let j = 0; j < ln; j++) {
+					const t = j / (ln - 1);
+					const arc = Math.sin(Math.PI * t);
+					lumps.push([t * w + (rnd() * 4 - 2), -(arc * h * 0.35) + (rnd() * 2 - 1), 3 + arc * h * 0.4 + rnd() * 1.5]);
+				}
+				p.push({ x: rnd() * CW, y: 6 + rnd() * (CH * 0.5), v: 0.06 + rnd() * 0.09, w, h, lumps });
+			}
 			if (kind === 'partly' && !night) p.push({ sun: true, x: CW * 0.22, y: CH * 0.26 });
 			if (kind === 'partly' && night) {
 				// The night half of "partly": the moon where the day's sun stands, and a thinner
@@ -155,6 +206,27 @@
 		}
 		particles = p;
 	}
+
+	// The precipitation deck's depth-layer tones, far → near (index = a blob's p.h). Shared
+	// by the blobs AND the ceiling band render() lays under them, so the sealed top edge is
+	// exactly the farthest layer's light.
+	const DECK_TONES: Record<string, [string, string][]> = {
+		storm: [
+			['rgb(110 118 140)', 'rgb(84 92 112)'],
+			['rgb(92 100 124)', 'rgb(66 74 96)'],
+			['rgb(74 82 106)', 'rgb(52 58 80)']
+		],
+		snow: [
+			['rgb(214 222 234)', 'rgb(184 192 208)'],
+			['rgb(200 208 222)', 'rgb(166 176 194)'],
+			['rgb(184 194 210)', 'rgb(148 158 178)']
+		],
+		rain: [
+			['rgb(152 162 182)', 'rgb(124 134 156)'],
+			['rgb(132 144 168)', 'rgb(102 112 136)'],
+			['rgb(112 124 150)', 'rgb(82 92 118)']
+		]
+	};
 
 	const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 	function bandColor(stops: [number, number, number][], pos: number) {
@@ -229,20 +301,9 @@
 		ctx.fillRect(cx - 2, cy - 1, 1, 1);
 		ctx.fillRect(cx, cy + 3, 1, 1);
 	}
-	// A cloud: a flat-bottomed slab with three lumpy humps rising off it, in TWO tones — lit
-	// above, shaded along the underside (inset a pixel each end, so the bottom corners stay lit
-	// and the base reads rounded). Slightly different hump radii keep it from reading as a pill.
-	function pxCloud(ctx: Ctx, x: number, y: number, w: number, h: number, light: string, shade: string) {
-		const base = (y + h) | 0;
-		const slab = (y + h * 0.5) | 0;
-		ctx.fillStyle = light;
-		ctx.fillRect(x | 0, slab, w | 0, Math.max(1, base - slab - 2));
-		hump(ctx, x + w * 0.24, slab, h * 0.62);
-		hump(ctx, x + w * 0.52, slab, h * 0.78);
-		hump(ctx, x + w * 0.78, slab, h * 0.55);
-		ctx.fillStyle = shade;
-		ctx.fillRect((x + 1) | 0, base - 2, Math.max(0, (w | 0) - 2), 2);
-	}
+	// (pxCloud — the slab with three humps — retired: every cloud is drawn from per-particle
+	// LUMPS now, seeded once and painted as two disc passes; see the cloud branches in render.
+	// hump() lives on as the fog banks' crest.)
 
 	function render(ts: number, animate: boolean) {
 		const ctx = skyCanvas?.getContext('2d');
@@ -259,6 +320,13 @@
 			ctx.fillRect(0, y, CW, BAND);
 		}
 		const t = ts / 1000;
+		// The precipitation deck's sealed CEILING: the farthest layer's light, laid under
+		// every blob, so the valleys between cloud tops open onto the layer behind — never
+		// bare sky peeking through the frame's top edge.
+		if (kind === 'rain' || kind === 'storm' || kind === 'snow') {
+			ctx.fillStyle = DECK_TONES[kind][0][0];
+			ctx.fillRect(0, 0, CW, 6);
+		}
 		for (const p of particles) {
 			if (p.star) {
 				const a = p.tw ? 0.35 + 0.5 * Math.abs(Math.sin(t * 1.4 + (p.ph ?? 0))) : 0.85;
@@ -282,17 +350,20 @@
 				ctx.fillStyle = night ? 'rgba(232,236,245,0.32)' : 'rgba(255,244,205,0.4)';
 				disc(ctx, p.x!, p.y!, 4);
 			} else if (p.cloud) {
-				// The precipitation deck: heavier and darker than fair-weather clouds, graded by
-				// what it's dropping — storm darkest, snow palest.
-				const w = p.w ?? 40, h = p.h ?? 10;
-				const [light, shade] =
-					kind === 'storm'
-						? ['rgba(92,100,124,0.95)', 'rgba(62,68,88,0.95)']
-						: kind === 'snow'
-							? ['rgba(200,208,222,0.92)', 'rgba(162,172,190,0.88)']
-							: ['rgba(132,144,168,0.92)', 'rgba(94,104,126,0.9)'];
-				pxCloud(ctx, p.x!, p.y!, w, h, light, shade);
-				if (animate) { p.x! += p.v!; if (p.x! > CW) p.x = -w; }
+				// The precipitation deck: the shade pass first, nudged down, then the lit pass
+				// over it — every lump carries a shaded underside. Tones are OPAQUE (overcast
+				// owns its light) so overlapping discs merge seamlessly, and each DEPTH LAYER
+				// (p.h, set in seed) wears its own pair from DECK_TONES — far pale, near dark —
+				// so overlapping blobs read as stacked masses. Storm darkest, snow palest.
+				const [light, shade] = (DECK_TONES[kind] ?? DECK_TONES.rain)[Math.min(2, p.h ?? 0)];
+				// The cloudy blobs' two-pass draw, no core band needed: the sine arc keeps each
+				// mass cohesive on its own.
+				const lumps = p.lumps ?? [];
+				ctx.fillStyle = shade;
+				for (const [dx, dy, r] of lumps) disc(ctx, p.x! + dx, p.y! + dy + 2, r | 0);
+				ctx.fillStyle = light;
+				for (const [dx, dy, r] of lumps) disc(ctx, p.x! + dx, p.y! + dy, r | 0);
+				if (animate) { p.x! += p.v!; if (p.x! > CW) p.x = -(p.w ?? 46); }
 			} else if (kind === 'rain' || kind === 'storm') {
 				const x = p.x! | 0, y = p.y! | 0, len = p.len ?? 6;
 				// two-tone drop: dim body, bright leading head — the streak reads as falling
@@ -329,8 +400,13 @@
 				const off = Math.round(p.x!);
 				ctx.fillStyle = `rgba(226,230,235,${a.toFixed(2)})`;
 				ctx.fillRect(0, y, CW, 4);
-				ctx.fillStyle = `rgba(226,230,235,${(a * 0.8).toFixed(2)})`;
-				for (let x = ((off % 12) + 12) % 12 - 12; x < CW; x += 12) ctx.fillRect(x, y - 1, 7, 1);
+				// The crest: half-disc humps riding the bank's top edge (base y−1, so they never
+				// overlap the band and double the alpha), drifting with it — wisps, not dashes.
+				ctx.fillStyle = `rgba(226,230,235,${(a * 0.85).toFixed(2)})`;
+				for (const [dx, , r] of p.lumps ?? []) {
+					const hx = ((((off + dx) % (CW + 12)) + CW + 12) % (CW + 12)) - 12;
+					hump(ctx, hx, y - 1, r);
+				}
 				ctx.fillStyle = `rgba(232,236,240,${(a * 0.7).toFixed(2)})`;
 				const lx = ((((off * 2) % (CW + 40)) + CW + 40) % (CW + 40)) - 40;
 				ctx.fillRect(lx, y + 1, 34, 2);
@@ -344,11 +420,17 @@
 				ctx.fillRect(x + len - 3, y, 3, 1);
 				if (animate) { p.x! += p.v!; if (p.x! > CW) { p.x = -(p.len ?? 8); p.y = 6 + Math.random() * (CH - 12); } }
 			} else {
-				// fair-weather cloud (cloudy / partly): lit above, shaded along the underside
-				const w = p.w ?? 24, h = p.h ?? 10;
-				if (night) pxCloud(ctx, p.x!, p.y!, w, h, 'rgba(74,82,106,0.65)', 'rgba(42,48,68,0.6)');
-				else pxCloud(ctx, p.x!, p.y!, w, h, 'rgba(255,255,255,0.72)', 'rgba(178,192,212,0.55)');
-				if (animate) { p.x! += p.v!; if (p.x! > CW) p.x = -w; }
+				// fair-weather cloud (cloudy / partly): the deck's same two-pass lump draw —
+				// shade nudged down, light over it — in OPAQUE tones so overlaps merge clean.
+				const [light, shade] = night
+					? ['rgb(64 72 96)', 'rgb(40 46 66)']
+					: ['rgb(252 253 255)', 'rgb(212 222 238)'];
+				const lumps = p.lumps ?? [];
+				ctx.fillStyle = shade;
+				for (const [dx, dy, r] of lumps) disc(ctx, p.x! + dx, p.y! + dy + 2, r | 0);
+				ctx.fillStyle = light;
+				for (const [dx, dy, r] of lumps) disc(ctx, p.x! + dx, p.y! + dy, r | 0);
+				if (animate) { p.x! += p.v!; if (p.x! > CW) p.x = -(p.w ?? 24); }
 			}
 		}
 		if (kind === 'storm') {
@@ -1176,11 +1258,9 @@
 		align-items: center;
 		gap: 0.15rem;
 		min-width: 0;
-		/* The tabs are the panel's SECOND HEADER LINE, not body copy: a small beat under
-		   "Weather" (the body has NO top padding of its own now — spacing flows top-down
-		   from the header), and pull left by the first tab's own text inset so the city's
-		   letterforms align with the title's left edge. */
-		margin-top: 0.4rem;
+		/* The tabs are the panel's SECOND HEADER LINE, not body copy: seated directly on the
+		   header's own bottom air (no beat of their own), and pulled left by the first tab's
+		   text inset so the city's letterforms align with the title's left edge. */
 		margin-left: -0.55rem;
 	}
 	.wx-tabs {

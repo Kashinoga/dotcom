@@ -1266,8 +1266,17 @@
 					<!-- No captions up here: the controls say what they are themselves — the pills
 					     ARE fields, and Range/Refresh name themselves as the first group header in
 					     their own dropdowns (the aria-labels still speak for screen readers). -->
-					<div class="ctl" role="radiogroup" aria-label="Airport">
-						{@render fieldButtons()}
+					<!-- The field control wears two forms: the pill row where the bar has width, and
+					     the compact panel's dropdown on thinner viewports — eleven pills wrapped the
+					     bar into a second line long before the rest of the deck crowded. Both are
+					     mounted; the media query picks one (see .deck-field-pills / -drop). -->
+					<div class="ctl deck-fields">
+						<span class="deck-field-pills" role="radiogroup" aria-label="Airport">
+							{@render fieldButtons()}
+						</span>
+						<span class="deck-field-drop" style="--bn:1">
+							{@render fieldSelect()}
+						</span>
 					</div>
 					<!-- --bn set on the wrapper; the <select> inside inherits it (custom props
 					     cascade), so Range and Refresh land just past the last field pill. -->
@@ -2024,6 +2033,25 @@
 		flex-wrap: wrap;
 		gap: 0.4rem;
 	}
+	/* The field control's two forms (see the deck markup): pills with width, dropdown without.
+	   The pill span reproduces .ctl's inner flex so the pills lay out exactly as before. */
+	.deck-field-pills {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+	}
+	.deck-field-drop {
+		display: none;
+	}
+	@media (max-width: 1200px) {
+		.deck-field-pills {
+			display: none;
+		}
+		.deck-field-drop {
+			display: block;
+		}
+	}
 	/* With the captions gone, a thin pipe parts title | Field | Range | Refresh | caps —
 	   hung in the middle of each gap, full control height, its top and bottom faded so it
 	   reads as a separator and not another stroke in the control family. ONE rhythm
@@ -2118,6 +2146,14 @@
 		inset: 0 0 auto 0;
 		z-index: 6;
 		--bar-inset: 0.7rem; /* the docs superbar's slim padding */
+		/* The site's ONE bar height — 42px exactly, matching the docs superbar. Below the
+		   1200px field-dropdown swap the deck holds one line well under this; --bar-h still
+		   measures the real rect, so the body's reserved lane follows. */
+		box-sizing: border-box;
+		height: 42px;
+		padding-block: 0;
+		display: flex;
+		align-items: center;
 		background: color-mix(in srgb, var(--page) 100%, transparent);
 		border-bottom: 1px solid var(--pixel-hairline);
 		transition: background 0.2s ease, -webkit-backdrop-filter 0.2s ease,
@@ -2160,6 +2196,13 @@
 	:global(html[data-look='pixelite']) .deck-controls .field-select {
 		padding-left: 0.85rem;
 		padding-right: 0.85rem;
+	}
+	/* The refresh dial (the table head's countdown ring) joins the 28px control line — its
+	   42px kept step with the aero icon-btn, and beside the manual's 28px keys it towered.
+	   The ring is viewBox geometry, so stroke and arc scale with the box. */
+	:global(html[data-look='pixelite']) .ring {
+		width: 28px;
+		height: 28px;
 	}
 	/* The corner keys (Refresh, Home, Collapse) square off at 28px with the family's 1.05rem
 	   glyph — now just the shared pixelite.css .icon-btn measure, restated so this block
