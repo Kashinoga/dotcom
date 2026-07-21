@@ -19,11 +19,14 @@
 	let {
 		view = null,
 		activeCode = null,
+		pageIcon = '',
 		onNavigate,
 		body
 	}: {
 		view?: View | null;
 		activeCode?: string | null;
+		/* The open page's mark (+page's PORT_ICONS) — worn by the mobile floating key. */
+		pageIcon?: string;
 		onNavigate: (code: string) => void;
 		body: Snippet<[View]>;
 	} = $props();
@@ -350,14 +353,29 @@
 				</span>
 			</span>
 		{/if}
-		<button
-			type="button"
-			class="docs-menu"
-			aria-expanded={sidebarOpen}
-			aria-label={sidebarOpen ? 'Hide contents' : 'Show contents'}
-			onclick={() => (sidebarOpen = !sidebarOpen)}>{sidebarOpen ? 'CLOSE' : 'MENU'}</button
-		>
 	</header>
+
+	<!-- Mobile contents control: a floating plastic key at the viewport's bottom-left wearing
+	     the OPEN PAGE's mark (the same glyph its app card and Related chip wear), so the key
+	     doubles as a "you are here" badge. It discloses the site tree as a RECEIPT feeding
+	     out from under the superbar (see the .docs-sidebar mobile rules), with a scrim
+	     behind it so a tap anywhere else folds it away. Desktop never shows any of this
+	     (see the media block); the sidebar rail carries the tree there. -->
+	{#if sidebarOpen}
+		<button
+			class="docs-scrim"
+			aria-label="Close contents"
+			transition:sbReveal={{ duration: 180 }}
+			onclick={() => (sidebarOpen = false)}
+		></button>
+	{/if}
+	<button
+		type="button"
+		class="docs-fab"
+		aria-expanded={sidebarOpen}
+		aria-label={sidebarOpen ? 'Hide contents' : 'Show contents'}
+		onclick={() => (sidebarOpen = !sidebarOpen)}>{@html pageIcon}</button
+	>
 
 	<div class="docs-cols">
 		<!-- Sticky sidebar: the numbered docs TOC (the wordmark now lives in the superbar). -->
@@ -365,7 +383,7 @@
 			<nav class="docs-toc">
 				<ol>
 					{#each sections as { code, kids }, i}
-						<li class="docs-sec">
+						<li class="docs-sec" class:no-kids={!kids.length}>
 							<a
 								class="docs-sec-head"
 								class:active={activeCode === code || (code === HUB && activeCode === null)}
@@ -511,8 +529,9 @@
 	.docs-sb-ctl {
 		display: flex;
 		align-items: center;
-		width: 1.9rem;
-		height: 1.9rem;
+		/* 28px: the manual's one control line (pixelite.css .icon-btn note). */
+		width: 28px;
+		height: 28px;
 		overflow: hidden;
 		background: var(--pixel-key-face, rgba(255, 255, 255, 0.5));
 		border: 1px solid var(--pixel-key-border, rgba(0, 0, 0, 0.5));
@@ -533,7 +552,7 @@
 		flex: none;
 		display: grid;
 		place-items: center;
-		width: calc(1.9rem - 2px);
+		width: calc(28px - 2px);
 		height: 100%;
 		padding: 0;
 		color: var(--ink);
@@ -546,8 +565,8 @@
 	}
 	.docs-sb-ico-btn :global(svg) {
 		display: block;
-		width: 1rem;
-		height: 1rem;
+		width: 1.05rem;
+		height: 1.05rem;
 	}
 	/* The input is always mounted — width 0 and silent while closed, so the morph never
 	   swaps elements; it just uncovers what was already there. */
@@ -654,7 +673,15 @@
 		counter-reset: none;
 	}
 	.docs-sec {
-		margin-bottom: 1.4rem;
+		margin-bottom: 0.9rem;
+	}
+	/* A section with no sub-entries (1. Home) is just a line, not a group — no group air
+	   below it, so it sits directly over the next section head like consecutive lines. */
+	.docs-sec.no-kids {
+		margin-bottom: 0;
+	}
+	.docs-sec.no-kids .docs-sec-head {
+		margin-bottom: 0;
 	}
 	/* The list mirrors the superbar's pairing: parents in the body voice (like the
 	   wordmark), children in mono (like the breadcrumbs). */
@@ -832,48 +859,119 @@
 	.docs-rail-item.lvl-3 .docs-rail-link.active {
 		color: var(--orange);
 	}
-	/* ── Mobile MENU key (superbar) ──────────────────────────────────────────── */
-	.docs-menu {
+	/* ── Mobile contents key (floating) + its scrim ──────────────────────────────
+	   Both hidden until the mobile media block shows them. The key floats at the
+	   viewport's bottom-LEFT — fixed, so it's reachable and visible at any scroll
+	   depth — wearing the open page's mark. 40px, deliberately off the 28px control
+	   line: a floating key is hit by a thumb mid-scroll, not a pointer, and 28px is
+	   below a comfortable touch target. Same plastic-key material as the family. */
+	.docs-fab {
 		display: none;
-		flex: none;
-		font-family: var(--font-mono);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		font-size: 0.72rem;
-		font-weight: 700;
+		position: fixed;
+		left: 1.25rem;
+		bottom: 1.25rem;
+		z-index: 19;
+		place-items: center;
+		box-sizing: border-box;
+		width: 40px;
+		height: 40px;
+		padding: 0;
 		color: var(--ink);
-		background: var(--pixel-key-face);
+		/* The superbar's own frost, worn as the key face: the same page-mix opacity and blur
+		   as .docs-superbar.scrolled, so the two floating layers read as one material with
+		   content smearing beneath them. */
+		background: color-mix(in srgb, var(--page) 78%, transparent);
+		-webkit-backdrop-filter: blur(8px);
+		backdrop-filter: blur(8px);
 		border: 1px solid var(--pixel-key-border);
 		border-radius: 4px;
 		box-shadow: var(--pixel-bevel);
-		padding: 0.4rem 0.7rem;
 		cursor: pointer;
 	}
-	.docs-menu:active {
+	.docs-fab:active {
 		box-shadow: var(--pixel-bevel-press);
+	}
+	.docs-fab[aria-expanded='true'] {
+		color: var(--orange);
+		border-color: var(--orange);
+	}
+	.docs-fab :global(svg) {
+		display: block;
+		width: 1.35rem;
+		height: 1.35rem;
+	}
+	/* The scrim: a faint ink veil over the page while the flyout stands, and the tap-anywhere
+	   dismissal. Under the flyout and the key; under the superbar too, so the bar stays live. */
+	.docs-scrim {
+		display: none;
+		position: fixed;
+		inset: 0;
+		z-index: 17;
+		padding: 0;
+		background: color-mix(in srgb, var(--ink) 8%, transparent);
+		border: 0;
+		cursor: default;
 	}
 
 	@media (max-width: 860px) {
 		.docs-cols {
 			grid-template-columns: 1fr;
 		}
-		/* The breadcrumb steps aside for the MENU key on a phone; the wordmark keeps the left end. */
+		/* The breadcrumb hides on a phone; the wordmark keeps the bar's left end to itself
+		   (the contents control now floats at the bottom-left instead of riding the bar). */
 		.docs-crumbs {
 			display: none;
 		}
-		.docs-menu {
-			display: inline-flex;
-			align-items: center;
+		.docs-fab {
+			display: grid;
 		}
+		.docs-scrim {
+			display: block;
+		}
+		/* The site tree opens as a RECEIPT printing out of the superbar: a fixed paper sheet
+		   flush under the bar — NO top border and square top corners, so the bar's own bottom
+		   hairline reads as the slot it feeds from — visible at any scroll depth. Below the
+		   bar in the stack (18 vs 20), so the motion happens BEHIND it: closed, the sheet is
+		   translated fully above the viewport; opening slides it down out of the frost,
+		   closing feeds it back up. Transform + visibility, not display — display can't
+		   transition, and the sheet must stay laid out to slide both ways. */
 		.docs-sidebar {
-			display: none;
-			position: static;
+			display: block;
+			position: fixed;
+			top: var(--superbar-h);
+			left: 0.75rem;
+			z-index: 18;
 			height: auto;
-			border-right: 0;
-			border-bottom: 1px solid var(--pixel-hairline);
+			width: min(300px, calc(100vw - 1.5rem));
+			max-height: calc(100vh - var(--superbar-h) - 5rem);
+			max-height: calc(100dvh - var(--superbar-h) - 5rem);
+			overflow-y: auto;
+			background: var(--page);
+			border: 1px solid var(--pixel-hairline);
+			border-top: 0;
+			border-radius: 0 0 4px 4px;
+			box-shadow: 0 10px 24px color-mix(in srgb, var(--ink) 18%, transparent);
+			/* Parked above the viewport entirely (own height + the bar's), not just behind the
+			   bar: the scrolled bar is translucent frost, and a sheet parked behind it would
+			   show through. */
+			transform: translateY(calc(-100% - var(--superbar-h)));
+			visibility: hidden;
+			/* Exit: the slide plays first, visibility cuts only after it lands. */
+			transition:
+				transform 0.28s ease,
+				visibility 0s linear 0.28s;
 		}
 		.docs.sidebar-open .docs-sidebar {
-			display: block;
+			transform: translateY(0);
+			visibility: visible;
+			/* Enter: visible at once, then the feed-out plays. */
+			transition: transform 0.28s ease;
+		}
+		@media (prefers-reduced-motion: reduce) {
+			.docs-sidebar,
+			.docs.sidebar-open .docs-sidebar {
+				transition: none;
+			}
 		}
 		/* Both margins fold away — the content column takes the whole width. */
 		.docs-rail {

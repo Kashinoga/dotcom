@@ -1031,11 +1031,26 @@
 	   white/50 face, ink border, raised bevel, 4px corners; cobalt on hover, the bevel sinking
 	   on press. The morph keeps its white face when opened into the search field. */
 	:global(html[data-look='pixelite']) .sm-cs {
+		/* 28px: the manual's one control line (pixelite.css .icon-btn note) — the Home key
+		   beside it wears the same measure, so the row stays flush. */
+		width: 28px;
+		height: 28px;
 		background: var(--pixel-key-face);
 		border: 1px solid var(--pixel-key-border);
 		border-radius: 4px;
 		box-shadow: var(--pixel-bevel);
 		color: var(--ink);
+	}
+	:global(html[data-look='pixelite']) .sm-cs.open {
+		width: min(20rem, 55vw);
+	}
+	:global(html[data-look='pixelite']) .sm-cs-icon {
+		width: 26px;
+		height: 26px;
+	}
+	:global(html[data-look='pixelite']) .sm-cs-icon :global(svg) {
+		width: 1.05rem;
+		height: 1.05rem;
 	}
 	:global(html[data-look='pixelite']) .sm-cs:not(.open):hover {
 		color: var(--orange);

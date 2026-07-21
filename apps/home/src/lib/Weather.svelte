@@ -93,9 +93,13 @@
 	type Particle = {
 		x?: number; y?: number; v?: number; len?: number; ph?: number; amp?: number;
 		w?: number; h?: number; sun?: boolean; moon?: boolean; star?: boolean; tw?: boolean; big?: boolean;
+		cloud?: boolean; ghost?: boolean;
 	};
 	let particles: Particle[] = [];
 	let flash = 0;
+	// The storm's lightning: a jagged 1px path, re-carved fresh each time the flash fires so no
+	// two strikes land alike. Drawn only through the bright half of the flash's decay.
+	let bolt: [number, number][] = [];
 	let raf = 0;
 	let looping = false;
 	let inView = false;
@@ -110,26 +114,43 @@
 		const kind = skyKind;
 		const night = !!now?.night;
 		const p: Particle[] = [];
+		if (kind === 'rain' || kind === 'storm' || kind === 'snow') {
+			// Precipitation FALLS FROM somewhere: a deck of three heavy clouds pinned along the top,
+			// drifting slowly. Pushed first so the falling particles draw over their base — leaving
+			// the cloud, not materialising from the frame's edge (they spawn just under the deck).
+			for (let i = 0; i < 3; i++)
+				p.push({ cloud: true, x: -6 + i * (CW / 3) + rnd() * 10, y: -2 + rnd() * 4, v: 0.04 + rnd() * 0.05, w: 40 + ((rnd() * 18) | 0), h: 10 + ((rnd() * 4) | 0) });
+		}
 		if (kind === 'rain' || kind === 'storm') {
 			const n = kind === 'storm' ? 40 : 28;
-			for (let i = 0; i < n; i++) p.push({ x: rnd() * CW, y: rnd() * CH, v: 1.6 + rnd() * 1.5, len: 6 + ((rnd() * 4) | 0) });
+			for (let i = 0; i < n; i++) p.push({ x: rnd() * CW, y: 12 + rnd() * (CH - 12), v: 1.6 + rnd() * 1.5, len: 6 + ((rnd() * 4) | 0) });
 		} else if (kind === 'snow') {
 			// A few fatter flakes (a stubby pixel plus) among the fine ones.
-			for (let i = 0; i < 30; i++) p.push({ x: rnd() * CW, y: rnd() * CH, v: 0.3 + rnd() * 0.4, ph: rnd() * 6.28, amp: 0.8 + rnd() * 1.4, big: rnd() < 0.25 });
+			for (let i = 0; i < 30; i++) p.push({ x: rnd() * CW, y: 10 + rnd() * (CH - 10), v: 0.3 + rnd() * 0.4, ph: rnd() * 6.28, amp: 0.8 + rnd() * 1.4, big: rnd() < 0.25 });
 		} else if (kind === 'fog') {
-			for (let i = 0; i < 6; i++) p.push({ x: rnd() * CW, y: CH - 8 - i * 9, v: (rnd() < 0.5 ? -1 : 1) * (0.08 + rnd() * 0.1), ph: rnd() * 6.28 });
+			// The sun (or moon) first, as a pale ghost the haze half-swallows; then the banks,
+			// bottom-up — amp carries each bank's density, thinning with height.
+			p.push({ ghost: true, x: CW * 0.72, y: CH * 0.2 });
+			for (let i = 0; i < 6; i++) p.push({ x: rnd() * CW, y: CH - 8 - i * 9, v: (rnd() < 0.5 ? -1 : 1) * (0.08 + rnd() * 0.1), ph: rnd() * 6.28, amp: 1 - i * 0.11 });
 		} else if (kind === 'wind') {
 			for (let i = 0; i < 16; i++) p.push({ x: rnd() * CW, y: 6 + rnd() * (CH - 12), v: 1.1 + rnd() * 1.5, len: 8 + ((rnd() * 6) | 0) });
 		} else if (kind === 'cloudy' || kind === 'partly') {
 			const n = kind === 'partly' ? 4 : 6;
 			for (let i = 0; i < n; i++) p.push({ x: rnd() * CW, y: 6 + rnd() * (CH * 0.5), v: 0.06 + rnd() * 0.09, w: 22 + ((rnd() * 16) | 0), h: 9 + ((rnd() * 5) | 0) });
 			if (kind === 'partly' && !night) p.push({ sun: true, x: CW * 0.22, y: CH * 0.26 });
-			if (kind === 'partly' && night) for (let i = 0; i < 18; i++) p.push({ star: true, x: rnd() * CW, y: rnd() * CH * 0.6, ph: rnd() * 6.28, tw: rnd() < 0.5 });
+			if (kind === 'partly' && night) {
+				// The night half of "partly": the moon where the day's sun stands, and a thinner
+				// star field than clear night's (the clouds own part of the sky).
+				p.push({ moon: true, x: CW * 0.22, y: CH * 0.26 });
+				for (let i = 0; i < 18; i++) p.push({ star: true, x: rnd() * CW, y: rnd() * CH * 0.6, ph: rnd() * 6.28, tw: rnd() < 0.5, big: rnd() < 0.1 });
+			}
 		} else {
 			// clear
 			if (night) {
 				p.push({ moon: true, x: CW * 0.74, y: CH * 0.24 });
-				for (let i = 0; i < 32; i++) p.push({ star: true, x: rnd() * CW, y: rnd() * CH * 0.72, ph: rnd() * 6.28, tw: rnd() < 0.55 });
+				// A few four-point "big" stars among the field — the same one-in-eight sparkle the
+				// sun's rays give the day.
+				for (let i = 0; i < 32; i++) p.push({ star: true, x: rnd() * CW, y: rnd() * CH * 0.72, ph: rnd() * 6.28, tw: rnd() < 0.55, big: rnd() < 0.12 });
 			} else p.push({ sun: true, x: CW * 0.72, y: CH * 0.28 });
 		}
 		particles = p;
@@ -181,27 +202,46 @@
 		ctx.fillStyle = 'rgba(255,250,225,0.95)';
 		disc(ctx, cx - 1, cy - 1, Math.max(1, r - 2));
 	}
-	// The moon: a pale disc with a crescent carved out by overpainting an offset disc in the local
-	// sky colour, plus a couple of dim crater pixels on the lit face.
-	function pxMoon(ctx: Ctx, cx: number, cy: number, r: number, sky: number[]) {
+	// The moon, built to the sun's standard: a cool double halo (moonlight, so dimmer), the
+	// crescent face, and crater pixels. The face is drawn per-pixel as the SET DIFFERENCE of the
+	// disc and the offset carve circle — not by overpainting the carve in sky colour, which wiped
+	// a flat notch through the halo behind it. The buffer is tiny; the loop is nothing.
+	function pxMoon(ctx: Ctx, cx: number, cy: number, r: number) {
 		cx |= 0; cy |= 0;
+		ctx.fillStyle = 'rgba(214,224,245,0.10)';
+		disc(ctx, cx, cy, r + 4);
+		ctx.fillStyle = 'rgba(222,230,248,0.16)';
+		disc(ctx, cx, cy, r + 2);
+		const ox = cx + Math.round(r * 0.6);
+		const oy = cy - Math.round(r * 0.35);
 		ctx.fillStyle = 'rgba(232,236,245,0.96)';
-		disc(ctx, cx, cy, r);
-		ctx.fillStyle = 'rgba(210,216,230,0.9)';
+		for (let dy = -r; dy <= r; dy++) {
+			for (let dx = -r; dx <= r; dx++) {
+				if (dx * dx + dy * dy > r * r) continue;
+				const ex = cx + dx - ox, ey = cy + dy - oy;
+				if (ex * ex + ey * ey <= r * r) continue;
+				ctx.fillRect(cx + dx, cy + dy, 1, 1);
+			}
+		}
+		// Craters, kept to the lower-left so they stay on the lit face, clear of the carve.
+		ctx.fillStyle = 'rgba(203,210,226,0.9)';
 		ctx.fillRect(cx - 1, cy + 1, 1, 1);
-		ctx.fillRect(cx + 1, cy - 1, 1, 1);
-		ctx.fillStyle = `rgb(${sky[0]} ${sky[1]} ${sky[2]})`;
-		disc(ctx, cx + Math.round(r * 0.6), cy - Math.round(r * 0.35), r);
+		ctx.fillRect(cx - 2, cy - 1, 1, 1);
+		ctx.fillRect(cx, cy + 3, 1, 1);
 	}
-	// A cloud: a flat-bottomed slab with three lumpy humps rising off it — the fill carries any
-	// alpha the caller set. Slightly different hump radii keep it from reading as a pill.
-	function pxCloud(ctx: Ctx, x: number, y: number, w: number, h: number) {
+	// A cloud: a flat-bottomed slab with three lumpy humps rising off it, in TWO tones — lit
+	// above, shaded along the underside (inset a pixel each end, so the bottom corners stay lit
+	// and the base reads rounded). Slightly different hump radii keep it from reading as a pill.
+	function pxCloud(ctx: Ctx, x: number, y: number, w: number, h: number, light: string, shade: string) {
 		const base = (y + h) | 0;
 		const slab = (y + h * 0.5) | 0;
-		ctx.fillRect(x | 0, slab, w | 0, base - slab);
+		ctx.fillStyle = light;
+		ctx.fillRect(x | 0, slab, w | 0, Math.max(1, base - slab - 2));
 		hump(ctx, x + w * 0.24, slab, h * 0.62);
 		hump(ctx, x + w * 0.52, slab, h * 0.78);
 		hump(ctx, x + w * 0.78, slab, h * 0.55);
+		ctx.fillStyle = shade;
+		ctx.fillRect((x + 1) | 0, base - 2, Math.max(0, (w | 0) - 2), 2);
 	}
 
 	function render(ts: number, animate: boolean) {
@@ -222,18 +262,49 @@
 		for (const p of particles) {
 			if (p.star) {
 				const a = p.tw ? 0.35 + 0.5 * Math.abs(Math.sin(t * 1.4 + (p.ph ?? 0))) : 0.85;
+				const x = p.x! | 0, y = p.y! | 0;
 				ctx.fillStyle = `rgba(255,255,255,${a.toFixed(2)})`;
-				ctx.fillRect(p.x! | 0, p.y! | 0, 1, 1);
+				ctx.fillRect(x, y, 1, 1);
+				if (p.big) {
+					// a four-point star: dim arms off the core, twinkling with it
+					ctx.fillStyle = `rgba(255,255,255,${(a * 0.45).toFixed(2)})`;
+					ctx.fillRect(x, y - 1, 1, 1);
+					ctx.fillRect(x, y + 1, 1, 1);
+					ctx.fillRect(x - 1, y, 1, 1);
+					ctx.fillRect(x + 1, y, 1, 1);
+				}
 			} else if (p.sun) {
 				pxSun(ctx, p.x!, p.y!, 4, true);
 			} else if (p.moon) {
-				pxMoon(ctx, p.x!, p.y!, 5, bandColor(stops, Math.min(1, p.y! / CH)));
+				pxMoon(ctx, p.x!, p.y!, 5);
+			} else if (p.ghost) {
+				// The fog's sun/moon: a bare pale coin — the haze flattens halo, rays and all.
+				ctx.fillStyle = night ? 'rgba(232,236,245,0.32)' : 'rgba(255,244,205,0.4)';
+				disc(ctx, p.x!, p.y!, 4);
+			} else if (p.cloud) {
+				// The precipitation deck: heavier and darker than fair-weather clouds, graded by
+				// what it's dropping — storm darkest, snow palest.
+				const w = p.w ?? 40, h = p.h ?? 10;
+				const [light, shade] =
+					kind === 'storm'
+						? ['rgba(92,100,124,0.95)', 'rgba(62,68,88,0.95)']
+						: kind === 'snow'
+							? ['rgba(200,208,222,0.92)', 'rgba(162,172,190,0.88)']
+							: ['rgba(132,144,168,0.92)', 'rgba(94,104,126,0.9)'];
+				pxCloud(ctx, p.x!, p.y!, w, h, light, shade);
+				if (animate) { p.x! += p.v!; if (p.x! > CW) p.x = -w; }
 			} else if (kind === 'rain' || kind === 'storm') {
-				ctx.fillStyle = 'rgba(188,214,255,0.85)';
-				ctx.fillRect(p.x! | 0, p.y! | 0, 1, p.len ?? 6);
+				const x = p.x! | 0, y = p.y! | 0, len = p.len ?? 6;
+				// two-tone drop: dim body, bright leading head — the streak reads as falling
+				ctx.fillStyle = 'rgba(188,214,255,0.7)';
+				ctx.fillRect(x, y, 1, len - 1);
+				ctx.fillStyle = 'rgba(226,240,255,0.95)';
+				ctx.fillRect(x, y + len - 1, 1, 1);
 				if (animate) {
 					p.y! += p.v!;
-					if (p.y! > CH) { p.y = -(p.len ?? 6); p.x = Math.random() * CW; }
+					// storm rain drives sideways; recycled drops re-enter at the cloud deck's base
+					if (kind === 'storm') { p.x! += 0.35; if (p.x! > CW) p.x! -= CW; }
+					if (p.y! > CH) { p.y = 12 - len; p.x = Math.random() * CW; }
 				}
 			} else if (kind === 'snow') {
 				const x = (p.x! + Math.sin(t + (p.ph ?? 0)) * (p.amp ?? 0.5)) | 0;
@@ -247,29 +318,61 @@
 					ctx.fillRect(x - 1, y, 1, 1);
 					ctx.fillRect(x + 1, y, 1, 1);
 				} else ctx.fillRect(x, y, 1, 1);
-				if (animate) { p.y! += p.v!; if (p.y! > CH) { p.y = -1; p.x = Math.random() * CW; } }
+				if (animate) { p.y! += p.v!; if (p.y! > CH) { p.y = 12; p.x = Math.random() * CW; } }
 			} else if (kind === 'fog') {
-				const a = 0.2 + 0.12 * Math.abs(Math.sin(t * 0.6 + (p.ph ?? 0)));
+				// A bank: the body band, a ragged dashed top edge, and a denser lump riding along
+				// at double speed — the lump is what makes the drift visible on a full-width band.
+				// amp (from seed) thins the banks with height, so the fog pools at the ground.
+				const dense = p.amp ?? 1;
+				const a = (0.2 + 0.12 * Math.abs(Math.sin(t * 0.6 + (p.ph ?? 0)))) * dense;
+				const y = p.y! | 0;
+				const off = Math.round(p.x!);
 				ctx.fillStyle = `rgba(226,230,235,${a.toFixed(2)})`;
-				ctx.fillRect(0, p.y! | 0, CW, 4);
-				if (animate) p.ph = (p.ph ?? 0) + 0.01;
+				ctx.fillRect(0, y, CW, 4);
+				ctx.fillStyle = `rgba(226,230,235,${(a * 0.8).toFixed(2)})`;
+				for (let x = ((off % 12) + 12) % 12 - 12; x < CW; x += 12) ctx.fillRect(x, y - 1, 7, 1);
+				ctx.fillStyle = `rgba(232,236,240,${(a * 0.7).toFixed(2)})`;
+				const lx = ((((off * 2) % (CW + 40)) + CW + 40) % (CW + 40)) - 40;
+				ctx.fillRect(lx, y + 1, 34, 2);
+				if (animate) { p.x! += p.v!; p.ph = (p.ph ?? 0) + 0.008; }
 			} else if (kind === 'wind') {
-				ctx.fillStyle = 'rgba(230,236,244,0.5)';
-				ctx.fillRect(p.x! | 0, p.y! | 0, p.len ?? 8, 1);
+				const x = p.x! | 0, y = p.y! | 0, len = p.len ?? 8;
+				// two-tone streak: a dim tail behind a brighter head (the streak flies +x)
+				ctx.fillStyle = 'rgba(230,236,244,0.3)';
+				ctx.fillRect(x, y, len, 1);
+				ctx.fillStyle = 'rgba(242,246,252,0.7)';
+				ctx.fillRect(x + len - 3, y, 3, 1);
 				if (animate) { p.x! += p.v!; if (p.x! > CW) { p.x = -(p.len ?? 8); p.y = 6 + Math.random() * (CH - 12); } }
 			} else {
-				// lumpy cloud silhouette (cloudy / partly)
+				// fair-weather cloud (cloudy / partly): lit above, shaded along the underside
 				const w = p.w ?? 24, h = p.h ?? 10;
-				ctx.fillStyle = night ? 'rgba(70,78,102,0.6)' : 'rgba(255,255,255,0.62)';
-				pxCloud(ctx, p.x!, p.y!, w, h);
+				if (night) pxCloud(ctx, p.x!, p.y!, w, h, 'rgba(74,82,106,0.65)', 'rgba(42,48,68,0.6)');
+				else pxCloud(ctx, p.x!, p.y!, w, h, 'rgba(255,255,255,0.72)', 'rgba(178,192,212,0.55)');
 				if (animate) { p.x! += p.v!; if (p.x! > CW) p.x = -w; }
 			}
 		}
 		if (kind === 'storm') {
-			if (animate && Math.random() < 0.004) flash = 1;
+			if (animate && Math.random() < 0.004) {
+				flash = 1;
+				// Carve this strike's path: 1px steps jittering down from the cloud deck. Step
+				// heights run 3–5 against 4px segments, so the occasional 1px break reads electric.
+				bolt = [];
+				let bx = 16 + Math.random() * (CW - 32);
+				for (let by = 10; by < CH - 8; by += 3 + ((Math.random() * 3) | 0)) {
+					bolt.push([bx | 0, by]);
+					bx += (Math.random() - 0.5) * 7;
+				}
+			}
 			if (flash > 0) {
-				ctx.fillStyle = `rgba(255,255,255,${(flash * 0.55).toFixed(2)})`;
+				ctx.fillStyle = `rgba(255,255,255,${(flash * 0.4).toFixed(2)})`;
 				ctx.fillRect(0, 0, CW, CH);
+				// the bolt burns through the bright half of the decay, then leaves the wash to fade
+				if (flash > 0.45) {
+					ctx.fillStyle = 'rgba(255,246,196,0.6)';
+					for (const [x, y] of bolt) ctx.fillRect(x + 1, y, 1, 4);
+					ctx.fillStyle = 'rgba(255,255,255,0.95)';
+					for (const [x, y] of bolt) ctx.fillRect(x, y, 1, 4);
+				}
 				if (animate) flash = Math.max(0, flash - 0.08);
 			}
 		}
@@ -775,11 +878,12 @@
 			</div>
 		{/each}
 	</div>
-	{#if docs && weather.searchOpen}
-		<!-- Docs mode draws no panel header, so the + expands IN PLACE into the search
-		     field (the same CitySearch the Aeropalite header hosts — shared state, so
-		     choosing or dismissing folds it back to the +). -->
-		<div class="wx-add-search"><CitySearch /></div>
+	{#if docs}
+		<!-- Docs mode draws no panel header, so the search lives HERE, always mounted, wearing
+		     the + as its closed key (addHere): one element morphing key ⇄ field on its own
+		     width transition — the Emoji superbar's smoothness. (A previous arrangement
+		     swapped a separate + for a freshly-mounted field; the exchange always jumped.) -->
+		<div class="wx-add-search" style="--n:{weather.places.length}"><CitySearch addHere /></div>
 	{:else}
 		<button
 			type="button"
@@ -850,7 +954,7 @@
 			</div>
 			{#if docs}
 				<!-- The pixel sky window: the city's sky, in the stage's phase palette, framed like a
-				     manual figure. Hidden below the desktop breakpoint (see the @container rule). -->
+				     manual figure. Beside the reading whenever both fit; wrapped below it when not. -->
 				<figure class="wx-skywin">
 					<div class="wx-sky-frame" bind:this={skyFrame}>
 						<canvas
@@ -992,6 +1096,11 @@
 		}
 		.wx-tab,
 		.wx-add {
+			animation: tab-in 0.35s ease backwards;
+			animation-delay: calc(0.08s + var(--n, 0) * 0.05s);
+		}
+		/* Docs mode: the search key joins the tab cascade on the +'s old beat. */
+		.wx-add-search {
 			animation: tab-in 0.35s ease backwards;
 			animation-delay: calc(0.08s + var(--n, 0) * 0.05s);
 		}
@@ -1233,8 +1342,9 @@
 		border-radius: 999px;
 		cursor: pointer;
 	}
-	/* Docs mode: the + expands in place into the city search — the grown field takes the
-	   row's trailing end where the disc sat. */
+	/* Docs mode: the always-mounted CitySearch key sits where the + disc sat, and its own
+	   width transition carries the whole key ⇄ field morph — no wrapper animation, nothing
+	   mounted or unmounted at the seam. */
 	.wx-add-search {
 		flex: none;
 		margin-left: 0.15rem;
@@ -1283,10 +1393,10 @@
 	}
 
 	/* ── Pixel sky window (Pixelite docs mode) ───────────────────────────────────────────────
-	   The hero row is display:contents by default, so Aeropalite / narrow render exactly as before
-	   (the window is never even rendered there — it's behind {#if docs}). Under Pixelite the .wx root
-	   becomes a query container (its inline size = the content-column width), and once that's wide
-	   enough the reading and the window sit side by side. */
+	   The hero row is display:contents by default, so Aeropalite renders exactly as before (the
+	   window is never even rendered there — it's behind {#if docs}). Under Pixelite the .wx root
+	   becomes a query container (its inline size feeds the row gap's cqi) and the hero becomes
+	   the wrapping row below. */
 	.wx-hero {
 		display: contents;
 	}
@@ -1297,25 +1407,30 @@
 	:global(html[data-look='pixelite']) .wx {
 		container-type: inline-size;
 	}
-	@container (min-width: 720px) {
-		.wx-hero {
-			display: flex;
-			align-items: stretch;
-			gap: clamp(1.25rem, 4cqi, 3rem);
-		}
-		.wx-now {
-			flex: 1 1 auto;
-			min-width: 0;
-			align-self: center;
-		}
-		.wx-skywin {
-			display: flex;
-			flex-direction: column;
-			gap: 0.5rem;
-			flex: 0 0 auto;
-			width: clamp(240px, 34cqi, 340px);
-			align-self: center;
-		}
+	/* Pixelite always shows the window (it used to vanish below a 720px column even with room
+	   to spare), and PREFERS the reading and the window on one row: a wrapping flex row where
+	   each side states its floor as its flex-basis — the reading ~240px, the window 150px
+	   (about 1.2× the buffer, the least width where the pixels still read) — so they share the
+	   row whenever both floors fit and the window drops below only when the column truly can't
+	   seat them. No breakpoint to tune: the wrap point IS the sum of the floors. */
+	:global(html[data-look='pixelite']) .wx-hero {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 1.1rem clamp(1.25rem, 4cqi, 3rem);
+	}
+	:global(html[data-look='pixelite']) .wx-now {
+		flex: 1 1 240px;
+		min-width: 0;
+	}
+	/* Growth is shared with the reading; the cap keeps the 16:9 frame a figure, not a banner —
+	   and when the window does wrap to its own line, the same cap holds it. */
+	:global(html[data-look='pixelite']) .wx-skywin {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		flex: 1 1 150px;
+		max-width: 340px;
 	}
 	/* The frame: a manual figure — hairline border, 2px radius, the canvas upscaled with chunky
 	   pixels. Fixed 128×72 aspect so the pixels stay square at any width. */

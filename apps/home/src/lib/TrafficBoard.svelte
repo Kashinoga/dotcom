@@ -2138,14 +2138,14 @@
 	:global(html[data-look='pixelite']) .tfc.has-bar .tfc-body {
 		padding-top: calc(var(--bar-h, 3.25rem) + 0.75rem);
 	}
-	/* The bar's plastic keys shrink to the Emoji Viewer / docs search-key size — 1.9rem
-	   (~30px) tall — so the super bar reads at the same key scale as the docs shell. Height,
-	   font (0.78rem mono, the docs search-key scale) and inner padding all step down together
-	   so the mono-uppercase labels still sit centred with breathing room. Aeropalite keeps its
-	   42px controls (these are Pixelite-gated). */
+	/* The bar's plastic keys sit on the manual's ONE control line — 28px (pixelite.css
+	   .icon-btn note) — so the super bar reads at the same key scale as the docs shell.
+	   Height, font (0.78rem mono, the docs search-key scale) and inner padding all step down
+	   together so the mono-uppercase labels still sit centred with breathing room. Aeropalite
+	   keeps its 42px controls (these are Pixelite-gated). */
 	:global(html[data-look='pixelite']) .bar .field,
 	:global(html[data-look='pixelite']) .bar .field-select {
-		height: 1.9rem;
+		height: 28px;
 		font-size: 0.78rem;
 	}
 	:global(html[data-look='pixelite']) .bar .field {
@@ -2161,17 +2161,18 @@
 		padding-left: 0.85rem;
 		padding-right: 0.85rem;
 	}
-	/* The corner keys (Refresh, Home, Collapse) square off at 1.9rem with a 1rem glyph, exactly
-	   the docs search key. The glyph is @html-injected, so :global reaches it. */
+	/* The corner keys (Refresh, Home, Collapse) square off at 28px with the family's 1.05rem
+	   glyph — now just the shared pixelite.css .icon-btn measure, restated so this block
+	   still reads whole. The glyph is @html-injected, so :global reaches it. */
 	:global(html[data-look='pixelite']) .bar .corner .icon-btn {
-		width: 1.9rem;
-		height: 1.9rem;
+		width: 28px;
+		height: 28px;
 	}
 	:global(html[data-look='pixelite']) .bar .corner .icon-btn :global(svg) {
-		width: 1rem;
-		height: 1rem;
+		width: 1.05rem;
+		height: 1.05rem;
 	}
-	/* Overhang trim: the 1.9rem keys still stand a touch proud of the 0.7rem-inset bar, so a
+	/* Overhang trim: the 28px keys still stand a touch proud of the 0.7rem-inset bar, so a
 	   small negative block margin lets them overhang rather than set the bar's height. The
 	   two-line readout (~40px) needs a deeper trim so it doesn't tower over the slimmed keys.
 	   With the keys at key size the bar now settles near the docs superbar's ~43px. */

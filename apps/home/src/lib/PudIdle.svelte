@@ -2390,6 +2390,9 @@
 	:global(html[data-look='pixelite']) .pud-extract,
 	:global(html[data-look='pixelite']) .pud-boost,
 	:global(html[data-look='pixelite']) .pud-buy {
+		/* 28px: the manual's one control line (pixelite.css .icon-btn note) — extract/boost
+		   drop from the 42px rank, buy from its padding-derived height. */
+		height: 28px;
 		background: rgba(255, 255, 255, 0.5);
 		border: 1px solid rgba(0, 0, 0, 0.5);
 		border-radius: 4px;
@@ -2397,6 +2400,13 @@
 		font-family: var(--font-mono);
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
+	}
+	/* Buy sat on vertical padding; a fixed height needs it flexed and centred instead. */
+	:global(html[data-look='pixelite']) .pud-buy {
+		display: inline-flex;
+		align-items: center;
+		box-sizing: border-box;
+		padding-block: 0;
 	}
 	:global(html[data-look='pixelite']) .pud-extract:hover:not(:disabled),
 	:global(html[data-look='pixelite']) .pud-boost:hover:not(:disabled),

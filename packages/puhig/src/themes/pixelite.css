@@ -182,13 +182,21 @@
 
 /* Shared panel disc (base .icon-btn) → a round-cornered plastic key: white/50 face, a
  * 1px ink border, the raised bevel, 4px corners. Ink turns cobalt on hover; the bevel
- * inverts (sinks) on press. */
+ * inverts (sinks) on press. Sized to the manual's ONE control line — 28px, the measure
+ * every Pixelite field and key shares (the superbar key, the search fields, Weather's +),
+ * down from the base's 42px disc: a printed manual's keys are compact. */
 html[data-look='pixelite'] .icon-btn {
+	width: 28px;
+	height: 28px;
 	color: var(--ink);
 	background: var(--pixel-key-face);
 	border: 1px solid var(--pixel-key-border);
 	border-radius: 4px;
 	box-shadow: var(--pixel-bevel);
+}
+html[data-look='pixelite'] .icon-btn svg {
+	width: 1.05rem;
+	height: 1.05rem;
 }
 html[data-look='pixelite'] .icon-btn:hover {
 	color: var(--orange);

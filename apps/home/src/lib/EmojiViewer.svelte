@@ -145,7 +145,8 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		height: 40px;
+		/* 28px: the manual's one control line (pixelite.css .icon-btn note). */
+		height: 28px;
 		padding: 0 0.7rem;
 		background: var(--pixel-key-face);
 		border: 1px solid var(--pixel-key-border);

@@ -709,6 +709,9 @@
 	   keys — white/50 face, ink border, raised bevel, mono uppercase label; cobalt on hover,
 	   the bevel sinking on press. Mirrors the shared control family in pixelite.css. */
 	:global(html[data-look='pixelite']) .aita-go {
+		/* 28px: the manual's one control line (pixelite.css .icon-btn note), replacing the
+		   Aero family's 42px pill height. The verdict pills below match. */
+		height: 28px;
 		background: var(--pixel-key-face);
 		border: 1px solid var(--pixel-key-border);
 		border-radius: 4px;
@@ -716,6 +719,9 @@
 		font-family: var(--font-mono);
 		text-transform: uppercase;
 		letter-spacing: 0.04em;
+	}
+	:global(html[data-look='pixelite']) .aita-verdict {
+		height: 28px;
 	}
 	:global(html[data-look='pixelite']) .aita-go:hover:not(:disabled) {
 		color: var(--orange);

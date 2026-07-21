@@ -1,6 +1,13 @@
 <script lang="ts">
-	import { SEARCH_SVG } from '$lib/icons';
-	import { weather, choose, type Place } from '$lib/weather-state.svelte';
+	import { SEARCH_SVG, PLUS_SVG } from '$lib/icons';
+	import { weather, choose, openSearch, type Place } from '$lib/weather-state.svelte';
+
+	// addHere: worn in Weather's docs-mode tab row, where this control IS the add-city key —
+	// closed it shows the + and opening it points the search at ADDING (openSearch('add')),
+	// not swapping. One always-mounted control morphing key ⇄ field (the Emoji superbar
+	// lesson): the old arrangement swapped a separate + button for a freshly-mounted field,
+	// and no choreography could hide the exchange — something always jumped at the seam.
+	let { addHere = false }: { addHere?: boolean } = $props();
 
 	// The Weather panel's search, drawn in the panel's HEADER (on the Back row) rather than its body.
 	//
@@ -89,12 +96,16 @@
 	<button
 		type="button"
 		class="cs-icon"
-		aria-label={weather.searchOpen ? 'Close search' : 'Search a city'}
-		title={weather.searchOpen ? 'Close' : 'Search a city'}
+		aria-label={weather.searchOpen ? 'Close search' : addHere ? 'Add another city' : 'Search a city'}
+		title={weather.searchOpen ? 'Close' : addHere ? 'Add another city' : 'Search a city'}
 		aria-expanded={weather.searchOpen}
-		onclick={() => (weather.searchOpen = !weather.searchOpen)}
+		onclick={() => {
+			if (weather.searchOpen) weather.searchOpen = false;
+			else if (addHere) openSearch('add');
+			else weather.searchOpen = true;
+		}}
 	>
-		{@html SEARCH_SVG}
+		{@html !weather.searchOpen && addHere ? PLUS_SVG : SEARCH_SVG}
 	</button>
 	<input
 		bind:this={inputEl}
@@ -241,6 +252,82 @@
 	}
 	.cs-input:focus-visible {
 		outline: none; /* the field's own border is the focus affordance */
+	}
+	/* ── Pixelite: the frosted pill becomes a plastic key / keyed field ─────────────────
+	   StarMap's .sm-cs treatment, restated here (scoped styles can't be shared): the closed
+	   disc is a plastic key — white/50 face, ink rule, raised bevel, 4px corners, cobalt on
+	   hover with the bevel sinking on press — and the grown field keeps the key's face under
+	   a cobalt rule, the Emoji Viewer's field material (.ev-search-field). Only the material
+	   and voice change; the one-element morph is untouched. */
+	:global(html[data-look='pixelite']) .cs {
+		/* 28px: the manual's one control line (pixelite.css .icon-btn note) — closed it's the
+		   28px key, open the field keeps the same height. The icon and glyph scale with it. */
+		width: 28px;
+		height: 28px;
+		background: var(--pixel-key-face);
+		border: 1px solid var(--pixel-key-border);
+		border-radius: 4px;
+		box-shadow: var(--pixel-bevel);
+		/* A printed manual doesn't bounce: the width grows on a plain ease (the superbar
+		   key's cadence — see DocsShell's .docs-sb-ctl) instead of the overshoot spring.
+		   The press squash keeps its curve; pixelite's tokens already still the hover pop. */
+		transition:
+			width 0.2s ease,
+			transform 0.3s var(--btn-spring),
+			background 0.2s ease,
+			color 0.2s ease,
+			border-color 0.15s ease;
+	}
+	:global(html[data-look='pixelite']) .cs:not(.open):hover {
+		color: var(--orange);
+		border-color: var(--orange);
+		background: var(--pixel-key-face);
+	}
+	:global(html[data-look='pixelite']) .cs:not(.open):active {
+		box-shadow: var(--pixel-bevel-press);
+	}
+	:global(html[data-look='pixelite']) .cs.open {
+		width: min(20rem, 55vw);
+		background: var(--pixel-key-face);
+		border-color: var(--orange);
+	}
+	:global(html[data-look='pixelite']) .cs-icon {
+		width: 26px;
+		height: 26px;
+	}
+	:global(html[data-look='pixelite']) .cs-icon :global(svg) {
+		width: 1.05rem;
+		height: 1.05rem;
+	}
+	/* The field speaks mono — at 16px, so iOS Safari doesn't zoom the page on focus (the
+	   Emoji field's same note) — with the manual's uppercase running-head placeholder. */
+	:global(html[data-look='pixelite']) .cs-input {
+		font-family: var(--font-mono);
+		font-size: 16px;
+	}
+	:global(html[data-look='pixelite']) .cs-input::placeholder {
+		color: var(--sub);
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		font-size: 0.74rem;
+	}
+	/* The results hang as a printed sheet, not a frosted pop: near-square corners, the
+	   field's own ink rule (so sheet and field read as one control), the sheet's drop
+	   (--card-shadow: the paper shadow in light, re-tuned on dark stock — the raw
+	   --pixel-paper-shadow's inset white line would glow there). */
+	:global(html[data-look='pixelite']) .cs-results,
+	:global(html[data-look='pixelite']) .cs-none {
+		background: var(--panel-fill-solid);
+		border: 1px solid var(--pixel-key-border);
+		border-radius: 4px;
+		box-shadow: var(--card-shadow);
+	}
+	:global(html[data-look='pixelite']) .cs-hit {
+		border-radius: 3px;
+	}
+	/* The keyboard/pointer highlight takes the selected-key fill (cobalt-100 / deep cobalt). */
+	:global(html[data-look='pixelite']) .cs-hit.on {
+		background: var(--pixel-key-on);
 	}
 	/* Worn inside a collapsed super bar (puhig's .csb recipe): the closed disc drops to
 	   the bar's 32px with its .icon-btn kin; the grown field keeps its width, just

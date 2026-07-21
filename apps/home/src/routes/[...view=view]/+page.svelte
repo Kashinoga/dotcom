@@ -2174,7 +2174,7 @@
 	<!-- Docs world and stage crossfade when a full app opens or closes under Pixelite —
 	     the stage sits fixed above the flow, so its fade dissolves onto the docs page. -->
 	<div transition:fade={{ duration: 200 }}>
-		<DocsShell {view} {activeCode} onNavigate={(code) => (code === HUB ? home() : board(code))} body={pixeliteBody} />
+		<DocsShell {view} {activeCode} pageIcon={PORT_ICONS[activeCode ?? HUB] ?? HOME_SVG} onNavigate={(code) => (code === HUB ? home() : board(code))} body={pixeliteBody} />
 	</div>
 {/if}
 {#if look !== 'pixelite' || stageFullApp}
