@@ -2131,20 +2131,57 @@
 		backdrop-filter: blur(8px);
 	}
 	/* Reserve the floating bar's height so the first rows sit just below it, then scroll up
-	   behind the frost. Only when the deck bar is shown (.has-bar). */
+	   behind the frost — PLUS a clearance gutter (the shell's ~0.75rem measure) so the first
+	   row / the demo field's countdown timer starts clearly below the frost line instead of
+	   touching its hairline. The gutter rides on top of --bar-h, so it survives every
+	   re-measure (the fonts.ready / ResizeObserver path). Only when the deck bar is shown. */
 	:global(html[data-look='pixelite']) .tfc.has-bar .tfc-body {
-		padding-top: var(--bar-h, 3.25rem);
+		padding-top: calc(var(--bar-h, 3.25rem) + 0.75rem);
 	}
-	/* Keep the bar slim though its plastic keys stay full-size and usable: negative block
-	   margins let the tall controls overhang the slim padding instead of stretching the bar
-	   (the docs search-key trick), landing it near the docs superbar's ~52px. */
+	/* The bar's plastic keys shrink to the Emoji Viewer / docs search-key size — 1.9rem
+	   (~30px) tall — so the super bar reads at the same key scale as the docs shell. Height,
+	   font (0.78rem mono, the docs search-key scale) and inner padding all step down together
+	   so the mono-uppercase labels still sit centred with breathing room. Aeropalite keeps its
+	   42px controls (these are Pixelite-gated). */
+	:global(html[data-look='pixelite']) .bar .field,
+	:global(html[data-look='pixelite']) .bar .field-select {
+		height: 1.9rem;
+		font-size: 0.78rem;
+	}
+	:global(html[data-look='pixelite']) .bar .field {
+		min-width: 3.4em;
+		padding: 0 0.5rem;
+	}
+	/* The select keeps room on the right for its chevron; the glyph and its inset shrink too. */
+	:global(html[data-look='pixelite']) .bar .field-select {
+		padding: 0 1.3rem 0 0.5rem;
+		background-size: 0.7rem;
+	}
+	:global(html[data-look='pixelite']) .deck-controls .field-select {
+		padding-left: 0.85rem;
+		padding-right: 0.85rem;
+	}
+	/* The corner keys (Refresh, Home, Collapse) square off at 1.9rem with a 1rem glyph, exactly
+	   the docs search key. The glyph is @html-injected, so :global reaches it. */
+	:global(html[data-look='pixelite']) .bar .corner .icon-btn {
+		width: 1.9rem;
+		height: 1.9rem;
+	}
+	:global(html[data-look='pixelite']) .bar .corner .icon-btn :global(svg) {
+		width: 1rem;
+		height: 1rem;
+	}
+	/* Overhang trim: the 1.9rem keys still stand a touch proud of the 0.7rem-inset bar, so a
+	   small negative block margin lets them overhang rather than set the bar's height. The
+	   two-line readout (~40px) needs a deeper trim so it doesn't tower over the slimmed keys.
+	   With the keys at key size the bar now settles near the docs superbar's ~43px. */
 	:global(html[data-look='pixelite']) .bar .field,
 	:global(html[data-look='pixelite']) .bar .field-select,
-	:global(html[data-look='pixelite']) .bar .corner .icon-btn,
+	:global(html[data-look='pixelite']) .bar .corner .icon-btn {
+		margin-block: -0.2rem;
+	}
 	:global(html[data-look='pixelite']) .bar .deck-summary .stat {
-		/* The readout is two stacked lines (~40px) — overhang it too, or it alone would
-		   keep the bar tall while every control slimmed. */
-		margin-block: -0.35rem;
+		margin-block: -0.55rem;
 	}
 	/* (The expanded body used to halve its top gap here; the base .tfc-body now carries
 	   that tight top at every size, so there's nothing left to override.) */
