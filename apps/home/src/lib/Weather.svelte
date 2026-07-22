@@ -1692,9 +1692,16 @@
 	}
 	.wx-day {
 		display: grid;
-		grid-template-columns: 6.2rem 1.6rem 2.6rem 1fr auto;
+		/* The name column is minmax(0, …), not a fixed 6.2rem, so it can give ground when the
+		   sheet is narrow — otherwise the fixed name + mark + pop + content-sized temps summed
+		   past a small phone's width and pushed the last column (the hi/lo temps) off the sheet.
+		   Now the name shrinks first (truncating with an ellipsis as a last resort — see .wxd-name),
+		   the range bar collapses to nothing, and the temps stay in bounds at any width. */
+		grid-template-columns: minmax(0, 6.2rem) 1.6rem 2.6rem 1fr auto;
 		align-items: center;
-		gap: 0.6rem;
+		/* Column gap tightens on a narrow sheet (down to 0.4rem) so the fixed mark/pop/temps and
+		   their four gaps still clear the smallest phones once the name has fully given way. */
+		gap: clamp(0.4rem, 2vw, 0.6rem);
 	}
 	/* The lo→hi span on the week's shared scale — a track in the hairline ink, the day's
 	   own reach in temperature colour. (No overflow clip: the fill is bounded by
@@ -1723,6 +1730,14 @@
 	}
 	.wxd-name {
 		font-weight: 600;
+		/* Let the name's grid column actually shrink below its text (grid items floor at their
+		   content width unless min-width:0), truncating with an ellipsis on a tiny sheet rather
+		   than spilling into the mark beside it. On any normal phone there's room for the full
+		   day name — this only bites on the very smallest widths. */
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.wxd-mark :global(svg) {
 		width: 20px;

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick, type Snippet } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { HUB, children, airports, parentOf } from '$lib/network';
 	import { viewPath, type View } from '$lib/views';
 	import { emojiSearch } from '$lib/emoji-search.svelte';
@@ -66,6 +67,26 @@
 		onNavigate(code);
 	};
 
+	// ── Breadcrumb motion ──────────────────────────────────────────────────────────
+	// The trail is keyed by crumb code, so navigating deeper ADDS a crumb (it drops in) and
+	// navigating up REMOVES one (it lifts out), instead of the whole row swapping text in place.
+	// A crumb enters/leaves with a small rise-and-fade, IN PLACE — no animate:flip. Crumbs are
+	// only ever added or removed at the END of the trail (the deepest level), so the crumbs to the
+	// left never move and there is nothing for flip to slide. Flip did the opposite of help: it
+	// pins the LEAVING crumb to position:absolute, whose origin is the row's start, then slides it
+	// there — so clicking a left crumb dragged the departing right crumb across and collided it
+	// with the survivor. Leaving it in flow keeps the departing crumb fading out where it stands.
+	const stillMotion = () =>
+		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+	// A crumb's own enter/leave: fade while dropping in from a few px above (and lifting back out
+	// on leave — the same motion reversed, so add and remove read as one gesture).
+	function crumbTx(_node: Element, { duration = 220 } = {}) {
+		return {
+			duration: stillMotion() ? 0 : duration,
+			css: (t: number, u: number) => `opacity: ${t}; transform: translateY(${-6 * u}px);`
+		};
+	}
+
 	// Mobile: the sidebar folds away; the superbar's plastic-key discloses it as a dropdown.
 	let sidebarOpen = $state(false);
 
@@ -87,13 +108,26 @@
 	let scrollEl = $state<HTMLElement | undefined>(undefined);
 	const onDocsScroll = () => (scrolled = (scrollEl?.scrollTop ?? 0) > 4);
 
+	// The scroller's own scrollbar eats into its CONTENT width (the styled 10px webkit bar; 0 with
+	// overlay bars on a phone). The mobile contents receipt is position:fixed and sized off 100vw,
+	// so without accounting for the gutter its right edge overran the sheet — which lives INSIDE
+	// this scroller and is that gutter narrower. Measured (offsetWidth − clientWidth) and fed to
+	// --scrollbar-w so the receipt subtracts exactly the gutter that's actually there. It toggles
+	// with content height (a short page has no bar), so it's re-read on navigation too, below.
+	let scrollbarW = $state(0);
+	const measureScrollbar = () => {
+		if (scrollEl) scrollbarW = scrollEl.offsetWidth - scrollEl.clientWidth;
+	};
+
 	onMount(() => {
 		onDocsScroll();
 		// Measure synchronously first — ResizeObserver delivery rides the render frame, which
 		// a hidden/background tab suspends, and the first paint shouldn't wait for it anyway.
 		if (superbarEl) superbarH = superbarEl.getBoundingClientRect().height;
+		measureScrollbar();
 		const ro = new ResizeObserver(() => {
 			if (superbarEl) superbarH = superbarEl.getBoundingClientRect().height;
+			measureScrollbar();
 		});
 		if (superbarEl) ro.observe(superbarEl);
 		return () => {
@@ -102,20 +136,27 @@
 	});
 
 	// ── On-this-page rail ─────────────────────────────────────────────────────────
-	// A quiet table of contents for the current view: the rendered section headings, in reading
-	// order, as smooth-scroll anchors with cobalt hover/active. Detected by querying the content
-	// after each render — Densette chapters/sub-heads, prose sub-heads, and Settings group labels
-	// — never a hand-kept list, so it can't drift from the page. Missing ids are slugged in.
+	// A quiet table of contents for the current view: the page's own title, then its rendered
+	// section headings, in reading order, as smooth-scroll anchors with cobalt hover/active.
+	// Detected by querying the content after each render — Densette chapters/sub-heads, prose
+	// sub-heads, and Settings group labels — never a hand-kept list, so it can't drift from the
+	// page. The rail leads with the page title so EVERY page shows an on-this-page panel: a page
+	// with no sub-sections still lists its one heading. Missing ids are slugged in.
 	type TocItem = { id: string; text: string; level: number };
 	let contentEl = $state<HTMLElement | undefined>(undefined);
 	let toc = $state<TocItem[]>([]);
 	let activeId = $state<string | null>(null);
 	let observer: IntersectionObserver | null = null;
 
-	// The section headings worth listing: Densette's chapter/sub titles, the prose column's own
-	// h3/h4 sub-heads, Settings' group leads, and the Emoji Viewer's group names. Deliberately
-	// narrow — specific classes, so it lists real sections and never leaks a full-bleed view's
-	// internal chrome or the page's own h1 title into the rail.
+	// The page's own heading, listed FIRST at level 1 so the rail is never empty — a prose page,
+	// a bleed reading, or the homepage cover all lead with their title even when nothing sits
+	// under it. (Densette draws its own paper without one of these, but always carries chapter
+	// titles below, so its rail is populated anyway.)
+	const TITLE_SEL = '.docs-page-title, .docs-cover-title';
+	// The section headings worth listing beneath the title: Densette's chapter/sub titles, the
+	// prose column's own h3/h4 sub-heads, Settings' group leads, and the Emoji Viewer's group
+	// names. Deliberately narrow — specific classes, so it lists real sections and never leaks a
+	// full-bleed view's internal chrome into the rail.
 	const TOC_SEL = '.ch-title, .sub-head, .docs-prose h3, .docs-prose h4, .seg-lead, .ev-group-name';
 
 	const slug = (s: string) =>
@@ -127,6 +168,9 @@
 
 	async function buildToc() {
 		await tick();
+		// A new page changes the content height, which can add or drop the scroller's scrollbar —
+		// re-read the gutter so the mobile receipt keeps matching the sheet.
+		measureScrollbar();
 		observer?.disconnect();
 		observer = null;
 		const root = contentEl;
@@ -134,7 +178,14 @@
 			toc = [];
 			return;
 		}
-		const nodes = Array.from(root.querySelectorAll<HTMLElement>(TOC_SEL));
+		// The page title leads (level 1), then every section heading in DOM order (levels 2/3).
+		// The title element always precedes the section headings in the flow, so concatenating
+		// keeps the rail in reading order.
+		const titleEl = root.querySelector<HTMLElement>(TITLE_SEL);
+		const nodes = [
+			...(titleEl ? [titleEl] : []),
+			...Array.from(root.querySelectorAll<HTMLElement>(TOC_SEL))
+		];
 		const seen = new Set<string>();
 		const items: TocItem[] = [];
 		for (const n of nodes) {
@@ -150,8 +201,9 @@
 				n.id = id;
 			}
 			seen.add(id);
-			// Chapters, top-level prose heads and Settings leads sit flush; sub-heads indent.
-			const level = n.matches('.sub-head, h4') ? 3 : 2;
+			// The page title sits at level 1; chapters, top-level prose heads and Settings leads
+			// sit flush at level 2; sub-heads indent at level 3.
+			const level = n === titleEl ? 1 : n.matches('.sub-head, h4') ? 3 : 2;
 			items.push({ id, text, level });
 		}
 		toc = items;
@@ -315,7 +367,7 @@
 	}
 </script>
 
-<div class="docs" class:sidebar-open={sidebarOpen} style="--superbar-h: {superbarH}px">
+<div class="docs" class:sidebar-open={sidebarOpen} style="--superbar-h: {superbarH}px; --scrollbar-w: {scrollbarW}px">
 	<!-- Full-width superbar over all three columns: the wordmark at its left end, the breadcrumb
 	     trail beside it, and (on mobile) a plastic-key MENU that discloses the sidebar. It sticks
 	     to the top and blurs once the page scrolls under it. -->
@@ -324,13 +376,21 @@
 			>KASHINOGA</a
 		>
 		{#if crumbs.length}
-			<span class="docs-brand-sep" aria-hidden="true"></span>
+			<span class="docs-brand-sep" aria-hidden="true" transition:fade={{ duration: 180 }}></span>
 			<nav class="docs-crumbs" aria-label="Breadcrumb">
-				{#each crumbs as c, i}{#if i > 0}<span class="docs-crumb-sep">/</span>{/if}{#if i < crumbs.length - 1}<a
-						class="docs-crumb"
-						href={viewPath({ kind: 'port', code: c })}
-						onclick={(e) => nav(e, c)}>{airports[c].title}</a
-					>{:else}<span class="docs-crumb" aria-current="page">{airports[c].title}</span>{/if}{/each}
+				<!-- One keyed unit per crumb (key = code), carrying its own leading "/" so the
+				     separator enters and leaves WITH its crumb. transition:crumbTx animates each
+				     add/remove in place; no animate:flip (crumbs only change at the trail's end,
+				     so nothing to the left ever needs to slide). -->
+				{#each crumbs as c, i (c)}
+					<span class="docs-crumb-unit" transition:crumbTx>
+						{#if i > 0}<span class="docs-crumb-sep" aria-hidden="true">/</span>{/if}{#if i < crumbs.length - 1}<a
+								class="docs-crumb"
+								href={viewPath({ kind: 'port', code: c })}
+								onclick={(e) => nav(e, c)}>{airports[c].title}</a
+							>{:else}<span class="docs-crumb" aria-current="page">{airports[c].title}</span>{/if}
+					</span>
+				{/each}
 			</nav>
 		{/if}
 		{#if onEmojiPage && evBarGone}
@@ -717,16 +777,32 @@
 	.docs-crumbs {
 		flex: 1;
 		min-width: 0;
+		/* A flex row of keyed crumb units (was inline text) so each unit can take the transform
+		   its add/remove transition sets. Stretched to the full bar height and clipping its
+		   overflow, so a crumb's rise-and-fade plays inside the bar without being cut and without
+		   spilling toward the search. */
+		align-self: stretch;
+		display: flex;
+		align-items: center;
+		overflow: hidden;
 		font-family: var(--font-mono);
 		text-transform: uppercase;
 		letter-spacing: 0.08em;
 		font-size: 0.72rem;
 		color: color-mix(in srgb, var(--ink) 40%, transparent);
 		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
 	}
-	.docs-crumb:last-child {
+	/* One crumb + its leading "/", animated as a single seat. inline-flex so it can take the
+	   transform its enter/leave transition sets (a bare inline box can't). */
+	.docs-crumb-unit {
+		flex: none;
+		display: inline-flex;
+		align-items: baseline;
+		white-space: nowrap;
+	}
+	/* The open page — the trailing crumb — reads in full ink. Keyed on aria-current, not
+	   :last-child: every unit now holds a crumb, so :last-child would brighten them all. */
+	.docs-crumb[aria-current='page'] {
 		color: var(--ink);
 	}
 	/* Ancestor crumbs navigate — quiet until hovered, then cobalt like every docs link. */
@@ -855,10 +931,24 @@
 		padding: var(--docs-pad);
 	}
 	/* ── Homepage cover ──────────────────────────────────────────────────────── */
+	/* The cover rides the same SHEET OF PAPER as the docs pages (Densette's) — a white sheet on
+	   the grey gutter, capped to the cover's reading measure so it's a title card, not a wide
+	   band. --page is already Densette's grey, so the sheet is the white fill, the ink hairline,
+	   the 2px cut and the print shadow. (Its children keep their own settle below; the box is
+	   static.) */
 	.docs-cover {
-		max-width: 65ch;
-		/* The content column already pads the top; only the bottom needs its own air. */
-		padding: 0 0 clamp(1rem, 4vw, 3rem);
+		max-width: calc(65ch + 2 * clamp(1.25rem, 3vw, 2.25rem));
+		background: light-dark(#ffffff, #202023);
+		border: 1px solid var(--pixel-hairline);
+		border-radius: 2px;
+		box-shadow: var(--pixel-paper-shadow);
+		padding: clamp(1.25rem, 3vw, 2.25rem);
+	}
+	/* On dark stock the print shadow's inset white would glow — ground it (Densette's dark-paper
+	   answer), keyed to the in-app Display Mode via .scheme-dark, not the OS media query. */
+	:global(html.scheme-dark) .docs-cover {
+		box-shadow: 0 1px 4px 1px rgba(0, 0, 0, 0.45), 0 1px 1px 0 rgba(0, 0, 0, 0.6),
+			inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
 	}
 	/* Entrance — the cover settles top-to-bottom in the same cadence as the docs pages. */
 	@media (prefers-reduced-motion: no-preference) {
@@ -896,7 +986,8 @@
 		font-size: 1.2rem;
 		line-height: 1.6;
 		color: color-mix(in srgb, var(--ink) 70%, transparent);
-		margin: 0 0 2.5rem;
+		/* Last line on the sheet — the sheet's own bottom padding is the air, no trailing margin. */
+		margin: 0;
 	}
 	/* ── Right rail (grid col 3): the on-this-page TOC ── */
 	.docs-rail {
@@ -935,6 +1026,11 @@
 	.docs-rail-item {
 		margin: 0.1rem 0;
 	}
+	/* The page-title entry leads the rail; a hair of air below it sets the title off from
+	   the section list that follows (when there is one). */
+	.docs-rail-item.lvl-1 {
+		margin-bottom: 0.35rem;
+	}
 	.docs-rail-item.lvl-3 {
 		padding-left: 0.85rem;
 	}
@@ -950,13 +1046,21 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
+	/* The title reads a touch stronger than the sections beneath it — near-full ink and a
+	   heavier weight, so it anchors the rail without shouting. */
+	.docs-rail-item.lvl-1 .docs-rail-link {
+		color: color-mix(in srgb, var(--ink) 78%, transparent);
+		font-weight: 600;
+	}
 	.docs-rail-item.lvl-3 .docs-rail-link {
 		color: color-mix(in srgb, var(--ink) 42%, transparent);
 	}
-	/* The lvl-3 mute above is more specific than .active alone — repeat it here so
-	   sub-items light up cobalt exactly like their parents. */
+	/* The lvl-1/lvl-3 tints above are more specific than .active alone — repeat them here so
+	   the title and sub-items light up cobalt exactly like their siblings. */
 	.docs-rail-link:hover,
 	.docs-rail-link.active,
+	.docs-rail-item.lvl-1 .docs-rail-link:hover,
+	.docs-rail-item.lvl-1 .docs-rail-link.active,
 	.docs-rail-item.lvl-3 .docs-rail-link:hover,
 	.docs-rail-item.lvl-3 .docs-rail-link.active {
 		color: var(--orange);
@@ -1010,18 +1114,35 @@
 		inset: 0;
 		z-index: 17;
 		padding: 0;
-		background: color-mix(in srgb, var(--ink) 8%, transparent);
+		/* A real DIM in both schemes — a black wash, NOT --ink: --ink is light on a dark page, so
+		   mixing it in lightened the backdrop instead of dimming it. Light mode wants only a faint
+		   veil; dark mode a firmer one to read as a dim over an already-dark page. */
+		background: rgba(0, 0, 0, 0.08);
 		border: 0;
 		cursor: default;
+	}
+	:global(html.scheme-dark) .docs-scrim {
+		background: rgba(0, 0, 0, 0.55);
 	}
 
 	@media (max-width: 860px) {
 		.docs-cols {
 			grid-template-columns: 1fr;
 		}
+		/* A blank foot at the bottom of the scroll for the floating contents key to rest in — the
+		   key is fixed at the viewport's bottom-left, so without this the last line of a page
+		   scrolled up UNDER it. Clears the key's height (40px) plus its 1.25rem inset and a gap.
+		   On the scroller (outside Densette's bleeding gutter), so it reads as page background for
+		   every page — sheet or bare paper — rather than fighting a component's own margins. */
+		.docs-scroll {
+			padding-bottom: calc(40px + 2.5rem);
+		}
 		/* The breadcrumb hides on a phone; the wordmark keeps the bar's left end to itself
-		   (the contents control now floats at the bottom-left instead of riding the bar). */
-		.docs-crumbs {
+		   (the contents control now floats at the bottom-left instead of riding the bar). Its
+		   leading separator goes with it — with no crumbs after it, the post was a divider
+		   dangling off the wordmark with nothing on its far side. */
+		.docs-crumbs,
+		.docs-brand-sep {
 			display: none;
 		}
 		.docs-fab {
@@ -1041,10 +1162,15 @@
 			display: block;
 			position: fixed;
 			top: var(--superbar-h);
-			left: 0.75rem;
+			/* Line up with the SHEET underneath: inset by --docs-pad each side (the content
+			   gutter the sheet sits in), so the receipt's edges match the page's sheet rather
+			   than capping at a narrow 300px column. The sheet lives inside the scroller, whose
+			   scrollbar gutter (--scrollbar-w, measured) narrows its content — subtract it so the
+			   fixed receipt, sized off 100vw, doesn't overrun the sheet's right edge. */
+			left: var(--docs-pad);
 			z-index: 18;
 			height: auto;
-			width: min(300px, calc(100vw - 1.5rem));
+			width: calc(100vw - 2 * var(--docs-pad) - var(--scrollbar-w, 0px));
 			max-height: calc(100vh - var(--superbar-h) - 5rem);
 			max-height: calc(100dvh - var(--superbar-h) - 5rem);
 			overflow-y: auto;
@@ -1078,6 +1204,12 @@
 		/* Both margins fold away — the content column takes the whole width. */
 		.docs-rail {
 			display: none;
+		}
+		/* The cover bleeds its bottom into the gutter (like the sheets and Densette's paper), so
+		   its blank foot below is just the scroller's foot — a uniform 1.25rem above the floating
+		   key, not the gutter's --docs-pad on top of it. */
+		.docs-cover {
+			margin-bottom: calc(-1 * var(--docs-pad));
 		}
 	}
 </style>

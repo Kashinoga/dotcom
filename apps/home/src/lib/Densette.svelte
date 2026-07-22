@@ -595,6 +595,12 @@
 	/* The tick-mark ruler: a repeating hairline flourish, the manual's margin rule laid flat.
 	   Kept faint — a texture, not a line. */
 	.ticks {
+		/* Round the ruler's width DOWN to a whole number of 7px tick periods (1px tick + 6px
+		   gap), so the repeating gradient always ends on a complete period and the last tick is
+		   never sliced by a width that lands mid-tick. Left-aligned, so any remainder (< 7px)
+		   falls off the right edge, keeping the first tick on the content's left line. round() is
+		   ignored where unsupported, harmlessly falling back to the full auto width. */
+		width: round(down, 100%, 7px);
 		height: 8px;
 		margin: 0.85rem 0;
 		background-image: repeating-linear-gradient(
