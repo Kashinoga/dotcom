@@ -951,6 +951,8 @@
 	/* Wide tables scroll inside their own lane rather than the page. */
 	.tbl-wrap {
 		overflow-x: auto;
+		/* Contain overscroll — no chain to the page (the iOS scroll-lock). */
+		overscroll-behavior: contain;
 	}
 	.tbl {
 		width: 100%;

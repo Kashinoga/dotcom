@@ -2240,6 +2240,11 @@
 		flex-direction: column;
 		max-height: 13rem;
 		overflow-y: auto;
+		/* Keep the ledger's scroll to itself — its overscroll does NOT chain to the page. On iOS
+		   Safari the chain is worse than untidy: scroll this inner box, then the page, and the
+		   gesture locks BOTH until you lift and touch again. `contain` cuts the chain and clears
+		   the lock (and stops a full ledger from dragging the page when it hits its own end). */
+		overscroll-behavior: contain;
 		/* Rounded all round: the rows are cut at BOTH ends of this box — the top under the
 		   heading, the bottom against the ledger's own edge — and a hard square cut inside a
 		   14px frame read as a torn strip either way. The radius rides the overflow, so the

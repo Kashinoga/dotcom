@@ -1716,6 +1716,9 @@
 		flex: 1 1 auto;
 		min-height: 0;
 		overflow-y: auto;
+		/* Contain overscroll — the board's rows never chain their scroll to the page (the iOS
+		   scroll-lock). Separate from `contain: layout style` below (that's CSS containment). */
+		overscroll-behavior: contain;
 		/* Safari repaints exposed strips as the board scrolls; without containment each
 		   strip's invalidation walks the whole table. contain lets it stop at the box. */
 		contain: layout style;
@@ -2681,6 +2684,8 @@
 	}
 	.scroll {
 		overflow-x: auto;
+		/* Contain overscroll — no chain to the page (the iOS scroll-lock). */
+		overscroll-behavior: contain;
 		/* The countdown ring (42px) centres over the 3.4em tag column and overhangs the
 		   table's left edge by a couple px — this scroller's clipping shaved its left arc.
 		   Negative margin + equal padding slides the clip window out past the ring while

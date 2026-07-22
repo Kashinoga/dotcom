@@ -3031,6 +3031,8 @@
 		   viewport genuinely can't fit the set. */
 		max-height: calc(100vh - 7rem);
 		overflow-y: auto;
+		/* Contain overscroll — no chain to the page (the iOS scroll-lock). */
+		overscroll-behavior: contain;
 		padding: 0.5rem;
 		/* The panel's own material — Flat's glass here, Bubble's frost below — so the
 		   popout reads as a shard of the same surface the panels are cut from. */
@@ -4482,6 +4484,8 @@
 		border: 1px solid var(--line-edge);
 		border-radius: 8px;
 		overflow-x: auto;
+		/* Contain overscroll — no chain to the page (the iOS scroll-lock). */
+		overscroll-behavior: contain;
 		font-family: var(--font-mono);
 		font-size: 0.82rem;
 		line-height: 1.6;
@@ -5675,6 +5679,8 @@
 		border: 1px solid var(--pixel-hairline);
 		border-radius: 2px;
 		overflow-x: auto;
+		/* Contain overscroll — no chain to the page (the iOS scroll-lock). */
+		overscroll-behavior: contain;
 		font-family: var(--font-mono);
 		font-size: 0.8rem;
 		line-height: 1.65;

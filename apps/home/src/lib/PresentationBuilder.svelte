@@ -1488,6 +1488,8 @@
 	.col-body {
 		flex: 1;
 		overflow-y: auto;
+		/* Contain overscroll — no chain to the page (the iOS scroll-lock). */
+		overscroll-behavior: contain;
 		padding: 0.7rem 0.8rem 1.2rem;
 		min-height: 0;
 	}
@@ -2147,6 +2149,8 @@
 			flex-wrap: nowrap;
 			overflow-x: auto;
 			-webkit-overflow-scrolling: touch;
+			/* Contain overscroll — no chain to the page (the iOS scroll-lock). */
+			overscroll-behavior: contain;
 			scrollbar-width: none;
 			margin: 0 calc(-1 * var(--pb-inset));
 			padding: 0.1rem var(--pb-inset) 0.15rem;

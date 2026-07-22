@@ -839,6 +839,9 @@
 		height: calc(100vh - var(--superbar-h));
 		height: calc(100dvh - var(--superbar-h));
 		overflow-y: auto;
+		/* Contain overscroll — the sidebar (desktop rail and mobile receipt) never chains its
+		   scroll to the page (the iOS scroll-lock). */
+		overscroll-behavior: contain;
 		box-sizing: border-box;
 		/* The same measure as the content gutter — the three columns share one rhythm. */
 		padding: var(--docs-pad);
@@ -1007,6 +1010,8 @@
 		height: 100%;
 		min-width: 0;
 		overflow-y: auto;
+		/* Contain overscroll — the on-this-page rail never chains to the page (the iOS scroll-lock). */
+		overscroll-behavior: contain;
 	}
 	/* Same pairing as the superbar and sidebar: head in the body voice, links in mono. */
 	.docs-rail-head {
@@ -1144,6 +1149,12 @@
 		.docs-crumbs,
 		.docs-brand-sep {
 			display: none;
+		}
+		/* With the breadcrumb gone, its flex:1 no longer pushes the Emoji page's superbar search
+		   to the right end — it would sit against the wordmark. Auto left margin sends it back to
+		   the bar's right edge. */
+		.docs-sb-search {
+			margin-left: auto;
 		}
 		.docs-fab {
 			display: grid;

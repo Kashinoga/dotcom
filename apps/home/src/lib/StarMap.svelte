@@ -1632,6 +1632,8 @@
 		width: min(24rem, calc(100% - 2 * var(--head-inset)));
 		max-height: calc(100% - var(--head-h) - 2 * var(--head-inset));
 		overflow-y: auto;
+		/* Contain overscroll — no chain to the map/page (the iOS scroll-lock). */
+		overscroll-behavior: contain;
 		padding: 0.85rem 1rem;
 		color: #f2f2ee;
 		background: rgba(8, 12, 24, 0.92);

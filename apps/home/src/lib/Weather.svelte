@@ -1274,6 +1274,9 @@
 		   it. The scrollbar is hidden; the cut-off edge of the next tab is the affordance. */
 		min-width: 0;
 		overflow-x: auto;
+		/* Contain the overscroll so this inner strip never chains to the page — the chain is what
+		   locks up scrolling on iOS after you drag an inner box then the page. */
+		overscroll-behavior: contain;
 		scrollbar-width: none;
 		padding-bottom: 0.15rem;
 		/* The edge that still hides a tab fades out — with the scrollbar gone, this is what says
@@ -1599,6 +1602,8 @@
 		gap: 1.15rem;
 		min-width: 0;
 		overflow-x: auto;
+		/* Contain overscroll — no chain to the page (the iOS scroll-lock). */
+		overscroll-behavior: contain;
 		scrollbar-width: none;
 		padding: 0.1rem 0.3rem;
 		--fade: 2rem;
