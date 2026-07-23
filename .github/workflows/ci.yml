@@ -1,0 +1,90 @@
+# Continuous integration.
+#
+# The gates that were already here, wired to run on their own. `pnpm check` and the unit tests are
+# seconds and run on everything. The browser suites are minutes — they install three engines — so
+# they are a separate job, and on a pull request they run only the suites the diff can affect
+# (`--changed`, whose file→suite map lives in e2e/run.mjs, in the repo, so CI and every clone scope
+# identically). A push to main runs the whole suite: `--changed` may only ever SHRINK a run for
+# changes we have reasoned about, and main is where that assumption must not be load-bearing.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch makes the first run's answer stale. Cancel it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: check · unit · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4 # version comes from package.json's packageManager field
+
+      - uses: actions/setup-node@v4
+        with:
+          # The pin in .node-version is the authority. Reading it here is what keeps it honest:
+          # a version nobody actually builds on is a comment, not a pin.
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Formatting first — the cheapest gate of all, and `pnpm format` fixes every failure.
+      - run: pnpm format:check
+
+      # Then types: the gate most changes trip.
+      - run: pnpm check
+
+      # Pure functions — the URL layer, the register, and the board's four query params.
+      - run: pnpm test:unit
+
+      # The build catches what neither of the above can: an adapter that cannot bundle a route.
+      - run: pnpm build
+
+  e2e:
+    name: browser suites
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # `--changed` diffs against the base branch, so it needs the history to diff against.
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Firefox runs every suite. `cards` additionally runs Chromium and WebKit, and fails loudly
+      # rather than skipping if an engine is missing — a silent pass there once shipped a
+      # half-empty Apps panel to Safari. So all three are installed, always.
+      - run: pnpm --filter home exec playwright install --with-deps firefox chromium webkit
+
+      - name: Run suites
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            pnpm --filter home test:e2e --changed=origin/${{ github.base_ref }}
+          else
+            pnpm --filter home test:e2e
+          fi
+
+      # A failing visual suite is close to unreadable without the screenshot it compared.
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: e2e-artifacts
+          path: apps/home/e2e/.artifacts/
+          if-no-files-found: ignore
+          retention-days: 7
