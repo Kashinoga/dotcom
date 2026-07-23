@@ -103,7 +103,8 @@
 
 	/* ── Type ────────────────────────────────────────────────────────────────── */
 	--font-body: 'Jost', system-ui, -apple-system, sans-serif;
-	--font-motto: 'Fraunces', 'Iowan Old Style', Georgia, serif; /* the tagline's serif voice */ /* TODO(aeropalite): Aeropalite's typeface */
+	--font-motto:
+		'Fraunces', 'Iowan Old Style', Georgia, serif; /* the tagline's serif voice */ /* TODO(aeropalite): Aeropalite's typeface */
 	--font-mono: 'Space Mono', ui-monospace, 'SF Mono', Consolas, monospace; /* the data voice */
 }
 

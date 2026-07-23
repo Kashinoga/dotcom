@@ -22,6 +22,7 @@ dist/
 
 # ─── Opt back in: shareable source & config ───
 !.gitignore
+!.prettierignore
 !.npmrc
 !.node-version
 !.tool-versions
@@ -31,6 +32,10 @@ dist/
 !package.json
 !pnpm-workspace.yaml
 !pnpm-lock.yaml
+# CI workflows and any other YAML config. pnpm-workspace.yaml was named individually before
+# this rule existed; it is left listed above because a reader looking for it should find it.
+!*.yml
+!*.yaml
 !*.config.js
 !*.config.ts
 !tsconfig*.json
@@ -41,6 +46,9 @@ dist/
 !*.css
 !*.svg
 !*.webp
+# Baked share cards (static/og), from scripts/gen-og.mjs. PNG because that is what an
+# unfurler will render — webp support across them is not reliable.
+!*.png
 !*.woff2
 !*.html
 !*.md

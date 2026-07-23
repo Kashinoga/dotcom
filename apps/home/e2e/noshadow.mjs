@@ -2,7 +2,10 @@ import { firefox } from 'playwright';
 const B = process.env.BASE || 'http://localhost:5199';
 const b = await firefox.launch();
 const results = [];
-const ok=(n,p,d='')=>{results.push({n,p});console.log(`${p?'PASS':'FAIL'}  ${n}${d?'  — '+d:''}`)};
+const ok = (n, p, d = '') => {
+	results.push({ n, p });
+	console.log(`${p ? 'PASS' : 'FAIL'}  ${n}${d ? '  — ' + d : ''}`);
+};
 
 // Rings (0 blur) are LINES, not shadows: `inset 0 0 0 1.5px`, `0 0 0 5px`.
 const REAL_SHADOW = `(el) => {
@@ -23,7 +26,9 @@ const REAL_SHADOW = `(el) => {
   if (s.filter && s.filter.includes('drop-shadow')) bad.push('filter:'+s.filter);
   return bad;
 }`;
-const scanAll = new Function('return (' + `() => {
+const scanAll = new Function(
+	'return (' +
+		`() => {
   const isReal = ${REAL_SHADOW};
   const out = [];
   for (const el of document.querySelectorAll('*')) {
@@ -31,81 +36,135 @@ const scanAll = new Function('return (' + `() => {
     if (bad.length) out.push({ sel: el.tagName.toLowerCase()+'.'+[...el.classList].filter(c=>!c.startsWith('svelte-')).join('.'), bad });
   }
   return out;
-}` + ')')();
+}` +
+		')'
+)();
 
-for (const [ui, expectZero] of [['flat', true], ['bubble', false]]) {
-  const ctx = await b.newContext({ viewport:{width:1500,height:900} });
-  const p = await ctx.newPage();
-  await p.goto(B+'/',{waitUntil:'domcontentloaded'});
-  await p.evaluate(u=>{localStorage.setItem('ksh-ui',u);localStorage.setItem('ksh-sky','off');localStorage.setItem('ksh-theme','light');},ui);
+for (const [ui, expectZero] of [
+	['flat', true],
+	['bubble', false]
+]) {
+	const ctx = await b.newContext({ viewport: { width: 1500, height: 900 } });
+	const p = await ctx.newPage();
+	await p.goto(B + '/', { waitUntil: 'domcontentloaded' });
+	await p.evaluate((u) => {
+		localStorage.setItem('ksh-ui', u);
+		localStorage.setItem('ksh-sky', 'off');
+		localStorage.setItem('ksh-theme', 'light');
+	}, ui);
 
-  // TODO(map): '/' dropped — the homepage's only shadowable elements were the map's Bubble
-  // node beads, and the map was removed. The home nav is flat text with no shadow either way,
-  // so it can't satisfy the bubble-has-shadows branch. Panels below still exercise both modes.
-  const pages = ['/about', '/settings', '/apps/air-traffic'];
-  for (const path of pages) {
-    await p.goto(B+path,{waitUntil:'networkidle'}); await p.waitForTimeout(1800);
-    const found = await p.evaluate(scanAll);
-    if (expectZero) ok(`flat: ${path} rest has no shadow`, found.length===0, found.slice(0,3).map(f=>f.sel+' '+f.bad[0].slice(0,44)).join(' | '));
-    else ok(`bubble: ${path} still has shadows`, found.length>0, `${found.length} el`);
-  }
+	// TODO(map): '/' dropped — the homepage's only shadowable elements were the map's Bubble
+	// node beads, and the map was removed. The home nav is flat text with no shadow either way,
+	// so it can't satisfy the bubble-has-shadows branch. Panels below still exercise both modes.
+	const pages = ['/about', '/settings', '/apps/air-traffic'];
+	for (const path of pages) {
+		await p.goto(B + path, { waitUntil: 'networkidle' });
+		await p.waitForTimeout(1800);
+		const found = await p.evaluate(scanAll);
+		if (expectZero)
+			ok(
+				`flat: ${path} rest has no shadow`,
+				found.length === 0,
+				found
+					.slice(0, 3)
+					.map((f) => f.sel + ' ' + f.bad[0].slice(0, 44))
+					.join(' | ')
+			);
+		else ok(`bubble: ${path} still has shadows`, found.length > 0, `${found.length} el`);
+	}
 
-  // ── The Beta pill wears the family's material in Bubble, and none of it in Flat ──────────
-  // Two apps wear the same pill (puhig's .beta), so both are checked: the recipe moved out of
-  // the Presentation Builder to be shared with the Park Ranger, and a shared recipe is exactly
-  // the kind that gets re-scoped to one wearer by accident. The pill keeps its accent FILL in
-  // both styles — this is about light, not colour.
-  for (const [path, label] of [['/apps/presentation-builder','PB'],['/apps/intergalactic-park-ranger','IPR']]) {
-    await p.goto(B+path,{waitUntil:'networkidle'}); await p.waitForTimeout(1800);
-    const beta = p.locator('.beta').first();
-    if (!(await beta.count())) { ok(`${ui}: ${label} has a Beta pill`, false, 'absent'); continue; }
-    const bad = await beta.evaluate(new Function('return '+REAL_SHADOW)());
-    const fill = await beta.evaluate((e)=>getComputedStyle(e).backgroundColor);
-    if (expectZero) ok(`flat: ${label} Beta pill has no shadow`, bad.length===0, bad.join('|').slice(0,60));
-    else ok(`bubble: ${label} Beta pill is aeroified`, bad.length>0, 'no gloss/drop');
-    ok(`${ui}: ${label} Beta pill keeps its accent fill`, /^rgb\(240, 96, 48\)$/.test(fill), fill);
-  }
+	// ── The Beta pill wears the family's material in Bubble, and none of it in Flat ──────────
+	// Two apps wear the same pill (puhig's .beta), so both are checked: the recipe moved out of
+	// the Presentation Builder to be shared with the Park Ranger, and a shared recipe is exactly
+	// the kind that gets re-scoped to one wearer by accident. The pill keeps its accent FILL in
+	// both styles — this is about light, not colour.
+	for (const [path, label] of [
+		['/apps/presentation-builder', 'PB'],
+		['/apps/intergalactic-park-ranger', 'IPR']
+	]) {
+		await p.goto(B + path, { waitUntil: 'networkidle' });
+		await p.waitForTimeout(1800);
+		const beta = p.locator('.beta').first();
+		if (!(await beta.count())) {
+			ok(`${ui}: ${label} has a Beta pill`, false, 'absent');
+			continue;
+		}
+		const bad = await beta.evaluate(new Function('return ' + REAL_SHADOW)());
+		const fill = await beta.evaluate((e) => getComputedStyle(e).backgroundColor);
+		if (expectZero)
+			ok(`flat: ${label} Beta pill has no shadow`, bad.length === 0, bad.join('|').slice(0, 60));
+		else ok(`bubble: ${label} Beta pill is aeroified`, bad.length > 0, 'no gloss/drop');
+		ok(`${ui}: ${label} Beta pill keeps its accent fill`, /^rgb\(240, 96, 48\)$/.test(fill), fill);
+	}
 
-  // hover + active states
-  await p.goto(B+'/apps/presentation-builder',{waitUntil:'networkidle'});
-  await p.getByRole('button',{name:'New from template'}).click(); await p.waitForTimeout(1500);
-  for (const [sel,label] of [['button.tb','pb .tb'],['button.tb.primary','pb .tb.primary']]) {
-    const n = await p.locator(sel).count(); if(!n) continue;
-    await p.locator(sel).first().hover(); await p.waitForTimeout(300);
-    const bad = await p.locator(sel).first().evaluate(new Function('return '+REAL_SHADOW)());
-    if (expectZero) ok(`flat: ${label}:hover no shadow`, bad.length===0, bad.join('|').slice(0,60));
-    else ok(`bubble: ${label}:hover has shadow`, bad.length>0);
-  }
+	// hover + active states
+	await p.goto(B + '/apps/presentation-builder', { waitUntil: 'networkidle' });
+	await p.getByRole('button', { name: 'New from template' }).click();
+	await p.waitForTimeout(1500);
+	for (const [sel, label] of [
+		['button.tb', 'pb .tb'],
+		['button.tb.primary', 'pb .tb.primary']
+	]) {
+		const n = await p.locator(sel).count();
+		if (!n) continue;
+		await p.locator(sel).first().hover();
+		await p.waitForTimeout(300);
+		const bad = await p
+			.locator(sel)
+			.first()
+			.evaluate(new Function('return ' + REAL_SHADOW)());
+		if (expectZero)
+			ok(`flat: ${label}:hover no shadow`, bad.length === 0, bad.join('|').slice(0, 60));
+		else ok(`bubble: ${label}:hover has shadow`, bad.length > 0);
+	}
 
-  // ── :active — the gap that let a blurred `inset 0 2px 4px` survive the shadow purge.
-  await p.goto(B+'/settings',{waitUntil:'networkidle'}); await p.waitForTimeout(1500);
-  for (const [sel,label] of [['button.icon-btn.back','Back'],['button.seg','.seg']]) {
-    const loc = p.locator(sel).first();
-    await loc.hover({force:true}); await p.mouse.down(); await p.waitForTimeout(250);
-    const bad = await loc.evaluate(new Function('return '+REAL_SHADOW)());
-    await p.mouse.move(5,5); await p.mouse.up();
-    if (expectZero) ok(`flat: ${label}:active no blurred shadow`, bad.length===0, bad.join('|').slice(0,60));
-    else ok(`bubble: ${label}:active has shadow`, bad.length>0);
-  }
-  // toast
-  await p.locator('button[title="Download a copy"]').click().catch(()=>{});
-  await p.waitForTimeout(600);
-  const tn = await p.locator('.toast').count();
-  if (tn) {
-    const bad = await p.locator('.toast').first().evaluate(new Function('return '+REAL_SHADOW)());
-    if (expectZero) ok('flat: pb .toast no shadow', bad.length===0, bad.join('|').slice(0,50));
-    else ok('bubble: pb .toast (no bubble rule) also none', true);
-  }
-  // ATFC tip
-  await p.goto(B+'/apps/air-traffic',{waitUntil:'networkidle'}); await p.waitForTimeout(2200);
-  if (await p.locator('span.tip').count()) {
-    const bad = await p.locator('span.tip').first().evaluate(new Function('return '+REAL_SHADOW)());
-    if (expectZero) ok('flat: atfc .tip no shadow', bad.length===0, bad.join('|').slice(0,50));
-    else ok('bubble: atfc .tip none too', true);
-  }
-  await ctx.close();
+	// ── :active — the gap that let a blurred `inset 0 2px 4px` survive the shadow purge.
+	await p.goto(B + '/settings', { waitUntil: 'networkidle' });
+	await p.waitForTimeout(1500);
+	for (const [sel, label] of [
+		['button.icon-btn.back', 'Back'],
+		['button.seg', '.seg']
+	]) {
+		const loc = p.locator(sel).first();
+		await loc.hover({ force: true });
+		await p.mouse.down();
+		await p.waitForTimeout(250);
+		const bad = await loc.evaluate(new Function('return ' + REAL_SHADOW)());
+		await p.mouse.move(5, 5);
+		await p.mouse.up();
+		if (expectZero)
+			ok(`flat: ${label}:active no blurred shadow`, bad.length === 0, bad.join('|').slice(0, 60));
+		else ok(`bubble: ${label}:active has shadow`, bad.length > 0);
+	}
+	// toast
+	await p
+		.locator('button[title="Download a copy"]')
+		.click()
+		.catch(() => {});
+	await p.waitForTimeout(600);
+	const tn = await p.locator('.toast').count();
+	if (tn) {
+		const bad = await p
+			.locator('.toast')
+			.first()
+			.evaluate(new Function('return ' + REAL_SHADOW)());
+		if (expectZero) ok('flat: pb .toast no shadow', bad.length === 0, bad.join('|').slice(0, 50));
+		else ok('bubble: pb .toast (no bubble rule) also none', true);
+	}
+	// ATFC tip
+	await p.goto(B + '/apps/air-traffic', { waitUntil: 'networkidle' });
+	await p.waitForTimeout(2200);
+	if (await p.locator('span.tip').count()) {
+		const bad = await p
+			.locator('span.tip')
+			.first()
+			.evaluate(new Function('return ' + REAL_SHADOW)());
+		if (expectZero) ok('flat: atfc .tip no shadow', bad.length === 0, bad.join('|').slice(0, 50));
+		else ok('bubble: atfc .tip none too', true);
+	}
+	await ctx.close();
 }
 await b.close();
-const f = results.filter(r=>!r.p);
-console.log(`\n${results.length-f.length}/${results.length} passed`);
-process.exit(f.length?1:0);
+const f = results.filter((r) => !r.p);
+console.log(`\n${results.length - f.length}/${results.length} passed`);
+process.exit(f.length ? 1 : 0);

@@ -4,13 +4,7 @@
 	import { flip } from 'svelte/animate';
 	import { cubicOut } from 'svelte/easing';
 	import SplitFlap from '$lib/SplitFlap.svelte';
-	import {
-		EXTERNAL_SVG,
-		REFRESH_SVG,
-		MAXIMIZE_SVG,
-		MINIMIZE_SVG,
-		HOME_SVG
-	} from '$lib/icons';
+	import { EXTERNAL_SVG, REFRESH_SVG, MAXIMIZE_SVG, MINIMIZE_SVG, HOME_SVG } from '$lib/icons';
 	import { AIRPORTS, DEFAULT_FIELD, fieldByIata, type Airport } from '$lib/fields';
 	import { RANGES, DEFAULT_RANGE, INTERVALS, DEFAULT_POLL_MS } from '$lib/scope';
 
@@ -192,7 +186,9 @@
 			'https://en.wikipedia.org/w/api.php?origin=*&format=json&redirects=1&action=query&titles=';
 		const req = (async (): Promise<Photo | null> => {
 			const r = await fetch(
-				base + encodeURIComponent(title) + '&prop=pageimages&piprop=thumbnail%7Cname&pithumbsize=480'
+				base +
+					encodeURIComponent(title) +
+					'&prop=pageimages&piprop=thumbnail%7Cname&pithumbsize=480'
 			);
 			const d = await r.json();
 			const pages = d?.query?.pages ?? {};
@@ -329,10 +325,10 @@
 	const RING_R = 15.5;
 	const RING_C = 2 * Math.PI * RING_R;
 	// Human label for the current cadence ("1m", "30s") — falls back to raw seconds.
-	const pollLabel = $derived(INTERVALS.find((i) => i.ms === pollMs)?.label ?? `${Math.round(pollMs / 1000)}s`);
-	const ringFrac = $derived(
-		updatedAt ? Math.min(1, Math.max(0, (nowTs - updatedAt) / pollMs)) : 0
+	const pollLabel = $derived(
+		INTERVALS.find((i) => i.ms === pollMs)?.label ?? `${Math.round(pollMs / 1000)}s`
 	);
+	const ringFrac = $derived(updatedAt ? Math.min(1, Math.max(0, (nowTs - updatedAt) / pollMs)) : 0);
 	const ringDash = $derived(RING_C * ringFrac);
 	// Seconds until the next poll — shown as a plain count (e.g. 60, not 1:00).
 	const ringRemain = $derived(Math.max(0, Math.ceil((pollMs * (1 - ringFrac)) / 1000)));
@@ -347,8 +343,7 @@
 		const dLon = ((bLon - aLon) * Math.PI) / 180;
 		const la1 = (aLat * Math.PI) / 180;
 		const la2 = (bLat * Math.PI) / 180;
-		const h =
-			Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) ** 2;
+		const h = Math.sin(dLat / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLon / 2) ** 2;
 		return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
 	}
 
@@ -386,7 +381,9 @@
 					const fr = j?.response?.flightroute;
 					const al = fr?.airline;
 					const airline: Airline | null =
-						al && al.name ? { name: al.name, iata: al.iata || '', callsign: al.callsign || '' } : null;
+						al && al.name
+							? { name: al.name, iata: al.iata || '', callsign: al.callsign || '' }
+							: null;
 					const route: Route =
 						fr && fr.origin && fr.destination
 							? { o: field(fr.origin), d: field(fr.destination), airline }
@@ -452,29 +449,323 @@
 	};
 	// origin → destination: a leg touching GRM (EMGR) reads as arr/dep, otherwise over.
 	const DEMO_SPECS: DemoSpec[] = [
-		{ hex: 'ACE001', call: 'GARUDA1', type: 'F15', reg: 'AWE-01', op: 'Emmeria Air Force', year: 2015, alt: 24000, gs: 430, track: 95, vrate: -1200, distNm: 12, o: 'FAR', d: 'GRM' },
-		{ hex: 'ACE002', call: 'TALISMAN', type: 'EUFI', reg: 'AWE-02', op: 'Emmeria Air Force', year: 2016, alt: 8000, gs: 320, track: 270, vrate: 1800, distNm: 6, o: 'GRM', d: 'DIR' },
-		{ hex: 'ACE003', call: 'MOBIUS1', type: 'F22', reg: 'ISF-118', op: 'ISAF', year: 2004, alt: 36000, gs: 480, track: 210, vrate: 0, distNm: 33, o: 'FAR', d: 'OUR' },
-		{ hex: 'ACE004', call: 'GALM1', type: 'F15', reg: 'UST-06', op: 'Ustio Air Force', year: 1995, alt: 21000, gs: 410, track: 120, vrate: -900, distNm: 21, o: 'OUR', d: 'GRM' },
-		{ hex: 'ACE005', call: 'RAZGRIZ', type: 'F14', reg: 'OMD-01', op: 'Osean Maritime Defense', year: 2010, alt: 3200, gs: 260, track: 300, vrate: 2200, distNm: 9, o: 'GRM', d: 'SIB' },
-		{ hex: 'ACE006', call: 'YELLOW13', type: 'SU37', reg: 'ERU-13', op: 'Erusean Air Force', year: 2004, alt: 34000, gs: 470, track: 20, vrate: 0, distNm: 52, o: 'SUD', d: 'FAR' },
-		{ hex: 'ACE007', call: 'WARDOG3', type: 'F18', reg: 'OAD-108', op: 'Osean Air Defense Force', year: 2010, alt: 17500, gs: 390, track: 150, vrate: -1500, distNm: 44, o: 'NDV', d: 'GRM' },
-		{ hex: 'ACE008', call: 'STRIDER1', type: 'F22', reg: 'OAD-003', op: 'Osean Air Defense Force', year: 2019, alt: 28000, gs: 450, track: 265, vrate: 500, distNm: 18, o: 'GRM', d: 'NOV' },
-		{ hex: 'ACE009', call: 'GRYPHUS1', type: 'RFAL', reg: 'EMM-01', op: 'Emmeria Air Force', year: 2011, alt: 30000, gs: 460, track: 60, vrate: 0, distNm: 118, o: 'FAR', d: 'SUD' },
-		{ hex: 'ACE010', call: 'PIXY', type: 'F15', reg: 'GLM-02', op: 'Galm Team', year: 1995, alt: 15000, gs: 370, track: 130, vrate: -1000, distNm: 74, o: 'GBH', d: 'GRM' },
-		{ hex: 'ACE011', call: 'CIPHER', type: 'F15', reg: 'UST-01', op: 'Ustio Air Force', year: 1995, alt: 'ground', gs: 0, track: 0, vrate: 0, distNm: 2, o: 'GRM', d: 'SIB' },
+		{
+			hex: 'ACE001',
+			call: 'GARUDA1',
+			type: 'F15',
+			reg: 'AWE-01',
+			op: 'Emmeria Air Force',
+			year: 2015,
+			alt: 24000,
+			gs: 430,
+			track: 95,
+			vrate: -1200,
+			distNm: 12,
+			o: 'FAR',
+			d: 'GRM'
+		},
+		{
+			hex: 'ACE002',
+			call: 'TALISMAN',
+			type: 'EUFI',
+			reg: 'AWE-02',
+			op: 'Emmeria Air Force',
+			year: 2016,
+			alt: 8000,
+			gs: 320,
+			track: 270,
+			vrate: 1800,
+			distNm: 6,
+			o: 'GRM',
+			d: 'DIR'
+		},
+		{
+			hex: 'ACE003',
+			call: 'MOBIUS1',
+			type: 'F22',
+			reg: 'ISF-118',
+			op: 'ISAF',
+			year: 2004,
+			alt: 36000,
+			gs: 480,
+			track: 210,
+			vrate: 0,
+			distNm: 33,
+			o: 'FAR',
+			d: 'OUR'
+		},
+		{
+			hex: 'ACE004',
+			call: 'GALM1',
+			type: 'F15',
+			reg: 'UST-06',
+			op: 'Ustio Air Force',
+			year: 1995,
+			alt: 21000,
+			gs: 410,
+			track: 120,
+			vrate: -900,
+			distNm: 21,
+			o: 'OUR',
+			d: 'GRM'
+		},
+		{
+			hex: 'ACE005',
+			call: 'RAZGRIZ',
+			type: 'F14',
+			reg: 'OMD-01',
+			op: 'Osean Maritime Defense',
+			year: 2010,
+			alt: 3200,
+			gs: 260,
+			track: 300,
+			vrate: 2200,
+			distNm: 9,
+			o: 'GRM',
+			d: 'SIB'
+		},
+		{
+			hex: 'ACE006',
+			call: 'YELLOW13',
+			type: 'SU37',
+			reg: 'ERU-13',
+			op: 'Erusean Air Force',
+			year: 2004,
+			alt: 34000,
+			gs: 470,
+			track: 20,
+			vrate: 0,
+			distNm: 52,
+			o: 'SUD',
+			d: 'FAR'
+		},
+		{
+			hex: 'ACE007',
+			call: 'WARDOG3',
+			type: 'F18',
+			reg: 'OAD-108',
+			op: 'Osean Air Defense Force',
+			year: 2010,
+			alt: 17500,
+			gs: 390,
+			track: 150,
+			vrate: -1500,
+			distNm: 44,
+			o: 'NDV',
+			d: 'GRM'
+		},
+		{
+			hex: 'ACE008',
+			call: 'STRIDER1',
+			type: 'F22',
+			reg: 'OAD-003',
+			op: 'Osean Air Defense Force',
+			year: 2019,
+			alt: 28000,
+			gs: 450,
+			track: 265,
+			vrate: 500,
+			distNm: 18,
+			o: 'GRM',
+			d: 'NOV'
+		},
+		{
+			hex: 'ACE009',
+			call: 'GRYPHUS1',
+			type: 'RFAL',
+			reg: 'EMM-01',
+			op: 'Emmeria Air Force',
+			year: 2011,
+			alt: 30000,
+			gs: 460,
+			track: 60,
+			vrate: 0,
+			distNm: 118,
+			o: 'FAR',
+			d: 'SUD'
+		},
+		{
+			hex: 'ACE010',
+			call: 'PIXY',
+			type: 'F15',
+			reg: 'GLM-02',
+			op: 'Galm Team',
+			year: 1995,
+			alt: 15000,
+			gs: 370,
+			track: 130,
+			vrate: -1000,
+			distNm: 74,
+			o: 'GBH',
+			d: 'GRM'
+		},
+		{
+			hex: 'ACE011',
+			call: 'CIPHER',
+			type: 'F15',
+			reg: 'UST-01',
+			op: 'Ustio Air Force',
+			year: 1995,
+			alt: 'ground',
+			gs: 0,
+			track: 0,
+			vrate: 0,
+			distNm: 2,
+			o: 'GRM',
+			d: 'SIB'
+		},
 		// Boss-tier aces, in real exotics (so a tapped row still shows a real photo).
-		{ hex: 'ACE012', call: 'MIHALY', type: 'SU57', reg: 'ERU-01', op: 'Erusean Air Force', year: 2020, alt: 41000, gs: 520, track: 200, vrate: 0, distNm: 28, o: 'FAR', d: 'OUR' },
-		{ hex: 'ACE013', call: 'BERKUT', type: 'SU47', reg: 'GRU-47', op: 'Gründer Industries', year: 2006, alt: 26000, gs: 440, track: 85, vrate: 900, distNm: 40, o: 'SUD', d: 'GRM' },
+		{
+			hex: 'ACE012',
+			call: 'MIHALY',
+			type: 'SU57',
+			reg: 'ERU-01',
+			op: 'Erusean Air Force',
+			year: 2020,
+			alt: 41000,
+			gs: 520,
+			track: 200,
+			vrate: 0,
+			distNm: 28,
+			o: 'FAR',
+			d: 'OUR'
+		},
+		{
+			hex: 'ACE013',
+			call: 'BERKUT',
+			type: 'SU47',
+			reg: 'GRU-47',
+			op: 'Gründer Industries',
+			year: 2006,
+			alt: 26000,
+			gs: 440,
+			track: 85,
+			vrate: 900,
+			distNm: 40,
+			o: 'SUD',
+			d: 'GRM'
+		},
 		// A fuller board — enough within range to fill it and make the panel scroll.
-		{ hex: 'ACE014', call: 'THUNDERHEAD', type: 'E3', reg: 'OAD-767', op: 'Osean Air Defense Force', year: 2005, alt: 31000, gs: 300, track: 90, vrate: 0, distNm: 26, o: 'SUD', d: 'GRM' },
-		{ hex: 'ACE015', call: 'EDGE', type: 'F14', reg: 'OMD-04', op: 'Osean Maritime Defense', year: 2010, alt: 19000, gs: 400, track: 110, vrate: -800, distNm: 15, o: 'OUR', d: 'GRM' },
-		{ hex: 'ACE016', call: 'CHOPPER', type: 'F14', reg: 'OMD-05', op: 'Osean Maritime Defense', year: 2010, alt: 22000, gs: 410, track: 100, vrate: 0, distNm: 37, o: 'FAR', d: 'GRM' },
-		{ hex: 'ACE017', call: 'ARCHER', type: 'F15', reg: 'OAD-21', op: 'Osean Air Defense Force', year: 2012, alt: 12000, gs: 350, track: 280, vrate: 1500, distNm: 24, o: 'GRM', d: 'NOV' },
-		{ hex: 'ACE018', call: 'SWORDSMAN', type: 'F15', reg: 'EMM-07', op: 'Emmeria Air Force', year: 2013, alt: 27000, gs: 440, track: 200, vrate: 0, distNm: 48, o: 'FAR', d: 'OUR' },
-		{ hex: 'ACE019', call: 'WISEMAN', type: 'F18', reg: 'OAD-115', op: 'Osean Air Defense Force', year: 2014, alt: 16000, gs: 380, track: 130, vrate: -1000, distNm: 33, o: 'NDV', d: 'GRM' },
-		{ hex: 'ACE020', call: 'COUNT', type: 'F22', reg: 'OAD-004', op: 'Osean Air Defense Force', year: 2019, alt: 34000, gs: 470, track: 70, vrate: 0, distNm: 51, o: 'SUD', d: 'FAR' },
-		{ hex: 'ACE021', call: 'SCARFACE1', type: 'F14', reg: 'USE-01', op: 'Usean Allied Forces', year: 2004, alt: 8000, gs: 300, track: 260, vrate: 1200, distNm: 11, o: 'GRM', d: 'SIB' }
+		{
+			hex: 'ACE014',
+			call: 'THUNDERHEAD',
+			type: 'E3',
+			reg: 'OAD-767',
+			op: 'Osean Air Defense Force',
+			year: 2005,
+			alt: 31000,
+			gs: 300,
+			track: 90,
+			vrate: 0,
+			distNm: 26,
+			o: 'SUD',
+			d: 'GRM'
+		},
+		{
+			hex: 'ACE015',
+			call: 'EDGE',
+			type: 'F14',
+			reg: 'OMD-04',
+			op: 'Osean Maritime Defense',
+			year: 2010,
+			alt: 19000,
+			gs: 400,
+			track: 110,
+			vrate: -800,
+			distNm: 15,
+			o: 'OUR',
+			d: 'GRM'
+		},
+		{
+			hex: 'ACE016',
+			call: 'CHOPPER',
+			type: 'F14',
+			reg: 'OMD-05',
+			op: 'Osean Maritime Defense',
+			year: 2010,
+			alt: 22000,
+			gs: 410,
+			track: 100,
+			vrate: 0,
+			distNm: 37,
+			o: 'FAR',
+			d: 'GRM'
+		},
+		{
+			hex: 'ACE017',
+			call: 'ARCHER',
+			type: 'F15',
+			reg: 'OAD-21',
+			op: 'Osean Air Defense Force',
+			year: 2012,
+			alt: 12000,
+			gs: 350,
+			track: 280,
+			vrate: 1500,
+			distNm: 24,
+			o: 'GRM',
+			d: 'NOV'
+		},
+		{
+			hex: 'ACE018',
+			call: 'SWORDSMAN',
+			type: 'F15',
+			reg: 'EMM-07',
+			op: 'Emmeria Air Force',
+			year: 2013,
+			alt: 27000,
+			gs: 440,
+			track: 200,
+			vrate: 0,
+			distNm: 48,
+			o: 'FAR',
+			d: 'OUR'
+		},
+		{
+			hex: 'ACE019',
+			call: 'WISEMAN',
+			type: 'F18',
+			reg: 'OAD-115',
+			op: 'Osean Air Defense Force',
+			year: 2014,
+			alt: 16000,
+			gs: 380,
+			track: 130,
+			vrate: -1000,
+			distNm: 33,
+			o: 'NDV',
+			d: 'GRM'
+		},
+		{
+			hex: 'ACE020',
+			call: 'COUNT',
+			type: 'F22',
+			reg: 'OAD-004',
+			op: 'Osean Air Defense Force',
+			year: 2019,
+			alt: 34000,
+			gs: 470,
+			track: 70,
+			vrate: 0,
+			distNm: 51,
+			o: 'SUD',
+			d: 'FAR'
+		},
+		{
+			hex: 'ACE021',
+			call: 'SCARFACE1',
+			type: 'F14',
+			reg: 'USE-01',
+			op: 'Usean Allied Forces',
+			year: 2004,
+			alt: 8000,
+			gs: 300,
+			track: 260,
+			vrate: 1200,
+			distNm: 11,
+			o: 'GRM',
+			d: 'SIB'
+		}
 	];
 	// Prime the route cache once so rows derive arr/dep/over exactly like a live field.
 	const DEMO_ROUTES = new Map<string, Route>(
@@ -504,7 +795,7 @@
 				year: s.year,
 				alt: grounded ? 'ground' : jit(s.alt as number, 300, 25),
 				gs: grounded ? 0 : jit(s.gs, 12),
-				track: grounded ? s.track : (((jit(s.track, 6) % 360) + 360) % 360),
+				track: grounded ? s.track : ((jit(s.track, 6) % 360) + 360) % 360,
 				vrate: grounded ? 0 : jit(s.vrate, 120, 50),
 				distNm: s.distNm
 			};
@@ -736,7 +1027,8 @@
 		return planes.map((p) => {
 			const route = routeCache.get(p.call.toUpperCase()) ?? null;
 			let tag: Row['tag'] = null;
-			if (route) tag = route.d.icao === sel.icao ? 'arr' : route.o.icao === sel.icao ? 'dep' : 'over';
+			if (route)
+				tag = route.d.icao === sel.icao ? 'arr' : route.o.icao === sel.icao ? 'dep' : 'over';
 			const opLabel = opName({ op: p.op, route });
 			return { ...p, route, tag, opLabel, opShort: fitFlaps(opLabel, opFlaps) };
 		});
@@ -744,7 +1036,9 @@
 
 	// Direction tally across the shown rows — the header summary's Arr · Dep · Ovr line.
 	const counts = $derived.by(() => {
-		let arr = 0, dep = 0, ovr = 0;
+		let arr = 0,
+			dep = 0,
+			ovr = 0;
 		for (const r of rows) {
 			if (r.tag === 'arr') arr++;
 			else if (r.tag === 'dep') dep++;
@@ -768,7 +1062,8 @@
 		return a >= 18000 ? 'FL' + Math.round(a / 100) : Math.round(a).toLocaleString() + ' ft';
 	};
 	const fmtSpd = (g: number | null) => (g == null ? '—' : Math.round(g) + ' kt');
-	const fmtHdg = (t: number | null) => (t == null ? '—' : String(Math.round(t)).padStart(3, '0') + '°');
+	const fmtHdg = (t: number | null) =>
+		t == null ? '—' : String(Math.round(t)).padStart(3, '0') + '°';
 	const fmtDist = (d: number) => Math.round(d) + ' NM';
 	// Vertical rate → climb ▲ / descent ▼ with fpm (level or unknown → dash). The
 	// arrow is a static glyph in the split-flap (only A–Z/0–9 shuffle).
@@ -1013,7 +1308,14 @@
 				out.push(t); // already leaving — keep its stagger, active flag, and timer
 			} else {
 				leaving.add(t.hex);
-				out.push({ ...t, status: 'leave', reason: leaveReason(t), kind: 'leave', stagger: 0, active: false });
+				out.push({
+					...t,
+					status: 'leave',
+					reason: leaveReason(t),
+					kind: 'leave',
+					stagger: 0,
+					active: false
+				});
 			}
 		}
 		// New arrivals. On the very first fill, drop them straight in as `live` so the
@@ -1024,7 +1326,14 @@
 				out.push({ ...nr, status: 'live', reason: '', kind: '', stagger: 0, active: false });
 			} else {
 				entering.add(nr.hex);
-				out.push({ ...nr, status: 'enter', reason: enterReason(nr), kind: 'enter', stagger: 0, active: false });
+				out.push({
+					...nr,
+					status: 'enter',
+					reason: enterReason(nr),
+					kind: 'enter',
+					stagger: 0,
+					active: false
+				});
 			}
 		}
 		// Nearest first; a leaving row keeps its last distance, so it collapses in place.
@@ -1041,7 +1350,8 @@
 				scheduleTransition(t.hex, t.stagger, 'leave');
 			}
 		}
-		if (!firstLoad) booted = true; // first fill has cascaded; later flaps are immediate
+		if (!firstLoad)
+			booted = true; // first fill has cascaded; later flaps are immediate
 		// The first fill's entrance runs ~2.5s worst case (expanded lead + rows + settle);
 		// `entranceSettled` marks its end so the scroller's boot clip (see .scroll) can lift
 		// long before `booted` does — that flag waits for the NEXT poll, up to a minute out.
@@ -1184,7 +1494,13 @@
 	<!-- Keep {@html} flush with the tags: surrounding whitespace becomes an in-flow text
 	     node, which would give this inline-block a line box and pull its baseline up off
 	     its bottom edge (see .manual). -->
-	<button type="button" class="manual icon-btn" aria-label="Refresh now" title="Refresh now" onclick={manualRefresh}>{@html REFRESH_SVG}</button>
+	<button
+		type="button"
+		class="manual icon-btn"
+		aria-label="Refresh now"
+		title="Refresh now"
+		onclick={manualRefresh}>{@html REFRESH_SVG}</button
+	>
 {/snippet}
 {#snippet accentDot()}
 	<!-- Decorative, nonfunctional: the app's accent colour as a station-sign bullet beside
@@ -1217,8 +1533,7 @@
 		<span class="ring-ico" aria-hidden="true">{@html paused ? PLAY_SVG : PAUSE_SVG}</span>
 		<span class="tip" role="tooltip">
 			{#if paused}Auto-refresh paused — click to resume.
-			{:else}Auto-refreshing every {pollLabel} — the ring counts down to the next update. Click to
-				pause.{/if}
+			{:else}Auto-refreshing every {pollLabel} — the ring counts down to the next update. Click to pause.{/if}
 		</span>
 	</button>
 {/snippet}
@@ -1226,17 +1541,32 @@
 <!-- head-collapsed only ever pairs with the COMPACT header: between 900 and 960px an
      expanded board shows the deck (showDeck), whose super bar is already one row —
      gating here keeps the class honest instead of leaning on its selectors missing. -->
-<div class="tfc" class:expanded class:head-collapsed={headCollapsed && !showDeck} class:has-bar={showDeck} style:--accent={accent} style:--bar-h="{barH}px">
+<div
+	class="tfc"
+	class:expanded
+	class:head-collapsed={headCollapsed && !showDeck}
+	class:has-bar={showDeck}
+	style:--accent={accent}
+	style:--bar-h="{barH}px"
+>
 	<!-- csb / csb-on: the shared collapsed-super-bar recipe (puhig base.css) — this board
 	     is where it grew; the root's head-collapsed stays for local seasoning (the corner
 	     pin below). -->
-	<header class="tfc-head csb" class:bar={showDeck} class:csb-on={headCollapsed && !showDeck} class:scrolled={bodyScrolled} bind:this={headEl}>
+	<header
+		class="tfc-head csb"
+		class:bar={showDeck}
+		class:csb-on={headCollapsed && !showDeck}
+		class:scrolled={bodyScrolled}
+		bind:this={headEl}
+	>
 		{#if showDeck}
 			<!-- Expanded: ONE super bar. No Back cap up here — full-viewport has nowhere to
 			     peel back to mid-thought, so the global controls gather at the right end:
 			     Home beside the collapse toggle. The title takes the left edge. -->
 			<div class="ident">
-				<h2 class="dest">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
+				<h2 class="dest">
+					{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}
+				</h2>
 				<div class="head-refresh">{@render accentDot()}</div>
 			</div>
 			<div class="deck">
@@ -1390,13 +1720,17 @@
 			>
 				<div class="rp-track">
 					{#if routeProgress}
-						<div class="rp-fill" style:width="{(routeProgress.done / routeProgress.total) * 100}%"></div>
+						<div
+							class="rp-fill"
+							style:width="{(routeProgress.done / routeProgress.total) * 100}%"
+						></div>
 					{:else}
 						<div class="rp-fill rp-indef"></div>
 					{/if}
 				</div>
 				<span class="rp-text mono">
-					{#if routeProgress}Resolving routes {routeProgress.done}/{routeProgress.total}…{:else}Loading live traffic…{/if}
+					{#if routeProgress}Resolving routes {routeProgress.done}/{routeProgress.total}…{:else}Loading
+						live traffic…{/if}
 				</span>
 			</div>
 		{/if}
@@ -1406,7 +1740,9 @@
 				class:editable={edit}
 				contenteditable={edit}
 				oninput={edit ? (e) => onCopyEdit?.(leadKey, e.currentTarget.textContent ?? '') : undefined}
-			>{leadText()}</p>
+			>
+				{leadText()}
+			</p>
 		{/if}
 
 		{#if !showDeck}
@@ -1448,181 +1784,266 @@
 			</div>
 		{/if}
 
-	{#if selected}
-		<div class="photo-card" transition:slide={{ duration: 220 }}>
-			<div class="pc-img">
-				{#if photo === 'loading'}
-					<div class="pc-ph">Loading photo…</div>
-				{:else if photo}
-					<img src={photo.src} alt={selected.title || selected.type} loading="lazy" />
-				{:else}
-					<div class="pc-ph">No photo for {selected.type || 'this type'}</div>
-				{/if}
-			</div>
-			<div class="pc-info">
-				<p class="pc-title">{selected.title || selected.desc || selected.type || 'Unknown type'}</p>
-				<!-- Joined in JS, not stitched together from inline {#if}s. The markup version wrapped a
+		{#if selected}
+			<div class="photo-card" transition:slide={{ duration: 220 }}>
+				<div class="pc-img">
+					{#if photo === 'loading'}
+						<div class="pc-ph">Loading photo…</div>
+					{:else if photo}
+						<img src={photo.src} alt={selected.title || selected.type} loading="lazy" />
+					{:else}
+						<div class="pc-ph">No photo for {selected.type || 'this type'}</div>
+					{/if}
+				</div>
+				<div class="pc-info">
+					<p class="pc-title">
+						{selected.title || selected.desc || selected.type || 'Unknown type'}
+					</p>
+					<!-- Joined in JS, not stitched together from inline {#if}s. The markup version wrapped a
 				     branch onto its own line, and the indent that followed swallowed the space before
 				     the separator — the card read "MIHALY· ERU-01· SU57". A separator is punctuation
 				     between values, so let the values be a list and put the punctuation between them. -->
-				<p class="pc-sub mono">
-					{[selected.call || selected.hex || '—', selected.reg, selected.type]
-						.filter(Boolean)
-						.join(' · ')}
-				</p>
-				{#if selected.op}
-					<p class="pc-op">
-						{[selected.op, selected.year ? `built ${selected.year}` : ''].filter(Boolean).join(' · ')}
+					<p class="pc-sub mono">
+						{[selected.call || selected.hex || '—', selected.reg, selected.type]
+							.filter(Boolean)
+							.join(' · ')}
 					</p>
-				{/if}
-				{#if selected.route}
-					<p class="pc-route mono">
-						{selected.route.o.iata || selected.route.o.icao} → {selected.route.d.iata ||
-							selected.route.d.icao}
-					</p>
-					{#if selected.route.o.city || selected.route.d.city}
-						<p class="pc-route-full">
-							{selected.route.o.name || selected.route.o.city || '—'} → {selected.route.d.name ||
-								selected.route.d.city ||
-								'—'}
+					{#if selected.op}
+						<p class="pc-op">
+							{[selected.op, selected.year ? `built ${selected.year}` : '']
+								.filter(Boolean)
+								.join(' · ')}
 						</p>
 					{/if}
-				{/if}
-				<p class="pc-meta mono">
-					{fmtAlt(selected.alt)} · {fmtSpd(selected.gs)}{#if fmtVs(selected.vrate) !== '—'}
-						· {fmtVs(selected.vrate)}{/if} · {fmtDist(selected.distNm)}
-				</p>
-				{#if photo && photo !== 'loading' && photo.credit}
-					<p class="pc-credit">
-						Photo:
-						{#if photo.url}<a href={photo.url} target="_blank" rel="noopener noreferrer"
-								>{photo.credit}<span class="ext-ico">{@html EXTERNAL_SVG}</span></a
-							>{:else}{photo.credit}{/if} · Wikimedia
+					{#if selected.route}
+						<p class="pc-route mono">
+							{selected.route.o.iata || selected.route.o.icao} → {selected.route.d.iata ||
+								selected.route.d.icao}
+						</p>
+						{#if selected.route.o.city || selected.route.d.city}
+							<p class="pc-route-full">
+								{selected.route.o.name || selected.route.o.city || '—'} → {selected.route.d.name ||
+									selected.route.d.city ||
+									'—'}
+							</p>
+						{/if}
+					{/if}
+					<p class="pc-meta mono">
+						{fmtAlt(selected.alt)} · {fmtSpd(selected.gs)}{#if fmtVs(selected.vrate) !== '—'}
+							· {fmtVs(selected.vrate)}{/if} · {fmtDist(selected.distNm)}
 					</p>
-				{/if}
+					{#if photo && photo !== 'loading' && photo.credit}
+						<p class="pc-credit">
+							Photo:
+							{#if photo.url}<a href={photo.url} target="_blank" rel="noopener noreferrer"
+									>{photo.credit}<span class="ext-ico">{@html EXTERNAL_SVG}</span></a
+								>{:else}{photo.credit}{/if} · Wikimedia
+						</p>
+					{/if}
+				</div>
+				<button type="button" class="pc-close" onclick={closePhoto} aria-label="Close photo"
+					>×</button
+				>
 			</div>
-			<button type="button" class="pc-close" onclick={closePhoto} aria-label="Close photo">×</button>
-		</div>
-	{/if}
+		{/if}
 
-	{#if status === 'loading'}
-		<p class="msg">Tuning the scope…</p>
-	{:else if status === 'error'}
-		<p class="msg">Couldn’t reach the traffic feed. Retrying…</p>
-	{:else if status === 'empty'}
-		<p class="msg">No aircraft in range right now. Quiet skies over {sel.iata}.</p>
-	{:else}
-		<div class="scroll" class:clip-x={!booted && !entranceSettled} bind:clientWidth={boardW}>
-			<table class="board">
-				<thead>
-					<tr>
-						<th class="dir-head" title="Direction relative to this field — arriving, departing, or passing overhead"><span class="dir-timer">{@render ringButton()}</span></th>
-						<th title="Callsign (or Mode-S hex code when no callsign is broadcast)">Flight</th>
-						<th class="x1" title="Registration / tail number">Reg</th>
-						<th title="ICAO aircraft type — tap a row to see a photo">Type</th>
-						<th class="x2" title="Airline, or owner / operator">Operator</th>
-						<th class="num" title="Barometric altitude — FL### is flight level (hundreds of feet); GND is on the ground">Alt</th>
-						<th class="num x1" title="Vertical speed — ▲ climbing, ▼ descending, in feet per minute">V/S</th>
-						<th class="num" title="Ground speed, in knots">Spd</th>
-						<th class="num x1" title="Heading / ground track, in degrees">Hdg</th>
-						<th class="route" title="Origin → destination (falls back to current heading when the route is unknown)">Route</th>
-						<th class="num" title="Distance from the field, in nautical miles">Dist</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each tracks as p, i (p.hex)}
-						<tr
-							class="row"
-							class:enter={p.status === 'enter'}
-							class:leave={p.status === 'leave'}
-							style="--stagger:{p.stagger}; --ri:{i}"
-							animate:flip={{ duration: 360, easing: cubicOut }}
-						>
-							<td>
-								<div class="ci">{#if p.tag}<span class="tag {p.tag}">{TAG_LABEL[p.tag]}</span>{/if}</div>
-							</td>
-							<td class="mono flight">
-								<div class="ci">{#key p.call || p.hex}<SplitFlap
-											{...FLAP}
-											start={flapStart(p, i)}
-											text={p.call || p.hex || '—'}
-										/>{/key}</div>
-							</td>
-							<td class="mono x1">
-								<div class="ci">{#key p.reg}<SplitFlap {...FLAP} start={flapStart(p, i)} text={p.reg || '—'} />{/key}</div>
-							</td>
-							<td class="mono">
-								<div class="ci">{#if TYPE_TITLES[p.type]}<button
-											type="button"
-											class="type-btn"
-											onclick={() => openPhoto(p)}
-										>{#key p.type}<SplitFlap {...FLAP} start={flapStart(p, i)} text={p.type} />{/key}</button
-										>{:else}{#key p.type}<SplitFlap {...FLAP} start={flapStart(p, i)} text={p.type || '—'} />{/key}{/if}</div>
-							</td>
-							<!-- Tooltip only when the flaps ran out — a tooltip that repeats the text
+		{#if status === 'loading'}
+			<p class="msg">Tuning the scope…</p>
+		{:else if status === 'error'}
+			<p class="msg">Couldn’t reach the traffic feed. Retrying…</p>
+		{:else if status === 'empty'}
+			<p class="msg">No aircraft in range right now. Quiet skies over {sel.iata}.</p>
+		{:else}
+			<div class="scroll" class:clip-x={!booted && !entranceSettled} bind:clientWidth={boardW}>
+				<table class="board">
+					<thead>
+						<tr>
+							<th
+								class="dir-head"
+								title="Direction relative to this field — arriving, departing, or passing overhead"
+								><span class="dir-timer">{@render ringButton()}</span></th
+							>
+							<th title="Callsign (or Mode-S hex code when no callsign is broadcast)">Flight</th>
+							<th class="x1" title="Registration / tail number">Reg</th>
+							<th title="ICAO aircraft type — tap a row to see a photo">Type</th>
+							<th class="x2" title="Airline, or owner / operator">Operator</th>
+							<th
+								class="num"
+								title="Barometric altitude — FL### is flight level (hundreds of feet); GND is on the ground"
+								>Alt</th
+							>
+							<th
+								class="num x1"
+								title="Vertical speed — ▲ climbing, ▼ descending, in feet per minute">V/S</th
+							>
+							<th class="num" title="Ground speed, in knots">Spd</th>
+							<th class="num x1" title="Heading / ground track, in degrees">Hdg</th>
+							<th
+								class="route"
+								title="Origin → destination (falls back to current heading when the route is unknown)"
+								>Route</th
+							>
+							<th class="num" title="Distance from the field, in nautical miles">Dist</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each tracks as p, i (p.hex)}
+							<tr
+								class="row"
+								class:enter={p.status === 'enter'}
+								class:leave={p.status === 'leave'}
+								style="--stagger:{p.stagger}; --ri:{i}"
+								animate:flip={{ duration: 360, easing: cubicOut }}
+							>
+								<td>
+									<div class="ci">
+										{#if p.tag}<span class="tag {p.tag}">{TAG_LABEL[p.tag]}</span>{/if}
+									</div>
+								</td>
+								<td class="mono flight">
+									<div class="ci">
+										{#key p.call || p.hex}<SplitFlap
+												{...FLAP}
+												start={flapStart(p, i)}
+												text={p.call || p.hex || '—'}
+											/>{/key}
+									</div>
+								</td>
+								<td class="mono x1">
+									<div class="ci">
+										{#key p.reg}<SplitFlap
+												{...FLAP}
+												start={flapStart(p, i)}
+												text={p.reg || '—'}
+											/>{/key}
+									</div>
+								</td>
+								<td class="mono">
+									<div class="ci">
+										{#if TYPE_TITLES[p.type]}<button
+												type="button"
+												class="type-btn"
+												onclick={() => openPhoto(p)}
+												>{#key p.type}<SplitFlap
+														{...FLAP}
+														start={flapStart(p, i)}
+														text={p.type}
+													/>{/key}</button
+											>{:else}{#key p.type}<SplitFlap
+													{...FLAP}
+													start={flapStart(p, i)}
+													text={p.type || '—'}
+												/>{/key}{/if}
+									</div>
+								</td>
+								<!-- Tooltip only when the flaps ran out — a tooltip that repeats the text
 							     you can already read is just noise. -->
-							<td class="mono op x2" title={p.opShort !== p.opLabel ? p.opLabel : undefined}>
-								<div class="ci">{#key p.opShort}<SplitFlap {...FLAP} start={flapStart(p, i)} text={p.opShort || '—'} label={p.opLabel || '—'} />{/key}</div>
-							</td>
-							<td class="mono num">
-								<div class="ci">{#key fmtAlt(p.alt)}<SplitFlap {...FLAP} start={flapStart(p, i)} text={fmtAlt(p.alt)} />{/key}</div>
-							</td>
-							<td class="mono num x1 vs">
-								<div class="ci">{#key fmtVs(p.vrate)}<SplitFlap {...FLAP} start={flapStart(p, i)} text={fmtVs(p.vrate)} />{/key}</div>
-							</td>
-							<td class="mono num">
-								<div class="ci">{#key fmtSpd(p.gs)}<SplitFlap {...FLAP} start={flapStart(p, i)} text={fmtSpd(p.gs)} />{/key}</div>
-							</td>
-							<td class="mono num x1">
-								<div class="ci">{#key fmtHdg(p.track)}<SplitFlap {...FLAP} start={flapStart(p, i)} text={fmtHdg(p.track)} />{/key}</div>
-							</td>
-							<td class="mono route">
-								<!-- Enter: blank while the row opens, then the reason flaps IN (active), then
+								<td class="mono op x2" title={p.opShort !== p.opLabel ? p.opLabel : undefined}>
+									<div class="ci">
+										{#key p.opShort}<SplitFlap
+												{...FLAP}
+												start={flapStart(p, i)}
+												text={p.opShort || '—'}
+												label={p.opLabel || '—'}
+											/>{/key}
+									</div>
+								</td>
+								<td class="mono num">
+									<div class="ci">
+										{#key fmtAlt(p.alt)}<SplitFlap
+												{...FLAP}
+												start={flapStart(p, i)}
+												text={fmtAlt(p.alt)}
+											/>{/key}
+									</div>
+								</td>
+								<td class="mono num x1 vs">
+									<div class="ci">
+										{#key fmtVs(p.vrate)}<SplitFlap
+												{...FLAP}
+												start={flapStart(p, i)}
+												text={fmtVs(p.vrate)}
+											/>{/key}
+									</div>
+								</td>
+								<td class="mono num">
+									<div class="ci">
+										{#key fmtSpd(p.gs)}<SplitFlap
+												{...FLAP}
+												start={flapStart(p, i)}
+												text={fmtSpd(p.gs)}
+											/>{/key}
+									</div>
+								</td>
+								<td class="mono num x1">
+									<div class="ci">
+										{#key fmtHdg(p.track)}<SplitFlap
+												{...FLAP}
+												start={flapStart(p, i)}
+												text={fmtHdg(p.track)}
+											/>{/key}
+									</div>
+								</td>
+								<td class="mono route">
+									<!-- Enter: blank while the row opens, then the reason flaps IN (active), then
 								     flaps on to the real route once live. Leave: hold the real route until this
 								     row's turn, then flap route → reason (LANDED/…). -->
-								<div class="ci">{#if p.status === 'enter' && !p.active}{:else if p.active}{#key p.reason}<SplitFlap
-											{...FLAP}
-											start={0}
-											text={p.reason}
-										/>{/key}{:else if p.route}{#key `${p.route.o.iata || p.route.o.icao} ${p.route.d.iata || p.route.d.icao}`}<SplitFlap
-											{...FLAP}
-											start={booted ? 0 : i * ROW_STEP}
-											text={`${p.route.o.iata || p.route.o.icao || '???'} → ${p.route.d.iata ||
-												p.route.d.icao ||
-												'???'}`}
-										/>{/key}{:else}<span class="hdg">hdg {fmtHdg(p.track)}</span>{/if}</div>
-							</td>
-							<td class="mono num">
-								<div class="ci">{#key fmtDist(p.distNm)}<SplitFlap
-											{...FLAP}
-											start={flapStart(p, i)}
-											text={fmtDist(p.distNm)}
-										/>{/key}</div>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
-		<div class="key" aria-label="Tag key">
-			<span class="key-item"><span class="tag arr">Arr</span> <span class="key-label">Arriving</span> <span class="key-count">({counts.arr})</span></span>
-			<span class="key-item"><span class="tag dep">Dep</span> <span class="key-label">Departing</span> <span class="key-count">({counts.dep})</span></span>
-			<span class="key-item"><span class="tag over">Ovr</span> <span class="key-label">Overflight</span> <span class="key-count">({counts.ovr})</span></span>
-		</div>
-	{/if}
+									<div class="ci">
+										{#if p.status === 'enter' && !p.active}{:else if p.active}{#key p.reason}<SplitFlap
+													{...FLAP}
+													start={0}
+													text={p.reason}
+												/>{/key}{:else if p.route}{#key `${p.route.o.iata || p.route.o.icao} ${p.route.d.iata || p.route.d.icao}`}<SplitFlap
+													{...FLAP}
+													start={booted ? 0 : i * ROW_STEP}
+													text={`${p.route.o.iata || p.route.o.icao || '???'} → ${
+														p.route.d.iata || p.route.d.icao || '???'
+													}`}
+												/>{/key}{:else}<span class="hdg">hdg {fmtHdg(p.track)}</span>{/if}
+									</div>
+								</td>
+								<td class="mono num">
+									<div class="ci">
+										{#key fmtDist(p.distNm)}<SplitFlap
+												{...FLAP}
+												start={flapStart(p, i)}
+												text={fmtDist(p.distNm)}
+											/>{/key}
+									</div>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+			<div class="key" aria-label="Tag key">
+				<span class="key-item"
+					><span class="tag arr">Arr</span> <span class="key-label">Arriving</span>
+					<span class="key-count">({counts.arr})</span></span
+				>
+				<span class="key-item"
+					><span class="tag dep">Dep</span> <span class="key-label">Departing</span>
+					<span class="key-count">({counts.dep})</span></span
+				>
+				<span class="key-item"
+					><span class="tag over">Ovr</span> <span class="key-label">Overflight</span>
+					<span class="key-count">({counts.ovr})</span></span
+				>
+			</div>
+		{/if}
 
 		<p class="src">
 			{#if sel.demo}
-				Demo field — fictional traffic from Ace Combat's Strangereal, served locally with no
-				API calls. Real fields use live ADS-B via <span class="mono">airplanes.live</span>
-				(<span class="mono">adsb.lol</span> fallback) and routes via <span class="mono">adsbdb</span>.
+				Demo field — fictional traffic from Ace Combat's Strangereal, served locally with no API
+				calls. Real fields use live ADS-B via <span class="mono">airplanes.live</span>
+				(<span class="mono">adsb.lol</span> fallback) and routes via
+				<span class="mono">adsbdb</span>.
 			{:else}
 				Live ADS-B via <span class="mono">airplanes.live</span> (<span class="mono">adsb.lol</span>
 				fallback); routes via <span class="mono">adsbdb</span>. Aircraft without a public route show
 				a heading instead.
 			{/if}
 		</p>
-
 	</div>
 </div>
 
@@ -1666,7 +2087,9 @@
 	}
 	@media (prefers-reduced-motion: no-preference) and (max-width: 960px) {
 		.corner-compact {
-			transition: top 0.28s ease, right 0.28s ease;
+			transition:
+				top 0.28s ease,
+				right 0.28s ease;
 		}
 	}
 	/* Top-right corner: the live refresh control paired with the expand/collapse toggle. */
@@ -1953,7 +2376,9 @@
 		}
 		.booting .key-item {
 			animation: btn-in 0.42s var(--spring) backwards;
-			animation-delay: calc(var(--enter-lead) + var(--enter-layer) + var(--bn, 0) * var(--btn-enter-step));
+			animation-delay: calc(
+				var(--enter-lead) + var(--enter-layer) + var(--bn, 0) * var(--btn-enter-step)
+			);
 		}
 		.booting .key-item:nth-child(1) {
 			--bn: 0;
@@ -2141,7 +2566,9 @@
 		align-items: center;
 		background: color-mix(in srgb, var(--page) 100%, transparent);
 		border-bottom: 1px solid var(--pixel-hairline);
-		transition: background 0.2s ease, -webkit-backdrop-filter 0.2s ease,
+		transition:
+			background 0.2s ease,
+			-webkit-backdrop-filter 0.2s ease,
 			backdrop-filter 0.2s ease;
 	}
 	/* Frost once rows have scrolled under it — the same scrolled-toggle as DocsShell, wired
@@ -2184,7 +2611,9 @@
 		align-items: center;
 		background: color-mix(in srgb, var(--page) 100%, transparent);
 		border-bottom: 1px solid var(--pixel-hairline);
-		transition: background 0.2s ease, -webkit-backdrop-filter 0.2s ease,
+		transition:
+			background 0.2s ease,
+			-webkit-backdrop-filter 0.2s ease,
 			backdrop-filter 0.2s ease;
 	}
 	:global(html[data-look='pixelite']) .tfc:not(.has-bar) .tfc-head.scrolled {
@@ -2348,7 +2777,9 @@
 		outline-offset: 3px;
 		border-radius: 3px;
 		cursor: text;
-		transition: outline-color 0.15s ease, background 0.15s ease;
+		transition:
+			outline-color 0.15s ease,
+			background 0.15s ease;
 	}
 	.editable:hover {
 		background: color-mix(in srgb, var(--ink) 4%, transparent);
@@ -2418,7 +2849,10 @@
 		border: 1.5px solid var(--line-edge);
 		border-radius: 8px;
 		cursor: pointer;
-		transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+		transition:
+			border-color 0.15s ease,
+			background 0.15s ease,
+			color 0.15s ease;
 	}
 	.field:hover {
 		border-color: var(--line-strong);
@@ -2463,7 +2897,9 @@
 		border: 1.5px solid var(--line-edge);
 		border-radius: 8px;
 		cursor: pointer;
-		transition: border-color 0.15s ease, background-color 0.15s ease;
+		transition:
+			border-color 0.15s ease,
+			background-color 0.15s ease;
 	}
 	/* E-ATFC only: the deck's selects are Range and Refresh (Field is pills up here), and
 	   their short tokens read as pills when centered. text-align alone wasn't enough — it
@@ -2660,7 +3096,9 @@
 		opacity: 0;
 		transform: translateY(-3px);
 		pointer-events: none;
-		transition: opacity 0.15s ease, transform 0.15s ease;
+		transition:
+			opacity 0.15s ease,
+			transform 0.15s ease;
 	}
 	.refresh:hover .tip,
 	.refresh:focus-visible .tip {

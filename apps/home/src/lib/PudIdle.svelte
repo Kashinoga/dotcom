@@ -6,14 +6,24 @@
 	import { popSpring } from '$lib/pop-spring';
 	import SplitFlap from '$lib/SplitFlap.svelte';
 	import { GEM_OPAL_SVG, CLOSE_SVG, PLAY_SVG, PAUSE_SVG } from '$lib/icons';
-	import { ranger, togglePaused, setDeployment, board, disembark, leaveShuttle } from '$lib/location-state.svelte';
+	import {
+		ranger,
+		togglePaused,
+		setDeployment,
+		board,
+		disembark,
+		leaveShuttle
+	} from '$lib/location-state.svelte';
 	import { createStage } from '$lib/stage.svelte';
 
 	// The settings popout is opened from the PANEL BAR, which belongs to the catch-all page —
 	// so the page owns the open/closed flag and the button, and this component draws the card
 	// and the numbers in it. Splitting it that way keeps the tally and the abandon button
 	// beside the state they act on instead of passing both up.
-	let { settingsOpen = false, onCloseSettings }: {
+	let {
+		settingsOpen = false,
+		onCloseSettings
+	}: {
 		settingsOpen?: boolean;
 		onCloseSettings?: () => void;
 	} = $props();
@@ -230,15 +240,7 @@
 	// a colour instead — dotcom draws its marks as SVG and sets its tone in type, so a row of
 	// emoji would read as a foreign object. The colour does the same scanning work.
 	type LogKind =
-		| 'rig'
-		| 'upgrade'
-		| 'boost'
-		| 'time'
-		| 'away'
-		| 'reset'
-		| 'wood'
-		| 'supply'
-		| 'campfire';
+		'rig' | 'upgrade' | 'boost' | 'time' | 'away' | 'reset' | 'wood' | 'supply' | 'campfire';
 	type LogEntry = { id: number; kind: LogKind; message: string; at: number };
 	const LOG_MAX = 20; // the ancestor's cap, and about a screenful
 	let log = $state<LogEntry[]>([]);
@@ -332,7 +334,9 @@
 	// no clock of its own.
 	const dropIn = $derived(Math.max(0, Math.ceil((dropHold ?? dropAt - nowMs) / 1000)));
 	// No rushing a held line: priority on a parked window buys nothing.
-	const canRush = $derived(dropHold === null && !rushed && shards >= RUSH_COST && dropIn > DROP_RUSH_MS / 1000);
+	const canRush = $derived(
+		dropHold === null && !rushed && shards >= RUSH_COST && dropIn > DROP_RUSH_MS / 1000
+	);
 	const perClick = $derived(1 + clickLevel);
 	const rigRunning = (id: string) => (owned[id] ?? 0) > 0 && !rigPaused[id];
 	const baseCps = $derived(
@@ -376,7 +380,8 @@
 	// Rates keep their decimal while they're small. Every RIG is a whole number now, but the
 	// live rate isn't: a single probe overclocked is 2/s, and a paused-then-resumed board can
 	// sit on fractions between ticks.
-	const fmtRate = (n: number): string => (n > 0 && n < 10 ? String(Math.round(n * 10) / 10) : fmt(n));
+	const fmtRate = (n: number): string =>
+		n > 0 && n < 10 ? String(Math.round(n * 10) / 10) : fmt(n);
 	// The HEADLINE tally, split for life: the whole part big, and — while the count is
 	// small enough that the fraction still reads — two decimals trailing, dimmed and
 	// smaller, so the number visibly climbs between whole shards instead of sitting
@@ -466,7 +471,8 @@
 		const roll = Math.floor(Math.random() * SUPPLIES.length);
 		const picked = [SUPPLIES[roll]];
 		if (Math.random() < 0.45) {
-			const second = SUPPLIES[(roll + 1 + Math.floor(Math.random() * (SUPPLIES.length - 1))) % SUPPLIES.length];
+			const second =
+				SUPPLIES[(roll + 1 + Math.floor(Math.random() * (SUPPLIES.length - 1))) % SUPPLIES.length];
 			if (second.id !== picked[0].id) picked.push(second);
 		}
 		const manifest = picked.map((it) => {
@@ -650,12 +656,12 @@
 				// The rigs kept working: credit the time away, unboosted, capped — unless
 				// they were left DOWN (wholesale or one by one), in which case down they stayed.
 				if (!ranger.paused) {
-					const away = Math.min(Math.max(Date.now() - (s.savedAt ?? Date.now()), 0), OFFLINE_CAP_MS);
+					const away = Math.min(
+						Math.max(Date.now() - (s.savedAt ?? Date.now()), 0),
+						OFFLINE_CAP_MS
+					);
 					const gain =
-						(RIGS.reduce(
-							(sum, r) => sum + (rigPaused[r.id] ? 0 : r.cps * (owned[r.id] ?? 0)),
-							0
-						) *
+						(RIGS.reduce((sum, r) => sum + (rigPaused[r.id] ? 0 : r.cps * (owned[r.id] ?? 0)), 0) *
 							away) /
 						1000;
 					if (gain >= 1) {
@@ -737,38 +743,50 @@
 	<div class="pud-main">
 		<!-- The tally: the shard mark, the count, and what's flowing in. -->
 		<div class="pud-count">
-		<span class="pud-gem" class:boosted aria-hidden="true">{@html GEM_OPAL_SVG}</span>
-		<div>
-			<div class="pud-num">
-				<!-- Two flap segments, keyed apart: the DIGITS re-flap on the throttled
+			<span class="pud-gem" class:boosted aria-hidden="true">{@html GEM_OPAL_SVG}</span>
+			<div>
+				<div class="pud-num">
+					<!-- Two flap segments, keyed apart: the DIGITS re-flap on the throttled
 				     turnover, but `from` holds the cells that didn't change so only the digits
 				     that actually turned over move. delay 0 / stagger 0: the changed digits
 				     flip TOGETHER and settle fast (base 130 + a few tick shuffles), so a flip
 				     never overruns the next turnover. The UNIT letter is its own key — it
 				     flaps in only when the magnitude crosses, and sits still otherwise. -->
-				{#key flapNum}<SplitFlap text={flapNum} from={flapNumPrev} delay={0} base={130} stagger={0} tick={35} />{/key}{#if flapUnit}{#key flapUnit}<SplitFlap text={flapUnit} delay={0} base={130} tick={35} />{/key}{/if}
+					{#key flapNum}<SplitFlap
+							text={flapNum}
+							from={flapNumPrev}
+							delay={0}
+							base={130}
+							stagger={0}
+							tick={35}
+						/>{/key}{#if flapUnit}{#key flapUnit}<SplitFlap
+								text={flapUnit}
+								delay={0}
+								base={130}
+								tick={35}
+							/>{/key}{/if}
+				</div>
+				<div class="pud-sub">
+					Data Shards · {ranger.paused
+						? 'paused'
+						: `${fmtRate(cps)}/s${boosted ? ' · overclocked ×2' : ''}${lit ? ` · fire ×${FIRE_MULT}` : ''}`}
+				</div>
 			</div>
-			<div class="pud-sub">
-				Data Shards · {ranger.paused
-					? 'paused'
-					: `${fmtRate(cps)}/s${boosted ? ' · overclocked ×2' : ''}${lit ? ` · fire ×${FIRE_MULT}` : ''}`}
-			</div>
-		</div>
-		<!-- (The Beta pill moved OUT of here: it's a control now, in the panel bar's right-hand
+			<!-- (The Beta pill moved OUT of here: it's a control now, in the panel bar's right-hand
 		     corner with the rest of the global chrome — see the PUD head-actions in the
 		     catch-all page. The tally row is a reading, not a place for controls.) -->
-	</div>
+		</div>
 
-	<!-- The works, visibly working: while any rig runs, a sweep crosses the band — the
+		<!-- The works, visibly working: while any rig runs, a sweep crosses the band — the
 	     division mining whether or not you're pulling. It runs hot with the overclock,
 	     and stands STILL (dimmed, not gone) while the rigs are paused. -->
-	{#if baseCps > 0}
-		<div class="pud-mining" class:boosted class:paused={ranger.paused} aria-hidden="true">
-			<span class="pud-mining-sweep"></span>
-		</div>
-	{/if}
+		{#if baseCps > 0}
+			<div class="pud-mining" class:boosted class:paused={ranger.paused} aria-hidden="true">
+				<span class="pud-mining-sweep"></span>
+			</div>
+		{/if}
 
-	<!-- THE CABIN — where the dashboard's heart is once you're aboard. It stands right under the
+		<!-- THE CABIN — where the dashboard's heart is once you're aboard. It stands right under the
 	     persistent chrome (the tally and the mining band, which never leave), in the space the
 	     actions row, the band, and the forestry detail vacate as they board away. For now it holds
 	     the one thing a shuttle is for — the destination — and a quiet way back out; more controls
@@ -784,43 +802,48 @@
 	     it at 350: the crossing plays as pure window — chrome, sky, camera — with no furniture
 	     riding along. `aboard` stays raised through the flight so the dashboard holds offstage,
 	     and arrival opens the hatch straight onto the destination's deck. -->
-	{#if ranger.cabin}
-		<section
-			class="pud-place pud-cabin-sec"
-			in:fly={stage.enterUp()}
-			out:fly={stage.exitDown()}
-			aria-label="Shuttle cabin"
-		>
-			<p class="pud-lead">Shuttle</p>
-			<div class="pud-cabin">
-				<div class="pud-ship-id">
-					<span class="pud-item-name">Division shuttle</span>
-					<span class="pud-item-blurb">Strapped in. The pad hums.</span>
-				</div>
-				<div class="pud-cabin-controls">
-					<!-- The destination: one press flies you the other way. It goes straight through
+		{#if ranger.cabin}
+			<section
+				class="pud-place pud-cabin-sec"
+				in:fly={stage.enterUp()}
+				out:fly={stage.exitDown()}
+				aria-label="Shuttle cabin"
+			>
+				<p class="pud-lead">Shuttle</p>
+				<div class="pud-cabin">
+					<div class="pud-ship-id">
+						<span class="pud-item-name">Division shuttle</span>
+						<span class="pud-item-blurb">Strapped in. The pad hums.</span>
+					</div>
+					<div class="pud-cabin-controls">
+						<!-- The destination: one press flies you the other way. It goes straight through
 					     setDeployment, which runs the transit cinema and, on arrival, disembarks you.
 					     Disabled while a crossing is already in the air. Focus lands here on board. -->
-					<button
-						type="button"
-						class="pud-boost"
-						bind:this={cabinDestEl}
-						disabled={ranger.transit !== null}
-						onclick={() => setDeployment(ranger.deployment === 'basecamp' ? 'orbit' : 'basecamp')}
-					>
-						{ranger.deployment === 'basecamp' ? 'Enter Orbit' : 'Descend to Basecamp'}
-					</button>
-					<!-- The way back out, before you commit to a destination. Also refused mid-flight —
+						<button
+							type="button"
+							class="pud-boost"
+							bind:this={cabinDestEl}
+							disabled={ranger.transit !== null}
+							onclick={() => setDeployment(ranger.deployment === 'basecamp' ? 'orbit' : 'basecamp')}
+						>
+							{ranger.deployment === 'basecamp' ? 'Enter Orbit' : 'Descend to Basecamp'}
+						</button>
+						<!-- The way back out, before you commit to a destination. Also refused mid-flight —
 					     once the shuttle's in the air, arrival is the only way off. -->
-					<button type="button" class="pud-boost" disabled={ranger.transit !== null} onclick={disembark}>
-						Disembark
-					</button>
+						<button
+							type="button"
+							class="pud-boost"
+							disabled={ranger.transit !== null}
+							onclick={disembark}
+						>
+							Disembark
+						</button>
+					</div>
 				</div>
-			</div>
-		</section>
-	{/if}
+			</section>
+		{/if}
 
-	<!-- The hands-on half: the pull, and the overclock beside it. Both are BASECAMP verbs — you
+		<!-- The hands-on half: the pull, and the overclock beside it. Both are BASECAMP verbs — you
 	     work the extractor and clock the works with your hands on the ground. In orbit the row is
 	     gone ENTIRELY — nothing in it survives leaving the surface now that the shuttle keeps its
 	     own pad down in the places column. The rigs go on earning while you're aboard, and an
@@ -833,44 +856,54 @@
 	     drawing nothing. What moves it now is boarding: it leaves by the LEFT door with the places
 	     (these controls sit on the panel's left edge) and returns the same way — see the stage's
 	     exitLeft/enterLeft (stage.svelte.ts). -->
-	{#if !ranger.aboard}
-		{#if ranger.deployment === 'basecamp'}
-		<div class="pud-actions" in:fly|global={stage.enterLeft(60)} out:fly|global={stage.exitLeft()}>
-			<button type="button" class="pud-extract" onclick={extract}>
-				{#key pullSeq}
-					{#if pullSeq > 0}
-						<!-- The pull's own bar, along the bottom edge of the pill. Decorative: the count
+		{#if !ranger.aboard}
+			{#if ranger.deployment === 'basecamp'}
+				<div
+					class="pud-actions"
+					in:fly|global={stage.enterLeft(60)}
+					out:fly|global={stage.exitLeft()}
+				>
+					<button type="button" class="pud-extract" onclick={extract}>
+						{#key pullSeq}
+							{#if pullSeq > 0}
+								<!-- The pull's own bar, along the bottom edge of the pill. Decorative: the count
 						     above is what actually reports the shards, and this is aria-hidden so a
 						     screen reader isn't told about a 240ms flourish on every press. -->
-						<span class="pud-pull" aria-hidden="true"></span>
-					{/if}
-				{/key}
-				<span class="pud-extract-label">Extract <span class="pud-per">+{perClick}</span></span>
-			</button>
-			<button type="button" class="pud-boost" class:on={boosted} disabled={!canBoost && !boosted} onclick={overclock}>
-				{#if boosted}×2 · {secsLeft(boostUntil)}s
-				{:else if canBoost}Overclock
-				{:else if baseCps === 0 || ranger.paused}Overclock
-				{:else}Recharging · {secsLeft(boostReadyAt)}s{/if}
-			</button>
-			<!-- (Pause moved OUT of here. It stops the RIGS, so it now rides the requisitions head
+								<span class="pud-pull" aria-hidden="true"></span>
+							{/if}
+						{/key}
+						<span class="pud-extract-label">Extract <span class="pud-per">+{perClick}</span></span>
+					</button>
+					<button
+						type="button"
+						class="pud-boost"
+						class:on={boosted}
+						disabled={!canBoost && !boosted}
+						onclick={overclock}
+					>
+						{#if boosted}×2 · {secsLeft(boostUntil)}s
+						{:else if canBoost}Overclock
+						{:else if baseCps === 0 || ranger.paused}Overclock
+						{:else}Recharging · {secsLeft(boostReadyAt)}s{/if}
+					</button>
+					<!-- (Pause moved OUT of here. It stops the RIGS, so it now rides the requisitions head
 			     where the rigs are listed — see .pud-shop-head below — with a global twin up on the
 			     panel bar. The hands-on row is left to the things your hands do. Deployment moved out
 			     too — it's a place you board now, not a switch on this row: see the Shuttle below.) -->
-		</div>
+				</div>
+			{/if}
 		{/if}
-	{/if}
 
-	<!-- The requisition sheet: the click upgrade first (it's the one you feel), then the
+		<!-- The requisition sheet: the click upgrade first (it's the one you feel), then the
 	     rigs by price. Each row splits its jobs: the CARD BODY is that rig's own switch
 	     (its ring spins while it works; a click stands it down or spins it up), and the
 	     COST CHIP at the right is the buy. Unowned rigs have nothing to switch, so their
 	     body waits inert until the first unit comes online. -->
-	<!-- Requisitions and the courier sit side by side: both are places you spend, and neither
+		<!-- Requisitions and the courier sit side by side: both are places you spend, and neither
 	     fills a whole panel's width on its own. Stacks below the app's own seam. In orbit the
 	     requisitions column is gone, so the band drops to one column (class:orbit below). -->
-	<div class="pud-cols" class:orbit={ranger.deployment === 'orbit'}>
-		<!-- THE PLACES — Basecamp and the Courier. One shows at a time now: where you are is what
+		<div class="pud-cols" class:orbit={ranger.deployment === 'orbit'}>
+			<!-- THE PLACES — Basecamp and the Courier. One shows at a time now: where you are is what
 		     you see, so a planetside ranger gets the camp and a ranger aboard gets the courier. The
 		     other place still runs (the camp fire burns to its clock either way); deployment sets
 		     the view, not the world. Requisitions sits beside them, at Basecamp only.
@@ -882,87 +915,95 @@
 		     bar/scene machinery, but boarding isn't VT-wrapped, so on a swap this just unmounts
 		     plainly. It leaves and returns by the LEFT door — see the stage's exitLeft/enterLeft
 		     (stage.svelte.ts), which handles the reduced-motion case too. -->
-		{#if !ranger.aboard}
-		<div
-			class="pud-places"
-			out:fly|global={stage.exitLeft()}
-			in:fly|global={stage.enterLeft(60)}
-		>
-			<!-- BASECAMP — where the timber goes. Cut, burn, extract faster. Shown planetside. The
+			{#if !ranger.aboard}
+				<div
+					class="pud-places"
+					out:fly|global={stage.exitLeft()}
+					in:fly|global={stage.enterLeft(60)}
+				>
+					<!-- BASECAMP — where the timber goes. Cut, burn, extract faster. Shown planetside. The
 			     inner deployment gate stays, but its own fly/fade is gone: this element is always
 			     unmounted when a swap happens (deployment only changes from the cabin), so it never
 			     animated visibly — the boarding slide on .pud-places above is what moves it now. -->
-			{#if ranger.deployment === 'basecamp'}
-			<div class="pud-place">
-				<p class="pud-lead">Basecamp</p>
-				<div class="pud-camp" class:lit>
-					<div class="pud-ship-id">
-						<span class="pud-item-name">Camp fire</span>
-						<span class="pud-item-blurb">
-							{lit
-								? `Burning — the division works at ×${FIRE_MULT} for ${Math.max(0, Math.ceil((fireUntil - nowMs) / 1000))}s.`
-								: `Costs ${FIRE_COST.map((c) => `${c.n}× ${TREES.find((t) => t.id === c.id)?.name}`).join(', ')}. Burns a minute.`}
-						</span>
-					</div>
-					<button type="button" class="pud-boost" disabled={!canLight} onclick={lightFire}>
-						{lit ? 'Burning' : 'Light the fire'}
-					</button>
-				</div>
-			</div>
-			{/if}
+					{#if ranger.deployment === 'basecamp'}
+						<div class="pud-place">
+							<p class="pud-lead">Basecamp</p>
+							<div class="pud-camp" class:lit>
+								<div class="pud-ship-id">
+									<span class="pud-item-name">Camp fire</span>
+									<span class="pud-item-blurb">
+										{lit
+											? `Burning — the division works at ×${FIRE_MULT} for ${Math.max(0, Math.ceil((fireUntil - nowMs) / 1000))}s.`
+											: `Costs ${FIRE_COST.map((c) => `${c.n}× ${TREES.find((t) => t.id === c.id)?.name}`).join(', ')}. Burns a minute.`}
+									</span>
+								</div>
+								<button type="button" class="pud-boost" disabled={!canLight} onclick={lightFire}>
+									{lit ? 'Burning' : 'Light the fire'}
+								</button>
+							</div>
+						</div>
+					{/if}
 
-			<!-- THE COURIER — the ancestor's starship panel with its clock running: a named ship in
+					<!-- THE COURIER — the ancestor's starship panel with its clock running: a named ship in
 			     orbit, a transit window, and a supply drop that actually lands (see landDrop). Shown
 			     in orbit: you're aboard, and the rush is the one verb you have out here. -->
-			{#if ranger.deployment === 'orbit'}
-			<div class="pud-place">
-				<p class="pud-lead">Courier</p>
-				<div class="pud-ship">
-					<div class="pud-ship-id">
-						<span class="pud-item-name">{SHIP.name}</span>
-						<span class="pud-item-blurb">In orbit · {SHIP.where}</span>
-					</div>
-					<dl class="pud-ship-stat">
-						<div>
-							<dt>Next drop</dt>
-							<!-- Held, the countdown parks and says so — a frozen "47s" alone read as
+					{#if ranger.deployment === 'orbit'}
+						<div class="pud-place">
+							<p class="pud-lead">Courier</p>
+							<div class="pud-ship">
+								<div class="pud-ship-id">
+									<span class="pud-item-name">{SHIP.name}</span>
+									<span class="pud-item-blurb">In orbit · {SHIP.where}</span>
+								</div>
+								<dl class="pud-ship-stat">
+									<div>
+										<dt>Next drop</dt>
+										<!-- Held, the countdown parks and says so — a frozen "47s" alone read as
 							     a broken clock. -->
-							<dd>{dropHold !== null ? `held · ${dropIn}s` : dropIn > 0 ? `${dropIn}s` : 'overhead'}</dd>
-						</div>
-						<div>
-							<dt>Priority</dt>
-							<dd>{rushed ? 'Expedited' : 'Standard'}</dd>
-						</div>
-					</dl>
-					<div class="pud-ship-actions">
-						<button
-							type="button"
-							class="pud-boost"
-							disabled={!canRush}
-							onclick={requestRush}
-							title={rushed ? 'The window is already forward' : `Costs ${fmt(RUSH_COST)} shards`}
-						>
-							{rushed ? 'Expedited' : `Request priority · ${fmt(RUSH_COST)}`}
-						</button>
-						<!-- The supply line's own pause — the courier twin of the works' pause. Wears
+										<dd>
+											{dropHold !== null
+												? `held · ${dropIn}s`
+												: dropIn > 0
+													? `${dropIn}s`
+													: 'overhead'}
+										</dd>
+									</div>
+									<div>
+										<dt>Priority</dt>
+										<dd>{rushed ? 'Expedited' : 'Standard'}</dd>
+									</div>
+								</dl>
+								<div class="pud-ship-actions">
+									<button
+										type="button"
+										class="pud-boost"
+										disabled={!canRush}
+										onclick={requestRush}
+										title={rushed
+											? 'The window is already forward'
+											: `Costs ${fmt(RUSH_COST)} shards`}
+									>
+										{rushed ? 'Expedited' : `Request priority · ${fmt(RUSH_COST)}`}
+									</button>
+									<!-- The supply line's own pause — the courier twin of the works' pause. Wears
 						     .on while held (the pressed-key state), and its label is the verb that's
 						     available, not the state: press it and that's what happens. -->
-						<button
-							type="button"
-							class="pud-boost"
-							class:on={dropHold !== null}
-							aria-pressed={dropHold !== null}
-							onclick={toggleDrops}
-							title={dropHold !== null ? 'Resume the supply drops' : 'Hold the supply drops'}
-						>
-							{dropHold !== null ? 'Resume drops' : 'Pause drops'}
-						</button>
-					</div>
-				</div>
-			</div>
-			{/if}
+									<button
+										type="button"
+										class="pud-boost"
+										class:on={dropHold !== null}
+										aria-pressed={dropHold !== null}
+										onclick={toggleDrops}
+										title={dropHold !== null ? 'Resume the supply drops' : 'Hold the supply drops'}
+									>
+										{dropHold !== null ? 'Resume drops' : 'Pause drops'}
+									</button>
+								</div>
+							</div>
+						</div>
+					{/if}
 
-			<!-- THE SHUTTLE — the way BETWEEN the places became a place of its own, and now a DOOR
+					<!-- THE SHUTTLE — the way BETWEEN the places became a place of its own, and now a DOOR
 			     rather than a switch. It stood in both deployments with a pair of pills that set the
 			     backdrop in place; the segmented control is gone, replaced by one verb: Enter Shuttle.
 			     Pressing it doesn't move you — it BOARDS you (see board()), clearing the dashboard and
@@ -970,20 +1011,27 @@
 			     plain door now, so no role=group, no aria-pressed pair to name — just a button.
 			     Disabled mid-flight: you can't board a shuttle already in the air. It rides the
 			     .pud-places boarding slide out with its siblings the instant it's pressed. -->
-			<div class="pud-place">
-				<p class="pud-lead">Shuttle</p>
-				<div class="pud-shuttle">
-					<div class="pud-ship-id">
-						<span class="pud-item-name">Division shuttle</span>
-						<span class="pud-item-blurb">Ferries the ranger between the surface and the Courier.</span>
+					<div class="pud-place">
+						<p class="pud-lead">Shuttle</p>
+						<div class="pud-shuttle">
+							<div class="pud-ship-id">
+								<span class="pud-item-name">Division shuttle</span>
+								<span class="pud-item-blurb"
+									>Ferries the ranger between the surface and the Courier.</span
+								>
+							</div>
+							<button
+								type="button"
+								class="pud-boost"
+								disabled={ranger.transit !== null}
+								onclick={board}>Enter Shuttle</button
+							>
+						</div>
 					</div>
-					<button type="button" class="pud-boost" disabled={ranger.transit !== null} onclick={board}>Enter Shuttle</button>
 				</div>
-			</div>
-		</div>
-		{/if}
+			{/if}
 
-		<!-- Requisitions live at Basecamp: buying and standing rigs down is a planetside job, and
+			<!-- Requisitions live at Basecamp: buying and standing rigs down is a planetside job, and
 		     its pause disc goes with it. In orbit the whole column lifts out — the rigs keep
 		     running, the bar's global pause still reaches them, you just can't shop from up here.
 		     BOARDING GATE — the shop sits in the dashboard's CENTRE, between the places and the
@@ -991,82 +1039,98 @@
 		     touch after the columns start (delay 40) — the stage's exitBack/enterBack
 		     (stage.svelte.ts). Inner deployment gate kept. -->
 
-		{#if !ranger.aboard}
-		{#if ranger.deployment === 'basecamp'}
-		<div
-			class="pud-shop"
-			out:scale|global={stage.exitBack(40)}
-			in:scale|global={stage.enterBack(100)}
-		>
-		<!-- The pause lives HERE, in the requisitions head, because the rigs are what it stops and
+			{#if !ranger.aboard}
+				{#if ranger.deployment === 'basecamp'}
+					<div
+						class="pud-shop"
+						out:scale|global={stage.exitBack(40)}
+						in:scale|global={stage.enterBack(100)}
+					>
+						<!-- The pause lives HERE, in the requisitions head, because the rigs are what it stops and
 		     this is where the rigs are listed. The hand extractor never pauses, so it stays out of
 		     the actions row above; and the panel bar carries the same switch (see the page's PUD
 		     head-actions) for when the shop has scrolled away. Icon only — the state is the label. -->
-		<div class="pud-shop-head">
-			<p class="pud-lead">Division requisitions</p>
-			<button
-				type="button"
-				class="pud-pauseall"
-				class:on={ranger.paused}
-				aria-pressed={ranger.paused}
-				aria-label={ranger.paused ? 'Resume the works' : 'Pause the works'}
-				title={ranger.paused ? 'Resume the works' : 'Pause the works'}
-				onclick={togglePaused}
-			>{@html ranger.paused ? PLAY_SVG : PAUSE_SVG}</button>
-		</div>
-		<div class="pud-item">
-			<span class="pud-item-main">
-				<span class="pud-item-copy">
-					<span class="pud-item-name">Sharpen the Extractor<span class="pud-owned">lv {clickLevel + 1}</span></span>
-					<span class="pud-item-blurb">One more shard with every pull.</span>
-				</span>
-			</span>
-			<button type="button" class="pud-buy" disabled={shards < clickCost} onclick={buyClick}>
-				{fmt(clickCost)}
-			</button>
-		</div>
-		{#each RIGS as r (r.id)}
-			<div class="pud-item">
-				{#if owned[r.id]}
-					<button
-						type="button"
-						class="pud-item-main pud-item-switch"
-						aria-pressed={!rigPaused[r.id]}
-						title={rigPaused[r.id] ? `Resume the ${r.name.toLowerCase()}s` : `Pause the ${r.name.toLowerCase()}s`}
-						onclick={() => toggleRig(r)}
-					>
-						<span
-							class="pud-ring"
-							class:off={rigPaused[r.id] || ranger.paused}
-							class:boosted={boosted && !rigPaused[r.id] && !ranger.paused}
-							aria-hidden="true"
-						>
-							<svg viewBox="0 0 20 20">
-								<circle class="pud-ring-track" cx="10" cy="10" r="7.5" />
-								<circle class="pud-ring-arc" cx="10" cy="10" r="7.5" />
-							</svg>
-						</span>
-						<span class="pud-item-copy">
-							<span class="pud-item-name">{r.name}<span class="pud-owned">×{owned[r.id]}</span></span>
-							<span class="pud-item-blurb">{r.blurb} +{fmtRate(r.cps)}/s.</span>
-						</span>
-					</button>
-				{:else}
-					<span class="pud-item-main">
-						<span class="pud-item-copy">
-							<span class="pud-item-name">{r.name}</span>
-							<span class="pud-item-blurb">{r.blurb} +{fmtRate(r.cps)}/s.</span>
-						</span>
-					</span>
+						<div class="pud-shop-head">
+							<p class="pud-lead">Division requisitions</p>
+							<button
+								type="button"
+								class="pud-pauseall"
+								class:on={ranger.paused}
+								aria-pressed={ranger.paused}
+								aria-label={ranger.paused ? 'Resume the works' : 'Pause the works'}
+								title={ranger.paused ? 'Resume the works' : 'Pause the works'}
+								onclick={togglePaused}>{@html ranger.paused ? PLAY_SVG : PAUSE_SVG}</button
+							>
+						</div>
+						<div class="pud-item">
+							<span class="pud-item-main">
+								<span class="pud-item-copy">
+									<span class="pud-item-name"
+										>Sharpen the Extractor<span class="pud-owned">lv {clickLevel + 1}</span></span
+									>
+									<span class="pud-item-blurb">One more shard with every pull.</span>
+								</span>
+							</span>
+							<button
+								type="button"
+								class="pud-buy"
+								disabled={shards < clickCost}
+								onclick={buyClick}
+							>
+								{fmt(clickCost)}
+							</button>
+						</div>
+						{#each RIGS as r (r.id)}
+							<div class="pud-item">
+								{#if owned[r.id]}
+									<button
+										type="button"
+										class="pud-item-main pud-item-switch"
+										aria-pressed={!rigPaused[r.id]}
+										title={rigPaused[r.id]
+											? `Resume the ${r.name.toLowerCase()}s`
+											: `Pause the ${r.name.toLowerCase()}s`}
+										onclick={() => toggleRig(r)}
+									>
+										<span
+											class="pud-ring"
+											class:off={rigPaused[r.id] || ranger.paused}
+											class:boosted={boosted && !rigPaused[r.id] && !ranger.paused}
+											aria-hidden="true"
+										>
+											<svg viewBox="0 0 20 20">
+												<circle class="pud-ring-track" cx="10" cy="10" r="7.5" />
+												<circle class="pud-ring-arc" cx="10" cy="10" r="7.5" />
+											</svg>
+										</span>
+										<span class="pud-item-copy">
+											<span class="pud-item-name"
+												>{r.name}<span class="pud-owned">×{owned[r.id]}</span></span
+											>
+											<span class="pud-item-blurb">{r.blurb} +{fmtRate(r.cps)}/s.</span>
+										</span>
+									</button>
+								{:else}
+									<span class="pud-item-main">
+										<span class="pud-item-copy">
+											<span class="pud-item-name">{r.name}</span>
+											<span class="pud-item-blurb">{r.blurb} +{fmtRate(r.cps)}/s.</span>
+										</span>
+									</span>
+								{/if}
+								<button
+									type="button"
+									class="pud-buy"
+									disabled={shards < rigCost(r)}
+									onclick={() => buyRig(r)}
+								>
+									{fmt(rigCost(r))}
+								</button>
+							</div>
+						{/each}
+					</div>
 				{/if}
-				<button type="button" class="pud-buy" disabled={shards < rigCost(r)} onclick={() => buyRig(r)}>
-					{fmt(rigCost(r))}
-				</button>
-			</div>
-			{/each}
-		</div>
-		{/if}
-		{/if}
+			{/if}
 		</div>
 
 		<!-- WOODCUTTING — the active half. The rigs pay while you're away; this pays attention.
@@ -1080,38 +1144,44 @@
 		     quicker than the shop (enterBack's 400), so the override is passed. Inner deployment
 		     gate kept, its dead fly/fade dropped. -->
 		{#if !ranger.aboard}
-		{#if ranger.deployment === 'basecamp'}
-		<div class="pud-wood" in:scale|global={stage.enterBack(100, 400)} out:scale|global={stage.exitBack(40)}>
-			<p class="pud-lead">Forestry detail</p>
-			{#each TREES as t (t.id)}
-				{@const busy = chop?.id === t.id}
-				<button
-					type="button"
-					class="pud-item pud-tree"
-					class:busy
-					disabled={!!chop && !busy}
-					onclick={() => startChop(t)}
-					aria-label={busy ? `Stop cutting ${t.name}` : `Cut ${t.name}`}
+			{#if ranger.deployment === 'basecamp'}
+				<div
+					class="pud-wood"
+					in:scale|global={stage.enterBack(100, 400)}
+					out:scale|global={stage.exitBack(40)}
 				>
-					{#if busy}
-						<!-- The cut itself, drawn once and left to the compositor: the bar's duration IS
+					<p class="pud-lead">Forestry detail</p>
+					{#each TREES as t (t.id)}
+						{@const busy = chop?.id === t.id}
+						<button
+							type="button"
+							class="pud-item pud-tree"
+							class:busy
+							disabled={!!chop && !busy}
+							onclick={() => startChop(t)}
+							aria-label={busy ? `Stop cutting ${t.name}` : `Cut ${t.name}`}
+						>
+							{#if busy}
+								<!-- The cut itself, drawn once and left to the compositor: the bar's duration IS
 						     the action's duration, so nothing has to tick it. No {#key} needed — the
 						     block unmounts when the cut ends, so the next one gets a fresh node and the
 						     animation starts from zero on its own. -->
-						<span class="pud-tree-fill" style:--chop-ms="{t.ms}ms" aria-hidden="true"></span>
-					{/if}
-					<span class="pud-tree-copy">
-						<span class="pud-item-name">
-							{t.name}
-							{#if (stores[t.id] ?? 0) > 0}<span class="pud-owned">×{fmt(stores[t.id])}</span>{/if}
-						</span>
-						<span class="pud-item-blurb">{t.blurb}</span>
-					</span>
-					<span class="pud-tree-time">{busy ? 'cutting…' : `${(t.ms / 1000).toFixed(1)}s`}</span>
-				</button>
-			{/each}
-		</div>
-		{/if}
+								<span class="pud-tree-fill" style:--chop-ms="{t.ms}ms" aria-hidden="true"></span>
+							{/if}
+							<span class="pud-tree-copy">
+								<span class="pud-item-name">
+									{t.name}
+									{#if (stores[t.id] ?? 0) > 0}<span class="pud-owned">×{fmt(stores[t.id])}</span
+										>{/if}
+								</span>
+								<span class="pud-item-blurb">{t.blurb}</span>
+							</span>
+							<span class="pud-tree-time">{busy ? 'cutting…' : `${(t.ms / 1000).toFixed(1)}s`}</span
+							>
+						</button>
+					{/each}
+				</div>
+			{/if}
 		{/if}
 	</div>
 
@@ -1126,12 +1196,8 @@
 	     RIGHT door as one piece, ledger and stores riding together — the stage's
 	     exitRight/enterRight (stage.svelte.ts). -->
 	{#if !ranger.aboard}
-	<div
-		class="pud-side"
-		out:fly={stage.exitRight(40)}
-		in:fly={stage.enterRight(100)}
-	>
-		<!-- THE LEDGER — the division's log, newest first (see `note`). It replaced a single
+		<div class="pud-side" out:fly={stage.exitRight(40)} in:fly={stage.enterRight(100)}>
+			<!-- THE LEDGER — the division's log, newest first (see `note`). It replaced a single
 		     line that only held the last thing that happened; an idle game is a thing you look
 		     away from, and one sentence can't tell you what you missed.
 		     Each row keeps its own entrance: `animate:flip` slides the standing rows down as a
@@ -1140,61 +1206,63 @@
 		     role="status" was doing — additions get announced, the history doesn't.
 		     (Boarding is the WRAPPER's job now — see .pud-side above; the per-section gate's
 		     transitions went missing above inner conditionals, so the rail travels whole.) -->
-		{#if log.length}
-		<section class="pud-ledger" aria-label="Division ledger">
-			<p class="pud-lead">Division ledger</p>
-			<div class="pud-ledger-card">
-				<ul
-					class="pud-log"
-					class:scrolled={logScrolled}
-					class:more={logMore}
-					bind:this={logEl}
-					aria-live="polite"
-					onscroll={(e) => syncLogEdges(e.currentTarget)}
-				>
-					{#each log as entry, i (entry.id)}
-						<li
-							class="pud-log-row"
-							class:newest={i === 0}
-							data-kind={entry.kind}
-							animate:flip={{ duration: 320, easing: backOut }}
+			{#if log.length}
+				<section class="pud-ledger" aria-label="Division ledger">
+					<p class="pud-lead">Division ledger</p>
+					<div class="pud-ledger-card">
+						<ul
+							class="pud-log"
+							class:scrolled={logScrolled}
+							class:more={logMore}
+							bind:this={logEl}
+							aria-live="polite"
+							onscroll={(e) => syncLogEdges(e.currentTarget)}
 						>
-							<span class="pud-log-dot" aria-hidden="true"></span>
-							<span class="pud-log-msg">{entry.message}</span>
-							<time class="pud-log-at" datetime={new Date(entry.at).toISOString()}>{stamp(entry.at)}</time>
-						</li>
-					{/each}
-				</ul>
-			</div>
-		</section>
-		{/if}
+							{#each log as entry, i (entry.id)}
+								<li
+									class="pud-log-row"
+									class:newest={i === 0}
+									data-kind={entry.kind}
+									animate:flip={{ duration: 320, easing: backOut }}
+								>
+									<span class="pud-log-dot" aria-hidden="true"></span>
+									<span class="pud-log-msg">{entry.message}</span>
+									<time class="pud-log-at" datetime={new Date(entry.at).toISOString()}
+										>{stamp(entry.at)}</time
+									>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				</section>
+			{/if}
 
-		<!-- THE STORES — what the forestry detail has actually brought in. Only what you HAVE is
+			<!-- THE STORES — what the forestry detail has actually brought in. Only what you HAVE is
 		     listed: an inventory of zeroes is a list of things you haven't done, and the stands
 		     above already say what's out there to cut. Shelved at Basecamp: it's the planetside
 		     stores, so it travels with the camp. Crates keep landing while you're in orbit (the
 		     courier's drops don't wait on your eyes) — you'll find them here on your return.
 		     (Boarding is the WRAPPER's job now — see .pud-side above.) -->
-		{#if ranger.deployment === 'basecamp'}
-		<section class="pud-inv" aria-label="Division stores">
-			<p class="pud-lead">Division stores</p>
-			<div class="pud-inv-card">
-				{#if held.length}
-					<ul class="pud-inv-list">
-						{#each held as h (h.id)}
-							<li class="pud-inv-row">
-								<span class="pud-inv-name">{h.name}</span>
-								<span class="pud-inv-count">{fmt(h.count)}</span>
-							</li>
-						{/each}
-					</ul>
-				{:else}
-					<p class="pud-inv-empty">Nothing in the stores. The forestry detail is idle.</p>
-				{/if}
-			</div>
-		</section>
-		{/if}
-	</div>
+			{#if ranger.deployment === 'basecamp'}
+				<section class="pud-inv" aria-label="Division stores">
+					<p class="pud-lead">Division stores</p>
+					<div class="pud-inv-card">
+						{#if held.length}
+							<ul class="pud-inv-list">
+								{#each held as h (h.id)}
+									<li class="pud-inv-row">
+										<span class="pud-inv-name">{h.name}</span>
+										<span class="pud-inv-count">{fmt(h.count)}</span>
+									</li>
+								{/each}
+							</ul>
+						{:else}
+							<p class="pud-inv-empty">Nothing in the stores. The forestry detail is idle.</p>
+						{/if}
+					</div>
+				</section>
+			{/if}
+		</div>
 	{/if}
 
 	<!-- The division's settings: the lifetime tally, and the way out. They used to sit in a foot
@@ -1211,12 +1279,23 @@
 		>
 			<div class="pud-settings-head">
 				<p class="pud-lead">Division settings</p>
-				<button type="button" class="icon-btn" aria-label="Close settings" onclick={() => onCloseSettings?.()}>
+				<button
+					type="button"
+					class="icon-btn"
+					aria-label="Close settings"
+					onclick={() => onCloseSettings?.()}
+				>
 					{@html CLOSE_SVG}
 				</button>
 			</div>
 			<p class="pud-lifetime">{fmt(lifetime)} extracted all-time</p>
-			<button type="button" class="pud-reset" class:armed={armReset} onclick={reset} onblur={() => (armReset = false)}>
+			<button
+				type="button"
+				class="pud-reset"
+				class:armed={armReset}
+				onclick={reset}
+				onblur={() => (armReset = false)}
+			>
 				{armReset ? 'Sure? Every shard.' : 'Abandon universe'}
 			</button>
 		</aside>
@@ -1288,7 +1367,10 @@
 			-webkit-backdrop-filter: blur(6px) saturate(1.3);
 			backdrop-filter: blur(6px) saturate(1.3);
 			/* Recolour beat, same as the camp and courier (see .pud-item). */
-			transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease;
+			transition:
+				background-color 0.45s ease,
+				color 0.45s ease,
+				border-color 0.45s ease;
 		}
 		/* Taller here than in the stacked layout: a column of its own has the height to spend,
 		   and the whole point is seeing more than the last thing you did.
@@ -1355,7 +1437,6 @@
 			transform: translateY(0);
 		}
 	}
-
 
 	/* VIEW-TRANSITION NAMES — the dashboard's moving parts, one name each. When a deployment swaps
 	   sections (see setDeployment), the browser FLIP-morphs every named box from its old place to
@@ -1473,7 +1554,9 @@
 		/* The travelling peak spreads into a full-width line as the works stop, and gathers back
 		   into a peak as they start. Transform is left out on purpose — the sweep animation owns
 		   it while running, and transitioning a property an animation is driving fights it. */
-		transition: opacity 0.45s ease, width 0.45s ease;
+		transition:
+			opacity 0.45s ease,
+			width 0.45s ease;
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		.pud-mining-sweep {
@@ -1582,7 +1665,9 @@
 		color: var(--ink);
 		background: color-mix(in srgb, var(--ink) 4%, transparent);
 		border: 1.5px solid var(--line-edge);
-		transition: border-color 0.15s ease, background 0.15s ease;
+		transition:
+			border-color 0.15s ease,
+			background 0.15s ease;
 	}
 	.pud-extract:hover {
 		border-color: var(--line-strong);
@@ -1654,7 +1739,9 @@
 		font-variant-numeric: tabular-nums;
 		/* Aero pill: rim light + air. No blur — see .pud-item. */
 		box-shadow: var(--aero-gloss), var(--aero-drop);
-		transition: border-color 0.15s ease, background 0.15s ease;
+		transition:
+			border-color 0.15s ease,
+			background 0.15s ease;
 	}
 	.pud-boost:hover:not(:disabled) {
 		border-color: var(--line-strong);
@@ -1763,7 +1850,10 @@
 		   swap reads as the LIGHT changing, not the UI being replaced. On browsers that drive the
 		   swap with a View Transition the morph crossfade carries the recolour instead and these
 		   never run; they're the glide for the fallback path (and for a plain theme toggle). */
-		transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease;
+		transition:
+			background-color 0.45s ease,
+			color 0.45s ease,
+			border-color 0.45s ease;
 	}
 	/* The switch half — a rig's own on/off, its ring saying which. As a plain span (the
 	   click upgrade, or an unowned rig) it's inert: no ring, no pointer. */
@@ -1881,7 +1971,10 @@
 		   family too — gloss + air, no blur. Its hover/disabled states touch background and
 		   opacity, never box-shadow, so the rim light rides through every state. */
 		box-shadow: var(--aero-gloss), var(--aero-drop);
-		transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+		transition:
+			border-color 0.15s ease,
+			background 0.15s ease,
+			opacity 0.15s ease;
 	}
 	.pud-buy:hover:not(:disabled) {
 		border-color: var(--line-strong);
@@ -1956,7 +2049,10 @@
 		-webkit-backdrop-filter: blur(6px) saturate(1.3);
 		backdrop-filter: blur(6px) saturate(1.3);
 		/* Keep the .lit border on its own 0.2s beat; add the face and ink to the recolour beat. */
-		transition: border-color 0.2s ease, background-color 0.45s ease, color 0.45s ease;
+		transition:
+			border-color 0.2s ease,
+			background-color 0.45s ease,
+			color 0.45s ease;
 	}
 	/* Lit, the camp says so in its edge — the fire is a state you should be able to see from
 	   across the panel, not something you have to read. */
@@ -1981,7 +2077,10 @@
 		-webkit-backdrop-filter: blur(6px) saturate(1.3);
 		backdrop-filter: blur(6px) saturate(1.3);
 		/* Recolour beat, same as the camp. */
-		transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease;
+		transition:
+			background-color 0.45s ease,
+			color 0.45s ease,
+			border-color 0.45s ease;
 	}
 	/* The courier's two verbs share a row, wrapping when the card runs narrow. */
 	.pud-ship-actions {
@@ -2042,7 +2141,10 @@
 		-webkit-backdrop-filter: blur(6px) saturate(1.3);
 		backdrop-filter: blur(6px) saturate(1.3);
 		/* Recolour beat, same as the camp and courier. */
-		transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease;
+		transition:
+			background-color 0.45s ease,
+			color 0.45s ease,
+			border-color 0.45s ease;
 	}
 	/* The shuttle card's one control (Enter Shuttle) sits left, like the camp's and courier's
 	   buttons — it was a .pud-deploy inline row before the pills retired to one door. */
@@ -2085,7 +2187,10 @@
 		text-align: left;
 		font: inherit;
 		cursor: pointer;
-		transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+		transition:
+			border-color 0.15s ease,
+			background 0.15s ease,
+			opacity 0.15s ease;
 	}
 	.pud-tree:hover:not(:disabled) {
 		border-color: var(--line-strong);
@@ -2230,7 +2335,8 @@
 		--log-shade-top: inset 0 26px 22px -22px light-dark(rgba(8, 10, 14, 0.15), rgba(0, 0, 0, 0.35));
 	}
 	.pud-log.more {
-		--log-shade-bottom: inset 0 -26px 22px -22px light-dark(rgba(8, 10, 14, 0.15), rgba(0, 0, 0, 0.35));
+		--log-shade-bottom: inset 0 -26px 22px -22px
+			light-dark(rgba(8, 10, 14, 0.15), rgba(0, 0, 0, 0.35));
 	}
 	.pud-log {
 		list-style: none;
@@ -2575,11 +2681,13 @@
 		--log-shade-bottom: inset 0 -1px 0 0 transparent, inset 0 -16px 14px -14px transparent;
 	}
 	:global(html[data-look='pixelite']) .pud-log.scrolled {
-		--log-shade-top: inset 0 1px 0 0 var(--pixel-hairline),
+		--log-shade-top:
+			inset 0 1px 0 0 var(--pixel-hairline),
 			inset 0 16px 14px -14px color-mix(in srgb, var(--ink) 9%, transparent);
 	}
 	:global(html[data-look='pixelite']) .pud-log.more {
-		--log-shade-bottom: inset 0 -1px 0 0 var(--pixel-hairline),
+		--log-shade-bottom:
+			inset 0 -1px 0 0 var(--pixel-hairline),
 			inset 0 -16px 14px -14px color-mix(in srgb, var(--ink) 9%, transparent);
 	}
 	/* The settings popover joins the print surfaces: solid page face (it floats over the shop,

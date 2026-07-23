@@ -96,7 +96,11 @@
 	<button
 		type="button"
 		class="cs-icon"
-		aria-label={weather.searchOpen ? 'Close search' : addHere ? 'Add another city' : 'Search a city'}
+		aria-label={weather.searchOpen
+			? 'Close search'
+			: addHere
+				? 'Add another city'
+				: 'Search a city'}
 		title={weather.searchOpen ? 'Close' : addHere ? 'Add another city' : 'Search a city'}
 		aria-expanded={weather.searchOpen}
 		onclick={() => {
@@ -352,7 +356,9 @@
 	@media (prefers-reduced-motion: no-preference) and (max-width: 960px) {
 		.cs-icon,
 		.cs-icon :global(svg) {
-			transition: width 0.28s ease, height 0.28s ease;
+			transition:
+				width 0.28s ease,
+				height 0.28s ease;
 		}
 	}
 	/* The results hang under the field, aligned to it. Opaque: it sits over the panel's content. */

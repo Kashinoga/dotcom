@@ -42,7 +42,9 @@
 			code,
 			kids:
 				code === 'APP'
-					? [...(children[code] ?? [])].sort((a, b) => airports[a].title.localeCompare(airports[b].title))
+					? [...(children[code] ?? [])].sort((a, b) =>
+							airports[a].title.localeCompare(airports[b].title)
+						)
 					: (children[code] ?? [])
 		}))
 	]);
@@ -355,14 +357,22 @@
 		// view-owned substick bar).
 		const target = Math.max(
 			0,
-			el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - superbarH - subH - 14
+			el.getBoundingClientRect().top -
+				sc.getBoundingClientRect().top +
+				sc.scrollTop -
+				superbarH -
+				subH -
+				14
 		);
 		const start = sc.scrollTop;
 		const dist = target - start;
 		if (Math.abs(dist) < 2) return;
 		cancelAnimationFrame(jumpRaf);
 		clearTimeout(jumpFallback);
-		if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		if (
+			typeof matchMedia !== 'undefined' &&
+			matchMedia('(prefers-reduced-motion: reduce)').matches
+		) {
 			sc.scrollTo(0, target);
 			return;
 		}
@@ -382,13 +392,19 @@
 	}
 </script>
 
-<div class="docs" class:sidebar-open={sidebarOpen} style="--superbar-h: {superbarH}px; --scrollbar-w: {scrollbarW}px">
+<div
+	class="docs"
+	class:sidebar-open={sidebarOpen}
+	style="--superbar-h: {superbarH}px; --scrollbar-w: {scrollbarW}px"
+>
 	<!-- Full-width superbar over all three columns: the wordmark at its left end, the breadcrumb
 	     trail beside it, and (on mobile) a plastic-key MENU that discloses the sidebar. It sticks
 	     to the top and blurs once the page scrolls under it. -->
 	<header class="docs-superbar" class:scrolled bind:this={superbarEl}>
-		<a class="docs-wordmark" href={viewPath({ kind: 'port', code: HUB })} onclick={(e) => nav(e, HUB)}
-			>KASHINOGA</a
+		<a
+			class="docs-wordmark"
+			href={viewPath({ kind: 'port', code: HUB })}
+			onclick={(e) => nav(e, HUB)}>KASHINOGA</a
 		>
 		{#if crumbs.length}
 			<span class="docs-brand-sep" aria-hidden="true" transition:fade={{ duration: 180 }}></span>
@@ -405,12 +421,17 @@
 		<nav class="docs-crumbs" aria-label="Breadcrumb">
 			{#each crumbs as c, i (i)}
 				<span class="docs-crumb-unit">
-					{#if i > 0}<span class="docs-crumb-sep" aria-hidden="true">/</span>{/if}<span class="docs-crumb-slot">
-						{#key c}<span class="docs-crumb-face" in:crumbIn|global out:crumbOut|global>{#if i < crumbs.length - 1}<a
-									class="docs-crumb"
-									href={viewPath({ kind: 'port', code: c })}
-									onclick={(e) => nav(e, c)}>{airports[c].title}</a
-								>{:else}<span class="docs-crumb" aria-current="page">{airports[c].title}</span>{/if}</span>{/key}
+					{#if i > 0}<span class="docs-crumb-sep" aria-hidden="true">/</span>{/if}<span
+						class="docs-crumb-slot"
+					>
+						{#key c}<span class="docs-crumb-face" in:crumbIn|global out:crumbOut|global
+								>{#if i < crumbs.length - 1}<a
+										class="docs-crumb"
+										href={viewPath({ kind: 'port', code: c })}
+										onclick={(e) => nav(e, c)}>{airports[c].title}</a
+									>{:else}<span class="docs-crumb" aria-current="page">{airports[c].title}</span
+									>{/if}</span
+							>{/key}
 					</span>
 				</span>
 			{/each}
@@ -475,82 +496,82 @@
 	     top margin keeps the thumb's travel wholly in the content area (see .docs-scroll) —
 	     the frost is real AND the scrollbar is never obscured. -->
 	<div class="docs-scroll" bind:this={scrollEl} onscroll={onDocsScroll}>
-	<div class="docs-cols">
-		<!-- Sticky sidebar: the numbered docs TOC (the wordmark now lives in the superbar). -->
-		<aside class="docs-sidebar" aria-label="Site contents">
-			<nav class="docs-toc">
-				<ol>
-					{#each sections as { code, kids }, i}
-						<li class="docs-sec" class:no-kids={!kids.length}>
-							<a
-								class="docs-sec-head"
-								class:active={activeCode === code || (code === HUB && activeCode === null)}
-								href={viewPath({ kind: 'port', code })}
-								onclick={(e) => nav(e, code)}
-								><span class="docs-num">{i + 1}.</span> {airports[code].title}</a
-							>
-							{#if kids.length}
-								<ul>
-									{#each kids as kid}
-										<li>
-											<a
-												class="docs-leaf"
-												class:active={activeCode === kid}
-												href={viewPath({ kind: 'port', code: kid })}
-												onclick={(e) => nav(e, kid)}
-											>
-												<span class="docs-bullet" aria-hidden="true"></span>{airports[kid].title}
-											</a>
-										</li>
-									{/each}
-								</ul>
-							{/if}
-						</li>
-					{/each}
-				</ol>
-			</nav>
-		</aside>
-
-		<!-- Content column (grid col 2): the page body. The body owns its own container — a prose
-		     sheet, a bare self-sheeting reading (Densette), or a full-width figure. -->
-		<main class="docs-content" bind:this={contentEl}>
-			<div class="docs-body">
-				{#if !view}
-					<!-- Homepage under Pixelite: a documentation cover/index rather than the route map. -->
-					<div class="docs-cover">
-						<h1 class="docs-cover-title">Different, Together</h1>
-						<p class="docs-cover-lede">
-							A hand-built site and a small shelf of live apps. Pick a chapter from the contents.
-						</p>
-					</div>
-				{:else}
-					{@render body(view)}
-				{/if}
-			</div>
-		</main>
-
-		<!-- Right rail (grid col 3, desktop only): an on-this-page table of contents for the current
-		     view. Empty on pages with no sections; collapses away on mobile. -->
-		<nav class="docs-rail" aria-label="On this page">
-			<div class="docs-rail-scroll">
-				{#if toc.length}
-					<p class="docs-rail-head">On this page</p>
-					<ul class="docs-rail-list">
-						{#each toc as item}
-							<li class="docs-rail-item lvl-{item.level}">
+		<div class="docs-cols">
+			<!-- Sticky sidebar: the numbered docs TOC (the wordmark now lives in the superbar). -->
+			<aside class="docs-sidebar" aria-label="Site contents">
+				<nav class="docs-toc">
+					<ol>
+						{#each sections as { code, kids }, i}
+							<li class="docs-sec" class:no-kids={!kids.length}>
 								<a
-									class="docs-rail-link"
-									class:active={activeId === item.id}
-									href={`#${item.id}`}
-									onclick={(e) => tocJump(e, item.id)}>{item.text}</a
+									class="docs-sec-head"
+									class:active={activeCode === code || (code === HUB && activeCode === null)}
+									href={viewPath({ kind: 'port', code })}
+									onclick={(e) => nav(e, code)}
+									><span class="docs-num">{i + 1}.</span> {airports[code].title}</a
 								>
+								{#if kids.length}
+									<ul>
+										{#each kids as kid}
+											<li>
+												<a
+													class="docs-leaf"
+													class:active={activeCode === kid}
+													href={viewPath({ kind: 'port', code: kid })}
+													onclick={(e) => nav(e, kid)}
+												>
+													<span class="docs-bullet" aria-hidden="true"></span>{airports[kid].title}
+												</a>
+											</li>
+										{/each}
+									</ul>
+								{/if}
 							</li>
 						{/each}
-					</ul>
-				{/if}
-			</div>
-		</nav>
-	</div>
+					</ol>
+				</nav>
+			</aside>
+
+			<!-- Content column (grid col 2): the page body. The body owns its own container — a prose
+		     sheet, a bare self-sheeting reading (Densette), or a full-width figure. -->
+			<main class="docs-content" bind:this={contentEl}>
+				<div class="docs-body">
+					{#if !view}
+						<!-- Homepage under Pixelite: a documentation cover/index rather than the route map. -->
+						<div class="docs-cover">
+							<h1 class="docs-cover-title">Different, Together</h1>
+							<p class="docs-cover-lede">
+								A hand-built site and a small shelf of live apps. Pick a chapter from the contents.
+							</p>
+						</div>
+					{:else}
+						{@render body(view)}
+					{/if}
+				</div>
+			</main>
+
+			<!-- Right rail (grid col 3, desktop only): an on-this-page table of contents for the current
+		     view. Empty on pages with no sections; collapses away on mobile. -->
+			<nav class="docs-rail" aria-label="On this page">
+				<div class="docs-rail-scroll">
+					{#if toc.length}
+						<p class="docs-rail-head">On this page</p>
+						<ul class="docs-rail-list">
+							{#each toc as item}
+								<li class="docs-rail-item lvl-{item.level}">
+									<a
+										class="docs-rail-link"
+										class:active={activeId === item.id}
+										href={`#${item.id}`}
+										onclick={(e) => tocJump(e, item.id)}>{item.text}</a
+									>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			</nav>
+		</div>
 	</div>
 </div>
 

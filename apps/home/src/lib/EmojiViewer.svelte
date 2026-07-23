@@ -90,7 +90,9 @@
 	<!-- One-line note, fixed height (see .ev-note) so swapping the hint for the copy
 	     confirmation never nudges the grid below it. -->
 	{#if copied}
-		<p class="ev-note" role="status"><span class="ev-note-em">{copied}</span> copied to your clipboard.</p>
+		<p class="ev-note" role="status">
+			<span class="ev-note-em">{copied}</span> copied to your clipboard.
+		</p>
 	{:else}
 		<p class="ev-note ev-note-dim">Tap any emoji to copy it.</p>
 	{/if}
@@ -294,7 +296,10 @@
 		border-radius: 10px;
 		background: none;
 		cursor: pointer;
-		transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+		transition:
+			background 0.12s ease,
+			border-color 0.12s ease,
+			transform 0.12s ease;
 	}
 	.ev-cell:hover {
 		background: var(--aero-face);

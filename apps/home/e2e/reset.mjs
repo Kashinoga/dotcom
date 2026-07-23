@@ -71,9 +71,18 @@ const DEFAULTS = {
 	page.on('load', () => loads++);
 
 	ok('button enabled when settings differ', await resetBtn(page).isEnabled());
-	ok('dark theme applied to <html>', (await page.locator('html').getAttribute('data-theme')) === 'dark');
-	ok('flat ui strips data-ui from <html>', (await page.locator('html').getAttribute('data-ui')) === null);
-	ok(`seeded sky applied to <html> (${seedPhase})`, (await page.locator('html').getAttribute('data-sky')) === seedPhase);
+	ok(
+		'dark theme applied to <html>',
+		(await page.locator('html').getAttribute('data-theme')) === 'dark'
+	);
+	ok(
+		'flat ui strips data-ui from <html>',
+		(await page.locator('html').getAttribute('data-ui')) === null
+	);
+	ok(
+		`seeded sky applied to <html> (${seedPhase})`,
+		(await page.locator('html').getAttribute('data-sky')) === seedPhase
+	);
 
 	await resetBtn(page).click();
 	await page.waitForTimeout(1200);
@@ -89,9 +98,15 @@ const DEFAULTS = {
 	}
 
 	ok('reset → no page reload', loads === 0, `${loads}`);
-	ok('reset → data-theme removed', (await page.locator('html').getAttribute('data-theme')) === null);
+	ok(
+		'reset → data-theme removed',
+		(await page.locator('html').getAttribute('data-theme')) === null
+	);
 	// Bubble is the default, so a reset RESTORES data-ui rather than stripping it.
-	ok('reset → data-ui restored (bubble default)', (await page.locator('html').getAttribute('data-ui')) === 'bubble');
+	ok(
+		'reset → data-ui restored (bubble default)',
+		(await page.locator('html').getAttribute('data-ui')) === 'bubble'
+	);
 	// Sky resets to Off (the new default) — the override attribute is removed entirely.
 	// Auto is the default, so a reset does NOT strip data-sky — it repaints it with whatever phase
 	// the clock is in. What must go is the stored override (checked with the other PREF_KEYS below).

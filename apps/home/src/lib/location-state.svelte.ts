@@ -176,14 +176,17 @@ export function setDeployment(d: Deployment) {
 	clearTimeout(seqTimer);
 	ranger.cabin = false;
 	flipTimer = setTimeout(flip, WIPE_COVER_MS);
-	landTimer = setTimeout(() => {
-		ranger.transit = null;
-		// Arrival opens the hatch straight onto the deck: the cabin already left at boarding
-		// commit, so there's nothing to wait out — the destination's dashboard slides in as the
-		// flight settles (ascend) or as the reveal does (descend, whose flight flew under the
-		// cover — see DESCEND_TOTAL_MS).
-		ranger.aboard = false;
-	}, d === 'orbit' ? TRANSIT_TOTAL_MS : DESCEND_TOTAL_MS);
+	landTimer = setTimeout(
+		() => {
+			ranger.transit = null;
+			// Arrival opens the hatch straight onto the deck: the cabin already left at boarding
+			// commit, so there's nothing to wait out — the destination's dashboard slides in as the
+			// flight settles (ascend) or as the reveal does (descend, whose flight flew under the
+			// cover — see DESCEND_TOTAL_MS).
+			ranger.aboard = false;
+		},
+		d === 'orbit' ? TRANSIT_TOTAL_MS : DESCEND_TOTAL_MS
+	);
 }
 
 // Leaving the panel ENDS the boarding. board()/disembark() and the crossing are LIVE gestures —

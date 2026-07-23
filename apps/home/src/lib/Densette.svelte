@@ -115,7 +115,10 @@
 		['Grip pressure', 'Power scaling']
 	];
 	const OUTPUTS = [
-		['Projectile', 'High draw dump; coherence collapses on contact, dispersing as heat and pressure'],
+		[
+			'Projectile',
+			'High draw dump; coherence collapses on contact, dispersing as heat and pressure'
+		],
 		['Beam', 'Sustained output; high coherence maintained'],
 		['Construct', 'Magnetically confined plasma held in shape; continuous core drain']
 	];
@@ -145,325 +148,348 @@
      no breaks. Chapters carry an --i so the mount stagger settles them top-to-bottom. -->
 <article class="dens">
 	<div class="sheet">
-	<!-- ── Cover ─────────────────────────────────────────────────────────────────── -->
-	<section class="chap masthead" style="--i:0">
-		<div class="col">
-			<header class="runhead">
-				<span class="rh-mark">Densette</span>
-				<span class="rh-doc">The Curriculum</span>
-			</header>
-			<div class="ticks" aria-hidden="true"></div>
-			<p class="meta">A Tabletop Roleplaying Game &#9474; Densette Universe</p>
-			<h1 class="cover-title">The Curriculum</h1>
-			<p class="cover-sub">Always Humane; Digital Forward, Analog First</p>
-		</div>
-	</section>
+		<!-- ── Cover ─────────────────────────────────────────────────────────────────── -->
+		<section class="chap masthead" style="--i:0">
+			<div class="col">
+				<header class="runhead">
+					<span class="rh-mark">Densette</span>
+					<span class="rh-doc">The Curriculum</span>
+				</header>
+				<div class="ticks" aria-hidden="true"></div>
+				<p class="meta">A Tabletop Roleplaying Game &#9474; Densette Universe</p>
+				<h1 class="cover-title">The Curriculum</h1>
+				<p class="cover-sub">Always Humane; Digital Forward, Analog First</p>
+			</div>
+		</section>
 
-	<!-- ── 1. Welcome to Adventure ──────────────────────────────────────────────── -->
-	<section class="chap" style="--i:1">
-		<div class="col">
-			<header class="ch-head">
-				<h2 class="ch-title"><span class="ch-num">1.</span> Welcome to Adventure</h2>
-			</header>
-			<p class="body">
-				In the 1970s, two people came together and created The World&rsquo;s Greatest
-				Roleplaying Game, fusing rules with storytelling. I would play it myself, for my very
-				first time — with the 5th edition — in the early 2010s.
-			</p>
-			<p class="body">
-				Years following, I would rack up numerous games, as both player and Dungeon Master,
-				under my belt. There was always bad and good rolls. There was always scheduling
-				conflicts and snack duties. And there was always rules rulings and house rules.
-			</p>
-			<p class="body">
-				This game is an accumulation of all of these years and more to come. My focus is
-				towards accessibility, camaraderie, and reliability. And of course, fun overall. The
-				numerous house rules, homebrews, and memorable moments will have informed a vast
-				majority of this game.
-			</p>
-			<p class="body">
-				I hope to help recreate the moments that stirred the creation of this game and to
-				develop them into new and memorable moments for you and your group. Thank you for
-				taking the time to try my game, and take care.
-			</p>
-			<p class="sign">&mdash; Andrew Nguyen</p>
-		</div>
-	</section>
+		<!-- ── 1. Welcome to Adventure ──────────────────────────────────────────────── -->
+		<section class="chap" style="--i:1">
+			<div class="col">
+				<header class="ch-head">
+					<h2 class="ch-title"><span class="ch-num">1.</span> Welcome to Adventure</h2>
+				</header>
+				<p class="body">
+					In the 1970s, two people came together and created The World&rsquo;s Greatest Roleplaying
+					Game, fusing rules with storytelling. I would play it myself, for my very first time —
+					with the 5th edition — in the early 2010s.
+				</p>
+				<p class="body">
+					Years following, I would rack up numerous games, as both player and Dungeon Master, under
+					my belt. There was always bad and good rolls. There was always scheduling conflicts and
+					snack duties. And there was always rules rulings and house rules.
+				</p>
+				<p class="body">
+					This game is an accumulation of all of these years and more to come. My focus is towards
+					accessibility, camaraderie, and reliability. And of course, fun overall. The numerous
+					house rules, homebrews, and memorable moments will have informed a vast majority of this
+					game.
+				</p>
+				<p class="body">
+					I hope to help recreate the moments that stirred the creation of this game and to develop
+					them into new and memorable moments for you and your group. Thank you for taking the time
+					to try my game, and take care.
+				</p>
+				<p class="sign">&mdash; Andrew Nguyen</p>
+			</div>
+		</section>
 
-	<!-- ── 2. The Peaks University ──────────────────────────────────────────────── -->
-	<section class="chap" style="--i:2">
-		<div class="col">
-			<header class="ch-head">
-				<h2 class="ch-title"><span class="ch-num">2.</span> The Peaks University</h2>
-			</header>
-			<p class="meta-row">Denver, Colorado &mdash; President&rsquo;s Office, Quiet Forest Terrace, Northern Plaza</p>
-			<p class="body">
-				We welcome you to our university, and we hope that your journey proves eventful,
-				fruitful, and bears you the opportunities and the experiences to grow as a student of
-				learning, teaching, and enhancing the quality of life for yourself and for your peers.
-			</p>
-			<p class="body">
-				Established in 2051, The Peaks University strives to uphold, promote, and to improve
-				the quality of life for all, through education, experience, and endurance. We hope to
-				imbue the necessary lessons that will prepare students for the unpredictable future,
-				with the vigor and vigilance for the care of life of their own and of theirs held
-				closely.
-			</p>
-			<p class="body">
-				Please enjoy your time at The Peaks, and we hope that hope will always find a way
-				through.
-			</p>
-			<p class="sign">&mdash; Amahia Mallea, President</p>
-		</div>
-	</section>
+		<!-- ── 2. The Peaks University ──────────────────────────────────────────────── -->
+		<section class="chap" style="--i:2">
+			<div class="col">
+				<header class="ch-head">
+					<h2 class="ch-title"><span class="ch-num">2.</span> The Peaks University</h2>
+				</header>
+				<p class="meta-row">
+					Denver, Colorado &mdash; President&rsquo;s Office, Quiet Forest Terrace, Northern Plaza
+				</p>
+				<p class="body">
+					We welcome you to our university, and we hope that your journey proves eventful, fruitful,
+					and bears you the opportunities and the experiences to grow as a student of learning,
+					teaching, and enhancing the quality of life for yourself and for your peers.
+				</p>
+				<p class="body">
+					Established in 2051, The Peaks University strives to uphold, promote, and to improve the
+					quality of life for all, through education, experience, and endurance. We hope to imbue
+					the necessary lessons that will prepare students for the unpredictable future, with the
+					vigor and vigilance for the care of life of their own and of theirs held closely.
+				</p>
+				<p class="body">
+					Please enjoy your time at The Peaks, and we hope that hope will always find a way through.
+				</p>
+				<p class="sign">&mdash; Amahia Mallea, President</p>
+			</div>
+		</section>
 
-	<!-- ── 3. LBRY 101 — Orientation ────────────────────────────────────────────── -->
-	<section class="chap" style="--i:3">
-		<div class="col">
-			<header class="ch-head">
-				<h2 class="ch-title"><span class="ch-num">3.</span> LBRY 101 &mdash; Orientation</h2>
-				<p class="course-meta">Taught by Ana Bakunawa</p>
-			</header>
+		<!-- ── 3. LBRY 101 — Orientation ────────────────────────────────────────────── -->
+		<section class="chap" style="--i:3">
+			<div class="col">
+				<header class="ch-head">
+					<h2 class="ch-title"><span class="ch-num">3.</span> LBRY 101 &mdash; Orientation</h2>
+					<p class="course-meta">Taught by Ana Bakunawa</p>
+				</header>
 
-			<h3 class="sub-head"><span class="sub-num">3.1</span> The Year is 2172</h3>
-			<p class="body">
-				Our reach is terribly vast, though not without greatly scarred lengths. The
-				journey-so-far has enabled us to draw upon the infinite energies of the universe. We
-				have made our everyday extraordinary, underneath all of the materials and the
-				manufacturing, and underneath all of the research and the development. Undeniably, we
-				have also made our everyday quietly fragile. As united as we have ever been, the
-				factions still dominate our allegiance and discourse. It is the hope that we continue
-				to explore the unknown, without too much trouble.
-			</p>
+				<h3 class="sub-head"><span class="sub-num">3.1</span> The Year is 2172</h3>
+				<p class="body">
+					Our reach is terribly vast, though not without greatly scarred lengths. The journey-so-far
+					has enabled us to draw upon the infinite energies of the universe. We have made our
+					everyday extraordinary, underneath all of the materials and the manufacturing, and
+					underneath all of the research and the development. Undeniably, we have also made our
+					everyday quietly fragile. As united as we have ever been, the factions still dominate our
+					allegiance and discourse. It is the hope that we continue to explore the unknown, without
+					too much trouble.
+				</p>
 
-			<h3 class="sub-head"><span class="sub-num">3.2</span> The Wand is It</h3>
-			<p class="body">
-				In 2077, a group of scientists at the United Stars and Planetary Systems, Materials
-				Research Lab, developed what we call today: wandcraft. With breakthroughs in
-				coherence, coupling, and constraint, we created the wand. An instrument with three
-				distinct components: the aperture, the core, and the frame. This wand enabled local
-				control of ambient energy using stored control routines.
-			</p>
-			<p class="body">
-				Over time, we would scale up wands for use in industry, manufacturing, and as our
-				crown-jewel as engines in spacefaring ships. Today, further development is being made
-				towards miniaturizing the technology for use in delicate manufacturing, medicine, and
-				other applications where being able to manipulate energies at smaller scales would
-				prove assistive and enabling.
-			</p>
+				<h3 class="sub-head"><span class="sub-num">3.2</span> The Wand is It</h3>
+				<p class="body">
+					In 2077, a group of scientists at the United Stars and Planetary Systems, Materials
+					Research Lab, developed what we call today: wandcraft. With breakthroughs in coherence,
+					coupling, and constraint, we created the wand. An instrument with three distinct
+					components: the aperture, the core, and the frame. This wand enabled local control of
+					ambient energy using stored control routines.
+				</p>
+				<p class="body">
+					Over time, we would scale up wands for use in industry, manufacturing, and as our
+					crown-jewel as engines in spacefaring ships. Today, further development is being made
+					towards miniaturizing the technology for use in delicate manufacturing, medicine, and
+					other applications where being able to manipulate energies at smaller scales would prove
+					assistive and enabling.
+				</p>
 
-			<!-- FIG 3.1 — the energy chain as a real diagram: hairline boxes, mono labels, a
+				<!-- FIG 3.1 — the energy chain as a real diagram: hairline boxes, mono labels, a
 			     leader line and a cobalt arrowhead between each step. -->
-			<figure class="fig">
-				<div class="flow">
-					{#each FLOW as step, i (i)}
-						{#if i > 0}<span class="flow-arrow" aria-hidden="true"></span>{/if}
-						<div class="flow-node">
-							<span class="flow-num">{i + 1}</span>
-							<span class="flow-label">{step}</span>
+				<figure class="fig">
+					<div class="flow">
+						{#each FLOW as step, i (i)}
+							{#if i > 0}<span class="flow-arrow" aria-hidden="true"></span>{/if}
+							<div class="flow-node">
+								<span class="flow-num">{i + 1}</span>
+								<span class="flow-label">{step}</span>
+							</div>
+						{/each}
+					</div>
+					<figcaption class="fig-cap">
+						<span class="fig-tick" aria-hidden="true"></span>Fig 3.1 &mdash; Energy Flow
+					</figcaption>
+				</figure>
+
+				<h3 class="sub-head"><span class="sub-num">3.3</span> The Path You Choose</h3>
+				<p class="body">
+					Peaks offers four primary schools for students, each with a distinct focus ascribed by an
+					allegoric feature of the energies we study.
+				</p>
+				<div class="schools">
+					{#each SCHOOLS as s (s.num)}
+						<div class="school">
+							<span class="school-num">{s.num}</span>
+							<h4 class="school-name">{s.name}</h4>
+							<p class="school-motto">{s.motto}</p>
+							<p class="school-desc">{s.desc}</p>
 						</div>
 					{/each}
 				</div>
-				<figcaption class="fig-cap"><span class="fig-tick" aria-hidden="true"></span>Fig 3.1 &mdash; Energy Flow</figcaption>
-			</figure>
-
-			<h3 class="sub-head"><span class="sub-num">3.3</span> The Path You Choose</h3>
-			<p class="body">
-				Peaks offers four primary schools for students, each with a distinct focus ascribed by
-				an allegoric feature of the energies we study.
-			</p>
-			<div class="schools">
-				{#each SCHOOLS as s (s.num)}
-					<div class="school">
-						<span class="school-num">{s.num}</span>
-						<h4 class="school-name">{s.name}</h4>
-						<p class="school-motto">{s.motto}</p>
-						<p class="school-desc">{s.desc}</p>
-					</div>
-				{/each}
 			</div>
-		</div>
-	</section>
+		</section>
 
-	<!-- ── 4. HIST 101 — Timeline ───────────────────────────────────────────────── -->
-	<section class="chap" style="--i:4">
-		<div class="col">
-			<header class="ch-head">
-				<h2 class="ch-title"><span class="ch-num">4.</span> HIST 101 &mdash; Timeline</h2>
-				<p class="course-meta">Taught by Hyacinth Altair</p>
-			</header>
-			<div class="timeline">
-				{#each ERAS as era (era.span)}
-					<div class="era">
-						<span class="era-date">{era.span}</span>
-						<div class="era-main">
-							<h3 class="era-title">{era.title}</h3>
-							<p class="body">{era.body}</p>
-							{#if era.bullets}
-								<ul class="era-list">
-									{#each era.bullets as b (b)}<li>{b}</li>{/each}
-								</ul>
-							{/if}
+		<!-- ── 4. HIST 101 — Timeline ───────────────────────────────────────────────── -->
+		<section class="chap" style="--i:4">
+			<div class="col">
+				<header class="ch-head">
+					<h2 class="ch-title"><span class="ch-num">4.</span> HIST 101 &mdash; Timeline</h2>
+					<p class="course-meta">Taught by Hyacinth Altair</p>
+				</header>
+				<div class="timeline">
+					{#each ERAS as era (era.span)}
+						<div class="era">
+							<span class="era-date">{era.span}</span>
+							<div class="era-main">
+								<h3 class="era-title">{era.title}</h3>
+								<p class="body">{era.body}</p>
+								{#if era.bullets}
+									<ul class="era-list">
+										{#each era.bullets as b (b)}<li>{b}</li>{/each}
+									</ul>
+								{/if}
+							</div>
 						</div>
-					</div>
-				{/each}
+					{/each}
+				</div>
+				<p class="body">
+					Antimatter is the current frontier. Total mass-energy conversion offers output that dwarfs
+					fusion by orders of magnitude, but production costs and containment remain unsolved at
+					scale. Research is active; deployment is not. The stakes of success &mdash; and failure
+					&mdash; are significant.
+				</p>
+				<blockquote class="pull"><p>The factions watch closely.</p></blockquote>
 			</div>
-			<p class="body">
-				Antimatter is the current frontier. Total mass-energy conversion offers output that
-				dwarfs fusion by orders of magnitude, but production costs and containment remain
-				unsolved at scale. Research is active; deployment is not. The stakes of success &mdash;
-				and failure &mdash; are significant.
-			</p>
-			<blockquote class="pull"><p>The factions watch closely.</p></blockquote>
-		</div>
-	</section>
+		</section>
 
-	<!-- ── 5. Wand Systems ──────────────────────────────────────────────────────── -->
-	<section class="chap" style="--i:5">
-		<div class="col">
-			<header class="ch-head">
-				<h2 class="ch-title"><span class="ch-num">5.</span> Wand Systems</h2>
-				<p class="course-meta">Reference Appendix</p>
-			</header>
+		<!-- ── 5. Wand Systems ──────────────────────────────────────────────────────── -->
+		<section class="chap" style="--i:5">
+			<div class="col">
+				<header class="ch-head">
+					<h2 class="ch-title"><span class="ch-num">5.</span> Wand Systems</h2>
+					<p class="course-meta">Reference Appendix</p>
+				</header>
 
-			<!-- TABLE 5.1 — Hardware -->
-			<p class="tbl-cap"><span class="tbl-cap-tag">Table 5.1</span> Hardware</p>
-			<div class="tbl-wrap">
-				<table class="tbl">
-					<thead><tr><th>Component</th><th>Function</th></tr></thead>
-					<tbody>
-						{#each HARDWARE as [c, f] (c)}<tr><td class="k">{c}</td><td>{f}</td></tr>{/each}
-					</tbody>
-				</table>
-			</div>
+				<!-- TABLE 5.1 — Hardware -->
+				<p class="tbl-cap"><span class="tbl-cap-tag">Table 5.1</span> Hardware</p>
+				<div class="tbl-wrap">
+					<table class="tbl">
+						<thead><tr><th>Component</th><th>Function</th></tr></thead>
+						<tbody>
+							{#each HARDWARE as [c, f] (c)}<tr><td class="k">{c}</td><td>{f}</td></tr>{/each}
+						</tbody>
+					</table>
+				</div>
 
-			<!-- 5.2 — the three founding principles, as small cards -->
-			<h3 class="sub-head"><span class="sub-num">5.2</span> Founding Principles</h3>
-			<div class="cards3">
-				{#each PRINCIPLES as [name, meaning] (name)}
-					<div class="card3">
-						<span class="card3-name">{name}</span>
-						<p class="card3-body">{meaning}</p>
-					</div>
-				{/each}
-			</div>
+				<!-- 5.2 — the three founding principles, as small cards -->
+				<h3 class="sub-head"><span class="sub-num">5.2</span> Founding Principles</h3>
+				<div class="cards3">
+					{#each PRINCIPLES as [name, meaning] (name)}
+						<div class="card3">
+							<span class="card3-name">{name}</span>
+							<p class="card3-body">{meaning}</p>
+						</div>
+					{/each}
+				</div>
 
-			<!-- TABLE 5.3 — Input methods -->
-			<p class="tbl-cap"><span class="tbl-cap-tag">Table 5.3</span> Input Methods</p>
-			<div class="tbl-wrap">
-				<table class="tbl">
-					<thead><tr><th>Method</th><th>Controls</th><th>Ceiling</th></tr></thead>
-					<tbody>
-						{#each INPUTS as [m, ctrl, ceil] (m)}<tr><td class="k">{m}</td><td>{ctrl}</td><td class="num">{ceil}</td></tr>{/each}
-					</tbody>
-				</table>
-			</div>
-			<ul class="mastery">
-				<li><b>Voice mastery</b> &mdash; rapid chaining, complex conditionals, granular verbal precision, hands-free invocation.</li>
-				<li><b>Gesture mastery</b> &mdash; real-time shaping, sub-parameter control, hardware-limit efficiency, multi-wand technique.</li>
-				<li><b>Combined mastery</b> &mdash; both tracks at once: sustain a construct via gesture while voice-invoking a secondary routine.</li>
-			</ul>
-
-			<!-- TABLE 5.4 — Gesture to parameter -->
-			<p class="tbl-cap"><span class="tbl-cap-tag">Table 5.4</span> Gesture &rarr; Parameter</p>
-			<div class="tbl-wrap">
-				<table class="tbl">
-					<thead><tr><th>Gesture</th><th>Effect</th></tr></thead>
-					<tbody>
-						{#each GESTURES as [g, e] (g)}<tr><td class="k">{g}</td><td>{e}</td></tr>{/each}
-					</tbody>
-				</table>
-			</div>
-
-			<!-- TABLE 5.5 — Output types -->
-			<p class="tbl-cap"><span class="tbl-cap-tag">Table 5.5</span> Output Types</p>
-			<div class="tbl-wrap">
-				<table class="tbl">
-					<thead><tr><th>Output</th><th>Mechanism</th></tr></thead>
-					<tbody>
-						{#each OUTPUTS as [o, mech] (o)}<tr><td class="k">{o}</td><td>{mech}</td></tr>{/each}
-					</tbody>
-				</table>
-			</div>
-
-			<!-- TABLE 5.6 — Construct forms -->
-			<p class="body">
-				Constructs are not hard light but magnetically confined plasma &mdash; shaped by the
-				aperture, held by the frame&rsquo;s magnetic field, and sustained by continuous core
-				draw. They collapse on depletion.
-			</p>
-			<p class="tbl-cap"><span class="tbl-cap-tag">Table 5.6</span> Construct Forms</p>
-			<div class="tbl-wrap">
-				<table class="tbl">
-					<thead><tr><th>Form</th><th>Notes</th></tr></thead>
-					<tbody>
-						{#each FORMS as [form, notes] (form)}<tr><td class="k">{form}</td><td>{notes}</td></tr>{/each}
-					</tbody>
-				</table>
-			</div>
-
-			<!-- TABLE 5.7 — Depletion states -->
-			<p class="tbl-cap"><span class="tbl-cap-tag">Table 5.7</span> Depletion States</p>
-			<div class="tbl-wrap">
-				<table class="tbl">
-					<thead><tr><th>State</th><th>Visual</th><th>Effect</th></tr></thead>
-					<tbody>
-						{#each DEPLETION as [state, vis, eff] (state)}<tr><td class="k">{state}</td><td>{vis}</td><td>{eff}</td></tr>{/each}
-					</tbody>
-				</table>
-			</div>
-			<p class="footnote">Depletion is visible to all &mdash; tactically significant.</p>
-
-			<!-- TABLE 5.8 — Licensing tiers -->
-			<p class="tbl-cap"><span class="tbl-cap-tag">Table 5.8</span> Licensing Tiers</p>
-			<div class="tbl-wrap">
-				<table class="tbl">
-					<thead><tr><th>Tier</th><th>Access</th></tr></thead>
-					<tbody>
-						{#each TIERS as [tier, access] (tier)}<tr><td class="k">{tier}</td><td>{access}</td></tr>{/each}
-					</tbody>
-				</table>
-			</div>
-
-			<!-- The control-routines note: an aside, hairline-ruled off the left margin. -->
-			<aside class="note">
-				<p class="note-label">Note &mdash; Control Routines</p>
-				<ul class="note-list">
-					<li>Firmware stored in the core.</li>
-					<li>Govern draw rate, discharge curve, output type, delivery mode, and safety cutoffs.</li>
-					<li>Issued, updated, and revoked by the licensing authority.</li>
-					<li>Unlicensed modification is illegal.</li>
-					<li>Scaling is routine rating plus core size, not different physics.</li>
+				<!-- TABLE 5.3 — Input methods -->
+				<p class="tbl-cap"><span class="tbl-cap-tag">Table 5.3</span> Input Methods</p>
+				<div class="tbl-wrap">
+					<table class="tbl">
+						<thead><tr><th>Method</th><th>Controls</th><th>Ceiling</th></tr></thead>
+						<tbody>
+							{#each INPUTS as [m, ctrl, ceil] (m)}<tr
+									><td class="k">{m}</td><td>{ctrl}</td><td class="num">{ceil}</td></tr
+								>{/each}
+						</tbody>
+					</table>
+				</div>
+				<ul class="mastery">
+					<li>
+						<b>Voice mastery</b> &mdash; rapid chaining, complex conditionals, granular verbal precision,
+						hands-free invocation.
+					</li>
+					<li>
+						<b>Gesture mastery</b> &mdash; real-time shaping, sub-parameter control, hardware-limit efficiency,
+						multi-wand technique.
+					</li>
+					<li>
+						<b>Combined mastery</b> &mdash; both tracks at once: sustain a construct via gesture while
+						voice-invoking a secondary routine.
+					</li>
 				</ul>
-			</aside>
-		</div>
-	</section>
 
-	<!-- ── 6. Colophon ──────────────────────────────────────────────────────────── -->
-	<section class="chap" style="--i:6">
-		<div class="col">
-			<header class="ch-head">
-				<h2 class="ch-title"><span class="ch-num">6.</span> Colophon</h2>
-			</header>
-			<!-- The narrative implications kept as the designer's marginalia — what all the
+				<!-- TABLE 5.4 — Gesture to parameter -->
+				<p class="tbl-cap"><span class="tbl-cap-tag">Table 5.4</span> Gesture &rarr; Parameter</p>
+				<div class="tbl-wrap">
+					<table class="tbl">
+						<thead><tr><th>Gesture</th><th>Effect</th></tr></thead>
+						<tbody>
+							{#each GESTURES as [g, e] (g)}<tr><td class="k">{g}</td><td>{e}</td></tr>{/each}
+						</tbody>
+					</table>
+				</div>
+
+				<!-- TABLE 5.5 — Output types -->
+				<p class="tbl-cap"><span class="tbl-cap-tag">Table 5.5</span> Output Types</p>
+				<div class="tbl-wrap">
+					<table class="tbl">
+						<thead><tr><th>Output</th><th>Mechanism</th></tr></thead>
+						<tbody>
+							{#each OUTPUTS as [o, mech] (o)}<tr><td class="k">{o}</td><td>{mech}</td></tr>{/each}
+						</tbody>
+					</table>
+				</div>
+
+				<!-- TABLE 5.6 — Construct forms -->
+				<p class="body">
+					Constructs are not hard light but magnetically confined plasma &mdash; shaped by the
+					aperture, held by the frame&rsquo;s magnetic field, and sustained by continuous core draw.
+					They collapse on depletion.
+				</p>
+				<p class="tbl-cap"><span class="tbl-cap-tag">Table 5.6</span> Construct Forms</p>
+				<div class="tbl-wrap">
+					<table class="tbl">
+						<thead><tr><th>Form</th><th>Notes</th></tr></thead>
+						<tbody>
+							{#each FORMS as [form, notes] (form)}<tr><td class="k">{form}</td><td>{notes}</td></tr
+								>{/each}
+						</tbody>
+					</table>
+				</div>
+
+				<!-- TABLE 5.7 — Depletion states -->
+				<p class="tbl-cap"><span class="tbl-cap-tag">Table 5.7</span> Depletion States</p>
+				<div class="tbl-wrap">
+					<table class="tbl">
+						<thead><tr><th>State</th><th>Visual</th><th>Effect</th></tr></thead>
+						<tbody>
+							{#each DEPLETION as [state, vis, eff] (state)}<tr
+									><td class="k">{state}</td><td>{vis}</td><td>{eff}</td></tr
+								>{/each}
+						</tbody>
+					</table>
+				</div>
+				<p class="footnote">Depletion is visible to all &mdash; tactically significant.</p>
+
+				<!-- TABLE 5.8 — Licensing tiers -->
+				<p class="tbl-cap"><span class="tbl-cap-tag">Table 5.8</span> Licensing Tiers</p>
+				<div class="tbl-wrap">
+					<table class="tbl">
+						<thead><tr><th>Tier</th><th>Access</th></tr></thead>
+						<tbody>
+							{#each TIERS as [tier, access] (tier)}<tr
+									><td class="k">{tier}</td><td>{access}</td></tr
+								>{/each}
+						</tbody>
+					</table>
+				</div>
+
+				<!-- The control-routines note: an aside, hairline-ruled off the left margin. -->
+				<aside class="note">
+					<p class="note-label">Note &mdash; Control Routines</p>
+					<ul class="note-list">
+						<li>Firmware stored in the core.</li>
+						<li>
+							Govern draw rate, discharge curve, output type, delivery mode, and safety cutoffs.
+						</li>
+						<li>Issued, updated, and revoked by the licensing authority.</li>
+						<li>Unlicensed modification is illegal.</li>
+						<li>Scaling is routine rating plus core size, not different physics.</li>
+					</ul>
+				</aside>
+			</div>
+		</section>
+
+		<!-- ── 6. Colophon ──────────────────────────────────────────────────────────── -->
+		<section class="chap" style="--i:6">
+			<div class="col">
+				<header class="ch-head">
+					<h2 class="ch-title"><span class="ch-num">6.</span> Colophon</h2>
+				</header>
+				<!-- The narrative implications kept as the designer's marginalia — what all the
 			     above means at the table (Drafts §Narrative Implications). -->
-			<aside class="note">
-				<p class="note-label">Designer&rsquo;s Notes</p>
-				<ul class="note-list">
-					<li>Casting style is legible &mdash; masters identify training by gesture and voice pattern.</li>
-					<li>Construct color signals school, faction, or individual.</li>
-					<li>Wrist, hand, or voice injury carries real mechanical consequence.</li>
-					<li>Unlicensed routine modification is illegal &mdash; and interesting.</li>
-					<li>A depleted core in combat is a genuine crisis.</li>
-					<li>Combined masters are rare, and awe-inspiring.</li>
-				</ul>
-			</aside>
-			<div class="ticks" aria-hidden="true"></div>
-			<p class="colophon">Densette &mdash; The Curriculum &middot; Draft</p>
-			<p class="colophon">Set in Cobalt Ink on Paper &middot; Pixelite</p>
-			<p class="colophon">The Peaks University Press, 2172</p>
-		</div>
-	</section>
+				<aside class="note">
+					<p class="note-label">Designer&rsquo;s Notes</p>
+					<ul class="note-list">
+						<li>
+							Casting style is legible &mdash; masters identify training by gesture and voice
+							pattern.
+						</li>
+						<li>Construct color signals school, faction, or individual.</li>
+						<li>Wrist, hand, or voice injury carries real mechanical consequence.</li>
+						<li>Unlicensed routine modification is illegal &mdash; and interesting.</li>
+						<li>A depleted core in combat is a genuine crisis.</li>
+						<li>Combined masters are rare, and awe-inspiring.</li>
+					</ul>
+				</aside>
+				<div class="ticks" aria-hidden="true"></div>
+				<p class="colophon">Densette &mdash; The Curriculum &middot; Draft</p>
+				<p class="colophon">Set in Cobalt Ink on Paper &middot; Pixelite</p>
+				<p class="colophon">The Peaks University Press, 2172</p>
+			</div>
+		</section>
 	</div>
 </article>
 
@@ -479,7 +505,10 @@
 		--dens-sheet: light-dark(#ffffff, #202023);
 		--dens-paper: light-dark(#fbfbfb, #0e0e10);
 		--dens-accent: light-dark(#103dff, #607ffd);
-		--dens-hairline: var(--pixel-hairline, light-dark(rgba(0, 0, 0, 0.2), rgba(255, 255, 255, 0.2)));
+		--dens-hairline: var(
+			--pixel-hairline,
+			light-dark(rgba(0, 0, 0, 0.2), rgba(255, 255, 255, 0.2))
+		);
 		/* Densette's own type, the site's Pixelite trio (it prints as a Pixelite manual under any
 		   theme, so the stacks are stated outright, not borrowed from --font-* which move by theme):
 		   Space Mono chrome, Iowan Old Style serif, IBM Plex Sans body, VT323 pixel numerals. */

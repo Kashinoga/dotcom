@@ -64,7 +64,7 @@ const clusterAligned = (head) => {
 	const b = back.getBoundingClientRect();
 	const g = badge.getBoundingClientRect();
 	return {
-		drift: +Math.abs((b.top + b.height / 2) - (g.top + g.height / 2)).toFixed(1),
+		drift: +Math.abs(b.top + b.height / 2 - (g.top + g.height / 2)).toFixed(1),
 		sameSize: Math.round(b.height) === Math.round(g.height),
 		gap: +(g.left - b.right).toFixed(1)
 	};
@@ -77,16 +77,17 @@ const read = () => {
 	const compact = head?.querySelector('.head-title');
 	const back = head?.querySelector('.back');
 	const badgeEl = head?.querySelector('.app-badge');
-	const cluster = back && badgeEl
-		? (() => {
-				const b = back.getBoundingClientRect();
-				const g = badgeEl.getBoundingClientRect();
-				return {
-					drift: +Math.abs((b.top + b.height / 2) - (g.top + g.height / 2)).toFixed(1),
-					sameSize: Math.round(b.height) === Math.round(g.height)
-				};
-			})()
-		: null;
+	const cluster =
+		back && badgeEl
+			? (() => {
+					const b = back.getBoundingClientRect();
+					const g = badgeEl.getBoundingClientRect();
+					return {
+						drift: +Math.abs(b.top + b.height / 2 - (g.top + g.height / 2)).toFixed(1),
+						sameSize: Math.round(b.height) === Math.round(g.height)
+					};
+				})()
+			: null;
 	return {
 		cluster,
 		compact: compact ? compact.textContent.trim() : null,
@@ -94,7 +95,9 @@ const read = () => {
 		headHasBigTitle: !!head?.querySelector('.title-row'),
 		badge: !!head?.querySelector('.app-badge'),
 		// How much of the big title is still showing above the scroller's top edge.
-		visible: title ? Math.max(0, title.getBoundingClientRect().bottom - body.getBoundingClientRect().top) : null,
+		visible: title
+			? Math.max(0, title.getBoundingClientRect().bottom - body.getBoundingClientRect().top)
+			: null,
 		travel: body ? body.scrollHeight - body.clientHeight : 0
 	};
 };
@@ -107,23 +110,30 @@ const read = () => {
 // bug that wasn't one.
 const scrollBody = async (page, top) => {
 	await page.evaluate(
-		(t) => new Promise((done) => {
-			const el = document.querySelector('.surface-body');
-			el.scrollTo({ top: t });
-			requestAnimationFrame(() => requestAnimationFrame(done));
-		}),
+		(t) =>
+			new Promise((done) => {
+				const el = document.querySelector('.surface-body');
+				el.scrollTo({ top: t });
+				requestAnimationFrame(() => requestAnimationFrame(done));
+			}),
 		top
 	);
 	await page.waitForTimeout(600);
 };
 
 const browser = await firefox.launch();
-for (const vp of [{ width: 1400, height: 820 }, { width: 390, height: 844 }]) {
+for (const vp of [
+	{ width: 1400, height: 820 },
+	{ width: 390, height: 844 }
+]) {
 	console.log(`\n[${vp.width}px]`);
 	const ctx = await browser.newContext({ viewport: vp });
 	const page = await ctx.newPage();
 	await page.goto(B + '/', { waitUntil: 'domcontentloaded' });
-	await page.evaluate(() => { localStorage.setItem('ksh-sky', 'off'); localStorage.setItem('ksh-theme', 'light'); });
+	await page.evaluate(() => {
+		localStorage.setItem('ksh-sky', 'off');
+		localStorage.setItem('ksh-theme', 'light');
+	});
 
 	for (const [path, title] of Object.entries(MODEL)) {
 		await page.goto(B + path, { waitUntil: 'networkidle' });
@@ -131,12 +141,18 @@ for (const vp of [{ width: 1400, height: 820 }, { width: 390, height: 844 }]) {
 		const top = await page.evaluate(read);
 
 		ok(`${path}: badge beside Back`, top.badge);
-		ok(`${path}: Back and the badge share a centre line`,
+		ok(
+			`${path}: Back and the badge share a centre line`,
 			!!top.cluster && top.cluster.drift <= 1 && top.cluster.sameSize,
-			top.cluster ? `${top.cluster.drift}px drift, sameSize=${top.cluster.sameSize}` : 'no cluster');
+			top.cluster ? `${top.cluster.drift}px drift, sameSize=${top.cluster.sameSize}` : 'no cluster'
+		);
 		ok(`${path}: the big title is the body's first child`, top.bodyTitleIsFirst);
 		ok(`${path}: no title row left in the header`, !top.headHasBigTitle);
-		ok(`${path}: the bar is unnamed while the big title shows`, top.compact === null, top.compact ?? '');
+		ok(
+			`${path}: the bar is unnamed while the big title shows`,
+			top.compact === null,
+			top.compact ?? ''
+		);
 
 		await scrollBody(page, 1e6);
 		const down = await page.evaluate(read);
@@ -149,13 +165,21 @@ for (const vp of [{ width: 1400, height: 820 }, { width: 390, height: 844 }]) {
 		//                          which way you arrived, so asserting here would be inventing a
 		//                          contract the code doesn't have
 		if (down.visible <= 12) {
-			ok(`${path}: the bar picks up the name once the title clears`, down.compact === title,
-				`${down.compact ?? 'nothing'} (visible ${down.visible}px, travel ${Math.round(down.travel)}px)`);
+			ok(
+				`${path}: the bar picks up the name once the title clears`,
+				down.compact === title,
+				`${down.compact ?? 'nothing'} (visible ${down.visible}px, travel ${Math.round(down.travel)}px)`
+			);
 		} else if (down.visible >= 36) {
-			ok(`${path}: no handover while the big title is still visible`, down.compact === null,
-				`visible=${down.visible} compact=${down.compact ?? 'none'}`);
+			ok(
+				`${path}: no handover while the big title is still visible`,
+				down.compact === null,
+				`visible=${down.visible} compact=${down.compact ?? 'none'}`
+			);
 		} else {
-			console.log(`  ---   ${path}: ${down.visible}px of title left — inside the hysteresis band, not asserted`);
+			console.log(
+				`  ---   ${path}: ${down.visible}px of title left — inside the hysteresis band, not asserted`
+			);
 		}
 
 		// …and back up. The compact title has to LEAVE again, or it sits beside the badge with
@@ -182,9 +206,16 @@ for (const vp of [{ width: 1400, height: 820 }, { width: 390, height: 844 }]) {
 		});
 		ok(`${path}: wears the dense bar`, g.bar === true);
 		ok(`${path}: badge beside Back`, g.badge);
-		ok(`${path}: the bar carries the name outright`, g.headTitle === title, g.headTitle ?? 'nothing');
-		ok(`${path}: no big title anywhere`, !g.titleRow && !g.bodyTitle,
-			`titleRow=${g.titleRow} bodyTitle=${g.bodyTitle}`);
+		ok(
+			`${path}: the bar carries the name outright`,
+			g.headTitle === title,
+			g.headTitle ?? 'nothing'
+		);
+		ok(
+			`${path}: no big title anywhere`,
+			!g.titleRow && !g.bodyTitle,
+			`titleRow=${g.titleRow} bodyTitle=${g.bodyTitle}`
+		);
 		// The whole point of the dense bar: it's a control row, not a masthead.
 		ok(`${path}: the bar stays short`, g.headH > 0 && g.headH < 110, `${g.headH}px`);
 	}
@@ -211,40 +242,67 @@ for (const vp of [{ width: 1400, height: 820 }, { width: 390, height: 844 }]) {
 					const b = back.getBoundingClientRect();
 					const g = badge.getBoundingClientRect();
 					return {
-						drift: +Math.abs((b.top + b.height / 2) - (g.top + g.height / 2)).toFixed(1),
+						drift: +Math.abs(b.top + b.height / 2 - (g.top + g.height / 2)).toFixed(1),
 						sameSize: Math.round(b.height) === Math.round(g.height),
 						rowH: Math.round(head.querySelector('.head-row')?.getBoundingClientRect().height ?? 0)
 					};
 				})()
 			};
 		}, spec);
-		ok(`${path}: builds its own header, not the shared bar`, !g.sharedBar, `sharedBar=${g.sharedBar}`);
+		ok(
+			`${path}: builds its own header, not the shared bar`,
+			!g.sharedBar,
+			`sharedBar=${g.sharedBar}`
+		);
 		if (spec.head) ok(`${path}: its own header is there`, g.ownHead);
 
 		if (spec.model) {
 			// Unexpanded, the board wears the model in its own chrome: badge beside Back, big
 			// title in ITS scroller, nothing left in the bar but controls.
-			ok(`${path}: unexpanded wears the badge`, g.badge && g.mark, `badge=${g.badge} mark=${g.mark}`);
+			ok(
+				`${path}: unexpanded wears the badge`,
+				g.badge && g.mark,
+				`badge=${g.badge} mark=${g.mark}`
+			);
 			// The board is where this broke: Back kept its old above-the-title placement rules,
 			// which stretched the row and dropped the badge 20px below it.
-			ok(`${path}: Back and the badge share a centre line`,
+			ok(
+				`${path}: Back and the badge share a centre line`,
 				!!g.cluster && g.cluster.drift <= 1 && g.cluster.sameSize,
-				g.cluster ? `${g.cluster.drift}px drift, row ${g.cluster.rowH}px` : 'no cluster');
-			ok(`${path}: the control row is one disc tall`,
-				!!g.cluster && g.cluster.rowH <= 46, g.cluster ? `${g.cluster.rowH}px` : 'no row');
-			ok(`${path}: unexpanded moves its title into the body`, g.bodyTitleFirst && !g.bigTitleInHead,
-				`bodyFirst=${g.bodyTitleFirst} headTitle=${g.bigTitleInHead}`);
+				g.cluster ? `${g.cluster.drift}px drift, row ${g.cluster.rowH}px` : 'no cluster'
+			);
+			ok(
+				`${path}: the control row is one disc tall`,
+				!!g.cluster && g.cluster.rowH <= 46,
+				g.cluster ? `${g.cluster.rowH}px` : 'no row'
+			);
+			ok(
+				`${path}: unexpanded moves its title into the body`,
+				g.bodyTitleFirst && !g.bigTitleInHead,
+				`bodyFirst=${g.bodyTitleFirst} headTitle=${g.bigTitleInHead}`
+			);
 			ok(`${path}: unexpanded starts unnamed in the bar`, g.compact === null, g.compact ?? '');
 
-			await page.evaluate((sel) => new Promise((done) => {
-				const el = document.querySelector(sel);
-				el.scrollTo({ top: el.scrollHeight });
-				requestAnimationFrame(() => requestAnimationFrame(done));
-			}), spec.body);
+			await page.evaluate(
+				(sel) =>
+					new Promise((done) => {
+						const el = document.querySelector(sel);
+						el.scrollTo({ top: el.scrollHeight });
+						requestAnimationFrame(() => requestAnimationFrame(done));
+					}),
+				spec.body
+			);
 			await page.waitForTimeout(700);
-			const after = await page.evaluate((sel) =>
-				document.querySelector(sel)?.querySelector('.head-title')?.textContent.trim() ?? null, spec.head);
-			ok(`${path}: the bar picks up the name once its title clears`, after === spec.title, after ?? 'nothing');
+			const after = await page.evaluate(
+				(sel) =>
+					document.querySelector(sel)?.querySelector('.head-title')?.textContent.trim() ?? null,
+				spec.head
+			);
+			ok(
+				`${path}: the bar picks up the name once its title clears`,
+				after === spec.title,
+				after ?? 'nothing'
+			);
 
 			// EXPANDED is a different arrangement and deliberately keeps the old one: one super
 			// bar leading with the title and its bullet, no badge, no handover.
@@ -262,14 +320,22 @@ for (const vp of [{ width: 1400, height: 820 }, { width: 390, height: 844 }]) {
 						compact: !!head?.querySelector('.head-title')
 					};
 				}, spec);
-				ok(`${path}: expanded keeps its super bar's own title and bullet`,
-					exp.identTitle && exp.dot, `title=${exp.identTitle} dot=${exp.dot}`);
-				ok(`${path}: expanded grows no badge and no handover`,
+				ok(
+					`${path}: expanded keeps its super bar's own title and bullet`,
+					exp.identTitle && exp.dot,
+					`title=${exp.identTitle} dot=${exp.dot}`
+				);
+				ok(
+					`${path}: expanded grows no badge and no handover`,
 					!exp.badge && !exp.bodyTitle && !exp.compact,
-					`badge=${exp.badge} bodyTitle=${exp.bodyTitle} compact=${exp.compact}`);
+					`badge=${exp.badge} bodyTitle=${exp.bodyTitle} compact=${exp.compact}`
+				);
 			}
 		} else {
-			ok(`${path}: is always full-viewport, so no unexpanded header to move`, !g.badge && !g.bodyTitleFirst);
+			ok(
+				`${path}: is always full-viewport, so no unexpanded header to move`,
+				!g.badge && !g.bodyTitleFirst
+			);
 		}
 	}
 

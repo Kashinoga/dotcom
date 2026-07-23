@@ -82,14 +82,7 @@ export const current = (): Place => weather.places[weather.activeIdx] ?? DEFAULT
 // is the priority: precipitation beats cloud cover, because a rainy overcast day is a
 // rainy day. Anything unrecognised falls back to cloud rather than guessing.
 export type WeatherKind =
-	| 'storm'
-	| 'snow'
-	| 'rain'
-	| 'fog'
-	| 'wind'
-	| 'clear'
-	| 'partly'
-	| 'cloudy';
+	'storm' | 'snow' | 'rain' | 'fog' | 'wind' | 'clear' | 'partly' | 'cloudy';
 export function weatherKind(text: string): WeatherKind {
 	const t = text.toLowerCase();
 	if (/thunder|tstorm|squall/.test(t)) return 'storm';

@@ -114,16 +114,16 @@
 	/* The Making-Software "sheet of paper" shadow: a soft drop, a firm 1px ink line under
 	   the sheet, and an inset white top-light. Worn by the sheets and cards (--card-shadow
 	   above) and by the plastic keys' panels. */
-	--pixel-paper-shadow: 0 1px 4px 1px rgba(0, 0, 0, 0.05), 0 1px 1px 0 rgba(0, 0, 0, 0.5),
-		inset 0 -1px 1px 1px #fff;
+	--pixel-paper-shadow:
+		0 1px 4px 1px rgba(0, 0, 0, 0.05), 0 1px 1px 0 rgba(0, 0, 0, 0.5), inset 0 -1px 1px 1px #fff;
 	/* The plastic-key bevel and its pressed inversion — a raised white/dark rim that flips
 	   to sunken when a key is held down. (Dark stock re-tunes both in the @media block below:
 	   the bright white rim would flare on a dark face, so it drops to a faint top-light over a
 	   firm dark seat.) */
-	--pixel-bevel: inset 1px 1px 0 2px rgba(255, 255, 255, 0.75),
-		inset -1px -1px 0 2px rgba(0, 0, 0, 0.1);
-	--pixel-bevel-press: inset -1px -1px 0 2px rgba(255, 255, 255, 0.75),
-		inset 1px 1px 0 2px rgba(0, 0, 0, 0.1);
+	--pixel-bevel:
+		inset 1px 1px 0 2px rgba(255, 255, 255, 0.75), inset -1px -1px 0 2px rgba(0, 0, 0, 0.1);
+	--pixel-bevel-press:
+		inset -1px -1px 0 2px rgba(255, 255, 255, 0.75), inset 1px 1px 0 2px rgba(0, 0, 0, 0.1);
 	/* The plastic-key material, tokenised so it can flip by colour-scheme (every control below
 	   reads these instead of literals). Light is unchanged — the white/50 face and ink/50 rule
 	   the keys always wore. Dark reverses the logic a translucent white face can't survive on a
@@ -150,14 +150,15 @@
 	--card-border: rgba(255, 255, 255, 0.28);
 	/* The print shadow's inset white would glow on a dark sheet — a plain grounding drop and a
 	   firm under-line, plus a faint top rim-light so the sheet still reads as raised paper. */
-	--card-shadow: 0 1px 4px 1px rgba(0, 0, 0, 0.45), 0 1px 1px 0 rgba(0, 0, 0, 0.6),
+	--card-shadow:
+		0 1px 4px 1px rgba(0, 0, 0, 0.45), 0 1px 1px 0 rgba(0, 0, 0, 0.6),
 		inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
 	/* Plastic-key bevel for dark: a faint top-left light rim over a firm bottom-right dark seat
 	   (the light bevel's bright white rim would flare on the dark face). Pressed inverts it. */
-	--pixel-bevel: inset 1px 1px 0 2px rgba(255, 255, 255, 0.14),
-		inset -1px -1px 0 2px rgba(0, 0, 0, 0.5);
-	--pixel-bevel-press: inset -1px -1px 0 2px rgba(255, 255, 255, 0.14),
-		inset 1px 1px 0 2px rgba(0, 0, 0, 0.5);
+	--pixel-bevel:
+		inset 1px 1px 0 2px rgba(255, 255, 255, 0.14), inset -1px -1px 0 2px rgba(0, 0, 0, 0.5);
+	--pixel-bevel-press:
+		inset -1px -1px 0 2px rgba(255, 255, 255, 0.14), inset 1px 1px 0 2px rgba(0, 0, 0, 0.5);
 }
 
 /* IN ORBIT the ranger's chrome joins the night side even under a light scheme. The shared
@@ -170,10 +171,10 @@
 html[data-look='pixelite'] .surface-head.bar.orbit,
 html[data-look='pixelite'] .surface-body.ranger.orbit,
 html[data-look='pixelite'] .surface-backdrop.orbit {
-	--pixel-bevel: inset 1px 1px 0 2px rgba(255, 255, 255, 0.14),
-		inset -1px -1px 0 2px rgba(0, 0, 0, 0.5);
-	--pixel-bevel-press: inset -1px -1px 0 2px rgba(255, 255, 255, 0.14),
-		inset 1px 1px 0 2px rgba(0, 0, 0, 0.5);
+	--pixel-bevel:
+		inset 1px 1px 0 2px rgba(255, 255, 255, 0.14), inset -1px -1px 0 2px rgba(0, 0, 0, 0.5);
+	--pixel-bevel-press:
+		inset -1px -1px 0 2px rgba(255, 255, 255, 0.14), inset 1px 1px 0 2px rgba(0, 0, 0, 0.5);
 }
 
 /* Pre-existing OS-keyed dark stock (the puhig Card's seams/grooves/grid/sleeve — not touched

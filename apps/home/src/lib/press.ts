@@ -52,7 +52,10 @@ export function installTapPress(): () => void {
 			const node = el;
 			window.clearTimeout(timers.get(node));
 			node.classList.add('btn-tap');
-			timers.set(node, window.setTimeout(() => node.classList.remove('btn-tap'), FLOOR_MS));
+			timers.set(
+				node,
+				window.setTimeout(() => node.classList.remove('btn-tap'), FLOOR_MS)
+			);
 			return;
 		}
 	};

@@ -339,9 +339,7 @@
 		const H = (lstDeg - ra) * RAD;
 		const d = dec * RAD;
 		const lat = latDeg * RAD;
-		const alt = Math.asin(
-			Math.sin(d) * Math.sin(lat) + Math.cos(d) * Math.cos(lat) * Math.cos(H)
-		);
+		const alt = Math.asin(Math.sin(d) * Math.sin(lat) + Math.cos(d) * Math.cos(lat) * Math.cos(H));
 		// atan2 form measures from SOUTH turning west; +180 re-zeros it to north-through-east.
 		const az =
 			Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(lat) - Math.tan(d) * Math.cos(lat)) / RAD +
@@ -352,7 +350,8 @@
 	function sunRaDec(ms: number): [number, number] {
 		const n = daysJ2000(ms);
 		const g = (357.528 + 0.9856003 * n) * RAD;
-		const lambda = (280.46 + 0.9856474 * n) * RAD + (1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * RAD;
+		const lambda =
+			(280.46 + 0.9856474 * n) * RAD + (1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * RAD;
 		const eps = (23.439 - 0.0000004 * n) * RAD;
 		return [
 			Math.atan2(Math.cos(eps) * Math.sin(lambda), Math.cos(lambda)) / RAD,
@@ -779,7 +778,9 @@
 			     the left edge, and the global controls gathered at the right end — Home, then
 			     the location disc capping the row. -->
 			<div class="ident">
-				<h2 class="dest">{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
+				<h2 class="dest">
+					{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}
+				</h2>
 				<div class="head-refresh">{@render accentDot()}</div>
 			</div>
 			<div class="deck">
@@ -918,24 +919,44 @@
 							aria-label={storyWide ? 'Shrink the card' : 'Read more here'}
 							title={storyWide ? 'Shrink' : 'Read more here'}
 							onclick={() => (storyWide = !storyWide)}
-						>{@html storyWide ? MINIMIZE_SVG : MAXIMIZE_SVG}</button>
-						<button type="button" class="icon-btn" aria-label="Close" onclick={() => (picked = null)}>{@html CLOSE_SVG}</button>
+							>{@html storyWide ? MINIMIZE_SVG : MAXIMIZE_SVG}</button
+						>
+						<button
+							type="button"
+							class="icon-btn"
+							aria-label="Close"
+							onclick={() => (picked = null)}>{@html CLOSE_SVG}</button
+						>
 					</div>
 				</div>
 				{#if cardLoading}
 					<p class="sm-story-note" style="--n:1">Looking it up…</p>
 				{:else if cardError}
-					<p class="sm-story-note" style="--n:1">Wikipedia didn’t answer — try again in a moment.</p>
+					<p class="sm-story-note" style="--n:1">
+						Wikipedia didn’t answer — try again in a moment.
+					</p>
 				{:else if card}
 					<div class="sm-story-body" style="--n:1">
 						{#if card.thumb}
-							<img src={storyWide ? (card.thumbBig ?? card.thumb) : card.thumb} alt={card.title} loading="lazy" />
+							<img
+								src={storyWide ? (card.thumbBig ?? card.thumb) : card.thumb}
+								alt={card.title}
+								loading="lazy"
+							/>
 						{/if}
 						<p class="sm-story-extract">{card.extract}</p>
 					</div>
 					{#if card.url}
-						<a class="sm-story-link" style="--n:0" href={card.url} target="_blank" rel="noreferrer noopener">
-							Read the full article on Wikipedia<span class="sm-story-ext">{@html EXTERNAL_SVG}</span>
+						<a
+							class="sm-story-link"
+							style="--n:0"
+							href={card.url}
+							target="_blank"
+							rel="noreferrer noopener"
+						>
+							Read the full article on Wikipedia<span class="sm-story-ext"
+								>{@html EXTERNAL_SVG}</span
+							>
 						</a>
 					{/if}
 				{/if}

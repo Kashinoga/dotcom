@@ -9,7 +9,20 @@ const ok = (name, pass, detail = '') => {
 };
 
 const AC = [
-	{ hex: 'a1b2c3', flight: 'GCC201 ', t: 'B763', r: 'N741CX', ownOp: 'DELTA', desc: 'B763', lat: 41.55, lon: -93.67, alt_baro: 4200, gs: 240, track: 310, baro_rate: -900 }
+	{
+		hex: 'a1b2c3',
+		flight: 'GCC201 ',
+		t: 'B763',
+		r: 'N741CX',
+		ownOp: 'DELTA',
+		desc: 'B763',
+		lat: 41.55,
+		lon: -93.67,
+		alt_baro: 4200,
+		gs: 240,
+		track: 310,
+		baro_rate: -900
+	}
 ];
 
 const browser = await firefox.launch();
@@ -52,20 +65,32 @@ const refreshSel = (page) => page.locator('select[aria-label="Auto-refresh inter
 {
 	const { ctx, page } = await open(`${ATFC}?range=150`);
 	ok('?range=150 survives', url(page) === `${ATFC}?range=150`, url(page));
-	ok('?range=150 selects 150 in the control', (await rangeSel(page).inputValue()) === '150', await rangeSel(page).inputValue());
+	ok(
+		'?range=150 selects 150 in the control',
+		(await rangeSel(page).inputValue()) === '150',
+		await rangeSel(page).inputValue()
+	);
 	await ctx.close();
 }
 {
 	// The default field is GRACEMERIA, whose traffic is canned — it never calls /api/traffic.
 	// Pick a live field to see the radius actually reach the upstream feed.
 	const { ctx, page, dists } = await open(`${ATFC}?field=dsm&range=150`);
-	ok('?range= reaches the upstream feed as dist=', dists.includes('150'), dists.join(',') || '(no upstream calls)');
+	ok(
+		'?range= reaches the upstream feed as dist=',
+		dists.includes('150'),
+		dists.join(',') || '(no upstream calls)'
+	);
 	await ctx.close();
 }
 {
 	const { ctx, page } = await open(`${ATFC}?refresh=5m`);
 	ok('?refresh=5m survives', url(page) === `${ATFC}?refresh=5m`, url(page));
-	ok('?refresh=5m selects 300000ms in the control', (await refreshSel(page).inputValue()) === '300000', await refreshSel(page).inputValue());
+	ok(
+		'?refresh=5m selects 300000ms in the control',
+		(await refreshSel(page).inputValue()) === '300000',
+		await refreshSel(page).inputValue()
+	);
 	await ctx.close();
 }
 
@@ -78,7 +103,11 @@ for (const [q, why] of [
 ]) {
 	const { ctx, page } = await open(ATFC + q);
 	ok(`${q} (${why}) is dropped`, url(page) === ATFC, url(page));
-	ok(`${q} leaves the board on its defaults`, (await rangeSel(page).inputValue()) === '60' && (await refreshSel(page).inputValue()) === '60000');
+	ok(
+		`${q} leaves the board on its defaults`,
+		(await rangeSel(page).inputValue()) === '60' &&
+			(await refreshSel(page).inputValue()) === '60000'
+	);
 	await ctx.close();
 }
 
@@ -148,8 +177,16 @@ for (const [q, why] of [
 	ok('starts at 100', (await rangeSel(page).inputValue()) === '100');
 	await page.goto(`${B}${ATFC}?field=dsm&range=250`, { waitUntil: 'networkidle' });
 	await page.waitForTimeout(1800);
-	ok('a real navigation re-seeds the board to 250', (await rangeSel(page).inputValue()) === '250', await rangeSel(page).inputValue());
-	ok('and re-polls upstream at dist=250', dists.includes('250'), dists.join(',') || '(no upstream calls)');
+	ok(
+		'a real navigation re-seeds the board to 250',
+		(await rangeSel(page).inputValue()) === '250',
+		await rangeSel(page).inputValue()
+	);
+	ok(
+		'and re-polls upstream at dist=250',
+		dists.includes('250'),
+		dists.join(',') || '(no upstream calls)'
+	);
 	await ctx.close();
 }
 
@@ -164,7 +201,11 @@ for (const [q, why] of [
 	await page.goBack();
 	await page.waitForTimeout(1600);
 	ok('back restores the board URL with its range', url(page) === `${ATFC}?range=100`, url(page));
-	ok('back restores the range control itself', (await rangeSel(page).inputValue()) === '100', await rangeSel(page).inputValue());
+	ok(
+		'back restores the range control itself',
+		(await rangeSel(page).inputValue()) === '100',
+		await rangeSel(page).inputValue()
+	);
 	await ctx.close();
 }
 
@@ -173,7 +214,11 @@ for (const [q, why] of [
 // already does. Nothing consumes them, and nothing rewrites them.
 {
 	const { ctx, page } = await open('/settings?range=100&refresh=5m');
-	ok('another panel leaves the board params alone', url(page) === '/settings?range=100&refresh=5m', url(page));
+	ok(
+		'another panel leaves the board params alone',
+		url(page) === '/settings?range=100&refresh=5m',
+		url(page)
+	);
 	await ctx.close();
 }
 {

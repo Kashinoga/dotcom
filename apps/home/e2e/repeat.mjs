@@ -10,7 +10,10 @@ const ok = (name, pass, detail = '') => {
 };
 
 const browser = await firefox.launch();
-const page = await browser.newPage({ viewport: { width: 1600, height: 1000 }, acceptDownloads: true });
+const page = await browser.newPage({
+	viewport: { width: 1600, height: 1000 },
+	acceptDownloads: true
+});
 const errors = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 
@@ -36,19 +39,29 @@ const groups = (html) => (html.match(/class="ticker-group"/g) ?? []).length;
 // ── 1. The control exists and shows the count the file arrived with ──
 {
 	ok('repeat control is present', await repeat.isVisible());
-	ok('it is not a .ticker-row (that class means "a phrase")',
-		(await page.locator('.ticker-row #ticker-repeat').count()) === 0);
+	ok(
+		'it is not a .ticker-row (that class means "a phrase")',
+		(await page.locator('.ticker-row #ticker-repeat').count()) === 0
+	);
 	ok('phrase rows are unaffected', (await phrases.count()) === 3, String(await phrases.count()));
 	// The bundled demo deck: 3 phrases x 2 = 6 items per strip, 12 across both strips.
 	// parseTicker reads the FIRST group only, so the repeat it recovers is 2, not 4.
-	ok("shows the loaded file's repeat (2)", (await repeat.inputValue()) === '2', await repeat.inputValue());
+	ok(
+		"shows the loaded file's repeat (2)",
+		(await repeat.inputValue()) === '2',
+		await repeat.inputValue()
+	);
 }
 
 // ── 2. Round-trip untouched: the export matches what came in ──
 {
 	const html = await exportedDoc();
 	ok('export has two strips', groups(html) === 2, String(groups(html)));
-	ok('untouched export keeps 3x2 per strip (12 total)', countItems(html) === 12, String(countItems(html)));
+	ok(
+		'untouched export keeps 3x2 per strip (12 total)',
+		countItems(html) === 12,
+		String(countItems(html))
+	);
 }
 
 // ── 3. Changing it re-expands BOTH strips ──
@@ -60,8 +73,13 @@ const groups = (html) => (html.match(/class="ticker-group"/g) ?? []).length;
 	ok('both strips still present', groups(html) === 2, String(groups(html)));
 	// The two strips must stay identical, or the -50% scroll seams.
 	const [a, b] = html.split('class="ticker-group"').slice(1);
-	const itemsOf = (s) => (s.slice(0, s.indexOf('</div>')).match(/class="ticker-item">([^<]*)</g) ?? []).join('|');
-	ok('both strips carry identical items', itemsOf(a) === itemsOf(b), `${itemsOf(a)}\n vs \n${itemsOf(b)}`);
+	const itemsOf = (s) =>
+		(s.slice(0, s.indexOf('</div>')).match(/class="ticker-item">([^<]*)</g) ?? []).join('|');
+	ok(
+		'both strips carry identical items',
+		itemsOf(a) === itemsOf(b),
+		`${itemsOf(a)}\n vs \n${itemsOf(b)}`
+	);
 }
 
 // ── 4. It composes with phrase edits ──
@@ -71,9 +89,16 @@ const groups = (html) => (html.match(/class="ticker-group"/g) ?? []).length;
 	await repeat.fill('3');
 	await page.waitForTimeout(400);
 	const html = await exportedDoc();
-	ok('repeat=3 with 3 phrases → 9 per strip (18 total)', countItems(html) === 18, String(countItems(html)));
-	ok('the edited phrase is written 6 times (3 per strip)',
-		(html.match(/Mind the gap/g) ?? []).length === 6, String((html.match(/Mind the gap/g) ?? []).length));
+	ok(
+		'repeat=3 with 3 phrases → 9 per strip (18 total)',
+		countItems(html) === 18,
+		String(countItems(html))
+	);
+	ok(
+		'the edited phrase is written 6 times (3 per strip)',
+		(html.match(/Mind the gap/g) ?? []).length === 6,
+		String((html.match(/Mind the gap/g) ?? []).length)
+	);
 }
 
 // ── 5. Bounds: clamped on edit, never collapsed while mid-typing ──
@@ -82,18 +107,30 @@ const groups = (html) => (html.match(/class="ticker-group"/g) ?? []).length;
 	await page.waitForTimeout(300);
 	// The field keeps whatever was typed; what matters is the value the export uses.
 	let html = await exportedDoc();
-	ok('0 clamps up to 1 — the export writes one cycle, not zero', countItems(html) === 6, String(countItems(html)));
+	ok(
+		'0 clamps up to 1 — the export writes one cycle, not zero',
+		countItems(html) === 6,
+		String(countItems(html))
+	);
 
 	await repeat.fill('999');
 	await page.waitForTimeout(300);
 	html = await exportedDoc();
-	ok('999 clamps to the maximum 24 (3×24×2 = 144)', countItems(html) === 144, String(countItems(html)));
+	ok(
+		'999 clamps to the maximum 24 (3×24×2 = 144)',
+		countItems(html) === 144,
+		String(countItems(html))
+	);
 
 	// An empty field is mid-typing, not "zero": it must not rewrite the value under the cursor.
 	await repeat.fill('');
 	await page.waitForTimeout(300);
 	html = await exportedDoc();
-	ok('an empty field leaves the last good value alone', countItems(html) === 144, String(countItems(html)));
+	ok(
+		'an empty field leaves the last good value alone',
+		countItems(html) === 144,
+		String(countItems(html))
+	);
 }
 
 // ── 6. Editing it marks the deck dirty (Save was already enabled; check the flag path) ──
@@ -104,7 +141,11 @@ const groups = (html) => (html.match(/class="ticker-group"/g) ?? []).length;
 	await repeat.fill('5');
 	await page.waitForTimeout(300);
 	const html = await exportedDoc();
-	ok('a fresh deck honours the new repeat (3×5×2 = 30)', countItems(html) === 30, String(countItems(html)));
+	ok(
+		'a fresh deck honours the new repeat (3×5×2 = 30)',
+		countItems(html) === 30,
+		String(countItems(html))
+	);
 }
 
 ok('no page errors', errors.length === 0, errors.join(' | '));
