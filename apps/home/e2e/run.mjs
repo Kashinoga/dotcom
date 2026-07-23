@@ -106,8 +106,17 @@ const PANEL_UI = ['dots', 'header', 'noshadow', 'glass', 'pcclose'];
 // are currently parked (see SKIP); the parked ones are filtered out at run time, so this map
 // stays the TRUE coupling and un-parking a suite needs no edit here.
 const NARROW = [
-	{ re: /^src\/lib\/network\.ts$/, suites: ['maplayout', 'hubsize', 'dots'] },
+	// The register of places ($lib/places) — one entry per place, and every panel's title, accent,
+	// mark, favicon, chrome and cards derive from it. It replaced $lib/network, whose entry here
+	// still named `maplayout` and `hubsize`: two suites deleted with the route map. They were
+	// filtered out at run time as "parked", so a change to the site's shape quietly selected one
+	// live suite. The three below are the ones that can actually see this file change: `masthead`
+	// reads the titles, `dots` the accents, `deeplink` the hierarchy the URLs come from.
+	{ re: /^src\/lib\/places\.ts$/, suites: ['masthead', 'dots', 'deeplink', 'cards'] },
 	{ re: /^src\/lib\/views\.ts$/, suites: ['deeplink', 'dots'] },
+	// The written copy. It is data now, so editing a paragraph no longer touches the page — but
+	// the panels that render it are still laid out around it.
+	{ re: /^src\/lib\/content\.(ts|json)$/, suites: ['masthead', 'cards'] },
 	{ re: /^src\/lib\/scope\.ts$/, suites: ['scope', 'field'] },
 	{ re: /^src\/lib\/fields\.ts$/, suites: ['field', 'scope', 'oplong'] },
 	{ re: /^src\/params\/view\.ts$/, suites: ['deeplink'] },
