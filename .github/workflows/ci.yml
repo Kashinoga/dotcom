@@ -72,13 +72,32 @@ jobs:
       # half-empty Apps panel to Safari. So all three are installed, always.
       - run: pnpm --filter home exec playwright install --with-deps firefox chromium webkit
 
+      # The output is teed, not just streamed, because `--changed` can legitimately select NOTHING
+      # — a pull request that only touches CI, config or docs changes no runtime file. That run
+      # exits 0 having tested nothing, and in the checks list a vacuous pass looks exactly like a
+      # real one. It read as evidence once already, which is worse than a failure.
+      #
+      # So the step says what it selected, in the job summary, where the answer is next to the
+      # tick rather than twenty screens into a log.
       - name: Run suites
         run: |
+          set -o pipefail
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            pnpm --filter home test:e2e --changed=origin/${{ github.base_ref }}
+            pnpm --filter home test:e2e --changed=origin/${{ github.base_ref }} 2>&1 | tee e2e.out
           else
-            pnpm --filter home test:e2e
+            pnpm --filter home test:e2e 2>&1 | tee e2e.out
           fi
+          status=$?
+          if grep -q "nothing to run" e2e.out; then
+            echo "### Browser suites: SKIPPED" >> "$GITHUB_STEP_SUMMARY"
+            echo "No runtime-affecting file changed, so \`--changed\` selected no suites." >> "$GITHUB_STEP_SUMMARY"
+            echo "**This run tested nothing.** A green tick here is not evidence." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Browser suites" >> "$GITHUB_STEP_SUMMARY"
+            sed 's/\x1b\[[0-9;]*m//g' e2e.out | grep -E "e2e would run|suites? failed|^[0-9]+/[0-9]+ passed" \
+              | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY" || true
+          fi
+          exit $status
 
       # A failing visual suite is close to unreadable without the screenshot it compared.
       - uses: actions/upload-artifact@v4
