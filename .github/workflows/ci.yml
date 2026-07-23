@@ -72,13 +72,10 @@ jobs:
       # half-empty Apps panel to Safari. So all three are installed, always.
       - run: pnpm --filter home exec playwright install --with-deps firefox chromium webkit
 
+      # BASELINE ONLY: always the full suite. `--changed` selects nothing here, because this
+      # branch touches no runtime file — which passes vacuously and measures nothing.
       - name: Run suites
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            pnpm --filter home test:e2e --changed=origin/${{ github.base_ref }}
-          else
-            pnpm --filter home test:e2e
-          fi
+        run: pnpm --filter home test:e2e
 
       # A failing visual suite is close to unreadable without the screenshot it compared.
       - uses: actions/upload-artifact@v4
