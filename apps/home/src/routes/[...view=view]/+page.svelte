@@ -2569,7 +2569,6 @@
 							code={v.code}
 							title={port.title}
 							expanded={panelExpanded}
-							onback={goBack}
 							onhome={() => home()}
 							edit={dev && editMode}
 							copyText={settingsText}
@@ -5052,10 +5051,18 @@
 	}
 	/* FLAT keeps the station-accent hover; Bubble hovers like every aero control — the
 	   family gloss brighten and face firming, no orange (see the bubble hover lists). */
-	:global(html:not([data-ui='bubble'])) .app-card:hover,
 	:global(html:not([data-ui='bubble'])) .app-card:focus-visible {
 		border-color: var(--card-accent);
 		background: color-mix(in srgb, var(--card-accent) 8%, transparent);
+	}
+	/* Hover accent is fine-pointer only — see the spring note; on touch a scroll
+	   would drag this station colour from card to card and leave it stuck. Focus
+	   (above) stays universal for the keyboard. */
+	@media (hover: hover) {
+		:global(html:not([data-ui='bubble'])) .app-card:hover {
+			border-color: var(--card-accent);
+			background: color-mix(in srgb, var(--card-accent) 8%, transparent);
+		}
 	}
 	/* The mark sits in the station's own accent — the same colour its dot carries everywhere else. */
 	.app-ico {
@@ -5255,31 +5262,38 @@
 	}
 
 	@media (prefers-reduced-motion: no-preference) {
-		:global(html:root .seg:hover:not(:disabled)),
-		:global(html:root .sky-opt:hover:not(:disabled)),
-		:global(html:root .photo-toggle:hover:not(:disabled)),
-:global(html:root .icon-btn:hover:not(:disabled)),
-		:global(html:root .edit-enter:hover:not(:disabled)),
-		:global(html:root .edit-btn:hover:not(:disabled)),
-		:global(html:root .chip:hover:not(:disabled)),
-		:global(html:root .legend-btn:hover:not(:disabled)),
-		:global(html:root .field:hover:not(:disabled)),
-		:global(html:root .field-select:hover:not(:disabled)),
-		:global(html:root .type-btn:hover:not(:disabled)),
-		:global(html:root .pc-close:hover:not(:disabled)),
-		:global(html:root .manual:hover:not(:disabled)),
-		:global(html:root .tb:hover:not(:disabled)),
-		:global(html:root .mini:hover:not(:disabled)),
-		:global(html:root .swatch-btn:hover:not(:disabled)),
-		:global(html:root .app-card:hover:not(:disabled)),
-		:global(html:root .pud-extract:hover:not(:disabled)),
-		:global(html:root .pud-boost:hover:not(:disabled)),
-		:global(html:root .pud-buy:hover:not(:disabled)),
-		:global(html:root .pud-reset:hover:not(:disabled)),
-		:global(html:root .pud-pauseall:hover:not(:disabled)),
-		:global(html:root .beta:hover:not(:disabled)),
-		:global(html:root .pud-item-switch:hover:not(:disabled)) {
-			transform: scale(var(--btn-hover-scale));
+		/* The spring's forward pop is a HOVER gesture — gate it to a hover-capable
+		   pointer so touch never leaves it stuck. A finger scrolling over a card (or
+		   chip) fires a phantom :hover that sticks until the next tap elsewhere; on
+		   mouse the media query passes and nothing changes. The :active press below
+		   stays universal — touch still gets its press feedback. */
+		@media (hover: hover) {
+			:global(html:root .seg:hover:not(:disabled)),
+			:global(html:root .sky-opt:hover:not(:disabled)),
+			:global(html:root .photo-toggle:hover:not(:disabled)),
+			:global(html:root .icon-btn:hover:not(:disabled)),
+			:global(html:root .edit-enter:hover:not(:disabled)),
+			:global(html:root .edit-btn:hover:not(:disabled)),
+			:global(html:root .chip:hover:not(:disabled)),
+			:global(html:root .legend-btn:hover:not(:disabled)),
+			:global(html:root .field:hover:not(:disabled)),
+			:global(html:root .field-select:hover:not(:disabled)),
+			:global(html:root .type-btn:hover:not(:disabled)),
+			:global(html:root .pc-close:hover:not(:disabled)),
+			:global(html:root .manual:hover:not(:disabled)),
+			:global(html:root .tb:hover:not(:disabled)),
+			:global(html:root .mini:hover:not(:disabled)),
+			:global(html:root .swatch-btn:hover:not(:disabled)),
+			:global(html:root .app-card:hover:not(:disabled)),
+			:global(html:root .pud-extract:hover:not(:disabled)),
+			:global(html:root .pud-boost:hover:not(:disabled)),
+			:global(html:root .pud-buy:hover:not(:disabled)),
+			:global(html:root .pud-reset:hover:not(:disabled)),
+			:global(html:root .pud-pauseall:hover:not(:disabled)),
+			:global(html:root .beta:hover:not(:disabled)),
+			:global(html:root .pud-item-switch:hover:not(:disabled)) {
+				transform: scale(var(--btn-hover-scale));
+			}
 		}
 		:global(html:root .seg:active:not(:disabled)),
 		:global(html:root .sky-opt:active:not(:disabled)),
@@ -5419,6 +5433,9 @@
 		color: var(--ink);
 		border-color: color-mix(in srgb, var(--ink) 16%, transparent);
 	}
+	/* Bubble flat-scheme hover recolour — fine-pointer only; touch scroll would
+	   smear this fill across the cards and controls it slides over. */
+	@media (hover: hover) {
 	:global(html[data-ui='bubble']:not(.scheme-dark) .seg:not(.on):hover:not(:disabled)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .sky-opt:not(.on):hover:not(:disabled)),
 	:global(html[data-ui='bubble']:not(.scheme-dark) .chip:not(.on):hover:not(:disabled)),
@@ -5437,6 +5454,7 @@
 		background: rgba(255, 255, 255, 0.36);
 		color: var(--ink);
 		border-color: color-mix(in srgb, var(--ink) 24%, transparent);
+	}
 	}
 	/* Two-line settings segments stay softly rounded rather than full pill. */
 	:global(html[data-ui='bubble'] .seg) {
@@ -5501,7 +5519,9 @@
 	}
 
 	/* Hover: brighten the gloss and lift the drop so the button reads as inflating toward
-	   you; the scale-forward (motion) is gated on reduced-motion below. */
+	   you; the scale-forward (motion) is gated on reduced-motion below. Hover-capable
+	   pointers only — on touch this gloss would cling to whatever a scroll drags over. */
+	@media (hover: hover) {
 	:global(html[data-ui='bubble'] .seg:hover:not(:disabled)),
 	:global(html[data-ui='bubble'] .sky-opt:hover:not(:disabled)),
 	:global(html[data-ui='bubble'] .icon-btn:hover:not(:disabled)),
@@ -5520,6 +5540,7 @@
 			inset 0 7px 10px -8px rgba(255, 255, 255, 0.7),
 			0 2px 5px rgba(8, 10, 14, 0.07),
 			0 9px 22px rgba(8, 10, 14, 0.1);
+	}
 	}
 	/* (A selected control used to restate a lit-hover stack here so the plain hover rule
 	   wouldn't strip its halo — retired with the halo itself: selected is a GRAY FILL now

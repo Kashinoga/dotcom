@@ -6,15 +6,11 @@
 	import SplitFlap from '$lib/SplitFlap.svelte';
 	import {
 		EXTERNAL_SVG,
-		ARROW_LEFT_SVG,
 		REFRESH_SVG,
 		MAXIMIZE_SVG,
 		MINIMIZE_SVG,
-		HOME_SVG,
-		AIRPLANE_SVG
+		HOME_SVG
 	} from '$lib/icons';
-	import { fly } from 'svelte/transition';
-	import { backOut } from 'svelte/easing';
 	import { AIRPORTS, DEFAULT_FIELD, fieldByIata, type Airport } from '$lib/fields';
 	import { RANGES, DEFAULT_RANGE, INTERVALS, DEFAULT_POLL_MS } from '$lib/scope';
 
@@ -28,13 +24,12 @@
 	// in the expanded wide layout, its controls + a live summary can sit beside the
 	// "Air Traffic" title in the fixed header instead of leaving that space empty. The
 	// parent passes the panel chrome it can't reach from here: title, station code, the
-	// back handler, the expanded flag, and the Connections nav (as a snippet).
+	// Home handler, and the expanded flag.
 	let {
 		accent = '#f06030',
 		code = '',
 		title = '',
 		expanded = false,
-		onback,
 		onhome,
 		onToggleExpand,
 		edit = false,
@@ -51,9 +46,9 @@
 		code?: string;
 		title?: string;
 		expanded?: boolean;
-		onback?: () => void;
-		// Expanded only: the super bar trades Back for a Home cap (see the bar markup) —
-		// straight to the homepage, since "one step back" is the compact panel's idiom.
+		// Home cap, in BOTH the wide deck and the mobile superbar — the full-viewport board has
+		// no compact shape to peel back to, so its way out is straight to the homepage. (The
+		// Back/down-arrow cap that used to live in the mobile header was dropped with the badge.)
 		onhome?: () => void;
 		onToggleExpand?: () => void;
 		// The field this board opens on, as an IATA code, resolved from `?field=` by the
@@ -891,28 +886,11 @@
 	// itself and the header would flap open and shut. Collapse deep (64), reopen only
 	// near the top (8) — the states can't chase each other.
 	let headCollapsed = $state(false);
-	// The COMPACT board is on the new header model, like every ordinary panel: the accent
-	// bullet is a badge beside Back and the big title lives at the top of the scrolling body,
-	// so it scrolls away and hands the naming to a compact title in the bar. The expanded
-	// board is untouched — its super bar is one row that already leads with the title, and it
-	// has no separate scroller to hand anything over to.
-	let bodyTitleEl = $state<HTMLElement | undefined>(undefined);
-	let headTitleShown = $state(false);
-	// Same measurement as the panels' (see syncSurfaceScroll in the catch-all page): how much
-	// of the big title is still showing above the scroller's top edge, from LIVE RECTS — not
-	// offsetTop against scrollTop, which is measured from the offset parent and would carry the
-	// header's height. The hysteresis band scales with the title so it can never exceed it.
-	function syncHeadTitle(scroller: HTMLElement) {
-		if (!bodyTitleEl) return;
-		const r = bodyTitleEl.getBoundingClientRect();
-		const visible = Math.max(0, r.bottom - scroller.getBoundingClientRect().top);
-		const hideAt = Math.max(16, Math.min(36, r.height * 0.6));
-		headTitleShown = headTitleShown ? visible < hideAt : visible <= 12;
-	}
-	// Expanding hands the title back to the super bar, so the compact one must not linger.
-	$effect(() => {
-		if (showDeck) headTitleShown = false;
-	});
+	// The COMPACT board names itself in its superbar, permanently — the mobile bar always shows
+	// the board title (.head-title), so there is no big hero title in the scrolling body and no
+	// scroll-reveal to run. (This used to measure the body title's live rect and hand the name up
+	// to the bar as it scrolled by; the body title was removed, so all of that went with it.) The
+	// expanded board is untouched — its super bar leads with its own title.
 	// Split-flap start delay. Live/initial rows cascade top-to-bottom (i × ROW_STEP).
 	// An ENTERING row flaps only AFTER its open motion (turn + OPEN_MS), so the flap
 	// and the open never run together. A LEAVING row's cells are frozen; its reason
@@ -1332,25 +1310,35 @@
 				{/if}
 			</div>
 		{:else}
-			<!-- NEW HEADER MODEL, same as every ordinary panel: Back, then the app's mark in its
-			     accent circle. The bullet that used to sit beside the title is this badge now,
-			     and the title itself has moved into the body below (bodyTitleEl) so it scrolls
-			     away. What's left up here is a control row. -->
+			<!-- MOBILE SUPERBAR, the Emoji Viewer / docs-shell shape: a slim frosted strip that
+			     names the board PERMANENTLY (the head-title is always here — there's no big hero
+			     title in the body any more). No Back cap and no app badge up here; Home is the way
+			     out (full-viewport has no compact shape to peel back to). A clean bar: the board
+			     name at the left, the live refresh + Home pair capping the right. -->
 			<div class="head-row csb-fold" style="--bn:0">
-				{#if onback}<button type="button" class="icon-btn back" onclick={onback} aria-label="Back to route map" title="Route map">{@html ARROW_LEFT_SVG}</button>{/if}
-				<span class="app-badge" style:--accent={accent} aria-hidden="true">
-					<span class="app-badge-mark">{@html AIRPLANE_SVG}</span>
-				</span>
-				{#if headTitleShown}
-					<!-- Flies in once the big title has gone by, so the bar always names the board. -->
-					<span class="head-title" in:fly={{ x: -14, duration: 380, easing: backOut }} out:fly={{ x: -10, duration: 150 }}>{title}</span>
-				{/if}
+				<!-- The board's name lives in the superbar permanently now — the big hero title
+				     that used to sit at the top of the scrolling body was removed, so the bar is
+				     the only place ATFC names itself. No scroll-reveal: it's always here. -->
+				<span class="head-title">{title}</span>
 			</div>
-			<!-- Top-right corner: the live refresh control paired with the expand toggle. Sits
-			     inside the header, which stays put while the body scrolls. --bn keeps it
-			     a beat behind the Back cap so the two ends of the header don't snap in together. -->
+			<!-- Top-right corner: the live refresh control, then Home. The Back cap is gone from
+			     this superbar (it was the sheet's down-arrow), so — like the wide deck's own right
+			     cluster, and the Emoji shell's KASHINOGA wordmark — Home is the mobile board's way
+			     out: straight to the homepage, the full-viewport panel's close idiom. It stays put
+			     inside the header while the body scrolls. -->
 			<div class="corner corner-compact" style="--bn:2">
 				{@render manualButton()}
+				{#if onhome}
+					<button
+						type="button"
+						class="icon-btn nav-edge"
+						onclick={onhome}
+						aria-label="Close and go home"
+						title="Home"
+					>
+						{@html HOME_SVG}
+					</button>
+				{/if}
 				{#if onToggleExpand}
 					<button
 						type="button"
@@ -1378,15 +1366,12 @@
 			bodyScrolled = y > 2; // drives the header's scroll shade at every size
 			// Mobile keeps the header put (no CSB fold) — the shade alone marks the scroll.
 			headCollapsed = narrow ? false : headCollapsed ? y > 8 : y > 64;
-			syncHeadTitle(e.currentTarget);
 		}}
 	>
-		{#if !showDeck}
-			<!-- The compact board's big title: first thing in the SCROLLING body, so it goes under
-			     as you read the rows and the bar picks the name up (see syncHeadTitle). The
-			     expanded board's super bar leads with its own title instead. -->
-			<h2 class="dest body-title" bind:this={bodyTitleEl}>{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}</h2>
-		{/if}
+		<!-- (The compact board's big hero title used to lead the scrolling body here, handing the
+		     name to the bar on scroll. It was removed — the superbar names the board permanently
+		     now, so a second big title in the content was redundant. The expanded board still
+		     leads with its own title, up in the deck super bar.) -->
 		<!-- Live-data activity meter, covering the whole wait so there's feedback BEFORE and
 		     DURING, not just after. Two phases share one bar (so it never disappears between
 		     them): while the board is first loading a field, the ADS-B fetch is in flight and
@@ -1785,12 +1770,9 @@
 		/* The row is the only thing that can give when the title is long. */
 		min-width: 0;
 	}
-	/* The compact board's big title, now the first thing in the scrolling body. The wordmark
-	   scale comes from .dest; .body-title (puhig) gives it the top room the header padding used
-	   to. Its own bottom room separates it from the activity meter and the rows. */
-	.tfc-body > .body-title {
-		margin-bottom: clamp(0.75rem, 1.5vw, 1.1rem);
-	}
+	/* (The compact board's big hero title — .tfc-body > .body-title — was removed: the superbar
+	   names the board permanently now, so the body opens straight on the controls and rows. Its
+	   spacing rule went with it.) */
 	/* (.title-row went with the compact header's title — the row it laid out doesn't exist any
 	   more. The EXPANDED bar lays its title out with .ident, which is a different arrangement:
 	   one line, title then bullet, no baseline-rested control cluster.) */
@@ -2177,6 +2159,55 @@
 	:global(html[data-look='pixelite']) .tfc.has-bar .tfc-body {
 		padding-top: calc(var(--bar-h, 3.25rem) + 0.75rem);
 	}
+	/* ── Mobile / compact: the SAME slim frosted superbar ────────────────────────────
+	   When the board isn't showing its wide deck (phones, and any narrow viewport), the
+	   stay-put compact header wears the docs shell's superbar too — a 42px opaque page-face
+	   strip that frosts once rows scroll under it, the live refresh capping its right end.
+	   It's the Emoji Viewer shape: an otherwise-clear bar that picks the board's name up
+	   (.head-title) only after the big body title has scrolled by. Mirrors .tfc-head.bar
+	   above; the body reserves the bar's measured height so the hero title opens just below
+	   it. Aeropalite keeps its flush, in-flow header (every rule here is Pixelite-gated). */
+	:global(html[data-look='pixelite']) .tfc:not(.has-bar) .tfc-head {
+		position: absolute;
+		inset: 0 0 auto 0;
+		z-index: 6;
+		box-sizing: border-box;
+		height: 42px;
+		/* LEFT inset is the site's superbar frame — 0.7rem, the same the docs/Emoji shell's
+		   KASHINOGA wordmark and the Star Map bar wear (DocsShell .docs-superbar), so ATFC's
+		   mobile header seats its name exactly where every other mobile superbar does. RIGHT
+		   inset drops to the keys' own top/bottom breathing room: a 28px key in the 42px bar
+		   centres with 7px above and below, so 7px to the right too seats the refresh/Home pair
+		   in an evenly-framed corner pocket (the deck's end-cap idiom). */
+		padding: 0 calc((42px - 28px) / 2) 0 0.7rem;
+		display: flex;
+		align-items: center;
+		background: color-mix(in srgb, var(--page) 100%, transparent);
+		border-bottom: 1px solid var(--pixel-hairline);
+		transition: background 0.2s ease, -webkit-backdrop-filter 0.2s ease,
+			backdrop-filter 0.2s ease;
+	}
+	:global(html[data-look='pixelite']) .tfc:not(.has-bar) .tfc-head.scrolled {
+		background: color-mix(in srgb, var(--page) 78%, transparent);
+		-webkit-backdrop-filter: blur(8px);
+		backdrop-filter: blur(8px);
+	}
+	/* The head-row (the scroll-revealed title) takes the bar's length; refresh rides in flow
+	   at its right end. Both shed the tall header's absolute-corner + clearance rules. */
+	:global(html[data-look='pixelite']) .tfc:not(.has-bar) .head-row {
+		flex: 1;
+		min-width: 0;
+		padding-right: 0;
+	}
+	:global(html[data-look='pixelite']) .tfc:not(.has-bar) .corner-compact {
+		position: static;
+		margin-left: auto;
+	}
+	/* Reserve the floating bar's height plus the shell's clearance gutter, so the hero title
+	   (and, on a demo field, the countdown) start clearly below the frost line. */
+	:global(html[data-look='pixelite']) .tfc:not(.has-bar) .tfc-body {
+		padding-top: calc(var(--bar-h, 42px) + clamp(0.85rem, 3vw, 1.6rem));
+	}
 	/* The bar's plastic keys sit on the manual's ONE control line — 28px (pixelite.css
 	   .icon-btn note) — so the super bar reads at the same key scale as the docs shell.
 	   Height, font (0.78rem mono, the docs search-key scale) and inner padding all step down
@@ -2409,6 +2440,16 @@
 		box-sizing: border-box;
 		height: 42px; /* the 42px control family (see puhig base.css .icon-btn) */
 		padding: 0 1.7rem 0 0.6rem;
+		/* Ellipsis the closed value instead of hard-clipping it: on a phone the three controls
+		   share a row, so a long field name ("Gracemeria") outruns its slim column. Trim it with
+		   a … rather than a blunt cut. white-space keeps it one line; overflow bounds the text
+		   box (the chevron is a background image, so it's untouched). min-width:0 lets the select
+		   shrink below its longest OPTION's intrinsic width inside the flex row, so the ellipsis
+		   can actually engage. */
+		min-width: 0;
+		overflow: hidden;
+		white-space: nowrap;
+		text-overflow: ellipsis;
 		font: inherit;
 		font-weight: 500;
 		font-size: 0.85rem;
@@ -2684,8 +2725,14 @@
 	}
 	.scroll {
 		overflow-x: auto;
-		/* Contain overscroll — no chain to the page (the iOS scroll-lock). */
-		overscroll-behavior: contain;
+		/* Contain overscroll on the X AXIS ONLY — this is the table's horizontal scroller
+		   (overflow-x: auto forces overflow-y to compute to `auto` too, per CSS). A blanket
+		   `overscroll-behavior: contain` then trapped every VERTICAL wheel over the rows: the
+		   box can't scroll in Y, so `contain` blocked the gesture from chaining up to
+		   .tfc-body (the real vertical scroller) instead of letting it pass. It bit hardest at
+		   small width, where the table fills the viewport and the cursor is always over it.
+		   Containing X alone keeps the horizontal scroll from chaining while Y chains freely. */
+		overscroll-behavior-x: contain;
 		/* The countdown ring (42px) centres over the 3.4em tag column and overhangs the
 		   table's left edge by a couple px — this scroller's clipping shaved its left arc.
 		   Negative margin + equal padding slides the clip window out past the ring while

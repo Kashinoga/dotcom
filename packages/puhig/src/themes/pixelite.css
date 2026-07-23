@@ -359,13 +359,22 @@ html[data-look='pixelite'] .app-card {
 	box-shadow: none;
 	padding: 0.85rem 0.4rem;
 }
-html[data-look='pixelite'] .app-card:hover,
 html[data-look='pixelite'] .app-card:focus-visible {
 	background: color-mix(in srgb, var(--orange) 6%, transparent);
 }
-html[data-look='pixelite'] .app-card:hover .app-name,
 html[data-look='pixelite'] .app-card:focus-visible .app-name {
 	color: var(--orange);
+}
+/* The catalog-row hover tint is fine-pointer only: on a touch screen a finger
+   scrolling the index would drag the orange from row to row and leave it stuck.
+   Focus-visible (above) keeps the tint for the keyboard on every device. */
+@media (hover: hover) {
+	html[data-look='pixelite'] .app-card:hover {
+		background: color-mix(in srgb, var(--orange) 6%, transparent);
+	}
+	html[data-look='pixelite'] .app-card:hover .app-name {
+		color: var(--orange);
+	}
 }
 /* The station-accent squircle → a neutral catalog chip: cobalt glyph on a hairline-ruled tile. */
 html[data-look='pixelite'] .app-ico {
