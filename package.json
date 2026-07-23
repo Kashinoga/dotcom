@@ -2,6 +2,7 @@
 	"name": "dotcom",
 	"private": true,
 	"type": "module",
+	"packageManager": "pnpm@11.9.0",
 	"scripts": {
 		"dev": "pnpm --filter home dev",
 		"build": "pnpm -r build",
