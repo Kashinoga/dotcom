@@ -68,22 +68,37 @@
 	};
 
 	// ── Breadcrumb motion ──────────────────────────────────────────────────────────
-	// The trail is keyed by crumb code, so navigating deeper ADDS a crumb (it drops in) and
-	// navigating up REMOVES one (it lifts out), instead of the whole row swapping text in place.
-	// A crumb enters/leaves with a small rise-and-fade, IN PLACE — no animate:flip. Crumbs are
-	// only ever added or removed at the END of the trail (the deepest level), so the crumbs to the
-	// left never move and there is nothing for flip to slide. Flip did the opposite of help: it
-	// pins the LEAVING crumb to position:absolute, whose origin is the row's start, then slides it
-	// there — so clicking a left crumb dragged the departing right crumb across and collided it
-	// with the survivor. Leaving it in flow keeps the departing crumb fading out where it stands.
+	// The trail is keyed BY POSITION (index), so each unit is a stable SLOT. Two kinds of change:
+	//  • the trail grows/shrinks at its END — deeper nav adds a slot, up-nav removes one; the
+	//    slot's face drops in from the top / slides out the bottom.
+	//  • a slot's CODE changes (navigating between siblings or sections) — the slot stays and its
+	//    face is re-mounted ({#key c}), the old face dropping out while the new drops in.
+	// The two faces of a swap are grid-STACKED in the slot (see .docs-crumb-slot), so they run as
+	// one vertical current IN PLACE — the old out the bottom, the new in from the top — instead of
+	// sitting side by side and colliding, which is what a code-keyed each did (it removed one crumb
+	// and added another at the same spot, both in flow at once). No animate:flip: with slots stable
+	// and swaps overlaid, nothing needs to slide across the row.
+	// The face's transitions are |global: they must fire when an ANCESTOR block toggles (a whole
+	// slot added/removed as the trail grows or shrinks — e.g. APPS / COPO → Settings drops the COPO
+	// slot), not only when the face's own {#key} re-mounts (a same-slot swap). Local (the default)
+	// plays only on the latter, so a removed slot's crumb flashed out with no transition.
 	const stillMotion = () =>
 		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-	// A crumb's own enter/leave: fade while dropping in from a few px above (and lifting back out
-	// on leave — the same motion reversed, so add and remove read as one gesture).
-	function crumbTx(_node: Element, { duration = 220 } = {}) {
+	// A crumb's enter and leave are DIRECTIONAL and opposite, not one motion reversed: a crumb
+	// drops IN FROM THE TOP (down into place) and, when it goes, slides OUT TO THE BOTTOM — the
+	// trail reads as a current running downward through the slot. Separate in/out (not one
+	// transition:) is what lets the two ends point different ways. Both fade. In flow, no flip:
+	// a departing crumb slides down where it stands while the survivors to its left hold place.
+	function crumbIn(_node: Element, { duration = 220 } = {}) {
 		return {
 			duration: stillMotion() ? 0 : duration,
-			css: (t: number, u: number) => `opacity: ${t}; transform: translateY(${-6 * u}px);`
+			css: (t: number, u: number) => `opacity: ${t}; transform: translateY(${-10 * u}px);`
+		};
+	}
+	function crumbOut(_node: Element, { duration = 220 } = {}) {
+		return {
+			duration: stillMotion() ? 0 : duration,
+			css: (t: number, u: number) => `opacity: ${t}; transform: translateY(${10 * u}px);`
 		};
 	}
 
@@ -377,22 +392,29 @@
 		>
 		{#if crumbs.length}
 			<span class="docs-brand-sep" aria-hidden="true" transition:fade={{ duration: 180 }}></span>
-			<nav class="docs-crumbs" aria-label="Breadcrumb">
-				<!-- One keyed unit per crumb (key = code), carrying its own leading "/" so the
-				     separator enters and leaves WITH its crumb. transition:crumbTx animates each
-				     add/remove in place; no animate:flip (crumbs only change at the trail's end,
-				     so nothing to the left ever needs to slide). -->
-				{#each crumbs as c, i (c)}
-					<span class="docs-crumb-unit" transition:crumbTx>
-						{#if i > 0}<span class="docs-crumb-sep" aria-hidden="true">/</span>{/if}{#if i < crumbs.length - 1}<a
-								class="docs-crumb"
-								href={viewPath({ kind: 'port', code: c })}
-								onclick={(e) => nav(e, c)}>{airports[c].title}</a
-							>{:else}<span class="docs-crumb" aria-current="page">{airports[c].title}</span>{/if}
-					</span>
-				{/each}
-			</nav>
 		{/if}
+		<!-- The trail is ALWAYS mounted (even empty), so add/remove and swaps both animate.
+		     The each is keyed BY POSITION (i), so a unit is a stable SLOT: navigating between
+		     siblings/sections swaps the code AT a slot rather than removing one crumb and adding
+		     another at the same spot — which is what made the outgoing and incoming crumbs sit
+		     side by side and collide. Inside each slot, {#key c} re-mounts the crumb FACE when the
+		     code there changes, and the two faces are grid-STACKED (see .docs-crumb-slot), so the
+		     old drops out the bottom while the new drops in from the top, IN PLACE — one vertical
+		     current, never two crumbs abreast. Adding/removing a slot at the trail's end animates
+		     the same way (the face has no sibling to overlap). -->
+		<nav class="docs-crumbs" aria-label="Breadcrumb">
+			{#each crumbs as c, i (i)}
+				<span class="docs-crumb-unit">
+					{#if i > 0}<span class="docs-crumb-sep" aria-hidden="true">/</span>{/if}<span class="docs-crumb-slot">
+						{#key c}<span class="docs-crumb-face" in:crumbIn|global out:crumbOut|global>{#if i < crumbs.length - 1}<a
+									class="docs-crumb"
+									href={viewPath({ kind: 'port', code: c })}
+									onclick={(e) => nav(e, c)}>{airports[c].title}</a
+								>{:else}<span class="docs-crumb" aria-current="page">{airports[c].title}</span>{/if}</span>{/key}
+					</span>
+				</span>
+			{/each}
+		</nav>
 		{#if onEmojiPage && evBarGone}
 			<!-- Right of the breadcrumb: the Emoji page's search, revealed once the in-flow bar
 			     scrolls away. ONE control in two states (the CitySearch lesson): the width morphs
@@ -540,8 +562,12 @@
 		/* The content gutter, defined at the root so BOTH the body (its padding) and the
 		   rails (their vertical insets) share one measure — content ink and rail
 		   furniture start on the same line. Also consumed by full-bleed
-		   children (the Emoji Viewer's sticky search bar) to margin back out. */
-		--docs-pad: clamp(0.75rem, 2vw, 1.5rem);
+		   children (the Emoji Viewer's sticky search bar) to margin back out.
+		   Tightened now that the columns and the bar carry no borders: this one measure sets the
+		   gap BETWEEN the columns (twice it, facing paddings) and the gap under the superbar (the
+		   columns' top padding), so a smaller value pulls the whole grid in — the sheets' own inner
+		   padding is untouched, so the reading keeps its breathing room. */
+		--docs-pad: clamp(0.4rem, 0.9vw, 0.8rem);
 		display: flex;
 		flex-direction: column;
 		/* The shell OWNS the viewport and its scrolling (see .docs-scroll): fixed height,
@@ -635,7 +661,8 @@
 		height: 42px;
 		/* Left inset matches the vertical rhythm so the wordmark sits square in the corner. */
 		padding: 0 clamp(1rem, 3vw, 2rem) 0 0.7rem;
-		border-bottom: 1px solid var(--pixel-hairline);
+		/* No hairline under the bar: space and the page/sheet colour tell it from the content,
+		   not a drawn line. On scroll the frost alone reads as the bar (see .scrolled). */
 		background: color-mix(in srgb, var(--page) 100%, transparent);
 		transition:
 			background 0.2s ease,
@@ -792,12 +819,26 @@
 		color: color-mix(in srgb, var(--ink) 40%, transparent);
 		white-space: nowrap;
 	}
-	/* One crumb + its leading "/", animated as a single seat. inline-flex so it can take the
-	   transform its enter/leave transition sets (a bare inline box can't). */
+	/* One crumb POSITION: its leading "/" and the swap slot. inline-flex, baseline-aligned, so
+	   the separator rests on the crumb text's baseline. */
 	.docs-crumb-unit {
 		flex: none;
 		display: inline-flex;
 		align-items: baseline;
+		white-space: nowrap;
+	}
+	/* The swap slot: both {#key} faces occupy ONE grid cell, overlaid — so an outgoing crumb and
+	   the incoming one run as a vertical current in the same place (old drops out the bottom, new
+	   drops in from the top) instead of sitting side by side and colliding. Clipped, so each slide
+	   plays inside the slot; the column sizes to the wider face during the brief overlap. */
+	.docs-crumb-slot {
+		display: grid;
+		align-items: baseline;
+		overflow: hidden;
+	}
+	.docs-crumb-face {
+		grid-area: 1 / 1;
+		min-width: 0;
 		white-space: nowrap;
 	}
 	/* The open page — the trailing crumb — reads in full ink. Keyed on aria-current, not
@@ -843,9 +884,9 @@
 		   scroll to the page (the iOS scroll-lock). */
 		overscroll-behavior: contain;
 		box-sizing: border-box;
-		/* The same measure as the content gutter — the three columns share one rhythm. */
+		/* The same measure as the content gutter — the three columns share one rhythm. No
+		   right-hand rule: the gutter of space between the nav and the sheet is the divide. */
 		padding: var(--docs-pad);
-		border-right: 1px solid var(--pixel-hairline);
 	}
 	.docs-toc ol {
 		list-style: none;
@@ -940,18 +981,13 @@
 	   the 2px cut and the print shadow. (Its children keep their own settle below; the box is
 	   static.) */
 	.docs-cover {
+		/* Same borderless leaf as .docs-sheet: the white fill on the grey gutter is the whole
+		   card now — no hairline, no print shadow. Space and colour, not a drawn edge. The inner
+		   padding stays; only the outer gutter around the sheet is gone (see .docs-body). */
 		max-width: calc(65ch + 2 * clamp(1.25rem, 3vw, 2.25rem));
 		background: light-dark(#ffffff, #202023);
-		border: 1px solid var(--pixel-hairline);
 		border-radius: 2px;
-		box-shadow: var(--pixel-paper-shadow);
 		padding: clamp(1.25rem, 3vw, 2.25rem);
-	}
-	/* On dark stock the print shadow's inset white would glow — ground it (Densette's dark-paper
-	   answer), keyed to the in-app Display Mode via .scheme-dark, not the OS media query. */
-	:global(html.scheme-dark) .docs-cover {
-		box-shadow: 0 1px 4px 1px rgba(0, 0, 0, 0.45), 0 1px 1px 0 rgba(0, 0, 0, 0.6),
-			inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
 	}
 	/* Entrance — the cover settles top-to-bottom in the same cadence as the docs pages. */
 	@media (prefers-reduced-motion: no-preference) {
@@ -1001,9 +1037,9 @@
 		height: calc(100dvh - var(--superbar-h));
 		box-sizing: border-box;
 		/* The same measure as the content gutter — the three columns share one rhythm. The
-		   rail itself never scrolls — the text strip inside owns the scrolling. */
+		   rail itself never scrolls — the text strip inside owns the scrolling. No left-hand
+		   rule: the gutter of space between the sheet and the rail is the divide. */
 		padding: var(--docs-pad);
-		border-left: 1px solid var(--pixel-hairline);
 		overflow: hidden;
 	}
 	.docs-rail-scroll {
@@ -1185,11 +1221,21 @@
 			max-height: calc(100vh - var(--superbar-h) - 5rem);
 			max-height: calc(100dvh - var(--superbar-h) - 5rem);
 			overflow-y: auto;
+			/* Roomier inside than the desktop rail's tight --docs-pad gutter: the receipt is a menu
+			   you TAP, so it wants air between its edges and its rows. Independent of --docs-pad
+			   (which stayed tight for the desktop columns). */
+			padding: clamp(1rem, 5vw, 1.5rem);
 			background: var(--page);
 			border: 1px solid var(--pixel-hairline);
 			border-top: 0;
 			border-radius: 0 0 4px 4px;
-			box-shadow: 0 10px 24px color-mix(in srgb, var(--ink) 18%, transparent);
+			/* A drop shadow below, AND a soft TOP INSET shadow: with no top border (the receipt
+			   feeds flush from under the bar), the bar and the flyout read as one light plane.
+			   The inset shades the flyout's top edge as if the bar casts onto it, telling the two
+			   apart. Negative spread keeps it to the top lip, off the sides and bottom. */
+			box-shadow:
+				0 8px 22px color-mix(in srgb, var(--ink) 10%, transparent),
+				inset 0 8px 13px -9px color-mix(in srgb, var(--ink) 15%, transparent);
 			/* Parked above the viewport entirely (own height + the bar's), not just behind the
 			   bar: the scrolled bar is translucent frost, and a sheet parked behind it would
 			   show through. */
@@ -1211,6 +1257,17 @@
 			.docs.sidebar-open .docs-sidebar {
 				transition: none;
 			}
+		}
+		/* The rows breathe more in the touch flyout than in the dense desktop rail — bigger gaps
+		   between sections, heads and leaves, so each is a comfortable tap target. */
+		.docs-sec {
+			margin-bottom: 1.35rem;
+		}
+		.docs-sec-head {
+			margin-bottom: 0.7rem;
+		}
+		.docs-toc ul li {
+			margin: 0.4rem 0;
 		}
 		/* Both margins fold away — the content column takes the whole width. */
 		.docs-rail {

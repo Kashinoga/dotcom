@@ -480,12 +480,6 @@
 		--dens-paper: light-dark(#fbfbfb, #0e0e10);
 		--dens-accent: light-dark(#103dff, #607ffd);
 		--dens-hairline: var(--pixel-hairline, light-dark(rgba(0, 0, 0, 0.2), rgba(255, 255, 255, 0.2)));
-		--dens-paper-shadow: var(
-			--pixel-paper-shadow,
-			0 1px 4px 1px rgba(0, 0, 0, 0.05),
-			0 1px 1px 0 rgba(0, 0, 0, 0.5),
-			inset 0 -1px 1px 1px #fff
-		);
 		/* Densette's own type, the site's Pixelite trio (it prints as a Pixelite manual under any
 		   theme, so the stacks are stated outright, not borrowed from --font-* which move by theme):
 		   Space Mono chrome, Iowan Old Style serif, IBM Plex Sans body, VT323 pixel numerals. */
@@ -515,24 +509,13 @@
 		color: var(--dens-ink);
 		font-family: var(--dens-body);
 	}
-	/* On a dark stock the print shadow's inset white would glow — ground it with a plain drop, a
-	   firm under-line, and a faint top rim-light instead (Pixelite's dark answer for --card-shadow).
-	   Keyed to the .scheme-dark class (stamped on <html> whenever the resolved scheme is dark), not
-	   the OS media query — Densette prints as a manual under any theme, so its dark paper must
-	   follow the in-app Display Mode toggle, not the machine's OS setting. */
-	:global(html.scheme-dark) .dens {
-		--dens-paper-shadow: 0 1px 4px 1px rgba(0, 0, 0, 0.45), 0 1px 1px 0 rgba(0, 0, 0, 0.6),
-			inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
-	}
-
-	/* ONE white sheet of paper: square-cut (2px), a hairline ink edge, the print shadow
-	   above. The chapters flow down it as a single long page — no per-chapter breaks;
-	   a hairline and air part one chapter from the next. */
+	/* ONE white sheet of paper — told from the barely-grey gutter by its FILL alone now: no
+	   hairline edge, no print shadow (the docs sheets went the same way). Its inner padding
+	   stays, so the reading keeps its breathing room. The chapters flow down it as a single long
+	   page — no per-chapter breaks; a hairline and air part one chapter from the next. */
 	.sheet {
 		background: var(--dens-sheet);
-		border: 1px solid var(--dens-hairline);
 		border-radius: 2px;
-		box-shadow: var(--dens-paper-shadow);
 		padding: clamp(1.25rem, 3vw, 2.25rem);
 	}
 	.chap + .chap {

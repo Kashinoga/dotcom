@@ -990,6 +990,10 @@
 	// The BUTTON lives up here because the bar is the page's; the CARD is drawn by PudIdle,
 	// which owns the numbers in it (the lifetime tally, and abandoning the universe).
 	let pudSettings = $state(false);
+	// On a phone the ranger's global controls (pause, home, the gear) leave the dense bar and
+	// gather in a floating key at the bottom-right — the Emoji Viewer's disclosure pattern —
+	// so the narrow bar keeps only the name. This flag opens that key's cluster.
+	let pudFabOpen = $state(false);
 	// Nothing decorative is BUILT unless it can be seen: the stars are dark-only, and
 	// everything goes when a panel covers the whole viewport (expanded on desktop, or any
 	// panel on mobile, where it's a full-screen sheet).
@@ -1116,6 +1120,7 @@
 		void view;
 		void isMobile; // crossing to mobile unfolds the header (the fold is desktop-only now)
 		pudSettings = false; // a fresh panel never opens with a popout already up
+		pudFabOpen = false; // …nor with the mobile controls key already disclosed
 		headTitleShown = false; // a fresh panel opens at the top, big title in view
 		surfHeadCollapsed = false;
 	});
@@ -2729,11 +2734,13 @@
 									>{@html panelExpanded ? MINIMIZE_SVG : MAXIMIZE_SVG}</button>
 								</div>
 							{/if}
-							{#if v.code === 'PUD'}
-								<!-- The bar's right-hand corner keeps the GLOBAL controls, the same corner
-								     every other panel uses: the pause twin and the gear. (The beta tag used to
-								     ride here too; it reads as part of the name, so it moved up beside the
-								     title — see the BAR_HEADER block above.) -->
+							{#if v.code === 'PUD' && !isMobile}
+								<!-- DESKTOP: the bar's right-hand corner keeps the GLOBAL controls, the same
+								     corner every other panel uses: the pause twin, Home, and the gear. On a
+								     PHONE these leave the bar for the floating controls key at the bottom-right
+								     (see .pud-fab below) — the narrow bar keeps only the name. (The beta tag
+								     used to ride here too; it reads as part of the name, so it moved up beside
+								     the title — see the BAR_HEADER block above.) -->
 								<div class="head-actions">
 									<!-- The global twin of the shop's pause disc — the game's one verb you
 									     might reach for mid-scroll, when the requisitions head has slid away.
@@ -2803,6 +2810,62 @@
 			{/key}
 			{/if}
 			</div>
+			{#if v.code === 'PUD' && isMobile}
+				<!-- IPR mobile controls key — the Emoji Viewer's floating-disclosure shape, ported
+				     to the panel. The dense bar's global controls (pause, Home, the gear) leave the
+				     narrow bar and gather here: a plastic key at the bottom-right that opens a small
+				     stack of them, with a scrim to tap away. The key wears the app's own mark, so it
+				     doubles as a "you are here" badge (the docs FAB's trick). -->
+				{#if pudFabOpen}
+					<button
+						class="pud-scrim"
+						aria-label="Close controls"
+						transition:fade={{ duration: 180 }}
+						onclick={() => (pudFabOpen = false)}
+					></button>
+				{/if}
+				<div class="pud-fab-stack" class:open={pudFabOpen}>
+					<!-- The pause twin — the game's one verb you might reach for mid-scroll. -->
+					<button
+						type="button"
+						class="icon-btn"
+						aria-pressed={ranger.paused}
+						aria-label={ranger.paused ? 'Resume the works' : 'Pause the works'}
+						title={ranger.paused ? 'Resume the works' : 'Pause the works'}
+						onclick={togglePaused}
+					>{@html ranger.paused ? PLAY_SVG : PAUSE_SVG}</button>
+					<!-- Home — the one door out of the ranger's full-viewport world on a phone. -->
+					<button
+						type="button"
+						class="icon-btn"
+						aria-label="Close and go home"
+						title="Home"
+						onclick={() => home()}
+					>{@html HOME_SVG}</button>
+					<!-- The gear opens the division settings card, and folds the key away so the card
+					     has the screen (data-pud-settings keeps the click-away from re-closing it). -->
+					<button
+						type="button"
+						class="icon-btn"
+						data-pud-settings
+						aria-expanded={pudSettings}
+						aria-label={pudSettings ? 'Close division settings' : 'Division settings'}
+						title="Division settings"
+						onclick={() => {
+							pudSettings = !pudSettings;
+							pudFabOpen = false;
+						}}
+					>{@html GEAR_SVG}</button>
+				</div>
+				<button
+					type="button"
+					class="pud-fab"
+					aria-expanded={pudFabOpen}
+					aria-label={pudFabOpen ? 'Hide controls' : 'Show controls'}
+					title={pudFabOpen ? 'Hide controls' : 'Controls'}
+					onclick={() => (pudFabOpen = !pudFabOpen)}
+				>{@html PORT_ICONS['PUD'] ?? ''}</button>
+			{/if}
 		</aside>
 	{/if}
 
@@ -3953,6 +4016,101 @@
 			transition: transform 300ms cubic-bezier(0.6, 0, 0.3, 1);
 		}
 	}
+	/* ── IPR (PUD) mobile controls key ───────────────────────────────────────────
+	   The Emoji Viewer's floating-disclosure shape (DocsShell .docs-fab), ported to the panel
+	   for the ranger's phone layout. A plastic key at the bottom-right opens a small stack of
+	   the global controls that leave the dense bar on a phone; a scrim taps it away. Rendered
+	   only for PUD on a phone (see the {#if} in the panel), so no display toggle is needed. */
+	.pud-fab {
+		position: fixed;
+		right: 1.25rem;
+		bottom: 1.25rem;
+		z-index: 19;
+		display: grid;
+		place-items: center;
+		box-sizing: border-box;
+		width: 40px;
+		height: 40px;
+		padding: 0;
+		color: var(--ink);
+		/* The superbar's frost, worn as the key face (docs-fab's material). */
+		background: color-mix(in srgb, var(--page) 78%, transparent);
+		-webkit-backdrop-filter: blur(8px);
+		backdrop-filter: blur(8px);
+		border: 1px solid var(--pixel-key-border, rgba(0, 0, 0, 0.4));
+		border-radius: 4px;
+		box-shadow: var(--pixel-bevel, 0 3px 10px rgba(4, 7, 15, 0.28));
+		cursor: pointer;
+		transition: color 0.15s ease, border-color 0.15s ease;
+	}
+	.pud-fab:active {
+		box-shadow: var(--pixel-bevel-press, inset 0 2px 6px rgba(0, 0, 0, 0.3));
+	}
+	.pud-fab[aria-expanded='true'] {
+		color: var(--orange);
+		border-color: var(--orange);
+	}
+	.pud-fab :global(svg) {
+		display: block;
+		width: 1.35rem;
+		height: 1.35rem;
+	}
+	/* The disclosed stack rises from just above the key; column-reverse seats the pause twin
+	   nearest the thumb, the gear at the top. Parked down + faded + non-interactive when shut
+	   (visibility drops it from the focus order), springing up on open. */
+	.pud-fab-stack {
+		position: fixed;
+		right: 1.25rem;
+		bottom: calc(1.25rem + 40px + 0.5rem);
+		z-index: 18;
+		display: flex;
+		flex-direction: column-reverse;
+		gap: 0.5rem;
+		transform: translateY(0.5rem);
+		opacity: 0;
+		visibility: hidden;
+		transition: opacity 0.2s ease, transform 0.24s ease, visibility 0s linear 0.24s;
+	}
+	.pud-fab-stack.open {
+		transform: translateY(0);
+		opacity: 1;
+		visibility: visible;
+		transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+	/* The stack's keys are touch-sized (40px, off the 28px control line) and wear the key's
+	   own frosted face, so the cluster reads as one material with the FAB. */
+	.pud-fab-stack .icon-btn {
+		width: 40px;
+		height: 40px;
+		background: color-mix(in srgb, var(--page) 78%, transparent);
+		-webkit-backdrop-filter: blur(8px);
+		backdrop-filter: blur(8px);
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.pud-fab-stack {
+			transition: opacity 0.12s ease, visibility 0s linear 0.12s;
+			transform: none;
+		}
+		.pud-fab-stack.open {
+			transition: opacity 0.12s ease;
+			transform: none;
+		}
+	}
+	/* A faint ink veil while the stack stands, and the tap-anywhere dismissal. Under the stack
+	   and the key (17 vs 18/19); over the panel content. */
+	.pud-scrim {
+		position: fixed;
+		inset: 0;
+		z-index: 17;
+		padding: 0;
+		background: rgba(0, 0, 0, 0.08);
+		border: 0;
+		cursor: default;
+	}
+	:global(html.scheme-dark) .pud-scrim {
+		background: rgba(0, 0, 0, 0.55);
+	}
+
 	/* On phones the panel is a bottom sheet: full width, anchored to the bottom, and
 	   it slides down (rather than off to the right) both to close and between stops. */
 	@media (max-width: 960px) {
@@ -3965,6 +4123,11 @@
 			height: 100%;
 			border-left: none;
 			border-radius: 0;
+		}
+		/* Reserve a foot so the ranger's own content never hides beneath the fixed controls
+		   key at the bottom-right. */
+		.surface-body.ranger {
+			padding-bottom: calc(40px + 1.75rem);
 		}
 		/* Both spellings, because the desktop .surface.expanded.leaving (translateX) outranks
 		   a plain .surface.leaving here — without the second selector an EXPANDED panel
@@ -5633,18 +5796,13 @@
 	   carries head + content in as one, with each app's own section cascade playing within —
 	   Densette's recipe exactly. */
 	.docs-sheet {
+		/* No border, no drop shadow: the sheet is told from the page by its FILL alone — a white
+		   (or dark-stock) leaf on the greyer page — not by a hairline or a lifted edge. Space and
+		   colour mark the sheet; hard lines are retired. Its inner padding stays — the reading
+		   keeps its breathing room; only the outer gutter around the sheet is gone (see .docs-body). */
 		background: light-dark(#ffffff, #202023);
-		border: 1px solid var(--pixel-hairline);
 		border-radius: 2px;
-		box-shadow: var(--pixel-paper-shadow);
 		padding: clamp(1.25rem, 3vw, 2.25rem);
-	}
-	/* On dark stock the print shadow's inset white would glow — ground it with a plain drop, a
-	   firm under-line and a faint top rim-light (Densette's dark-paper answer), keyed to the
-	   in-app Display Mode via .scheme-dark, not the OS media query. */
-	:global(html.scheme-dark) .docs-sheet {
-		box-shadow: 0 1px 4px 1px rgba(0, 0, 0, 0.45), 0 1px 1px 0 rgba(0, 0, 0, 0.6),
-			inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
 	}
 	/* The Emoji wall's in-flow search bar bleeds to the docs GUTTER by --docs-pad (its recipe
 	   for the old full-bleed layout); on the sheet that pulls it out of the padded measure and
