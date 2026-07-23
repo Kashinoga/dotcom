@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import { popSpring } from '$lib/pop-spring';
 	import SplitFlap from '$lib/SplitFlap.svelte';
-	import { airports } from '$lib/network';
+	import { airports } from '$lib/places';
 	import { viewPath } from '$lib/views';
 	import { HOME_SVG, USER_SVG, GRID_SVG, GEAR_SVG } from '$lib/icons';
 

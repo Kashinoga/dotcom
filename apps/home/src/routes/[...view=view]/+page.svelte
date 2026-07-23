@@ -25,22 +25,12 @@
 		CLOUD_SVG,
 		REFRESH_SVG,
 		ARROW_LEFT_SVG,
-		AIRPLANE_SVG,
-		PRESENTATION_SVG,
 		CAMERA_SVG,
 		HOME_SVG,
-		USER_SVG,
-		BRIEFCASE_SVG,
-		CODE_SVG,
-		GRID_SVG,
+		// Not a place's mark — the Park Ranger's own gear buttons, which are its UI, not the
+		// Settings place. (Every place's icon now comes from PORT_ICONS.)
 		GEAR_SVG,
 		EXTERNAL_SVG,
-		CLOUD_SUN_SVG,
-		STARS_SVG,
-		GAVEL_SVG,
-		PLANET_SVG,
-		SMILE_SVG,
-		WAND_SVG,
 		MAXIMIZE_SVG,
 		MINIMIZE_SVG,
 		PLAY_SVG,
@@ -48,7 +38,6 @@
 	} from '$lib/icons';
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
-	import faviconAtfc from '$lib/assets/favicon-atfc.svg';
 	import cloudFar from '$lib/assets/cloud-far.webp';
 	import cloudNear from '$lib/assets/cloud-near.webp';
 	import {
@@ -59,14 +48,35 @@
 		setUnit as wxSetUnit,
 		type WeatherKind
 	} from '$lib/weather-state.svelte';
-	import faviconPres from '$lib/assets/favicon-pres.svg';
-	import faviconWeather from '$lib/assets/favicon-weather.svg';
-	import faviconStar from '$lib/assets/favicon-star.svg';
-	import faviconAita from '$lib/assets/favicon-aita.svg';
-	import faviconPud from '$lib/assets/favicon-pud.svg';
-	import faviconEmoji from '$lib/assets/favicon-emoji.svg';
-	import { airports, accent, portDescriptions, HUB, parentOf } from '$lib/network';
-	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
+	// The one register of places — see $lib/places. Everything below that used to be a hand-kept
+	// list of codes (which panels take the shared bar, which are full-viewport, which mark each
+	// one wears, which favicon flies in the tab) is derived from it.
+	import {
+		airports,
+		accent,
+		portDescriptions,
+		HUB,
+		parentOf,
+		PORT_ICONS,
+		FAVICONS,
+		NEW_HEADER,
+		FULL_APPS,
+		BAR_HEADER,
+		DOCS_BLEED,
+		PANEL_CARDS,
+		APP_CARDS
+	} from '$lib/places';
+	// The written copy — see $lib/content. Data, not a literal, so Edit Mode can write it back.
+	import { defaultPages, defaultSettings, type Block } from '$lib/content';
+	import {
+		viewPath,
+		viewToSlug,
+		sameView,
+		viewTitle,
+		viewDescription,
+		SITE,
+		type View
+	} from '$lib/views';
 	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
 	import { rangeToken, refreshToken, expandedToken } from '$lib/scope';
 	import { popSpring } from '$lib/pop-spring';
@@ -661,133 +671,41 @@
 	const isMobile = $derived(vw <= 960);
 
 	// ─── Page content per destination ───────────────────────────────────────────
-	// A block list rendered into the content surface. Swap the placeholder copy for
-	// real writing; add { h }, { p }, { img }, { quote }, { code } blocks freely.
-	type Block =
-		| { h: string }
-		| { sub: string }
-		| { p: string }
-		| { img: string }
-		| { quote: string }
-		| { code: string }
-		| { email: string };
+	// The copy itself lives in $lib/content (backed by content.json) — see that module for why.
+	// What stays here is the RENDERING of a block list, and Edit Mode, which is the authoring
+	// tool for it.
 	// reicon "mailbox", tucked at the end of the contact address.
 	const MAILBOX_SVG =
 		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M18.3715 3.02906C17.9435 2.86413 17.4778 2.82269 17.0274 2.90947L16.75 2.96292V4.61813C17.4742 4.47982 18.2228 4.54702 18.9109 4.8122C19.338 4.97679 19.8019 5.01813 20.25 4.93273V3.27443C19.6437 3.35379 19.025 3.28092 18.4506 3.05957L18.3715 3.02906ZM16.75 6.14572L17.0274 6.09227C17.4778 6.00549 17.9435 6.04692 18.3715 6.21186C19.1193 6.50005 19.9371 6.55389 20.7163 6.36623L20.7829 6.35019C21.3502 6.21354 21.75 5.706 21.75 5.12246V2.90097C21.75 2.13165 21.0305 1.56486 20.2825 1.745C19.8531 1.84845 19.4023 1.81877 18.99 1.65991L18.9109 1.6294C18.2207 1.36345 17.4698 1.29663 16.7436 1.43657L16.2575 1.53023C15.6726 1.64293 15.25 2.15479 15.25 2.75042V6.24956H7C6.95339 6.24956 6.90777 6.25381 6.86352 6.26195C6.74341 6.25373 6.62219 6.24956 6.5 6.24956C3.6005 6.24956 1.25 8.60006 1.25 11.4996V16.767C1.25 18.4142 2.58534 19.7496 4.23256 19.7496H9.75V21.9996C9.75 22.4138 10.0858 22.7496 10.5 22.7496C10.9142 22.7496 11.25 22.4138 11.25 21.9996V19.7496H13.75V21.9996C13.75 22.4138 14.0858 22.7496 14.5 22.7496C14.9142 22.7496 15.25 22.4138 15.25 21.9996V19.7496H19.7931C21.4261 19.7496 22.75 18.4257 22.75 16.7927V11.4996C22.75 8.60006 20.3995 6.24956 17.5 6.24956H16.75V6.14572ZM15.25 7.74956V10.9996C15.25 11.4138 15.5858 11.7496 16 11.7496C16.4142 11.7496 16.75 11.4138 16.75 10.9996V7.74956H17.5C19.5711 7.74956 21.25 9.42849 21.25 11.4996V16.7927C21.25 17.5973 20.5977 18.2496 19.7931 18.2496H11.75V11.4996C11.75 10.0305 11.1466 8.70245 10.1742 7.74956H15.25ZM10.25 18.2496V11.4996C10.25 9.42849 8.57107 7.74956 6.5 7.74956C4.42893 7.74956 2.75 9.42849 2.75 11.4996V16.767C2.75 17.5858 3.41376 18.2496 4.23256 18.2496H10.25ZM4.25 15.9996C4.25 15.5853 4.58579 15.2496 5 15.2496H8C8.41421 15.2496 8.75 15.5853 8.75 15.9996C8.75 16.4138 8.41421 16.7496 8 16.7496H5C4.58579 16.7496 4.25 16.4138 4.25 15.9996Z" fill="currentColor"/></svg>';
-	const defaultPages: Record<string, Block[]> = {
-		// Welcome — the home hub greeting, from dotcom-2 card K 001.
-		KSH: [
-			{ p: 'This is Kashinoga, my virtual home.' },
-			{ p: 'Here, you’ll find the (mostly) fun things that I’ve created or found.' },
-			{ p: 'I hope you enjoy your time here.' },
-			{ quote: 'Take care.' }
-		],
-		// Work — a stop off About, from dotcom-2 About card K 202. It opens on its tagline —
-		// the same line its card and meta description carry (portDescriptions, so the three
-		// can never drift apart).
-		WRK: [
-			{ p: portDescriptions.WRK },
-			{ sub: 'Employment' },
-			{ p: 'I’m a digital infrastructure engineer for U.S. energy companies.' },
-			{
-				p: 'I was formerly a software engineering consultant for the State of Iowa and other midwestern U.S. companies.'
-			},
-			{ sub: 'Education' },
-			{
-				p: 'I have a B.S. in Computer Science from Iowa State University, and acquired general education from Drake University.'
-			},
-			{ quote: 'I do love ranch.' }
-		],
-		// Projects — a stop off About, from dotcom-2 About card K 203. Same deal as Work:
-		// the tagline leads.
-		PRJ: [
-			{ p: portDescriptions.PRJ },
-			{ sub: 'Digital Community Services' },
-			{ p: 'Matrix, Nextcloud, and Open WebUI: for a better digital wellbeing.' },
-			{ sub: 'Digital Play Services' },
-			{ p: 'Casual, community, and competitive gaming for friends.' },
-			{ sub: 'SDKK' },
-			{ p: 'A safe, friendly Discord community.' },
-			{ quote: ':3dloldeepfried: - IYKYK' }
-		],
-		// Apps — the hub for the little live apps.
-		APP: [
-			{ p: 'A collection of apps that I’ve built for personal use, shared with you.' },
-			{ quote: 'Making data fun to use.' }
-		],
-		// About / intro — dotcom-2 About card K 201.
-		ABT: [
-			{ h: 'Andrew Nguyen' },
-			{ p: 'I enjoy nature, literature, and video games — and heightened experiences.' },
-			{
-				p: 'I’m based in the Midwestern United States, with occasional visits to Southeast Asia for friends and family.'
-			},
-			{ email: 'contact@kashinoga.com' }
-		]
-	};
-	// Panels on the NEW HEADER MODEL: the accent bullet leaves the title and becomes a
-	// badge beside Back (see .app-badge). The rollout is done — this is now every panel
-	// that renders the SHARED super bar, so the list reads as "all of them minus the ones
-	// that can't".
+	// NEW_HEADER, DOCS_BLEED, FULL_APPS, BAR_HEADER, APP_CARDS, APP_ICONS, PORT_ICONS and
+	// PANEL_CARDS were eight hand-kept lists here. They are now derived from the one register in
+	// $lib/places, and imported at the top of this script — each place declares its `chrome`, its
+	// `icon` and whether it deals `cards`, and the lists fall out of that.
 	//
-	// The three that can't are ATFC, PRES and STAR: they own their whole panel interior and
-	// build their own header (see the branch above), so there's no shared bar here to move a
-	// bullet in. Moving them over means editing those components, not this list. KSH never
-	// reaches this branch either — Home is the map, not a panel.
-	const NEW_HEADER = ['APP', 'EMOJ', 'ABT', 'WRK', 'PRJ', 'STG', 'WTHR', 'AITA', 'PUD', 'DENS'];
-	// Pixelite docs mode (see pixeliteBody): the self-chrome readings that title and lay themselves
-	// out, so they render FULL-BLEED on the gutter — no docs chapter head, no measure wrapper.
-	// Everything else (the block pages + Settings) gets the bare prose treatment: a chapter head
-	// over a readable measure.
-	const DOCS_BLEED = ['WTHR', 'AITA', 'EMOJ'];
-	// The self-chrome full-viewport apps: the board, the Builder, the Star Map, and the Park Ranger.
-	// They own their whole interior and are always full-viewport (force-expanded), so in EITHER theme
-	// they render through the stage's existing full-viewport path — never inside the docs shell. Under
-	// Pixelite their interior chrome is restyled in-component via :global(html[data-look='pixelite'])
-	// branches (bars/buttons/labels only — PUD's stage choreography and scenes are left untouched).
-	const FULL_APPS = ['ATFC', 'PRES', 'STAR', 'PUD'];
+	// What each one means still matters when reading the markup below, so, briefly:
+	//   NEW_HEADER   renders the SHARED super bar — the accent bullet leaves the title and becomes
+	//                a badge beside Back (see .app-badge). Every panel except the three that build
+	//                their own header, and the hub, which is the map rather than a panel.
+	//   FULL_APPS    self-chrome full-viewport apps: the board, the Builder, the Star Map and the
+	//                Park Ranger. They own their whole interior and render through the stage's
+	//                full-viewport path in EITHER theme — never inside the docs shell. Under
+	//                Pixelite their interior chrome is restyled in-component, via
+	//                :global(html[data-look='pixelite']) branches (bars/buttons/labels only —
+	//                PUD's stage choreography and scenes are left untouched).
+	//   BAR_HEADER   the DENSE bar: one row, the title in it beside the badge, the header's
+	//                generous inset traded for the Traffic board's bar inset. Same recipe as
+	//                E-ATFC (see .tfc-head.bar): one --bar-inset drives the padding and the gap.
+	//   DOCS_BLEED   Pixelite docs mode (see pixeliteBody): readings that title and lay themselves
+	//                out, so they render FULL-BLEED on the gutter — no chapter head, no measure
+	//                wrapper. Everything else gets a chapter head over a readable measure.
+	//   PANEL_CARDS  panels that lay their onward destinations INTO the body as cards. (The
+	//                Related chip rail this replaced is gone everywhere: each panel ends on its own
+	//                content, and Back/Home already lead out.)
+	//
 	// Pixelite's one accent — cobalt-600. Passed to the full apps in place of their orange station
 	// accent so their internal dots/highlights read cobalt, matching the manual's ink-and-cobalt.
+	// It stays here, not in the register: it is a property of the THEME, not of any one place.
 	const PIXEL_INK = '#103dff';
-	// …and the panels whose bar is DENSE: one row, the title in it beside the badge, the
-	// header's generous inset traded for the Traffic board's bar inset. A full-viewport app
-	// wants its vertical space for content, and a wordmark that scrolls away is a luxury a
-	// panel can afford only when there's a column of prose under it. Same recipe as E-ATFC
-	// (see .tfc-head.bar): one --bar-inset drives the padding and the row's gap.
-	const BAR_HEADER = ['PUD'];
-	// The apps the Apps panel shows as CARDS in its body.
-	// Alphabetical by TITLE: the cards' order is presentation, not hierarchy, so a new
-	// app files itself in rather than landing wherever it was added.
-	const APP_CARDS = ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA', 'PUD', 'EMOJ', 'DENS'].sort((a, b) =>
-		airports[a].title.localeCompare(airports[b].title)
-	);
-	const APP_ICONS: Record<string, string> = {
-		ATFC: AIRPLANE_SVG,
-		PRES: PRESENTATION_SVG,
-		WTHR: CLOUD_SUN_SVG,
-		STAR: STARS_SVG,
-		AITA: GAVEL_SVG,
-		PUD: PLANET_SVG,
-		EMOJ: SMILE_SVG,
-		DENS: WAND_SVG
-	};
-	// A mark per destination, worn by its chip in the Related rail. It replaced a plain accent dot:
-	// the dot named the LINE a stop sits on and nothing about the stop itself. The mark says what the
-	// place is — and keeps the line's colour, so the rail reads the same at a glance.
-	const PORT_ICONS: Record<string, string> = {
-		KSH: HOME_SVG,
-		ABT: USER_SVG,
-		WRK: BRIEFCASE_SVG,
-		PRJ: CODE_SVG,
-		APP: GRID_SVG,
-		STG: GEAR_SVG,
-		...APP_ICONS
-	};
-	// The panels that lay their onward destinations INTO the body as cards. (The Related
-	// chip rail this replaced is gone everywhere: each panel ends on its own content, and
-	// Back/Home already lead out.) Apps deals its live apps; About fans out to its two
-	// branches.
-	const PANEL_CARDS: Record<string, string[]> = { APP: APP_CARDS, ABT: ['PRJ', 'WRK'] };
 
 	// Where to cut the card list into the two desktop columns (see .app-cols). The cut is
 	// CONTIGUOUS — column one takes a prefix, column two the rest — so that when the columns
@@ -917,14 +835,32 @@
 		} catch {
 			/* storage unavailable — the clipboard copy is still the source of truth */
 		}
-		// Hand the full edited copy back: copy JSON to the clipboard (and log it).
+		// Write the edit back to src/lib/content.json, through the dev-only endpoint. This is what
+		// makes an edit real: the file changes, Vite reloads it, and the change is a git diff.
+		//
+		// It used to end at the clipboard — Save copied the whole content object and the toast
+		// asked you to paste it back into the source. That step is where an edit gets lost, so
+		// the clipboard is now the FALLBACK, for when the write fails (or someone is running a
+		// production build locally, where the endpoint 404s by design).
+		try {
+			const res = await fetch('/api/content', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ pages, settings })
+			});
+			if (!res.ok) throw new Error(String(res.status));
+			showToast('Saved to src/lib/content.json.');
+			return;
+		} catch {
+			/* not writable here — fall through to the clipboard */
+		}
 		const json = JSON.stringify({ pages, settings }, null, 2);
 		console.log('[Kashinoga] edited panel copy:\n' + json);
 		try {
 			await navigator.clipboard.writeText(json);
-			showToast('Saved. Content copied — paste it to Claude to make it permanent.');
+			showToast('Saved locally. Content copied — paste it into src/lib/content.json.');
 		} catch {
-			showToast('Saved locally. Copy the JSON from the console to make it permanent.');
+			showToast('Saved locally. Copy the JSON from the console into src/lib/content.json.');
 		}
 	}
 	// Apply any saved overrides from this browser onto the live pages.
@@ -953,21 +889,9 @@
 	// machinery, under a SETTINGS.<key> draft namespace.
 	// Section descriptions and the flavor notes. Notes use a `{}` placeholder that
 	// renders the live value (e.g. the current map style); editing keeps the token.
-	const defaultSettings: Record<string, string> = {
-		displayLead: 'Display Mode',
-		displayNote: 'Inside of you, there are two wolves.',
-		skyLead: 'Skybox Theme',
-		skyNote: '',
-		starsLead: 'Starry Night',
-		starsNote: '',
-		resetLead: 'Start Over',
-		lookLead: 'Theme',
-		lookNote: '',
-		// Air Traffic board intro copy. `atfcLead` uses a `{}` token for the live range
-		// (NM); the demo variant has none. Edited via Edit Mode inside the board itself.
-		atfcLead: 'Live traffic within {} NM of a field — arriving, departing, or passing over.',
-		atfcLeadDemo: ''
-	};
+	// (The values live in content.json's `settings`, beside the page copy — the Air Traffic
+	// board's intro is in there too: `atfcLead` uses a `{}` token for the live range in NM, and
+	// is edited via Edit Mode inside the board itself.)
 	let settings = $state<Record<string, string>>({ ...defaultSettings });
 	const settingsKey = (k: string) => `SETTINGS.${k}`;
 	function settingsText(k: string) {
@@ -1483,26 +1407,12 @@
 	// stale `field` can never bleed into another panel's title or canonical URL.
 	const onBoard = $derived(view?.kind === 'port' && view.code === 'ATFC');
 	const selectedField = $derived(onBoard ? fieldByIata(field) : null);
-	// The tab's mark follows the open panel: each app flies its own, and everything else wears the
-	// site heart (orange while developing, so a dev tab is obvious at a glance).
+	// The tab's mark follows the open panel: each app flies its own (FAVICONS, from the register),
+	// and everything else wears the site heart — orange while developing, so a dev tab is obvious
+	// at a glance. This was a nine-deep ternary over hard-coded codes; a new app that forgot to
+	// join it simply flew the wrong mark, which nothing would ever have told us.
 	const favicon = $derived(
-		view?.kind === 'port' && view.code === 'ATFC'
-			? faviconAtfc
-			: view?.kind === 'port' && view.code === 'PRES'
-				? faviconPres
-				: view?.kind === 'port' && view.code === 'WTHR'
-					? faviconWeather
-					: view?.kind === 'port' && view.code === 'STAR'
-						? faviconStar
-						: view?.kind === 'port' && view.code === 'AITA'
-							? faviconAita
-							: view?.kind === 'port' && view.code === 'PUD'
-								? faviconPud
-								: view?.kind === 'port' && view.code === 'EMOJ'
-									? faviconEmoji
-									: dev
-										? faviconDev
-										: faviconSite
+		(view?.kind === 'port' ? FAVICONS[view.code] : undefined) ?? (dev ? faviconDev : faviconSite)
 	);
 	const headTitle = $derived(
 		selectedField ? `Air Traffic · ${selectedField.name} — ${SITE}` : viewTitle(view)
@@ -1518,6 +1428,16 @@
 			viewPath(view) + (selectedField ? `?field=${selectedField.iata.toLowerCase()}` : ''),
 			page.url.origin
 		).href
+	);
+	// The share card — baked per place by scripts/gen-og.mjs, named by the place's canonical
+	// slug with the slashes flattened (`apps/air-traffic` → `apps-air-traffic.png`). The rule is
+	// the same one the generator writes by, so a new place gets its card without a second list.
+	//
+	// ABSOLUTE, and it has to be: an unfurler fetches this URL from its own servers, with no page
+	// to resolve a relative path against. `page.url.origin` is what makes it right on a preview
+	// deploy as well as in production.
+	const ogImage = $derived(
+		new URL(`/og/${view ? viewToSlug(view).replace(/\//g, '-') : 'home'}.png`, page.url.origin).href
 	);
 
 	// Show a destination/line: fly the camera there and render its panel content.
@@ -1776,7 +1696,17 @@
 	<meta property="og:title" content={headTitle} />
 	<meta property="og:description" content={headDescription} />
 	<meta property="og:url" content={canonicalHref} />
-	<meta name="twitter:card" content="summary" />
+	<meta property="og:site_name" content={SITE} />
+	<!-- The share card. Without it, a link to any of these apps unfurled as a grey rectangle —
+	     which is how the site looks to everyone who has not visited it yet. `summary_large_image`
+	     is the card shape that actually shows a 1200×630 image; plain `summary` crops it to a
+	     thumbnail beside the text, which is what this used to be. -->
+	<meta property="og:image" content={ogImage} />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:image:alt" content={headTitle} />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:image" content={ogImage} />
 </svelte:head>
 
 <!-- Decorative station-sign bullet beside a panel title, in the colour of the line the

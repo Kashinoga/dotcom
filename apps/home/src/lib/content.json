@@ -1,0 +1,59 @@
+{
+	"notes": {
+		"KSH": "Welcome — the home hub greeting, from dotcom-2 card K 001.",
+		"WRK": "Work — a stop off About, from dotcom-2 About card K 202. It opens on its tagline: {blurb} pulls the place's own blurb out of the register, so the panel, its card and its meta description can never drift apart.",
+		"PRJ": "Projects — a stop off About, from dotcom-2 About card K 203. Same deal as Work: the tagline leads.",
+		"APP": "Apps — the hub for the little live apps.",
+		"ABT": "About / intro — dotcom-2 About card K 201."
+	},
+	"pages": {
+		"KSH": [
+			{ "p": "This is Kashinoga, my virtual home." },
+			{ "p": "Here, you’ll find the (mostly) fun things that I’ve created or found." },
+			{ "p": "I hope you enjoy your time here." },
+			{ "quote": "Take care." }
+		],
+		"WRK": [
+			{ "p": "{blurb}" },
+			{ "sub": "Employment" },
+			{ "p": "I’m a digital infrastructure engineer for U.S. energy companies." },
+			{ "p": "I was formerly a software engineering consultant for the State of Iowa and other midwestern U.S. companies." },
+			{ "sub": "Education" },
+			{ "p": "I have a B.S. in Computer Science from Iowa State University, and acquired general education from Drake University." },
+			{ "quote": "I do love ranch." }
+		],
+		"PRJ": [
+			{ "p": "{blurb}" },
+			{ "sub": "Digital Community Services" },
+			{ "p": "Matrix, Nextcloud, and Open WebUI: for a better digital wellbeing." },
+			{ "sub": "Digital Play Services" },
+			{ "p": "Casual, community, and competitive gaming for friends." },
+			{ "sub": "SDKK" },
+			{ "p": "A safe, friendly Discord community." },
+			{ "quote": ":3dloldeepfried: - IYKYK" }
+		],
+		"APP": [
+			{ "p": "A collection of apps that I’ve built for personal use, shared with you." },
+			{ "quote": "Making data fun to use." }
+		],
+		"ABT": [
+			{ "h": "Andrew Nguyen" },
+			{ "p": "I enjoy nature, literature, and video games — and heightened experiences." },
+			{ "p": "I’m based in the Midwestern United States, with occasional visits to Southeast Asia for friends and family." },
+			{ "email": "contact@kashinoga.com" }
+		]
+	},
+	"settings": {
+		"displayLead": "Display Mode",
+		"displayNote": "Inside of you, there are two wolves.",
+		"skyLead": "Skybox Theme",
+		"skyNote": "",
+		"starsLead": "Starry Night",
+		"starsNote": "",
+		"resetLead": "Start Over",
+		"lookLead": "Theme",
+		"lookNote": "",
+		"atfcLead": "Live traffic within {} NM of a field — arriving, departing, or passing over.",
+		"atfcLeadDemo": ""
+	}
+}

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick, type Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import { HUB, children, airports, parentOf } from '$lib/network';
+	import { HUB, children, airports, parentOf } from '$lib/places';
 	import { viewPath, type View } from '$lib/views';
 	import { emojiSearch } from '$lib/emoji-search.svelte';
 	import { SEARCH_SVG } from '$lib/icons';
