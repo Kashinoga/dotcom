@@ -1680,6 +1680,27 @@
 		overflow: hidden;
 		background: #0d1424;
 	}
+	/* ── The window, FULL WIDTH, once the hero has wrapped to one column ──────────────────────
+	   410px is not a tuned breakpoint: it is the wrap point, restated. The row seats both sides
+	   when the reading's 240px floor, the window's 150px floor and the gap (clamp's 1.25rem floor
+	   at any width this narrow) fit — 240 + 150 + 20 = 410 — so below it the window is ALWAYS on
+	   its own line, and above it never. Keep the three numbers in step if any floor moves.
+
+	   On that line the 340px cap has nothing left to do: it exists to stop the window swelling
+	   into a banner while it shares a row, and alone on a phone it just leaves the sky short of
+	   the reading it sits under, a stray ragged edge in a column where every other line runs the
+	   full measure. Off, the window runs the column — the sheet's own left and right padding is
+	   its inset, the same one the numbers and the tabs keep, so its edges line up with theirs.
+	   Nothing else changes: the frame keeps its 16:9 (which at this width IS the full measure,
+	   so the pixels stay square) and its hairline and radius, and stays a figure, not a bleed.
+
+	   The look prefix is the one the rule it overrides carries: a container query adds no
+	   specificity of its own, so a bare .wx-skywin here would simply lose to the cap above. */
+	@container (width < 410px) {
+		:global(html[data-look='pixelite']) .wx-skywin {
+			max-width: none;
+		}
+	}
 	.wx-sky-canvas {
 		display: block;
 		width: 100%;
