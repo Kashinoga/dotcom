@@ -21,6 +21,7 @@
 		view = null,
 		activeCode = null,
 		pageIcon = '',
+		barTitle = '',
 		onNavigate,
 		body
 	}: {
@@ -28,6 +29,13 @@
 		activeCode?: string | null;
 		/* The open page's mark (+page's PORT_ICONS) — worn by the mobile floating key. */
 		pageIcon?: string;
+		/* The open page's name, for the BAR, on a phone only. At that width every page hands its
+		   title up here instead of printing it on the sheet, so the first screen is the page
+		   itself, not a cover — the arrangement Air Traffic's own bar has, and the same handoff
+		   the Emoji page makes with its search. The page keeps its <h1> (screen-reader-only
+		   there); this is the visible echo, so it is aria-hidden. Empty on the hub, which is the
+		   site's own cover and has no crumbs either. */
+		barTitle?: string;
 		onNavigate: (code: string) => void;
 		body: Snippet<[View]>;
 	} = $props();
@@ -400,7 +408,12 @@
 	<!-- Full-width superbar over all three columns: the wordmark at its left end, the breadcrumb
 	     trail beside it, and (on mobile) a plastic-key MENU that discloses the sidebar. It sticks
 	     to the top and blurs once the page scrolls under it. -->
-	<header class="docs-superbar" class:scrolled bind:this={superbarEl}>
+	<header
+		class="docs-superbar"
+		class:scrolled
+		class:has-bar-title={barTitle}
+		bind:this={superbarEl}
+	>
 		<a
 			class="docs-wordmark"
 			href={viewPath({ kind: 'port', code: HUB })}
@@ -436,6 +449,14 @@
 				</span>
 			{/each}
 		</nav>
+		<!-- The phone's stand-in for the breadcrumb (which hides at this width): the open page's
+		     name, in the trail's own voice and full ink — the last crumb, standing alone. Always
+		     in the DOM when set, hidden by the media block above 860px, so nothing depends on a
+		     measured viewport. aria-hidden: the page's own <h1> is still the heading, it is only
+		     screen-reader-only there. -->
+		{#if barTitle}
+			<span class="docs-sb-title" aria-hidden="true">{barTitle}</span>
+		{/if}
 		{#if onEmojiPage && evBarGone}
 			<!-- Right of the breadcrumb: the Emoji page's search, revealed once the in-flow bar
 			     scrolls away. ONE control in two states (the CitySearch lesson): the width morphs
@@ -882,6 +903,12 @@
 		font-size: 1.15em;
 		color: color-mix(in srgb, var(--ink) 30%, transparent);
 	}
+	/* The bar's page title (phones only — see the media block, which is the only place it is
+	   shown). Desktop keeps the breadcrumb, which already ends in this same name, so printing
+	   it here too would say it twice. */
+	.docs-sb-title {
+		display: none;
+	}
 	/* The pixel accent for numerals — TOC section numbers, cover numbers. Bumped ~15% to match
 	   the optical size of the mono around it. */
 	.docs-num {
@@ -1188,6 +1215,22 @@
 	}
 
 	@media (max-width: 860px) {
+		/* On a phone the sheet takes the WHOLE column — the content gutter goes to zero on all
+		   four sides, so the paper meets the viewport's left and right edges, starts flush under
+		   the superbar, and runs to the foot of the scroll. A phone has no room to spend on a
+		   frame around the page: the sheet IS the page there, and its own inner padding (the
+		   reading's breathing room) is the only inset left.
+
+		   ONE lever does it. --docs-pad is the shell's single measure for that gutter, so zeroing
+		   it here also collapses everything that was cancelling it — Densette's bleeding margins,
+		   the Emoji wall's full-bleed search bar, the sheets' and cover's negative bottom margin —
+		   instead of leaving each to fight the gutter on its own. Densette's inner frame rides the
+		   same var, so its grey gutter folds away too and its sheets go edge to edge like the rest.
+		   The one gap NOT dropped is the scroller's foot below (see .docs-scroll): that is the
+		   floating contents key's safe area, not page furniture. */
+		.docs {
+			--docs-pad: 0px;
+		}
 		.docs-cols {
 			grid-template-columns: 1fr;
 		}
@@ -1206,6 +1249,29 @@
 		.docs-crumbs,
 		.docs-brand-sep {
 			display: none;
+		}
+		/* Unless the page handed its title up here: then the post has something on its far side
+		   again, and it does the same work it does on desktop — parting the site's name from the
+		   page's. (Only reached when the crumbs exist, which is every page but the cover.) */
+		.docs-superbar.has-bar-title .docs-brand-sep {
+			display: block;
+		}
+		/* The title takes the room the breadcrumb had — flex:1, so the Emoji search (margin-left:
+		   auto) still sits at the far end — and clips with an ellipsis rather than pushing the bar
+		   wider or wrapping its fixed 42px line. Full ink in the trail's mono voice: this IS the
+		   trailing crumb, standing alone. */
+		.docs-sb-title {
+			display: block;
+			flex: 1;
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			font-family: var(--font-mono);
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+			font-size: 0.72rem;
+			color: var(--ink);
 		}
 		/* With the breadcrumb gone, its flex:1 no longer pushes the Emoji page's superbar search
 		   to the right end — it would sit against the wordmark. Auto left margin sends it back to
@@ -1231,10 +1297,11 @@
 			position: fixed;
 			top: var(--superbar-h);
 			/* Line up with the SHEET underneath: inset by --docs-pad each side (the content
-			   gutter the sheet sits in), so the receipt's edges match the page's sheet rather
-			   than capping at a narrow 300px column. The sheet lives inside the scroller, whose
-			   scrollbar gutter (--scrollbar-w, measured) narrows its content — subtract it so the
-			   fixed receipt, sized off 100vw, doesn't overrun the sheet's right edge. */
+			   gutter the sheet sits in — zero on a phone, so both run to the viewport's edges),
+			   so the receipt's edges match the page's sheet rather than capping at a narrow 300px
+			   column. The sheet lives inside the scroller, whose scrollbar gutter (--scrollbar-w,
+			   measured) narrows its content — subtract it so the fixed receipt, sized off 100vw,
+			   doesn't overrun the sheet's right edge. */
 			left: var(--docs-pad);
 			z-index: 18;
 			height: auto;
@@ -1294,11 +1361,11 @@
 		.docs-rail {
 			display: none;
 		}
-		/* The cover bleeds its bottom into the gutter (like the sheets and Densette's paper), so
-		   its blank foot below is just the scroller's foot — a uniform 1.25rem above the floating
-		   key, not the gutter's --docs-pad on top of it. */
+		/* The cover is capped to its reading measure on desktop; on a phone that cap would strand
+		   it short of the right edge while every other sheet runs full width, so it drops. (Its
+		   old negative bottom margin went with the gutter — there is nothing left to cancel.) */
 		.docs-cover {
-			margin-bottom: calc(-1 * var(--docs-pad));
+			max-width: none;
 		}
 	}
 </style>

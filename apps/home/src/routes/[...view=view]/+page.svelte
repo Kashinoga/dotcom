@@ -707,6 +707,22 @@
 	// It stays here, not in the register: it is a property of the THEME, not of any one place.
 	const PIXEL_INK = '#103dff';
 
+	// On a phone EVERY docs page hands its TITLE UP TO THE SUPERBAR (DocsShell's barTitle) instead
+	// of printing it on the sheet — see the .docs-page-head rule in the mobile media block, which
+	// is the other half of this. The serif cover is a page's whole first screen at that width, and
+	// what stands under it always wants the room more than the name does: Weather's city tabs, the
+	// Emoji search, a block page's prose. In the bar the name reads the way Air Traffic's own bar
+	// carries "Air Traffic", and it is where the Emoji page's search already goes when it scrolls
+	// away — one arrangement for the whole page's chrome, not a per-page judgement.
+	//
+	// This started as a three-page list and became the rule, so there is no list any more: the
+	// title follows activeCode. The hub falls out on its own (no activeCode) — it IS the site's
+	// cover, not a page under one. Densette keeps both, and they don't collide: the bar says
+	// DENSETTE, where you are, while its paper prints "The Curriculum", what you are reading.
+	//
+	// Desktop is untouched: the breadcrumb ends in this same name there, and the sheet has the
+	// room for a printed cover.
+
 	// Where to cut the card list into the two desktop columns (see .app-cols). The cut is
 	// CONTIGUOUS — column one takes a prefix, column two the rest — so that when the columns
 	// stack on a phone they read back as the original alphabetical run. That rules out the
@@ -2113,7 +2129,8 @@
 		<!-- Self-chrome readings — Weather, the Court, the Emoji wall — each ride a SHEET OF PAPER
 		     (Densette's): their title prints ON the sheet as a cover rather than floating on the
 		     grey gutter above it, so the head goes INSIDE the sheet. Keyed so navigation replays
-		     the entrance. -->
+		     the entrance. (On a phone the head stays in the DOM as the page's heading but comes off
+		     the sheet — the superbar carries the name there; see the .docs-page-head mobile rule.) -->
 		{#key v.code}
 			<div class="docs-sheet">
 				<header class="docs-page-head">
@@ -2155,7 +2172,8 @@
 		<!-- Block pages: a SHEET OF PAPER (Densette's) capped to the reading measure, so a short
 		     page is a tidy card — the serif title prints on the sheet as a cover, the body held to
 		     a readable measure below it and hugging the sheet's left. Keyed so page-to-page
-		     navigation remounts the column and replays the entrance. -->
+		     navigation remounts the column and replays the entrance. (The cover comes off the sheet
+		     on a phone — the superbar carries the name; see the .docs-page-head mobile rule.) -->
 		{#key v.code}
 			<div class="docs-sheet prose">
 				<div class="docs-prose">
@@ -2177,6 +2195,7 @@
 			{view}
 			{activeCode}
 			pageIcon={PORT_ICONS[activeCode ?? HUB] ?? HOME_SVG}
+			barTitle={activeCode ? airports[activeCode].title : ''}
 			onNavigate={(code) => (code === HUB ? home() : board(code))}
 			body={pixeliteBody}
 		/>
@@ -5862,14 +5881,46 @@
 			animation: docs-settle 0.45s ease backwards;
 		}
 	}
-	/* On mobile the sheet bleeds its BOTTOM into the content gutter (a negative margin cancelling
-	   .docs-body's --docs-pad, the same trick Densette's paper uses). Without it the sheet kept
-	   that gutter beneath it and so sat --docs-pad further from the floating key than the bare
-	   paper did; bled, every page's blank foot is just the scroller's foot — a uniform 1.25rem
-	   clearance above the key, matching its 1.25rem left/bottom insets. */
+	/* On a phone the sheet is the page: DocsShell zeroes --docs-pad there, so the gutter around
+	   it is already gone on all four sides (and with it the negative bottom margin that used to
+	   cancel that gutter). The reading measure is the last thing holding a block page short of
+	   the right edge — between ~620px and 860px the cap left a band of bare gutter beside a page
+	   that has no gutter anywhere else — so it comes off too. The measure still governs the PROSE
+	   inside (.docs-prose keeps its 72ch); only the paper under it runs full width. The blank
+	   foot below every page is the scroller's own, the floating key's safe area. */
 	@media (max-width: 860px) {
-		.docs-sheet {
-			margin-bottom: calc(-1 * var(--docs-pad));
+		.docs-sheet.prose {
+			max-width: none;
+		}
+		/* Every sheet's printed cover comes off on a phone: the superbar carries the page's name at
+		   this width (DocsShell's barTitle — see the note by it in the script), so each page opens
+		   on what it is for — Weather's city tabs, the emoji search, a block page's prose — the way
+		   Air Traffic's board opens under its own bar. Screen-reader-only rather than display:none:
+		   the page keeps its <h1>, and its echo in the bar is aria-hidden, so the heading is spoken
+		   once and the document still has an outline. (Masthead's menu words go the same way at
+		   560px.) The head's bottom padding goes with it — an invisible box must not hold air.
+		   The descendant selector reaches both arrangements: the head sits directly on the sheet
+		   for the self-chrome readings, and inside .docs-prose on the block, Apps and Settings
+		   pages. Densette isn't touched — its cover is printed inside its own paper, not here. */
+		.docs-sheet .docs-page-head {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+		/* …and the line that now leads the page loses its top margin. That margin is the air a
+		   paragraph or a sub-head keeps from what came BEFORE it — with the head lifted out of
+		   flow there is nothing before it, so the air became a gap between the sheet's top padding
+		   and its first word: an inset of 20 + 16 where every other edge of the sheet keeps 20.
+		   The pages whose body opens with its own root (Weather's .wx, the Emoji wall, Settings'
+		   group grid) already sat right at the padding — this brings the prose pages in line with
+		   them. Adjacent-sibling, so it reaches exactly the one element the head used to sit on
+		   top of and nothing deeper down the page. */
+		.docs-sheet .docs-page-head + * {
+			margin-top: 0;
 		}
 	}
 	.docs-page-title {
