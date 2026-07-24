@@ -18,7 +18,8 @@
 		"gen:og": "node --experimental-strip-types --import ./test/register.mjs scripts/gen-og.mjs",
 		"test:unit": "node --experimental-strip-types --import ./test/register.mjs --test 'test/*.test.ts'",
 		"test:e2e": "node e2e/run.mjs",
-		"test:e2e:changed": "node e2e/run.mjs --changed"
+		"test:e2e:changed": "node e2e/run.mjs --changed",
+		"snap:sky": "node e2e/sky-snap.mjs"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-cloudflare": "^7.2.9",

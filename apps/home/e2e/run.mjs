@@ -152,7 +152,12 @@ const NARROW = [
 ];
 
 // Type-only / no runtime surface: contributes no suites and never forces a full run.
-const IGNORE = [/^src\/app\.d\.ts$/];
+// Files that change nothing a suite can see. app.d.ts is types only. sky-snap.mjs and its
+// baselines live in e2e/ but are NOT a suite and cannot affect one: the sky snapshotter is run by
+// hand (`pnpm --filter home snap:sky`) and nothing here ever calls it. Without this they fall to
+// the "shared e2e helper" arm below, and editing a tool no suite imports would force all 18 —
+// exactly the over-selection --changed exists to avoid.
+const IGNORE = [/^src\/app\.d\.ts$/, /^e2e\/sky-snap\.mjs$/, /^e2e\/snapshots\//];
 
 /** Files changed vs a ref, or in the working tree (staged + unstaged + untracked), app-relative. */
 function changedFiles(ref) {
