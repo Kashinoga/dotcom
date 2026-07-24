@@ -68,6 +68,10 @@ const STATES = [
 	// The photo sky — its own layers (picture, veil, credit), and data-sky-photo suppressing the
 	// server-rendered star field.
 	{ name: 'photo', seed: { 'ksh-sky': 'photo', 'ksh-theme': 'light' }, photo: true },
+	// …and with its picker open. The flyout is a whole card of its own — a heading, a list, a
+	// thumbnail row per photo — and none of it is on screen until the camera disc is pressed, so
+	// without this state every rule that dresses it could be dropped in silence.
+	{ name: 'photo-picker', seed: { 'ksh-sky': 'photo', 'ksh-theme': 'light' }, picker: true },
 	// Off — the claim is that nothing paints, so the counts are the assertion.
 	{ name: 'off', seed: { 'ksh-sky': 'off', 'ksh-theme': 'light' } },
 	// The hand-picked stage weather, reached through the sky console rather than by stubbing an
@@ -105,6 +109,11 @@ const SELECTORS = [
 	'.photo-bg',
 	'.photo-veil',
 	'.photo-credit',
+	'.photo-pick',
+	'.photo-pick-head',
+	'.photo-opt',
+	'.photo-opt-title',
+	'.photo-opt-sub',
 	'.photo-credit-row',
 	'.photo-toggle',
 	'.photo-link',
@@ -353,6 +362,16 @@ try {
 		);
 		await page.goto(`${base}${state.route ?? '/'}`, { waitUntil: 'networkidle' });
 		await page.waitForTimeout(1500);
+
+		if (state.picker) {
+			// The camera disc opens the credit's flyout. Pressed the way a reader presses it, so
+			// the state is reached through the real control and its real callback.
+			const cam = page.locator('.photo-toggle');
+			if (await cam.count()) {
+				await cam.click();
+				await page.waitForTimeout(600);
+			}
+		}
 
 		if (state.feature) {
 			// The sky console's Weather Feature row — the hand-picked stage weather. These are the

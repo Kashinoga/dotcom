@@ -13,6 +13,11 @@
 		".photo-bg": 1,
 		".photo-veil": 1,
 		".photo-credit": 1,
+		".photo-pick": 0,
+		".photo-pick-head": 0,
+		".photo-opt": 0,
+		".photo-opt-title": 0,
+		".photo-opt-sub": 0,
 		".photo-credit-row": 1,
 		".photo-toggle": 1,
 		".photo-link": 1,
@@ -1475,6 +1480,11 @@
 				}
 			}
 		],
+		".photo-pick": [],
+		".photo-pick-head": [],
+		".photo-opt": [],
+		".photo-opt-title": [],
+		".photo-opt-sub": [],
 		".photo-credit-row": [
 			{
 				"rect": [
