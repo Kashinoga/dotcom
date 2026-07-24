@@ -15,3 +15,10 @@ apps/home/static/sky/
 # src/routes/api/content — which formats one block per line so a copy edit is a one-line diff.
 # Prettier would fight that format on every save.
 apps/home/src/lib/content.json
+
+# The sky snapshots: baselines written by e2e/sky-snap.mjs, tens of thousands of computed CSS
+# values. Same bargain as the sky catalogue above — nothing here is typed by hand, and the tool
+# writes them in one shape, so the only thing Prettier can do is fight the writer. It nearly
+# did worse than that: a --save after the last format run put sixteen unformatted files into a
+# commit, and format:check failed on main having passed locally minutes before.
+apps/home/e2e/snapshots/
