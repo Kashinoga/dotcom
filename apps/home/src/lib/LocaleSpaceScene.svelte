@@ -144,8 +144,7 @@
 	// we simply never register the loop and let the scene hold its pose — `spin`
 	// stays undefined, and every start/stop below harmlessly no-ops.
 	const reduced =
-		typeof window !== 'undefined' &&
-		window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+		typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 	const spin = reduced
 		? undefined
@@ -221,7 +220,13 @@
      has already cleared, the flight effect finds no leg and never runs — the rig simply rests here,
      at REST, rather than being stranded at CLOSE. If it mounts mid-'ascend', a (late but honest)
      CLOSE→REST flight still plays; a late first flight is fine, a camera stuck at the planet is not. -->
-<T.PerspectiveCamera bind:ref={camera} makeDefault position={[0, 0, 12.2]} fov={30} oncreate={(ref) => ref.lookAt(0, 0, 0)} />
+<T.PerspectiveCamera
+	bind:ref={camera}
+	makeDefault
+	position={[0, 0, 12.2]}
+	fov={30}
+	oncreate={(ref) => ref.lookAt(0, 0, 0)}
+/>
 
 <T.DirectionalLight position={[4, 3, 5]} intensity={2.2} color="#fff4e6" />
 <T.AmbientLight intensity={0.3} />
@@ -235,17 +240,17 @@
 	<!-- A cheap atmosphere: a paler back-faced shell catching light only at the rim. -->
 	<T.Mesh>
 		<T.SphereGeometry args={[1.854, 48, 48]} />
-		<T.MeshBasicMaterial color="#8fd6c0" transparent opacity={0.12} side={BackSide} depthWrite={false} />
+		<T.MeshBasicMaterial
+			color="#8fd6c0"
+			transparent
+			opacity={0.12}
+			side={BackSide}
+			depthWrite={false}
+		/>
 	</T.Mesh>
 </T.Group>
 
 <T.Points bind:ref={stars}>
 	<T is={starGeometry} />
-	<T.PointsMaterial
-		size={0.035}
-		sizeAttenuation
-		vertexColors
-		transparent
-		depthWrite={false}
-	/>
+	<T.PointsMaterial size={0.035} sizeAttenuation vertexColors transparent depthWrite={false} />
 </T.Points>

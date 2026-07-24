@@ -1,0 +1,17 @@
+# Generated and vendored — nothing here is written by hand, so reformatting it only makes
+# noise in a diff.
+node_modules
+.svelte-kit
+.wrangler
+build
+dist
+pnpm-lock.yaml
+
+# The sky catalogue: machine-generated star and constellation data, hundreds of thousands of
+# numbers. Prettier would reflow every one of them.
+apps/home/static/sky/
+
+# The share cards' source of truth is scripts/gen-og.mjs, and content.json's is the writer in
+# src/routes/api/content — which formats one block per line so a copy edit is a one-line diff.
+# Prettier would fight that format on every save.
+apps/home/src/lib/content.json

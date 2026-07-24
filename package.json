@@ -2,10 +2,19 @@
 	"name": "dotcom",
 	"private": true,
 	"type": "module",
+	"packageManager": "pnpm@11.9.0",
 	"scripts": {
 		"dev": "pnpm --filter home dev",
 		"build": "pnpm -r build",
 		"check": "pnpm -r check",
-		"test": "pnpm --filter home test:e2e"
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"test": "pnpm test:unit && pnpm --filter home test:e2e",
+		"test:unit": "pnpm --filter home test:unit",
+		"test:e2e": "pnpm --filter home test:e2e"
+	},
+	"devDependencies": {
+		"prettier": "^3.9.6",
+		"prettier-plugin-svelte": "^4.1.1"
 	}
 }

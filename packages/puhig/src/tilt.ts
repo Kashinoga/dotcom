@@ -21,8 +21,7 @@ export function tilt(node: HTMLElement, options: TiltOptions = {}) {
 	let raf = 0;
 
 	function apply() {
-		node.style.transform =
-			`perspective(${perspective}px) rotateX(${curX.toFixed(2)}deg) rotateY(${curY.toFixed(2)}deg)`;
+		node.style.transform = `perspective(${perspective}px) rotateX(${curX.toFixed(2)}deg) rotateY(${curY.toFixed(2)}deg)`;
 		// The card now carries a live 3D pose. Flag it (distinct from the
 		// actively-moving `puhig-tilting` hint, which drops on a held pose) so the
 		// card can flatten to one raster layer for as long as the transform lasts —

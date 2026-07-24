@@ -9,7 +9,10 @@ const ok = (name, pass, detail = '') => {
 };
 
 const browser = await firefox.launch();
-const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 }, acceptDownloads: true });
+const ctx = await browser.newContext({
+	viewport: { width: 1600, height: 1000 },
+	acceptDownloads: true
+});
 
 async function freshBuilder() {
 	const page = await ctx.newPage();
@@ -37,7 +40,7 @@ const download = async (page) =>
 	await page.waitForTimeout(300);
 	const out = await download(page);
 
-	ok('special chars escaped in output', out.includes('Tom &amp; Jerry &lt;3'), );
+	ok('special chars escaped in output', out.includes('Tom &amp; Jerry &lt;3'));
 	ok('no raw </span> injected', !out.includes('<3 "quotes" </span></span>'));
 	ok(
 		'ticker-item count still 12 (markup not broken)',
@@ -51,7 +54,11 @@ const download = async (page) =>
 		const g = doc.querySelector('#ticker .ticker-group');
 		return Array.from(g.querySelectorAll('.ticker-item')).map((e) => e.textContent.trim());
 	}, out);
-	ok('round-trips back to the typed text', roundTripped[0] === nasty, JSON.stringify(roundTripped[0]));
+	ok(
+		'round-trips back to the typed text',
+		roundTripped[0] === nasty,
+		JSON.stringify(roundTripped[0])
+	);
 	ok('cycle intact after escape', roundTripped.length === 6, `${roundTripped.length}`);
 	await page.close();
 }

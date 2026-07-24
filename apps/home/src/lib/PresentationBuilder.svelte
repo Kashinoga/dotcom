@@ -82,8 +82,7 @@
 	// field round-trips it as a newline (textarea ↔ <br>) instead of dropping the break.
 	let elTextVal = $state('');
 	let elLeaf = $state(false);
-	const isLeafish = (el: HTMLElement) =>
-		Array.from(el.children).every((c) => c.tagName === 'BR');
+	const isLeafish = (el: HTMLElement) => Array.from(el.children).every((c) => c.tagName === 'BR');
 	const leafText = (el: HTMLElement) => {
 		let s = '';
 		el.childNodes.forEach((n) => {
@@ -158,7 +157,9 @@
 			ensure: 'pill',
 			test: (el) =>
 				el.classList.contains('pill') ||
-				['pill-blue', 'pill-green', 'pill-yellow', 'pill-red'].some((c) => el.classList.contains(c)),
+				['pill-blue', 'pill-green', 'pill-yellow', 'pill-red'].some((c) =>
+					el.classList.contains(c)
+				),
 			variants: [
 				{ cls: 'pill-blue', name: 'Accent', swatch: '#c2410c' },
 				{ cls: 'pill-green', name: 'Green', swatch: '#00761b' },
@@ -220,7 +221,13 @@
 	function rgbToHex(rgb: string) {
 		const m = String(rgb).match(/\d+(?:\.\d+)?/g);
 		if (!m || m.length < 3) return '#000000';
-		return '#' + m.slice(0, 3).map((n) => Math.round(+n).toString(16).padStart(2, '0')).join('');
+		return (
+			'#' +
+			m
+				.slice(0, 3)
+				.map((n) => Math.round(+n).toString(16).padStart(2, '0'))
+				.join('')
+		);
 	}
 	function colorToHex(c: string) {
 		c = String(c).trim();
@@ -379,9 +386,11 @@
 		// Keep the chosen station in view — the phone's horizontal strip especially, where
 		// Add appends off-screen to the right. 'nearest' makes it a no-op when visible.
 		requestAnimationFrame(() =>
-			listEl
-				?.querySelector('.stn-v.active')
-				?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: reduce ? 'auto' : 'smooth' })
+			listEl?.querySelector('.stn-v.active')?.scrollIntoView({
+				block: 'nearest',
+				inline: 'nearest',
+				behavior: reduce ? 'auto' : 'smooth'
+			})
 		);
 	}
 
@@ -587,7 +596,10 @@
 	}
 
 	function newFromTemplate() {
-		if (dirty && !confirm('Discard unsaved changes and start a new presentation from the template?'))
+		if (
+			dirty &&
+			!confirm('Discard unsaved changes and start a new presentation from the template?')
+		)
 			return;
 		loadText(DEMO_DECK, 'untitled-presentation.html', null);
 		toast('New presentation from template', 'ok');
@@ -702,9 +714,7 @@
 			const re = new RegExp('(--' + name.replace(/[-]/g, '\\-') + '\\s*:\\s*)([^;]+)(;)');
 			out = out.replace(re, '$1' + val + '$3');
 		}
-		out = out
-			.replace(/\s+contenteditable="true"/g, '')
-			.replace(/\s+spellcheck="false"/g, '');
+		out = out.replace(/\s+contenteditable="true"/g, '').replace(/\s+spellcheck="false"/g, '');
 		out = out.replace(/\s+data-builder-sel(?:="[^"]*")?/g, '');
 		return out;
 	}
@@ -757,9 +767,8 @@
 			.flat()
 			.map((p) => `      <span class="ticker-item">${escapeHTML(p)}</span>`)
 			.join('\n');
-		return out.replace(
-			/(<div class="ticker-group"[^>]*>)[\s\S]*?(<\/div>)/g,
-			(_m, open, close) => (items ? `${open}\n${items}\n    ${close}` : `${open}${close}`)
+		return out.replace(/(<div class="ticker-group"[^>]*>)[\s\S]*?(<\/div>)/g, (_m, open, close) =>
+			items ? `${open}\n${items}\n    ${close}` : `${open}${close}`
 		);
 	}
 
@@ -839,13 +848,33 @@
 			<span class="accent-dot" aria-hidden="true"></span>
 		</div>
 		<div class="pb-tools">
-			<button class="tb" onclick={newFromTemplate} title="Start a new presentation from the built-in template">{@html FILE_PLUS_SVG}New</button>
-			<button class="tb" onclick={openFile} title="Open a presentation HTML file">{@html FOLDER_OPEN_SVG}Open</button>
-			<button class="tb primary" onclick={saveFile} disabled={!slides.length} title="Save back to the same file (Ctrl/⌘-S)">{@html SAVE_SVG}Save</button>
-			<button class="tb" onclick={downloadFile} disabled={!slides.length} title="Download a copy">{@html DOWNLOAD_SVG}Download</button>
-			<button class="tb" onclick={previewLive} disabled={!slides.length} title="Open the live presentation in a new tab">{@html PRESENTATION_SVG}Preview</button>
+			<button
+				class="tb"
+				onclick={newFromTemplate}
+				title="Start a new presentation from the built-in template">{@html FILE_PLUS_SVG}New</button
+			>
+			<button class="tb" onclick={openFile} title="Open a presentation HTML file"
+				>{@html FOLDER_OPEN_SVG}Open</button
+			>
+			<button
+				class="tb primary"
+				onclick={saveFile}
+				disabled={!slides.length}
+				title="Save back to the same file (Ctrl/⌘-S)">{@html SAVE_SVG}Save</button
+			>
+			<button class="tb" onclick={downloadFile} disabled={!slides.length} title="Download a copy"
+				>{@html DOWNLOAD_SVG}Download</button
+			>
+			<button
+				class="tb"
+				onclick={previewLive}
+				disabled={!slides.length}
+				title="Open the live presentation in a new tab">{@html PRESENTATION_SVG}Preview</button
+			>
 		</div>
-		<span class="pb-file" class:dirty title={fileName || undefined}>{dirty ? '● ' : ''}{fileName || 'No file loaded'}</span>
+		<span class="pb-file" class:dirty title={fileName || undefined}
+			>{dirty ? '● ' : ''}{fileName || 'No file loaded'}</span
+		>
 		<button
 			type="button"
 			class="beta"
@@ -859,48 +888,70 @@
 		<section class="pb-col pb-left">
 			<div class="col-head">
 				<span>Slides</span>
-				<button class="chip" onclick={addSlide} disabled={!slides.length} title="Add a new slide" aria-label="Add slide">{@html PLUS_SVG}</button>
+				<button
+					class="chip"
+					onclick={addSlide}
+					disabled={!slides.length}
+					title="Add a new slide"
+					aria-label="Add slide">{@html PLUS_SVG}</button
+				>
 			</div>
 			<div class="col-body" bind:this={listEl}>
 				<!-- Phone strip only (hidden at every other width, where the col-head's + serves):
 				     Add LEADS the strip, so it's reachable without scrolling a long deck. -->
-				<button class="chip add-stn" onclick={addSlide} disabled={!slides.length} title="Add a new slide" aria-label="Add slide">{@html PLUS_SVG}</button>
+				<button
+					class="chip add-stn"
+					onclick={addSlide}
+					disabled={!slides.length}
+					title="Add a new slide"
+					aria-label="Add slide">{@html PLUS_SVG}</button
+				>
 				{#if slides.length}
-					<div class="rail-bg" style:top="{railTop}px" style:height="{railH}px" style:left="{railLeft}px"></div>
-					<div class="rail-fg" style:top="{railTop}px" style:height="{railFgH}px" style:left="{railLeft}px"></div>
+					<div
+						class="rail-bg"
+						style:top="{railTop}px"
+						style:height="{railH}px"
+						style:left="{railLeft}px"
+					></div>
+					<div
+						class="rail-fg"
+						style:top="{railTop}px"
+						style:height="{railFgH}px"
+						style:left="{railLeft}px"
+					></div>
 					{#key loadRev}
 						{#each slides as s, i (i)}
-						<div
-							class="stn-v"
-							class:active={i === current}
-							class:passed={i < current}
-							class:dragover={i === dragOverIdx}
-							style="--n:{i}"
-							draggable="true"
-							role="button"
-							tabindex="0"
-							onclick={() => selectSlide(i)}
-							onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && selectSlide(i)}
-							ondragstart={() => onDragStart(i)}
-							ondragover={(e) => {
-								e.preventDefault();
-								dragOverIdx = i;
-							}}
-							ondragleave={() => (dragOverIdx === i ? (dragOverIdx = -1) : null)}
-							ondrop={(e) => {
-								e.preventDefault();
-								onDrop(i);
-							}}
-						>
-							<div class="stn-dot"></div>
-							<div class="stn-head">
-								<span class="stn-num">{String(i + 1).padStart(2, '0')}</span>
-								<span class="stn-label">{s.label || '(no label)'}</span>
+							<div
+								class="stn-v"
+								class:active={i === current}
+								class:passed={i < current}
+								class:dragover={i === dragOverIdx}
+								style="--n:{i}"
+								draggable="true"
+								role="button"
+								tabindex="0"
+								onclick={() => selectSlide(i)}
+								onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && selectSlide(i)}
+								ondragstart={() => onDragStart(i)}
+								ondragover={(e) => {
+									e.preventDefault();
+									dragOverIdx = i;
+								}}
+								ondragleave={() => (dragOverIdx === i ? (dragOverIdx = -1) : null)}
+								ondrop={(e) => {
+									e.preventDefault();
+									onDrop(i);
+								}}
+							>
+								<div class="stn-dot"></div>
+								<div class="stn-head">
+									<span class="stn-num">{String(i + 1).padStart(2, '0')}</span>
+									<span class="stn-label">{s.label || '(no label)'}</span>
+								</div>
+								<div class="stn-drag" title="Drag to reorder">{@html DRAG_SVG}</div>
+								<div class="stn-title">{slideTitle(s)}</div>
 							</div>
-							<div class="stn-drag" title="Drag to reorder">{@html DRAG_SVG}</div>
-							<div class="stn-title">{slideTitle(s)}</div>
-						</div>
-					{/each}
+						{/each}
 					{/key}
 				{:else}
 					<p class="hint">No slides yet.</p>
@@ -921,8 +972,8 @@
 					onclick={() => (inspOpen = !inspOpen)}
 					disabled={current < 0}
 					aria-expanded={inspOpen}
-					title="Slide properties and colors"
-				>Inspector</button>
+					title="Slide properties and colors">Inspector</button
+				>
 			</div>
 			<iframe class="preview-frame" title="Slide preview" bind:this={frame}></iframe>
 			{#if current < 0}
@@ -930,8 +981,8 @@
 					<h2>No presentation loaded</h2>
 					<p>
 						Start a new deck from the built-in template, or open an existing presentation
-						<code>.html</code> file. Text is editable directly in the preview; use the panels to
-						manage slides, labels, and colors.
+						<code>.html</code> file. Text is editable directly in the preview; use the panels to manage
+						slides, labels, and colors.
 					</p>
 					<div class="empty-actions">
 						<button class="tb primary" onclick={newFromTemplate}>New from template</button>
@@ -946,10 +997,27 @@
 			<div class="col-head">
 				<span>Inspector</span>
 				<div class="head-actions">
-					<button class="chip" onclick={duplicateSlide} disabled={current < 0} title="Duplicate slide" aria-label="Duplicate slide">{@html COPY_SVG}</button>
-					<button class="chip danger" onclick={deleteSlide} disabled={current < 0} title="Delete slide" aria-label="Delete slide">{@html TRASH_SVG}</button>
+					<button
+						class="chip"
+						onclick={duplicateSlide}
+						disabled={current < 0}
+						title="Duplicate slide"
+						aria-label="Duplicate slide">{@html COPY_SVG}</button
+					>
+					<button
+						class="chip danger"
+						onclick={deleteSlide}
+						disabled={current < 0}
+						title="Delete slide"
+						aria-label="Delete slide">{@html TRASH_SVG}</button
+					>
 					<!-- Phone only: dismiss the bottom sheet. -->
-					<button class="chip insp-close" onclick={() => (inspOpen = false)} aria-label="Close inspector" title="Close">{@html CLOSE_SVG}</button>
+					<button
+						class="chip insp-close"
+						onclick={() => (inspOpen = false)}
+						aria-label="Close inspector"
+						title="Close">{@html CLOSE_SVG}</button
+					>
 				</div>
 			</div>
 			<div class="col-body">
@@ -959,13 +1027,25 @@
 					<!-- Element colour -->
 					<div class="section-title">Element color</div>
 					{#if !elInfo}
-						<p class="hint">Click any element in the slide (a pill, a highlighted word, a heading…) to change its color.</p>
+						<p class="hint">
+							Click any element in the slide (a pill, a highlighted word, a heading…) to change its
+							color.
+						</p>
 					{:else}
 						<div class="el-desc">
-							<span class="el-tag"><b>{elInfo.tag}</b>{elInfo.cls.length ? '.' + elInfo.cls.join('.') : ''}</span>
+							<span class="el-tag"
+								><b>{elInfo.tag}</b>{elInfo.cls.length ? '.' + elInfo.cls.join('.') : ''}</span
+							>
 							<span class="el-actions">
-								<button class="mini" onclick={selectParent} title="Select parent element">{@html ARROW_UP_SVG}Parent</button>
-								<button class="mini icon-only" onclick={deselectElement} aria-label="Deselect" title="Deselect">{@html CLOSE_SVG}</button>
+								<button class="mini" onclick={selectParent} title="Select parent element"
+									>{@html ARROW_UP_SVG}Parent</button
+								>
+								<button
+									class="mini icon-only"
+									onclick={deselectElement}
+									aria-label="Deselect"
+									title="Deselect">{@html CLOSE_SVG}</button
+								>
 							</span>
 						</div>
 						{#if elLeaf}
@@ -981,14 +1061,18 @@
 								value={elTextVal}
 								oninput={(e) => applyText(e.currentTarget.value)}
 								spellcheck="false"
-								aria-label="Element text"
-							></textarea>
+								aria-label="Element text"></textarea>
 						{/if}
 						{#each elInfo.families as fam}
 							<span class="field-label">{fam.label}</span>
 							<div class="swatch-row">
 								{#each fam.variants as v}
-									<button class="swatch-btn" class:on={v.on} onclick={() => applyVariant(fam.label, v.cls)} title={v.cls}>
+									<button
+										class="swatch-btn"
+										class:on={v.on}
+										onclick={() => applyVariant(fam.label, v.cls)}
+										title={v.cls}
+									>
 										<span class="sw-chip" style:background={v.swatch}></span>{v.name}
 									</button>
 								{/each}
@@ -996,15 +1080,39 @@
 						{/each}
 						<span class="field-label">Custom color</span>
 						<div class="theme-row">
-							<span class="sw"><input type="color" bind:value={elText} oninput={() => applyInline('color', elText)} /></span>
+							<span class="sw"
+								><input
+									type="color"
+									bind:value={elText}
+									oninput={() => applyInline('color', elText)}
+								/></span
+							>
 							<span class="tv-name fixed">text</span>
-							<input class="tv-val grow" type="text" bind:value={elText} oninput={() => applyInline('color', elText.trim())} spellcheck="false" />
+							<input
+								class="tv-val grow"
+								type="text"
+								bind:value={elText}
+								oninput={() => applyInline('color', elText.trim())}
+								spellcheck="false"
+							/>
 							<button class="mini" onclick={() => clearInline('color')}>reset</button>
 						</div>
 						<div class="theme-row">
-							<span class="sw"><input type="color" bind:value={elBg} oninput={() => applyInline('background-color', elBg)} /></span>
+							<span class="sw"
+								><input
+									type="color"
+									bind:value={elBg}
+									oninput={() => applyInline('background-color', elBg)}
+								/></span
+							>
 							<span class="tv-name fixed">bg</span>
-							<input class="tv-val grow" type="text" bind:value={elBg} oninput={() => applyInline('background-color', elBg.trim())} spellcheck="false" />
+							<input
+								class="tv-val grow"
+								type="text"
+								bind:value={elBg}
+								oninput={() => applyInline('background-color', elBg.trim())}
+								spellcheck="false"
+							/>
 							<button class="mini" onclick={() => clearInline('background-color')}>reset</button>
 						</div>
 					{/if}
@@ -1046,8 +1154,8 @@
 					{#if hasTicker}
 						<div class="section-title">Motto ticker</div>
 						<p class="hint sm">
-							The scrolling strip on the title slide. Phrases cycle in order; the deck repeats
-							them to fill the strip, so you only list each one once.
+							The scrolling strip on the title slide. Phrases cycle in order; the deck repeats them
+							to fill the strip, so you only list each one once.
 						</p>
 						{#each tickerPhrases as phrase, i}
 							<div class="ticker-row">
@@ -1064,18 +1172,21 @@
 									onclick={() => moveTickerPhrase(i, -1)}
 									disabled={i === 0}
 									title="Move up"
-									aria-label="Move phrase {i + 1} up">↑</button>
+									aria-label="Move phrase {i + 1} up">↑</button
+								>
 								<button
 									class="mini icon-only"
 									onclick={() => moveTickerPhrase(i, 1)}
 									disabled={i === tickerPhrases.length - 1}
 									title="Move down"
-									aria-label="Move phrase {i + 1} down">↓</button>
+									aria-label="Move phrase {i + 1} down">↓</button
+								>
 								<button
 									class="mini icon-only danger"
 									onclick={() => deleteTickerPhrase(i)}
 									title="Remove phrase"
-									aria-label="Remove phrase {i + 1}">{@html CLOSE_SVG}</button>
+									aria-label="Remove phrase {i + 1}">{@html CLOSE_SVG}</button
+								>
 							</div>
 						{:else}
 							<p class="hint">No phrases — the strip will export empty.</p>
@@ -1097,14 +1208,13 @@
 							/>
 						</div>
 						<p class="hint sm">
-							How many times the cycle is written into each strip. The deck lays down two
-							identical strips and scrolls them by half, so each one needs enough phrases to
-							stay filled edge to edge — widen the deck, or shorten the phrases, and it wants
-							more.
+							How many times the cycle is written into each strip. The deck lays down two identical
+							strips and scrolls them by half, so each one needs enough phrases to stay filled edge
+							to edge — widen the deck, or shorten the phrases, and it wants more.
 						</p>
 						<p class="hint sm">
-							The ticker sits outside the slide, so it won't show in the preview — open the
-							exported deck to see it run.
+							The ticker sits outside the slide, so it won't show in the preview — open the exported
+							deck to see it run.
 						</p>
 					{/if}
 
@@ -1115,12 +1225,23 @@
 						{#each themeVars as v (v.name)}
 							<div class="theme-row">
 								{#if v.isColor}
-									<span class="sw"><input type="color" value={themeCur(v)} oninput={(e) => applyTheme(v.name, e.currentTarget.value)} /></span>
+									<span class="sw"
+										><input
+											type="color"
+											value={themeCur(v)}
+											oninput={(e) => applyTheme(v.name, e.currentTarget.value)}
+										/></span
+									>
 								{:else}
 									<span class="sw" style:background={themeCur(v)}></span>
 								{/if}
 								<span class="tv-name">--{v.name}</span>
-								<input class="tv-val" type="text" value={themeCur(v)} oninput={(e) => applyTheme(v.name, e.currentTarget.value)} />
+								<input
+									class="tv-val"
+									type="text"
+									value={themeCur(v)}
+									oninput={(e) => applyTheme(v.name, e.currentTarget.value)}
+								/>
 							</div>
 						{/each}
 					{:else}
@@ -1511,7 +1632,9 @@
 	}
 	.rail-fg {
 		background: var(--pb-accent);
-		transition: height 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), top 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+		transition:
+			height 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+			top 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
 	}
 	.stn-v {
 		position: relative;
@@ -1566,7 +1689,10 @@
 		border-radius: 999px;
 		background: var(--paper);
 		border: 2px solid var(--line-strong);
-		transition: background 0.25s, border-color 0.25s, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+		transition:
+			background 0.25s,
+			border-color 0.25s,
+			transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
 	}
 	.stn-v.passed .stn-dot {
 		border-color: var(--pb-accent);
@@ -1661,13 +1787,17 @@
 		   element's own resting opacity, so a disabled control fades straight to its faded state. */
 		.col-head > * {
 			animation: btn-in 0.42s var(--spring) backwards;
-			animation-delay: calc(var(--enter-lead) + var(--enter-layer) + min(var(--n, 0), 8) * var(--enter-step));
+			animation-delay: calc(
+				var(--enter-lead) + var(--enter-layer) + min(var(--n, 0), 8) * var(--enter-step)
+			);
 		}
 		.empty > *,
 		.pb-left .col-body > .hint,
 		.pb-right .col-body > * {
 			animation: rise 0.46s ease backwards;
-			animation-delay: calc(var(--enter-lead) + var(--enter-layer) + min(var(--n, 0), 8) * var(--enter-step));
+			animation-delay: calc(
+				var(--enter-lead) + var(--enter-layer) + min(var(--n, 0), 8) * var(--enter-step)
+			);
 		}
 		/* Column heads: the label, then its actions. */
 		.col-head > *:nth-child(2) {
@@ -2319,7 +2449,9 @@
 	   be visible from the first frame (delay 0 on .open). */
 	@media (prefers-reduced-motion: no-preference) and (max-width: 560px) {
 		.pb-right {
-			transition: transform 0.32s cubic-bezier(0.32, 0.72, 0.24, 1), visibility 0s 0.32s;
+			transition:
+				transform 0.32s cubic-bezier(0.32, 0.72, 0.24, 1),
+				visibility 0s 0.32s;
 		}
 		.pb-right.open {
 			transition-delay: 0s, 0s;

@@ -9,7 +9,20 @@ const ok = (name, pass, detail = '') => {
 };
 
 const AC = [
-	{ hex: 'a1b2c3', flight: 'GCC201 ', t: 'B763', r: 'N741CX', ownOp: 'GULF & CARIBBEAN CARGO / CONTRACT AIR CARGO', desc: 'BOEING 767-300', lat: 41.6, lon: -93.7, alt_baro: 4200, gs: 240, track: 310, baro_rate: -900 }
+	{
+		hex: 'a1b2c3',
+		flight: 'GCC201 ',
+		t: 'B763',
+		r: 'N741CX',
+		ownOp: 'GULF & CARIBBEAN CARGO / CONTRACT AIR CARGO',
+		desc: 'BOEING 767-300',
+		lat: 41.6,
+		lon: -93.7,
+		alt_baro: 4200,
+		gs: 240,
+		track: 310,
+		baro_rate: -900
+	}
 ];
 
 const browser = await firefox.launch();
@@ -33,11 +46,14 @@ async function openCard({ w, h, dark = false, ui }) {
 	// alone can't select the light palette — after 21:00 local, Auto sky IS night and a
 	// "light" context silently renders dark. Pin the sky and theme explicitly.
 	await page.goto(`${B}/`, { waitUntil: 'domcontentloaded' });
-	await page.evaluate(([d, u]) => {
-		localStorage.setItem('ksh-sky', d ? 'night' : 'noon');
-		localStorage.setItem('ksh-theme', d ? 'dark' : 'light');
-		if (u) localStorage.setItem('ksh-ui', u);
-	}, [dark, ui]);
+	await page.evaluate(
+		([d, u]) => {
+			localStorage.setItem('ksh-sky', d ? 'night' : 'noon');
+			localStorage.setItem('ksh-theme', d ? 'dark' : 'light');
+			if (u) localStorage.setItem('ksh-ui', u);
+		},
+		[dark, ui]
+	);
 	await page.goto(`${B}/apps/air-traffic?field=dsm`, { waitUntil: 'networkidle' });
 	await page.waitForTimeout(2500);
 	await page.locator('button.type-btn').first().click();
@@ -78,15 +94,31 @@ const geom = (page) =>
 	const g = await geom(page);
 	ok('phone: card is stacked', g.stacked);
 	ok('phone: button is a 42px touch target', g.w === 42 && g.h === 42, `${g.w}×${g.h}`);
-	ok('phone: clears the card corner radius (>=12px)', g.fromCardTop >= 12 && g.fromCardRight >= 12, `top ${g.fromCardTop} right ${g.fromCardRight}`);
+	ok(
+		'phone: clears the card corner radius (>=12px)',
+		g.fromCardTop >= 12 && g.fromCardRight >= 12,
+		`top ${g.fromCardTop} right ${g.fromCardRight}`
+	);
 	ok('phone: button sits over the photo', g.overImage);
-	ok('phone: inset inside the image, not straddling its corner', g.fromImgTop >= 4 && g.fromImgRight >= 4, `imgTop ${g.fromImgTop} imgRight ${g.fromImgRight}`);
-	ok('phone: has an opaque backing (not transparent)', !/rgba\(0, 0, 0, 0\)|transparent/.test(g.bg), g.bg);
+	ok(
+		'phone: inset inside the image, not straddling its corner',
+		g.fromImgTop >= 4 && g.fromImgRight >= 4,
+		`imgTop ${g.fromImgTop} imgRight ${g.fromImgRight}`
+	);
+	ok(
+		'phone: has an opaque backing (not transparent)',
+		!/rgba\(0, 0, 0, 0\)|transparent/.test(g.bg),
+		g.bg
+	);
 	ok('phone: backing is fully opaque', !/rgba\([^)]+,\s*0?\.\d+\)/.test(g.bg), g.bg);
 	// --panel-fill-solid is pure white in light now (every app surface is #fff / #000).
 	ok('phone: light theme uses the light panel fill', g.bg === 'rgb(255, 255, 255)', g.bg);
 	ok('phone: has a 1.5px ring', parseFloat(g.border) >= 1 && parseFloat(g.border) <= 2, g.border);
-	ok('phone: info column reserves no right padding when stacked', g.infoPadRight === '0px', g.infoPadRight);
+	ok(
+		'phone: info column reserves no right padding when stacked',
+		g.infoPadRight === '0px',
+		g.infoPadRight
+	);
 
 	// It must actually close the card, and be hittable at its centre.
 	await page.locator('.pc-close').click();
@@ -100,9 +132,21 @@ const geom = (page) =>
 	const { ctx, page } = await openCard({ w: 1500, h: 950, ui: 'flat' });
 	const g = await geom(page);
 	ok('desktop: card is side-by-side', !g.stacked);
-	ok('desktop: button is 42px (the one control size at every width)', g.w === 42 && g.h === 42, `${g.w}×${g.h}`);
-	ok('desktop: clears the card corner radius (>=8px)', g.fromCardTop >= 8 && g.fromCardRight >= 8, `top ${g.fromCardTop} right ${g.fromCardRight}`);
-	ok('desktop: info text reserves room for the button', parseFloat(g.infoPadRight) >= 40, g.infoPadRight);
+	ok(
+		'desktop: button is 42px (the one control size at every width)',
+		g.w === 42 && g.h === 42,
+		`${g.w}×${g.h}`
+	);
+	ok(
+		'desktop: clears the card corner radius (>=8px)',
+		g.fromCardTop >= 8 && g.fromCardRight >= 8,
+		`top ${g.fromCardTop} right ${g.fromCardRight}`
+	);
+	ok(
+		'desktop: info text reserves room for the button',
+		parseFloat(g.infoPadRight) >= 40,
+		g.infoPadRight
+	);
 
 	// No info text may overlap the button box.
 	const overlap = await page.locator('.photo-card').evaluate((card) => {
@@ -123,7 +167,10 @@ const geom = (page) =>
 	ok('flat dark: chip is opaque', !/rgba\(0, 0, 0, 0\)/.test(g.bg), g.bg);
 	// --panel-fill-solid is pure black in dark now (every app surface is #fff / #000).
 	ok('flat dark: chip uses the dark panel fill', g.bg === 'rgb(0, 0, 0)', g.bg);
-	await page.screenshot({ path: artifact('pcclose-dark.png'), clip: { x: 0, y: 100, width: 390, height: 420 } });
+	await page.screenshot({
+		path: artifact('pcclose-dark.png'),
+		clip: { x: 0, y: 100, width: 390, height: 420 }
+	});
 	await ctx.close();
 }
 
@@ -139,8 +186,16 @@ for (const dark of [false, true]) {
 	const g = await geom(page);
 	const mode = `bubble ${dark ? 'dark' : 'light'}`;
 	ok(`${mode}: chip still sits over the photo`, g.overImage);
-	ok(`${mode}: chip is not fully transparent`, !/rgba\(0, 0, 0, 0\)|^transparent$/.test(g.bg), g.bg);
-	ok(`${mode}: frost backs the chip (blur, not a solid face)`, /blur\(/.test(g.backdrop), g.backdrop || 'none');
+	ok(
+		`${mode}: chip is not fully transparent`,
+		!/rgba\(0, 0, 0, 0\)|^transparent$/.test(g.bg),
+		g.bg
+	);
+	ok(
+		`${mode}: frost backs the chip (blur, not a solid face)`,
+		/blur\(/.test(g.backdrop),
+		g.backdrop || 'none'
+	);
 	ok(`${mode}: keeps its ring`, parseFloat(g.border) >= 1 && parseFloat(g.border) <= 2, g.border);
 	ok(`${mode}: still a 42px touch target`, g.w === 42 && g.h === 42, `${g.w}×${g.h}`);
 	await ctx.close();

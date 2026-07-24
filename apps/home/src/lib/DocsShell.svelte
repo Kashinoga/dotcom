@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick, type Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import { HUB, children, airports, parentOf } from '$lib/network';
+	import { HUB, children, airports, parentOf } from '$lib/places';
 	import { viewPath, type View } from '$lib/views';
 	import { emojiSearch } from '$lib/emoji-search.svelte';
 	import { SEARCH_SVG } from '$lib/icons';
@@ -21,6 +21,7 @@
 		view = null,
 		activeCode = null,
 		pageIcon = '',
+		barTitle = '',
 		onNavigate,
 		body
 	}: {
@@ -28,6 +29,13 @@
 		activeCode?: string | null;
 		/* The open page's mark (+page's PORT_ICONS) — worn by the mobile floating key. */
 		pageIcon?: string;
+		/* The open page's name, for the BAR, on a phone only. At that width every page hands its
+		   title up here instead of printing it on the sheet, so the first screen is the page
+		   itself, not a cover — the arrangement Air Traffic's own bar has, and the same handoff
+		   the Emoji page makes with its search. The page keeps its <h1> (screen-reader-only
+		   there); this is the visible echo, so it is aria-hidden. Empty on the hub, which is the
+		   site's own cover and has no crumbs either. */
+		barTitle?: string;
 		onNavigate: (code: string) => void;
 		body: Snippet<[View]>;
 	} = $props();
@@ -42,7 +50,9 @@
 			code,
 			kids:
 				code === 'APP'
-					? [...(children[code] ?? [])].sort((a, b) => airports[a].title.localeCompare(airports[b].title))
+					? [...(children[code] ?? [])].sort((a, b) =>
+							airports[a].title.localeCompare(airports[b].title)
+						)
 					: (children[code] ?? [])
 		}))
 	]);
@@ -355,14 +365,22 @@
 		// view-owned substick bar).
 		const target = Math.max(
 			0,
-			el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop - superbarH - subH - 14
+			el.getBoundingClientRect().top -
+				sc.getBoundingClientRect().top +
+				sc.scrollTop -
+				superbarH -
+				subH -
+				14
 		);
 		const start = sc.scrollTop;
 		const dist = target - start;
 		if (Math.abs(dist) < 2) return;
 		cancelAnimationFrame(jumpRaf);
 		clearTimeout(jumpFallback);
-		if (typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+		if (
+			typeof matchMedia !== 'undefined' &&
+			matchMedia('(prefers-reduced-motion: reduce)').matches
+		) {
 			sc.scrollTo(0, target);
 			return;
 		}
@@ -382,13 +400,24 @@
 	}
 </script>
 
-<div class="docs" class:sidebar-open={sidebarOpen} style="--superbar-h: {superbarH}px; --scrollbar-w: {scrollbarW}px">
+<div
+	class="docs"
+	class:sidebar-open={sidebarOpen}
+	style="--superbar-h: {superbarH}px; --scrollbar-w: {scrollbarW}px"
+>
 	<!-- Full-width superbar over all three columns: the wordmark at its left end, the breadcrumb
 	     trail beside it, and (on mobile) a plastic-key MENU that discloses the sidebar. It sticks
 	     to the top and blurs once the page scrolls under it. -->
-	<header class="docs-superbar" class:scrolled bind:this={superbarEl}>
-		<a class="docs-wordmark" href={viewPath({ kind: 'port', code: HUB })} onclick={(e) => nav(e, HUB)}
-			>KASHINOGA</a
+	<header
+		class="docs-superbar"
+		class:scrolled
+		class:has-bar-title={barTitle}
+		bind:this={superbarEl}
+	>
+		<a
+			class="docs-wordmark"
+			href={viewPath({ kind: 'port', code: HUB })}
+			onclick={(e) => nav(e, HUB)}>KASHINOGA</a
 		>
 		{#if crumbs.length}
 			<span class="docs-brand-sep" aria-hidden="true" transition:fade={{ duration: 180 }}></span>
@@ -405,16 +434,29 @@
 		<nav class="docs-crumbs" aria-label="Breadcrumb">
 			{#each crumbs as c, i (i)}
 				<span class="docs-crumb-unit">
-					{#if i > 0}<span class="docs-crumb-sep" aria-hidden="true">/</span>{/if}<span class="docs-crumb-slot">
-						{#key c}<span class="docs-crumb-face" in:crumbIn|global out:crumbOut|global>{#if i < crumbs.length - 1}<a
-									class="docs-crumb"
-									href={viewPath({ kind: 'port', code: c })}
-									onclick={(e) => nav(e, c)}>{airports[c].title}</a
-								>{:else}<span class="docs-crumb" aria-current="page">{airports[c].title}</span>{/if}</span>{/key}
+					{#if i > 0}<span class="docs-crumb-sep" aria-hidden="true">/</span>{/if}<span
+						class="docs-crumb-slot"
+					>
+						{#key c}<span class="docs-crumb-face" in:crumbIn|global out:crumbOut|global
+								>{#if i < crumbs.length - 1}<a
+										class="docs-crumb"
+										href={viewPath({ kind: 'port', code: c })}
+										onclick={(e) => nav(e, c)}>{airports[c].title}</a
+									>{:else}<span class="docs-crumb" aria-current="page">{airports[c].title}</span
+									>{/if}</span
+							>{/key}
 					</span>
 				</span>
 			{/each}
 		</nav>
+		<!-- The phone's stand-in for the breadcrumb (which hides at this width): the open page's
+		     name, in the trail's own voice and full ink — the last crumb, standing alone. Always
+		     in the DOM when set, hidden by the media block above 860px, so nothing depends on a
+		     measured viewport. aria-hidden: the page's own <h1> is still the heading, it is only
+		     screen-reader-only there. -->
+		{#if barTitle}
+			<span class="docs-sb-title" aria-hidden="true">{barTitle}</span>
+		{/if}
 		{#if onEmojiPage && evBarGone}
 			<!-- Right of the breadcrumb: the Emoji page's search, revealed once the in-flow bar
 			     scrolls away. ONE control in two states (the CitySearch lesson): the width morphs
@@ -475,82 +517,82 @@
 	     top margin keeps the thumb's travel wholly in the content area (see .docs-scroll) —
 	     the frost is real AND the scrollbar is never obscured. -->
 	<div class="docs-scroll" bind:this={scrollEl} onscroll={onDocsScroll}>
-	<div class="docs-cols">
-		<!-- Sticky sidebar: the numbered docs TOC (the wordmark now lives in the superbar). -->
-		<aside class="docs-sidebar" aria-label="Site contents">
-			<nav class="docs-toc">
-				<ol>
-					{#each sections as { code, kids }, i}
-						<li class="docs-sec" class:no-kids={!kids.length}>
-							<a
-								class="docs-sec-head"
-								class:active={activeCode === code || (code === HUB && activeCode === null)}
-								href={viewPath({ kind: 'port', code })}
-								onclick={(e) => nav(e, code)}
-								><span class="docs-num">{i + 1}.</span> {airports[code].title}</a
-							>
-							{#if kids.length}
-								<ul>
-									{#each kids as kid}
-										<li>
-											<a
-												class="docs-leaf"
-												class:active={activeCode === kid}
-												href={viewPath({ kind: 'port', code: kid })}
-												onclick={(e) => nav(e, kid)}
-											>
-												<span class="docs-bullet" aria-hidden="true"></span>{airports[kid].title}
-											</a>
-										</li>
-									{/each}
-								</ul>
-							{/if}
-						</li>
-					{/each}
-				</ol>
-			</nav>
-		</aside>
-
-		<!-- Content column (grid col 2): the page body. The body owns its own container — a prose
-		     sheet, a bare self-sheeting reading (Densette), or a full-width figure. -->
-		<main class="docs-content" bind:this={contentEl}>
-			<div class="docs-body">
-				{#if !view}
-					<!-- Homepage under Pixelite: a documentation cover/index rather than the route map. -->
-					<div class="docs-cover">
-						<h1 class="docs-cover-title">Different, Together</h1>
-						<p class="docs-cover-lede">
-							A hand-built site and a small shelf of live apps. Pick a chapter from the contents.
-						</p>
-					</div>
-				{:else}
-					{@render body(view)}
-				{/if}
-			</div>
-		</main>
-
-		<!-- Right rail (grid col 3, desktop only): an on-this-page table of contents for the current
-		     view. Empty on pages with no sections; collapses away on mobile. -->
-		<nav class="docs-rail" aria-label="On this page">
-			<div class="docs-rail-scroll">
-				{#if toc.length}
-					<p class="docs-rail-head">On this page</p>
-					<ul class="docs-rail-list">
-						{#each toc as item}
-							<li class="docs-rail-item lvl-{item.level}">
+		<div class="docs-cols">
+			<!-- Sticky sidebar: the numbered docs TOC (the wordmark now lives in the superbar). -->
+			<aside class="docs-sidebar" aria-label="Site contents">
+				<nav class="docs-toc">
+					<ol>
+						{#each sections as { code, kids }, i}
+							<li class="docs-sec" class:no-kids={!kids.length}>
 								<a
-									class="docs-rail-link"
-									class:active={activeId === item.id}
-									href={`#${item.id}`}
-									onclick={(e) => tocJump(e, item.id)}>{item.text}</a
+									class="docs-sec-head"
+									class:active={activeCode === code || (code === HUB && activeCode === null)}
+									href={viewPath({ kind: 'port', code })}
+									onclick={(e) => nav(e, code)}
+									><span class="docs-num">{i + 1}.</span> {airports[code].title}</a
 								>
+								{#if kids.length}
+									<ul>
+										{#each kids as kid}
+											<li>
+												<a
+													class="docs-leaf"
+													class:active={activeCode === kid}
+													href={viewPath({ kind: 'port', code: kid })}
+													onclick={(e) => nav(e, kid)}
+												>
+													<span class="docs-bullet" aria-hidden="true"></span>{airports[kid].title}
+												</a>
+											</li>
+										{/each}
+									</ul>
+								{/if}
 							</li>
 						{/each}
-					</ul>
-				{/if}
-			</div>
-		</nav>
-	</div>
+					</ol>
+				</nav>
+			</aside>
+
+			<!-- Content column (grid col 2): the page body. The body owns its own container — a prose
+		     sheet, a bare self-sheeting reading (Densette), or a full-width figure. -->
+			<main class="docs-content" bind:this={contentEl}>
+				<div class="docs-body">
+					{#if !view}
+						<!-- Homepage under Pixelite: a documentation cover/index rather than the route map. -->
+						<div class="docs-cover">
+							<h1 class="docs-cover-title">Different, Together</h1>
+							<p class="docs-cover-lede">
+								A hand-built site and a small shelf of live apps. Pick a chapter from the contents.
+							</p>
+						</div>
+					{:else}
+						{@render body(view)}
+					{/if}
+				</div>
+			</main>
+
+			<!-- Right rail (grid col 3, desktop only): an on-this-page table of contents for the current
+		     view. Empty on pages with no sections; collapses away on mobile. -->
+			<nav class="docs-rail" aria-label="On this page">
+				<div class="docs-rail-scroll">
+					{#if toc.length}
+						<p class="docs-rail-head">On this page</p>
+						<ul class="docs-rail-list">
+							{#each toc as item}
+								<li class="docs-rail-item lvl-{item.level}">
+									<a
+										class="docs-rail-link"
+										class:active={activeId === item.id}
+										href={`#${item.id}`}
+										onclick={(e) => tocJump(e, item.id)}>{item.text}</a
+									>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			</nav>
+		</div>
 	</div>
 </div>
 
@@ -861,6 +903,12 @@
 		font-size: 1.15em;
 		color: color-mix(in srgb, var(--ink) 30%, transparent);
 	}
+	/* The bar's page title (phones only — see the media block, which is the only place it is
+	   shown). Desktop keeps the breadcrumb, which already ends in this same name, so printing
+	   it here too would say it twice. */
+	.docs-sb-title {
+		display: none;
+	}
 	/* The pixel accent for numerals — TOC section numbers, cover numbers. Bumped ~15% to match
 	   the optical size of the mono around it. */
 	.docs-num {
@@ -1167,6 +1215,22 @@
 	}
 
 	@media (max-width: 860px) {
+		/* On a phone the sheet takes the WHOLE column — the content gutter goes to zero on all
+		   four sides, so the paper meets the viewport's left and right edges, starts flush under
+		   the superbar, and runs to the foot of the scroll. A phone has no room to spend on a
+		   frame around the page: the sheet IS the page there, and its own inner padding (the
+		   reading's breathing room) is the only inset left.
+
+		   ONE lever does it. --docs-pad is the shell's single measure for that gutter, so zeroing
+		   it here also collapses everything that was cancelling it — Densette's bleeding margins,
+		   the Emoji wall's full-bleed search bar, the sheets' and cover's negative bottom margin —
+		   instead of leaving each to fight the gutter on its own. Densette's inner frame rides the
+		   same var, so its grey gutter folds away too and its sheets go edge to edge like the rest.
+		   The one gap NOT dropped is the scroller's foot below (see .docs-scroll): that is the
+		   floating contents key's safe area, not page furniture. */
+		.docs {
+			--docs-pad: 0px;
+		}
 		.docs-cols {
 			grid-template-columns: 1fr;
 		}
@@ -1185,6 +1249,29 @@
 		.docs-crumbs,
 		.docs-brand-sep {
 			display: none;
+		}
+		/* Unless the page handed its title up here: then the post has something on its far side
+		   again, and it does the same work it does on desktop — parting the site's name from the
+		   page's. (Only reached when the crumbs exist, which is every page but the cover.) */
+		.docs-superbar.has-bar-title .docs-brand-sep {
+			display: block;
+		}
+		/* The title takes the room the breadcrumb had — flex:1, so the Emoji search (margin-left:
+		   auto) still sits at the far end — and clips with an ellipsis rather than pushing the bar
+		   wider or wrapping its fixed 42px line. Full ink in the trail's mono voice: this IS the
+		   trailing crumb, standing alone. */
+		.docs-sb-title {
+			display: block;
+			flex: 1;
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			font-family: var(--font-mono);
+			text-transform: uppercase;
+			letter-spacing: 0.08em;
+			font-size: 0.72rem;
+			color: var(--ink);
 		}
 		/* With the breadcrumb gone, its flex:1 no longer pushes the Emoji page's superbar search
 		   to the right end — it would sit against the wordmark. Auto left margin sends it back to
@@ -1210,10 +1297,11 @@
 			position: fixed;
 			top: var(--superbar-h);
 			/* Line up with the SHEET underneath: inset by --docs-pad each side (the content
-			   gutter the sheet sits in), so the receipt's edges match the page's sheet rather
-			   than capping at a narrow 300px column. The sheet lives inside the scroller, whose
-			   scrollbar gutter (--scrollbar-w, measured) narrows its content — subtract it so the
-			   fixed receipt, sized off 100vw, doesn't overrun the sheet's right edge. */
+			   gutter the sheet sits in — zero on a phone, so both run to the viewport's edges),
+			   so the receipt's edges match the page's sheet rather than capping at a narrow 300px
+			   column. The sheet lives inside the scroller, whose scrollbar gutter (--scrollbar-w,
+			   measured) narrows its content — subtract it so the fixed receipt, sized off 100vw,
+			   doesn't overrun the sheet's right edge. */
 			left: var(--docs-pad);
 			z-index: 18;
 			height: auto;
@@ -1273,11 +1361,11 @@
 		.docs-rail {
 			display: none;
 		}
-		/* The cover bleeds its bottom into the gutter (like the sheets and Densette's paper), so
-		   its blank foot below is just the scroller's foot — a uniform 1.25rem above the floating
-		   key, not the gutter's --docs-pad on top of it. */
+		/* The cover is capped to its reading measure on desktop; on a phone that cap would strand
+		   it short of the right edge while every other sheet runs full width, so it drops. (Its
+		   old negative bottom margin went with the gutter — there is nothing left to cancel.) */
 		.docs-cover {
-			margin-bottom: calc(-1 * var(--docs-pad));
+			max-width: none;
 		}
 	}
 </style>

@@ -139,7 +139,10 @@
 			const lines = toLines(s);
 			// A short first line reads as the post's own title; keep it out of the body.
 			const titled = lines.length > 1 && lines[0].length <= 120;
-			kase = { title: titled ? lines[0] : 'The case, as pasted', lines: titled ? lines.slice(1) : lines };
+			kase = {
+				title: titled ? lines[0] : 'The case, as pasted',
+				lines: titled ? lines.slice(1) : lines
+			};
 		}
 		if (!kase?.lines.length) {
 			error = 'Nothing to read there.';
@@ -258,9 +261,8 @@
 	{#key stage === 'read' || stage === 'judge' ? 'case' : stage}
 		{#if stage === 'input'}
 			<p class="aita-lead" style="--n:0">
-				Paste an <span class="mono">r/AmItheAsshole</span> link — or the story itself — and read
-				it the way the court intended: one line at a time, verdict withheld until you’ve given
-				yours.
+				Paste an <span class="mono">r/AmItheAsshole</span> link — or the story itself — and read it the
+				way the court intended: one line at a time, verdict withheld until you’ve given yours.
 			</p>
 			<textarea
 				class="aita-src"
@@ -271,8 +273,7 @@
 				spellcheck="false"
 				onkeydown={(e) => {
 					if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) start();
-				}}
-			></textarea>
+				}}></textarea>
 			<div class="aita-actions" style="--n:2">
 				<button type="button" class="aita-go" onclick={start} disabled={busy || !src.trim()}>
 					{busy ? 'Fetching the case…' : 'Open the case'}
@@ -318,11 +319,17 @@
 						class="aita-line"
 						class:current={i === idx - 1 && stage === 'read'}
 						class:merged={stage !== 'read' || i < idx - 1 || !fresh}
-					>{line}</p>
+					>
+						{line}
+					</p>
 				{/each}
 				{#if stage === 'read'}
 					<p class="aita-cue">
-						{idx === 0 ? 'Tap to begin reading' : idx < kase.lines.length ? 'Tap for the next section' : ''}
+						{idx === 0
+							? 'Tap to begin reading'
+							: idx < kase.lines.length
+								? 'Tap for the next section'
+								: ''}
 					</p>
 				{/if}
 			</div>
@@ -333,7 +340,14 @@
 				</div>
 				<div class="aita-readrow">
 					<span class="aita-count mono">{idx} / {kase.lines.length}</span>
-					<button type="button" class="aita-mini" onclick={() => { idx = kase!.lines.length; deliberate(); }}>
+					<button
+						type="button"
+						class="aita-mini"
+						onclick={() => {
+							idx = kase!.lines.length;
+							deliberate();
+						}}
+					>
 						{idx >= kase.lines.length ? 'Show verdict' : 'Skip to the verdict'}
 					</button>
 				</div>
@@ -342,7 +356,12 @@
 				<p class="aita-ask" style="--n:0">The story rests. Your verdict?</p>
 				<div class="aita-bench" role="group" aria-label="Your verdict" style="--n:1">
 					{#each VERDICTS as v (v.id)}
-						<button type="button" class="aita-verdict" style:--vc={v.color} onclick={() => judge(v.id)}>
+						<button
+							type="button"
+							class="aita-verdict"
+							style:--vc={v.color}
+							onclick={() => judge(v.id)}
+						>
 							<b>{v.id}</b> <span>{v.label}</span>
 						</button>
 					{/each}
@@ -352,20 +371,24 @@
 			<p class="aita-meta" style="--n:0">{kase.title}</p>
 			{#if kase.crowd && myPick}
 				<div class="aita-crowd" style="--n:1" style:--vc={vMeta(kase.crowd).color}>
-					<span class="aita-crowd-word"><SplitFlap text={kase.crowd} base={200} stagger={70} /></span>
+					<span class="aita-crowd-word"
+						><SplitFlap text={kase.crowd} base={200} stagger={70} /></span
+					>
 					<p class="aita-crowd-sub">
 						{vMeta(kase.crowd).label} — the court’s ruling{kase.numComments
 							? `, from ${kase.numComments.toLocaleString()} comments`
 							: ''}.
-						{#if myPick === kase.crowd}You ruled the same way.{:else}You said {myPick} — the court
-							disagrees.{/if}
+						{#if myPick === kase.crowd}You ruled the same way.{:else}You said {myPick} — the court disagrees.{/if}
 					</p>
 				</div>
 				<div class="aita-sheet" style="--n:2">
 					{#each sheet as v, i (v.id)}
 						<div class="aita-row" style="--n:{3 + i}">
 							<span class="aita-row-id mono" style:color={v.color}>{v.id}</span>
-							<span class="aita-bar"><span class="aita-bar-fill" style:background={v.color} style:--share={v.share}></span></span>
+							<span class="aita-bar"
+								><span class="aita-bar-fill" style:background={v.color} style:--share={v.share}
+								></span></span
+							>
 							<span class="aita-row-n mono">{v.n}</span>
 						</div>
 					{/each}
@@ -375,8 +398,9 @@
 						{#each kase.top as c, i (i)}
 							<blockquote class="aita-quote">
 								<p class="aita-quote-meta">
-									<b style:color={vMeta(c.v).color}>{c.v}</b> · u/{c.author} ·
-									▲{fmtScore(c.score)}{c.created ? ` · ${fmtAge(c.created)}` : ''}
+									<b style:color={vMeta(c.v).color}>{c.v}</b> · u/{c.author} · ▲{fmtScore(
+										c.score
+									)}{c.created ? ` · ${fmtAge(c.created)}` : ''}
 								</p>
 								<p class="aita-quote-body">{c.body}</p>
 							</blockquote>
@@ -384,18 +408,26 @@
 					</div>
 				{/if}
 			{:else}
-				<div class="aita-crowd" style="--n:1" style:--vc={myPick ? vMeta(myPick).color : 'var(--sub)'}>
-					<span class="aita-crowd-word"><SplitFlap text={myPick ?? '—'} base={200} stagger={70} /></span>
+				<div
+					class="aita-crowd"
+					style="--n:1"
+					style:--vc={myPick ? vMeta(myPick).color : 'var(--sub)'}
+				>
+					<span class="aita-crowd-word"
+						><SplitFlap text={myPick ?? '—'} base={200} stagger={70} /></span
+					>
 					<p class="aita-crowd-sub">
-						{myPick ? vMeta(myPick).label : ''} — your ruling. No jury attached: the case arrived
-						without its comments, so the gavel stands alone.
+						{myPick ? vMeta(myPick).label : ''} — your ruling. No jury attached: the case arrived without
+						its comments, so the gavel stands alone.
 					</p>
 				</div>
 			{/if}
 			<div class="aita-actions aita-again" style="--n:9">
 				<!-- Back into the courtroom: the full story, bench still seated — reread the
 				     testimony, and re-ring if it changed your mind (a new ruling re-reveals). -->
-				<button type="button" class="aita-go" onclick={() => (stage = 'judge')}>Back to the case</button>
+				<button type="button" class="aita-go" onclick={() => (stage = 'judge')}
+					>Back to the case</button
+				>
 				<button type="button" class="aita-go" onclick={reset}>Another case</button>
 				{#if caseLink}
 					<!-- The jury drifts while a post is live — this refetches past both caches
@@ -569,7 +601,10 @@
 		border: 1px solid var(--line);
 		border-radius: 12px;
 		padding: 0.6rem 0.9rem;
-		transition: color 0.35s ease, margin 0.4s ease, border-color 0.4s ease,
+		transition:
+			color 0.35s ease,
+			margin 0.4s ease,
+			border-color 0.4s ease,
 			border-radius 0.4s ease;
 	}
 	.aita-line:first-child {
@@ -683,7 +718,9 @@
 		border-radius: 999px;
 		padding: 0 1rem;
 		cursor: pointer;
-		transition: background 0.15s ease, border-color 0.15s ease;
+		transition:
+			background 0.15s ease,
+			border-color 0.15s ease;
 	}
 	.aita-verdict:hover {
 		background: color-mix(in srgb, var(--vc) 26%, var(--aero-face));

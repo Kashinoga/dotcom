@@ -69,8 +69,7 @@ export function createStage() {
 	// Read the motion preference ONCE (law 3), SSR-guarded: matchMedia is undefined on the server,
 	// which reads as "no preference" — the same idiom location-state uses.
 	const reduced =
-		typeof matchMedia !== 'undefined' &&
-		matchMedia('(prefers-reduced-motion: reduce)').matches;
+		typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 	return {
 		get used() {
@@ -91,7 +90,12 @@ export function createStage() {
 		},
 		// The middle — no edge to reach, so it recedes.
 		exitBack(delay = 0): ScaleParams {
-			return { start: reduced ? 1 : RECEDE_TO, duration: EXIT_END_MS - delay, easing: cubicIn, delay };
+			return {
+				start: reduced ? 1 : RECEDE_TO,
+				duration: EXIT_END_MS - delay,
+				easing: cubicIn,
+				delay
+			};
 		},
 
 		// ── The entrances. Mirror the exits; parked until the stage is used (laws 2 & 4). ──
@@ -105,7 +109,12 @@ export function createStage() {
 		// back at the same speed — the requisitions sheet settles in ENTER_MS, the forestry detail a
 		// touch quicker (400); pass it and the parity holds.
 		enterBack(delay = 0, duration = ENTER_MS): ScaleParams {
-			return { start: reduced ? 1 : RECEDE_TO, duration: used ? duration : 0, easing: backOut, delay };
+			return {
+				start: reduced ? 1 : RECEDE_TO,
+				duration: used ? duration : 0,
+				easing: backOut,
+				delay
+			};
 		},
 
 		// ── The cabin's own pair. Rises from below, falls back the same way. NOT gated on `used`:

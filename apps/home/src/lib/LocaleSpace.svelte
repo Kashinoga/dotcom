@@ -32,13 +32,12 @@
 		overflow: hidden;
 		pointer-events: none;
 		color-scheme: light dark;
-		background:
-			radial-gradient(
-				135% 120% at 72% 18%,
-				light-dark(#182842, #0a1020) 0%,
-				light-dark(#101d33, #06070f) 62%,
-				light-dark(#0b1626, #030409) 100%
-			);
+		background: radial-gradient(
+			135% 120% at 72% 18%,
+			light-dark(#182842, #0a1020) 0%,
+			light-dark(#101d33, #06070f) 62%,
+			light-dark(#0b1626, #030409) 100%
+		);
 	}
 
 	.space :global(canvas) {

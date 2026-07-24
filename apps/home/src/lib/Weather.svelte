@@ -13,7 +13,17 @@
 		WIND_SVG,
 		PLUS_SVG
 	} from '$lib/icons';
-	import { weather, current, load, show, closeTab, openSearch, restore, reorder, weatherKind } from '$lib/weather-state.svelte';
+	import {
+		weather,
+		current,
+		load,
+		show,
+		closeTab,
+		openSearch,
+		restore,
+		reorder,
+		weatherKind
+	} from '$lib/weather-state.svelte';
 	import CitySearch from '$lib/CitySearch.svelte';
 	import { flip } from 'svelte/animate';
 
@@ -45,11 +55,31 @@
 	type Phase = 'dawn' | 'morning' | 'noon' | 'dusk' | 'night';
 	// The gradient stops lifted verbatim from base.css's --sky per phase (top → mid → bottom).
 	const SKY_STOPS: Record<Phase, [number, number, number][]> = {
-		dawn: [[246, 205, 184], [231, 211, 228], [219, 230, 242]],
-		morning: [[188, 216, 241], [216, 232, 246], [234, 242, 251]],
-		noon: [[158, 201, 239], [196, 224, 246], [230, 242, 252]],
-		dusk: [[124, 74, 94], [74, 58, 106], [28, 24, 48]],
-		night: [[22, 32, 58], [13, 20, 36], [9, 13, 24]]
+		dawn: [
+			[246, 205, 184],
+			[231, 211, 228],
+			[219, 230, 242]
+		],
+		morning: [
+			[188, 216, 241],
+			[216, 232, 246],
+			[234, 242, 251]
+		],
+		noon: [
+			[158, 201, 239],
+			[196, 224, 246],
+			[230, 242, 252]
+		],
+		dusk: [
+			[124, 74, 94],
+			[74, 58, 106],
+			[28, 24, 48]
+		],
+		night: [
+			[22, 32, 58],
+			[13, 20, 36],
+			[9, 13, 24]
+		]
 	};
 	// The CITY's local hour, read straight off the forecast ISO string (…T22:00:00-05:00): the wall
 	// clock is written in the city's own offset, so new Date() (which renormalises to the viewer's
@@ -77,9 +107,7 @@
 		h = h % 12 || 12;
 		return `${h} ${ap}`;
 	});
-	const skyCaption = $derived(
-		['Local sky', cityClockLabel, skyPhase].filter(Boolean).join(' · ')
-	);
+	const skyCaption = $derived(['Local sky', cityClockLabel, skyPhase].filter(Boolean).join(' · '));
 
 	// The canvas is a fixed, DPR-independent pixel grid — that's the point; CSS upscales it with
 	// image-rendering: pixelated, so the pixels stay chunky at any size.
@@ -91,9 +119,21 @@
 	let skyCanvas = $state<HTMLCanvasElement | undefined>(undefined);
 	let skyFrame = $state<HTMLElement | undefined>(undefined);
 	type Particle = {
-		x?: number; y?: number; v?: number; len?: number; ph?: number; amp?: number;
-		w?: number; h?: number; sun?: boolean; moon?: boolean; star?: boolean; tw?: boolean; big?: boolean;
-		cloud?: boolean; ghost?: boolean;
+		x?: number;
+		y?: number;
+		v?: number;
+		len?: number;
+		ph?: number;
+		amp?: number;
+		w?: number;
+		h?: number;
+		sun?: boolean;
+		moon?: boolean;
+		star?: boolean;
+		tw?: boolean;
+		big?: boolean;
+		cloud?: boolean;
+		ghost?: boolean;
 		/* A stratus deck cloud's lumps: [dx, dy, r] per disc, rolled once in seed() so the
 		   band's shape holds frame to frame (the render loop must stay deterministic). */
 		lumps?: [number, number, number][];
@@ -144,18 +184,44 @@
 					for (let j = 0; j < ln; j++) {
 						const t = j / (ln - 1);
 						const arc = Math.sin(Math.PI * t);
-						lumps.push([t * w + (rnd() * 4 - 2), -(arc * ch * 0.35) + (rnd() * 2 - 1), 3 + arc * ch * 0.4 + rnd() * 1.5]);
+						lumps.push([
+							t * w + (rnd() * 4 - 2),
+							-(arc * ch * 0.35) + (rnd() * 2 - 1),
+							3 + arc * ch * 0.4 + rnd() * 1.5
+						]);
 					}
-					p.push({ cloud: true, h: layer, x: -8 + slot * (CW / 6) + rnd() * 8, y: 4 + layer * 2 + rnd() * 3, v: 0.03 + layer * 0.025 + rnd() * 0.02, w, lumps });
+					p.push({
+						cloud: true,
+						h: layer,
+						x: -8 + slot * (CW / 6) + rnd() * 8,
+						y: 4 + layer * 2 + rnd() * 3,
+						v: 0.03 + layer * 0.025 + rnd() * 0.02,
+						w,
+						lumps
+					});
 				}
 			}
 		}
 		if (kind === 'rain' || kind === 'storm') {
 			const n = kind === 'storm' ? 40 : 28;
-			for (let i = 0; i < n; i++) p.push({ x: rnd() * CW, y: 12 + rnd() * (CH - 12), v: 1.6 + rnd() * 1.5, len: 6 + ((rnd() * 4) | 0) });
+			for (let i = 0; i < n; i++)
+				p.push({
+					x: rnd() * CW,
+					y: 12 + rnd() * (CH - 12),
+					v: 1.6 + rnd() * 1.5,
+					len: 6 + ((rnd() * 4) | 0)
+				});
 		} else if (kind === 'snow') {
 			// A few fatter flakes (a stubby pixel plus) among the fine ones.
-			for (let i = 0; i < 30; i++) p.push({ x: rnd() * CW, y: 10 + rnd() * (CH - 10), v: 0.3 + rnd() * 0.4, ph: rnd() * 6.28, amp: 0.8 + rnd() * 1.4, big: rnd() < 0.25 });
+			for (let i = 0; i < 30; i++)
+				p.push({
+					x: rnd() * CW,
+					y: 10 + rnd() * (CH - 10),
+					v: 0.3 + rnd() * 0.4,
+					ph: rnd() * 6.28,
+					amp: 0.8 + rnd() * 1.4,
+					big: rnd() < 0.25
+				});
 		} else if (kind === 'fog') {
 			// The sun (or moon) first, as a pale ghost the haze half-swallows; then the banks,
 			// bottom-up — amp carries each bank's density, thinning with height. Each bank
@@ -166,10 +232,23 @@
 				const crests: [number, number, number][] = [];
 				for (let cx = 0; cx < CW + 12; cx += 6 + ((rnd() * 5) | 0))
 					crests.push([cx, 0, 2 + ((rnd() * 3) | 0)]);
-				p.push({ x: rnd() * CW, y: CH - 8 - i * 9, v: (rnd() < 0.5 ? -1 : 1) * (0.08 + rnd() * 0.1), ph: rnd() * 6.28, amp: 1 - i * 0.11, lumps: crests });
+				p.push({
+					x: rnd() * CW,
+					y: CH - 8 - i * 9,
+					v: (rnd() < 0.5 ? -1 : 1) * (0.08 + rnd() * 0.1),
+					ph: rnd() * 6.28,
+					amp: 1 - i * 0.11,
+					lumps: crests
+				});
 			}
 		} else if (kind === 'wind') {
-			for (let i = 0; i < 16; i++) p.push({ x: rnd() * CW, y: 6 + rnd() * (CH - 12), v: 1.1 + rnd() * 1.5, len: 8 + ((rnd() * 6) | 0) });
+			for (let i = 0; i < 16; i++)
+				p.push({
+					x: rnd() * CW,
+					y: 6 + rnd() * (CH - 12),
+					v: 1.1 + rnd() * 1.5,
+					len: 8 + ((rnd() * 6) | 0)
+				});
 		} else if (kind === 'cloudy' || kind === 'partly') {
 			const n = kind === 'partly' ? 4 : 6;
 			for (let i = 0; i < n; i++) {
@@ -184,7 +263,11 @@
 				for (let j = 0; j < ln; j++) {
 					const t = j / (ln - 1);
 					const arc = Math.sin(Math.PI * t);
-					lumps.push([t * w + (rnd() * 4 - 2), -(arc * h * 0.35) + (rnd() * 2 - 1), 3 + arc * h * 0.4 + rnd() * 1.5]);
+					lumps.push([
+						t * w + (rnd() * 4 - 2),
+						-(arc * h * 0.35) + (rnd() * 2 - 1),
+						3 + arc * h * 0.4 + rnd() * 1.5
+					]);
 				}
 				p.push({ x: rnd() * CW, y: 6 + rnd() * (CH * 0.5), v: 0.06 + rnd() * 0.09, w, h, lumps });
 			}
@@ -193,7 +276,15 @@
 				// The night half of "partly": the moon where the day's sun stands, and a thinner
 				// star field than clear night's (the clouds own part of the sky).
 				p.push({ moon: true, x: CW * 0.22, y: CH * 0.26 });
-				for (let i = 0; i < 18; i++) p.push({ star: true, x: rnd() * CW, y: rnd() * CH * 0.6, ph: rnd() * 6.28, tw: rnd() < 0.5, big: rnd() < 0.1 });
+				for (let i = 0; i < 18; i++)
+					p.push({
+						star: true,
+						x: rnd() * CW,
+						y: rnd() * CH * 0.6,
+						ph: rnd() * 6.28,
+						tw: rnd() < 0.5,
+						big: rnd() < 0.1
+					});
 			}
 		} else {
 			// clear
@@ -201,7 +292,15 @@
 				p.push({ moon: true, x: CW * 0.74, y: CH * 0.24 });
 				// A few four-point "big" stars among the field — the same one-in-eight sparkle the
 				// sun's rays give the day.
-				for (let i = 0; i < 32; i++) p.push({ star: true, x: rnd() * CW, y: rnd() * CH * 0.72, ph: rnd() * 6.28, tw: rnd() < 0.55, big: rnd() < 0.12 });
+				for (let i = 0; i < 32; i++)
+					p.push({
+						star: true,
+						x: rnd() * CW,
+						y: rnd() * CH * 0.72,
+						ph: rnd() * 6.28,
+						tw: rnd() < 0.55,
+						big: rnd() < 0.12
+					});
 			} else p.push({ sun: true, x: CW * 0.72, y: CH * 0.28 });
 		}
 		particles = p;
@@ -232,7 +331,11 @@
 	function bandColor(stops: [number, number, number][], pos: number) {
 		const [s0, s1, s2] = stops;
 		const [c0, c1, tt] = pos < 0.5 ? [s0, s1, pos / 0.5] : [s1, s2, (pos - 0.5) / 0.5];
-		return [Math.round(lerp(c0[0], c1[0], tt)), Math.round(lerp(c0[1], c1[1], tt)), Math.round(lerp(c0[2], c1[2], tt))];
+		return [
+			Math.round(lerp(c0[0], c1[0], tt)),
+			Math.round(lerp(c0[1], c1[1], tt)),
+			Math.round(lerp(c0[2], c1[2], tt))
+		];
 	}
 
 	// ── Pixel-art drawing helpers ── a handful of shape routines the render loop leans on, so the
@@ -242,7 +345,8 @@
 	// A filled disc, drawn as horizontal spans — the bounding box's corners fall outside the radius,
 	// so the circle is naturally corner-notched, exactly the pixel-art read we want.
 	function disc(ctx: Ctx, cx: number, cy: number, r: number) {
-		cx |= 0; cy |= 0;
+		cx |= 0;
+		cy |= 0;
 		for (let dy = -r; dy <= r; dy++) {
 			const span = Math.floor(Math.sqrt(Math.max(0, r * r - dy * dy)));
 			ctx.fillRect(cx - span, cy + dy, span * 2 + 1, 1);
@@ -250,7 +354,8 @@
 	}
 	// A stubby half-disc rising from a flat baseline — one hump of a cloud.
 	function hump(ctx: Ctx, cx: number, base: number, r: number) {
-		cx |= 0; base |= 0;
+		cx |= 0;
+		base |= 0;
 		for (let dy = -r; dy <= 0; dy++) {
 			const span = Math.floor(Math.sqrt(Math.max(0, r * r - dy * dy)));
 			ctx.fillRect(cx - span, base + dy, span * 2 + 1, 1);
@@ -258,14 +363,20 @@
 	}
 	// The sun: a soft double halo, a bright notched disc, a paler core, and four short rays.
 	function pxSun(ctx: Ctx, cx: number, cy: number, r: number, halo: boolean) {
-		cx |= 0; cy |= 0;
+		cx |= 0;
+		cy |= 0;
 		if (halo) {
 			ctx.fillStyle = 'rgba(255,236,170,0.14)';
 			disc(ctx, cx, cy, r + 4);
 			ctx.fillStyle = 'rgba(255,240,190,0.20)';
 			disc(ctx, cx, cy, r + 2);
 			ctx.fillStyle = 'rgba(255,236,170,0.55)';
-			for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]] as const) {
+			for (const [dx, dy] of [
+				[0, -1],
+				[0, 1],
+				[-1, 0],
+				[1, 0]
+			] as const) {
 				ctx.fillRect(cx + dx * (r + 3), cy + dy * (r + 3), dx ? 2 : 1, dy ? 2 : 1);
 			}
 		}
@@ -279,7 +390,8 @@
 	// disc and the offset carve circle — not by overpainting the carve in sky colour, which wiped
 	// a flat notch through the halo behind it. The buffer is tiny; the loop is nothing.
 	function pxMoon(ctx: Ctx, cx: number, cy: number, r: number) {
-		cx |= 0; cy |= 0;
+		cx |= 0;
+		cy |= 0;
 		ctx.fillStyle = 'rgba(214,224,245,0.10)';
 		disc(ctx, cx, cy, r + 4);
 		ctx.fillStyle = 'rgba(222,230,248,0.16)';
@@ -290,7 +402,8 @@
 		for (let dy = -r; dy <= r; dy++) {
 			for (let dx = -r; dx <= r; dx++) {
 				if (dx * dx + dy * dy > r * r) continue;
-				const ex = cx + dx - ox, ey = cy + dy - oy;
+				const ex = cx + dx - ox,
+					ey = cy + dy - oy;
 				if (ex * ex + ey * ey <= r * r) continue;
 				ctx.fillRect(cx + dx, cy + dy, 1, 1);
 			}
@@ -330,7 +443,8 @@
 		for (const p of particles) {
 			if (p.star) {
 				const a = p.tw ? 0.35 + 0.5 * Math.abs(Math.sin(t * 1.4 + (p.ph ?? 0))) : 0.85;
-				const x = p.x! | 0, y = p.y! | 0;
+				const x = p.x! | 0,
+					y = p.y! | 0;
 				ctx.fillStyle = `rgba(255,255,255,${a.toFixed(2)})`;
 				ctx.fillRect(x, y, 1, 1);
 				if (p.big) {
@@ -363,9 +477,14 @@
 				for (const [dx, dy, r] of lumps) disc(ctx, p.x! + dx, p.y! + dy + 2, r | 0);
 				ctx.fillStyle = light;
 				for (const [dx, dy, r] of lumps) disc(ctx, p.x! + dx, p.y! + dy, r | 0);
-				if (animate) { p.x! += p.v!; if (p.x! > CW) p.x = -(p.w ?? 46); }
+				if (animate) {
+					p.x! += p.v!;
+					if (p.x! > CW) p.x = -(p.w ?? 46);
+				}
 			} else if (kind === 'rain' || kind === 'storm') {
-				const x = p.x! | 0, y = p.y! | 0, len = p.len ?? 6;
+				const x = p.x! | 0,
+					y = p.y! | 0,
+					len = p.len ?? 6;
 				// two-tone drop: dim body, bright leading head — the streak reads as falling
 				ctx.fillStyle = 'rgba(188,214,255,0.7)';
 				ctx.fillRect(x, y, 1, len - 1);
@@ -374,8 +493,14 @@
 				if (animate) {
 					p.y! += p.v!;
 					// storm rain drives sideways; recycled drops re-enter at the cloud deck's base
-					if (kind === 'storm') { p.x! += 0.35; if (p.x! > CW) p.x! -= CW; }
-					if (p.y! > CH) { p.y = 12 - len; p.x = Math.random() * CW; }
+					if (kind === 'storm') {
+						p.x! += 0.35;
+						if (p.x! > CW) p.x! -= CW;
+					}
+					if (p.y! > CH) {
+						p.y = 12 - len;
+						p.x = Math.random() * CW;
+					}
 				}
 			} else if (kind === 'snow') {
 				const x = (p.x! + Math.sin(t + (p.ph ?? 0)) * (p.amp ?? 0.5)) | 0;
@@ -389,7 +514,13 @@
 					ctx.fillRect(x - 1, y, 1, 1);
 					ctx.fillRect(x + 1, y, 1, 1);
 				} else ctx.fillRect(x, y, 1, 1);
-				if (animate) { p.y! += p.v!; if (p.y! > CH) { p.y = 12; p.x = Math.random() * CW; } }
+				if (animate) {
+					p.y! += p.v!;
+					if (p.y! > CH) {
+						p.y = 12;
+						p.x = Math.random() * CW;
+					}
+				}
 			} else if (kind === 'fog') {
 				// A bank: the body band, a ragged dashed top edge, and a denser lump riding along
 				// at double speed — the lump is what makes the drift visible on a full-width band.
@@ -410,15 +541,26 @@
 				ctx.fillStyle = `rgba(232,236,240,${(a * 0.7).toFixed(2)})`;
 				const lx = ((((off * 2) % (CW + 40)) + CW + 40) % (CW + 40)) - 40;
 				ctx.fillRect(lx, y + 1, 34, 2);
-				if (animate) { p.x! += p.v!; p.ph = (p.ph ?? 0) + 0.008; }
+				if (animate) {
+					p.x! += p.v!;
+					p.ph = (p.ph ?? 0) + 0.008;
+				}
 			} else if (kind === 'wind') {
-				const x = p.x! | 0, y = p.y! | 0, len = p.len ?? 8;
+				const x = p.x! | 0,
+					y = p.y! | 0,
+					len = p.len ?? 8;
 				// two-tone streak: a dim tail behind a brighter head (the streak flies +x)
 				ctx.fillStyle = 'rgba(230,236,244,0.3)';
 				ctx.fillRect(x, y, len, 1);
 				ctx.fillStyle = 'rgba(242,246,252,0.7)';
 				ctx.fillRect(x + len - 3, y, 3, 1);
-				if (animate) { p.x! += p.v!; if (p.x! > CW) { p.x = -(p.len ?? 8); p.y = 6 + Math.random() * (CH - 12); } }
+				if (animate) {
+					p.x! += p.v!;
+					if (p.x! > CW) {
+						p.x = -(p.len ?? 8);
+						p.y = 6 + Math.random() * (CH - 12);
+					}
+				}
 			} else {
 				// fair-weather cloud (cloudy / partly): the deck's same two-pass lump draw —
 				// shade nudged down, light over it — in OPAQUE tones so overlaps merge clean.
@@ -430,7 +572,10 @@
 				for (const [dx, dy, r] of lumps) disc(ctx, p.x! + dx, p.y! + dy + 2, r | 0);
 				ctx.fillStyle = light;
 				for (const [dx, dy, r] of lumps) disc(ctx, p.x! + dx, p.y! + dy, r | 0);
-				if (animate) { p.x! += p.v!; if (p.x! > CW) p.x = -(p.w ?? 24); }
+				if (animate) {
+					p.x! += p.v!;
+					if (p.x! > CW) p.x = -(p.w ?? 24);
+				}
 			}
 		}
 		if (kind === 'storm') {
@@ -802,7 +947,8 @@
 		const wind = now.windMph ?? 0;
 		const pop = now.hours?.[0]?.pop ?? 0;
 		if (kind === 'storm') return 'Storming — not the hour for a walk';
-		if (kind === 'snow') return f <= 20 ? 'Snow on real cold — bundle hard' : 'Snowing — boots and layers';
+		if (kind === 'snow')
+			return f <= 20 ? 'Snow on real cold — bundle hard' : 'Snowing — boots and layers';
 		if (kind === 'rain') return 'Raining — take a shell';
 		if (f >= 103) return 'Dangerous heat — stay in the cool';
 		if (f >= 92) return 'Hot out — shade and water';
@@ -908,74 +1054,74 @@
 	     say nothing. The + sits OUTSIDE the scroller, pinned past its end fade: however many
 	     cities the strip hides, adding another is never scrolled out of reach. -->
 	<div class="wx-tabrow">
-	<div
-		class="wx-tabs"
-		class:fade-start={!atStart}
-		class:fade-end={!atEnd}
-		role="tablist"
-		aria-label="Cities"
-		tabindex="-1"
-		class:dragging
-		class:carrying={lift !== null}
-		bind:this={tabsEl}
-		onwheel={onTabsWheel}
-		onscroll={measureTabs}
-		onpointerdown={onTabsDown}
-		onpointermove={onTabsMove}
-		onpointerup={onTabsUp}
-		onpointercancel={onTabsUp}
-		onclickcapture={onTabsClick}
-		oncontextmenu={(e) => {
-			// A long-press is the LIFT here, so the browser's long-press menu can't also fire.
-			if (lift !== null || holdTimer) e.preventDefault();
-		}}
-	>
-		<!-- Keyed by the place, so a reorder MOVES a tab rather than rewriting every label in
+		<div
+			class="wx-tabs"
+			class:fade-start={!atStart}
+			class:fade-end={!atEnd}
+			role="tablist"
+			aria-label="Cities"
+			tabindex="-1"
+			class:dragging
+			class:carrying={lift !== null}
+			bind:this={tabsEl}
+			onwheel={onTabsWheel}
+			onscroll={measureTabs}
+			onpointerdown={onTabsDown}
+			onpointermove={onTabsMove}
+			onpointerup={onTabsUp}
+			onpointercancel={onTabsUp}
+			onclickcapture={onTabsClick}
+			oncontextmenu={(e) => {
+				// A long-press is the LIFT here, so the browser's long-press menu can't also fire.
+				if (lift !== null || holdTimer) e.preventDefault();
+			}}
+		>
+			<!-- Keyed by the place, so a reorder MOVES a tab rather than rewriting every label in
 		     place — that's what animate:flip animates. -->
-		{#each weather.places as p, i (p.id)}
-			<div
-				class="wx-tab"
-				class:on={i === weather.activeIdx}
-				class:carried={lift === i}
-				style="--n:{i}"
-				animate:flip={{ duration: flipMs }}
-			>
-				<button
-					type="button"
-					class="wx-tab-name"
-					role="tab"
-					aria-selected={i === weather.activeIdx}
-					onclick={() => show(i)}
+			{#each weather.places as p, i (p.id)}
+				<div
+					class="wx-tab"
+					class:on={i === weather.activeIdx}
+					class:carried={lift === i}
+					style="--n:{i}"
+					animate:flip={{ duration: flipMs }}
 				>
-					{p.name}{#if p.state}<span class="wx-tab-state">{p.state}</span>{/if}
-				</button>
-				{#if weather.places.length > 1}
 					<button
 						type="button"
-						class="wx-tab-x"
-						aria-label="Close {p.name}"
-						onclick={() => closeTab(i)}>×</button
+						class="wx-tab-name"
+						role="tab"
+						aria-selected={i === weather.activeIdx}
+						onclick={() => show(i)}
 					>
-				{/if}
-			</div>
-		{/each}
-	</div>
-	{#if docs}
-		<!-- Docs mode draws no panel header, so the search lives HERE, always mounted, wearing
+						{p.name}{#if p.state}<span class="wx-tab-state">{p.state}</span>{/if}
+					</button>
+					{#if weather.places.length > 1}
+						<button
+							type="button"
+							class="wx-tab-x"
+							aria-label="Close {p.name}"
+							onclick={() => closeTab(i)}>×</button
+						>
+					{/if}
+				</div>
+			{/each}
+		</div>
+		{#if docs}
+			<!-- Docs mode draws no panel header, so the search lives HERE, always mounted, wearing
 		     the + as its closed key (addHere): one element morphing key ⇄ field on its own
 		     width transition — the Emoji superbar's smoothness. (A previous arrangement
 		     swapped a separate + for a freshly-mounted field; the exchange always jumped.) -->
-		<div class="wx-add-search" style="--n:{weather.places.length}"><CitySearch addHere /></div>
-	{:else}
-		<button
-			type="button"
-			class="wx-add"
-			style="--n:{weather.places.length}"
-			aria-label="Add another city"
-			title="Add another city"
-			onclick={() => openSearch('add')}>{@html PLUS_SVG}</button
-		>
-	{/if}
+			<div class="wx-add-search" style="--n:{weather.places.length}"><CitySearch addHere /></div>
+		{:else}
+			<button
+				type="button"
+				class="wx-add"
+				style="--n:{weather.places.length}"
+				aria-label="Add another city"
+				title="Add another city"
+				onclick={() => openSearch('add')}>{@html PLUS_SVG}</button
+			>
+		{/if}
 	</div>
 
 	<!-- The carried tab's ghost: what the hand is holding, floating free of the strip while
@@ -984,9 +1130,16 @@
 	     note on placeGhost — inside the panel it clipped against the body scroller and
 	     disappeared under the masthead. -->
 	{#if lift !== null && weather.places[lift]}
-		<div use:portal class="wx-ghost" aria-hidden="true" style="left:{ghostX}px; top:{ghostY}px; width:{ghostW}px">
+		<div
+			use:portal
+			class="wx-ghost"
+			aria-hidden="true"
+			style="left:{ghostX}px; top:{ghostY}px; width:{ghostW}px"
+		>
 			<span class="wx-tab-name">
-				{weather.places[lift].name}{#if weather.places[lift].state}<span class="wx-tab-state">{weather.places[lift].state}</span>{/if}
+				{weather.places[lift].name}{#if weather.places[lift].state}<span class="wx-tab-state"
+						>{weather.places[lift].state}</span
+					>{/if}
 			</span>
 		</div>
 	{/if}
@@ -998,158 +1151,162 @@
 	     would let that swap slip by unanimated. The tabs stay outside: they're the control
 	     you're using, and must not jump under the pointer. -->
 	{#key place}
-	{#if phase === 'error'}
-		<p class="wx-msg">
-			The National Weather Service isn't answering right now. It's a public service with no key
-			and no promises — try again in a minute.
-		</p>
-	{:else if phase === 'loading' && !now}
-		<p class="wx-msg">Reading the sky over {place.name}…</p>
-	{:else if now}
-		<!-- The current-conditions row. Default it's just the reading (.wx-hero is display:contents,
+		{#if phase === 'error'}
+			<p class="wx-msg">
+				The National Weather Service isn't answering right now. It's a public service with no key
+				and no promises — try again in a minute.
+			</p>
+		{:else if phase === 'loading' && !now}
+			<p class="wx-msg">Reading the sky over {place.name}…</p>
+		{:else if now}
+			<!-- The current-conditions row. Default it's just the reading (.wx-hero is display:contents,
 		     so Aeropalite/narrow is byte-identical). In Pixelite docs mode, once the column is wide
 		     enough, .wx-hero becomes a two-column row and the pixel sky window fills the right. -->
-		<div class="wx-hero">
-			<!-- The reading itself: the mark, the number, and what the sky is doing. -->
-			<div class="wx-now" class:stale={phase === 'loading'}>
-				<span class="wx-mark" aria-hidden="true">
-					{@html conditionIcon(now.conditions, now.night)}
-				</span>
-				<div class="wx-read">
-					{#if typeof temp === 'number'}
-						<p class="wx-temp">
-							{Math.round(temp)}<span class="wx-unit">°{weather.unit}</span>
-						</p>
-					{:else}
-						<p class="wx-temp wx-temp-none">—</p>
-					{/if}
-					<p class="wx-cond">{now.conditions || 'No conditions reported'}</p>
-					{#if feelsDiffers}
-						<p class="wx-feels">Feels like {Math.round(feels as number)}°{weather.unit}</p>
-					{/if}
-					{#if verdict}
-						<p class="wx-verdict">{verdict}</p>
-					{/if}
-				</div>
-				<!-- No unit control here any more: °F/°C folded into ONE disc and moved up to the
-				     panel header's action row (the page's), beside Refresh and Search. -->
-			</div>
-			{#if docs}
-				<!-- The pixel sky window: the city's sky, in the stage's phase palette, framed like a
-				     manual figure. Beside the reading whenever both fit; wrapped below it when not. -->
-				<figure class="wx-skywin">
-					<div class="wx-sky-frame" bind:this={skyFrame}>
-						<canvas
-							class="wx-sky-canvas"
-							bind:this={skyCanvas}
-							width={CW}
-							height={CH}
-							aria-hidden="true"
-						></canvas>
+			<div class="wx-hero">
+				<!-- The reading itself: the mark, the number, and what the sky is doing. -->
+				<div class="wx-now" class:stale={phase === 'loading'}>
+					<span class="wx-mark" aria-hidden="true">
+						{@html conditionIcon(now.conditions, now.night)}
+					</span>
+					<div class="wx-read">
+						{#if typeof temp === 'number'}
+							<p class="wx-temp">
+								{Math.round(temp)}<span class="wx-unit">°{weather.unit}</span>
+							</p>
+						{:else}
+							<p class="wx-temp wx-temp-none">—</p>
+						{/if}
+						<p class="wx-cond">{now.conditions || 'No conditions reported'}</p>
+						{#if feelsDiffers}
+							<p class="wx-feels">Feels like {Math.round(feels as number)}°{weather.unit}</p>
+						{/if}
+						{#if verdict}
+							<p class="wx-verdict">{verdict}</p>
+						{/if}
 					</div>
-					<figcaption class="wx-sky-cap">{skyCaption}</figcaption>
-				</figure>
-			{/if}
-		</div>
+					<!-- No unit control here any more: °F/°C folded into ONE disc and moved up to the
+				     panel header's action row (the page's), beside Refresh and Search. -->
+				</div>
+				{#if docs}
+					<!-- The pixel sky window: the city's sky, in the stage's phase palette, framed like a
+				     manual figure. Beside the reading whenever both fit; wrapped below it when not. -->
+					<figure class="wx-skywin">
+						<div class="wx-sky-frame" bind:this={skyFrame}>
+							<canvas
+								class="wx-sky-canvas"
+								bind:this={skyCanvas}
+								width={CW}
+								height={CH}
+								aria-hidden="true"
+							></canvas>
+						</div>
+						<figcaption class="wx-sky-cap">{skyCaption}</figcaption>
+					</figure>
+				{/if}
+			</div>
 
-		<!-- The rest of the reading. Each stat is dropped rather than shown empty: plenty of stations
+			<!-- The rest of the reading. Each stat is dropped rather than shown empty: plenty of stations
 		     report no humidity, and a dash tells you nothing a missing row wouldn't. -->
-		<dl class="wx-stats">
-			{#if now.humidity !== null}
-				<div class="wx-stat">
-					<dt>Humidity</dt>
-					<dd>{Math.round(now.humidity)}%</dd>
-				</div>
-			{/if}
-			{#if now.windMph !== null}
-				<div class="wx-stat">
-					<dt>Wind</dt>
-					<dd>
-						{Math.round(now.windMph)} mph{now.windDir !== null
-							? ` ${compass(now.windDir)}`
-							: ''}
-					</dd>
-				</div>
-			{/if}
-			{#if now.observedAt}
-				<div class="wx-stat">
-					<dt>Observed</dt>
-					<dd>{clock(now.observedAt)}</dd>
-				</div>
-			{/if}
-		</dl>
+			<dl class="wx-stats">
+				{#if now.humidity !== null}
+					<div class="wx-stat">
+						<dt>Humidity</dt>
+						<dd>{Math.round(now.humidity)}%</dd>
+					</div>
+				{/if}
+				{#if now.windMph !== null}
+					<div class="wx-stat">
+						<dt>Wind</dt>
+						<dd>
+							{Math.round(now.windMph)} mph{now.windDir !== null ? ` ${compass(now.windDir)}` : ''}
+						</dd>
+					</div>
+				{/if}
+				{#if now.observedAt}
+					<div class="wx-stat">
+						<dt>Observed</dt>
+						<dd>{clock(now.observedAt)}</dd>
+					</div>
+				{/if}
+			</dl>
 
-		<!-- The next hours, as a glance rail: hour, drawn mark, temperature — with the
+			<!-- The next hours, as a glance rail: hour, drawn mark, temperature — with the
 		     feels-like beneath whenever it meaningfully disagrees, and rain odds once
 		     they're worth carrying an umbrella over. Absent hours (an older cached
 		     reading, or the forecast upstream sulking) just drop the rail. -->
-		{#if now.hours?.length}
-			<div
-				class="wx-hours"
-				class:fade-start={!hoursAtStart}
-				class:fade-end={!hoursAtEnd}
-				role="list"
-				aria-label="The next hours"
-				bind:this={hoursEl}
-				onscroll={measureHours}
-				onwheel={hoursWheel}
-			>
-				{#each now.hours as h, i (h.t)}
-					<div class="wx-hour" role="listitem" style="--n:{i}">
-						<span class="wxh-time">{hourLabel(h.t)}</span>
-						<span class="wxh-mark" aria-hidden="true">{@html conditionIcon(h.label, h.night)}</span>
-						<span class="wxh-temp">
-							{h.tempF === null ? '—' : `${Math.round(toUnit(h.tempF))}°`}
-						</span>
-						{#if h.feelsF !== null && h.tempF !== null && Math.abs(h.feelsF - h.tempF) >= 3}
-							<span class="wxh-sub">feels {Math.round(toUnit(h.feelsF))}°</span>
-						{/if}
-						{#if h.pop >= 15}
-							<span class="wxh-sub wxh-pop">{h.pop}%</span>
-						{/if}
-					</div>
-				{/each}
-			</div>
-		{/if}
+			{#if now.hours?.length}
+				<div
+					class="wx-hours"
+					class:fade-start={!hoursAtStart}
+					class:fade-end={!hoursAtEnd}
+					role="list"
+					aria-label="The next hours"
+					bind:this={hoursEl}
+					onscroll={measureHours}
+					onwheel={hoursWheel}
+				>
+					{#each now.hours as h, i (h.t)}
+						<div class="wx-hour" role="listitem" style="--n:{i}">
+							<span class="wxh-time">{hourLabel(h.t)}</span>
+							<span class="wxh-mark" aria-hidden="true"
+								>{@html conditionIcon(h.label, h.night)}</span
+							>
+							<span class="wxh-temp">
+								{h.tempF === null ? '—' : `${Math.round(toUnit(h.tempF))}°`}
+							</span>
+							{#if h.feelsF !== null && h.tempF !== null && Math.abs(h.feelsF - h.tempF) >= 3}
+								<span class="wxh-sub">feels {Math.round(toUnit(h.feelsF))}°</span>
+							{/if}
+							{#if h.pop >= 15}
+								<span class="wxh-sub wxh-pop">{h.pop}%</span>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
 
-		<!-- The days ahead: Tomorrow, then the rest of the week the way NWS tells it — the
+			<!-- The days ahead: Tomorrow, then the rest of the week the way NWS tells it — the
 		     day's drawn mark, rain odds once they're worth planning around, and hi/lo. A
 		     LIST, not a rail: a week is a reading, not a glance, and rows keep the
 		     temperatures in columns the eye can run down. -->
-		{#if days.length}
-			<div class="wx-days" role="list" aria-label="The days ahead">
-				{#each days as d, i (d.t)}
-					<div class="wx-day" role="listitem">
-						<span class="wxd-name">{dayLabel(d.t, i)}</span>
-						<span class="wxd-mark" aria-hidden="true" title={d.label}>{@html conditionIcon(d.label, false)}</span>
-						<span class="wxd-pop">{d.pop >= 15 ? `${d.pop}%` : ''}</span>
-						<span class="wxd-range" aria-hidden="true">
-							{#if weekSpan && d.hiF !== null && d.loF !== null}
-								<span
-									class="wxd-range-fill"
-									style:left="{((d.loF - weekSpan.min) / weekSpan.span) * 100}%"
-									style:width="{(Math.max(d.hiF - d.loF, 1) / weekSpan.span) * 100}%"
-									style:background="linear-gradient(90deg, {tempColor(d.loF)}, {tempColor(d.hiF)})"
-								></span>
-							{/if}
-						</span>
-						<span class="wxd-temps">
-							<span class="wxd-hi" class:empty={d.hiF === null}
-								>{d.hiF === null ? '—' : `${Math.round(toUnit(d.hiF))}°`}</span
+			{#if days.length}
+				<div class="wx-days" role="list" aria-label="The days ahead">
+					{#each days as d, i (d.t)}
+						<div class="wx-day" role="listitem">
+							<span class="wxd-name">{dayLabel(d.t, i)}</span>
+							<span class="wxd-mark" aria-hidden="true" title={d.label}
+								>{@html conditionIcon(d.label, false)}</span
 							>
-							<span class="wxd-lo" class:empty={d.loF === null}
-								>{d.loF === null ? '—' : `${Math.round(toUnit(d.loF))}°`}</span
-							>
-						</span>
-					</div>
-				{/each}
-			</div>
-		{/if}
+							<span class="wxd-pop">{d.pop >= 15 ? `${d.pop}%` : ''}</span>
+							<span class="wxd-range" aria-hidden="true">
+								{#if weekSpan && d.hiF !== null && d.loF !== null}
+									<span
+										class="wxd-range-fill"
+										style:left="{((d.loF - weekSpan.min) / weekSpan.span) * 100}%"
+										style:width="{(Math.max(d.hiF - d.loF, 1) / weekSpan.span) * 100}%"
+										style:background="linear-gradient(90deg, {tempColor(d.loF)}, {tempColor(
+											d.hiF
+										)})"
+									></span>
+								{/if}
+							</span>
+							<span class="wxd-temps">
+								<span class="wxd-hi" class:empty={d.hiF === null}
+									>{d.hiF === null ? '—' : `${Math.round(toUnit(d.hiF))}°`}</span
+								>
+								<span class="wxd-lo" class:empty={d.loF === null}
+									>{d.loF === null ? '—' : `${Math.round(toUnit(d.loF))}°`}</span
+								>
+							</span>
+						</div>
+					{/each}
+				</div>
+			{/if}
 
-		<p class="wx-source">
-			{now.place || place.name} · {now.station.name || now.station.id} · National Weather Service
-		</p>
-	{/if}
+			<p class="wx-source">
+				{now.place || place.name} · {now.station.name || now.station.id} · National Weather Service
+			</p>
+		{/if}
 	{/key}
 </div>
 
@@ -1245,7 +1402,6 @@
 			transform: translateY(0);
 		}
 	}
-
 
 	/* The cities, as tabs. A sliding row: more cities than fit just scroll, they don't wrap and push
 	   the reading down the panel. Text, not chips — a tab is a name you're reading, not a button
@@ -1466,7 +1622,6 @@
 		height: 0.85rem;
 	}
 
-
 	/* The reading. The number carries it, so it's set at panel-title scale. */
 	.wx-now {
 		display: flex;
@@ -1524,6 +1679,27 @@
 		border-radius: 2px;
 		overflow: hidden;
 		background: #0d1424;
+	}
+	/* ── The window, FULL WIDTH, once the hero has wrapped to one column ──────────────────────
+	   410px is not a tuned breakpoint: it is the wrap point, restated. The row seats both sides
+	   when the reading's 240px floor, the window's 150px floor and the gap (clamp's 1.25rem floor
+	   at any width this narrow) fit — 240 + 150 + 20 = 410 — so below it the window is ALWAYS on
+	   its own line, and above it never. Keep the three numbers in step if any floor moves.
+
+	   On that line the 340px cap has nothing left to do: it exists to stop the window swelling
+	   into a banner while it shares a row, and alone on a phone it just leaves the sky short of
+	   the reading it sits under, a stray ragged edge in a column where every other line runs the
+	   full measure. Off, the window runs the column — the sheet's own left and right padding is
+	   its inset, the same one the numbers and the tabs keep, so its edges line up with theirs.
+	   Nothing else changes: the frame keeps its 16:9 (which at this width IS the full measure,
+	   so the pixels stay square) and its hairline and radius, and stays a figure, not a bleed.
+
+	   The look prefix is the one the rule it overrides carries: a container query adds no
+	   specificity of its own, so a bare .wx-skywin here would simply lose to the cap above. */
+	@container (width < 410px) {
+		:global(html[data-look='pixelite']) .wx-skywin {
+			max-width: none;
+		}
 	}
 	.wx-sky-canvas {
 		display: block;

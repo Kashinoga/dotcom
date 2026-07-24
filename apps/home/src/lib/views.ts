@@ -25,10 +25,10 @@
 // +page.svelte. Renaming a place in Edit Mode must not break links already shared.
 //
 // (Line panels — /loess, /terminal-way — lived here too, back when the site was drawn as a transit
-// map. The map and its motif are gone; see $lib/network. The hierarchy those lines used to imply is
+// map. The map and its motif are gone; see $lib/places. The hierarchy those lines used to imply is
 // now stated outright, which is all the URLs ever wanted from them.)
 
-import { airports, children, parentOf, portDescriptions, HUB } from './network';
+import { airports, children, parentOf, portDescriptions, HUB } from './places';
 
 export type View = { kind: 'port'; code: string };
 
@@ -83,7 +83,7 @@ function assertSlugsAreDistinct() {
 	for (const code of codes) {
 		if (code !== HUB && !parentOf[code]) {
 			throw new Error(
-				`"${code}" hangs off nothing: add it to \`children\` in $lib/network so it has a parent, ` +
+				`"${code}" hangs off nothing: give it a \`parent\` in $lib/places so it has a parent, ` +
 					`a URL, and Related links.`
 			);
 		}

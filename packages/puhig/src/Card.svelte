@@ -62,20 +62,24 @@
 {#snippet pip(m: Mana)}
 	<span class="pip pip--{m}" aria-hidden="true">
 		{#if m === 'W'}
-			<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.4" /><g
+			<svg viewBox="0 0 24 24"
+				><circle cx="12" cy="12" r="4.4" /><g
 					stroke="currentColor"
 					stroke-width="1.7"
 					stroke-linecap="round"
 					>{#each [0, 45, 90, 135, 180, 225, 270, 315] as a}<line
-						x1="12"
-						y1="12"
-						x2={12 + 8.5 * Math.cos((a * Math.PI) / 180)}
-						y2={12 + 8.5 * Math.sin((a * Math.PI) / 180)}
-						transform="translate(0,0)"
-					/>{/each}</g></svg
+							x1="12"
+							y1="12"
+							x2={12 + 8.5 * Math.cos((a * Math.PI) / 180)}
+							y2={12 + 8.5 * Math.sin((a * Math.PI) / 180)}
+							transform="translate(0,0)"
+						/>{/each}</g
+				></svg
 			>
 		{:else if m === 'U'}
-			<svg viewBox="0 0 24 24"><path d="M12 3C8 9 6 13 6 15.5A6 6 0 0018 15.5C18 13 16 9 12 3Z" /></svg>
+			<svg viewBox="0 0 24 24"
+				><path d="M12 3C8 9 6 13 6 15.5A6 6 0 0018 15.5C18 13 16 9 12 3Z" /></svg
+			>
 		{:else if m === 'B'}
 			<svg viewBox="0 0 24 24"
 				><path
@@ -88,11 +92,17 @@
 				/></svg
 			>
 		{:else if m === 'G'}
-			<svg viewBox="0 0 24 24"><rect x="10.7" y="12" width="2.6" height="8" rx="0.6" /><path
+			<svg viewBox="0 0 24 24"
+				><rect x="10.7" y="12" width="2.6" height="8" rx="0.6" /><path
 					d="M12 2.5 18.5 13H5.5Z"
-				/><path d="M12 6 16.5 13.5H7.5Z" fill="var(--pip)" opacity="0.35" /></svg>
+				/><path d="M12 6 16.5 13.5H7.5Z" fill="var(--pip)" opacity="0.35" /></svg
+			>
 		{:else if m === 'R'}
-			<svg viewBox="0 0 24 24"><path d="M12 3C9 8 7 9 7 13a5 5 0 0010 0c0-1.5-.6-2.7-1.5-3.7C15.5 12 14 12 14 9c0-2-1-4-2-6Z" /></svg>
+			<svg viewBox="0 0 24 24"
+				><path
+					d="M12 3C9 8 7 9 7 13a5 5 0 0010 0c0-1.5-.6-2.7-1.5-3.7C15.5 12 14 12 14 9c0-2-1-4-2-6Z"
+				/></svg
+			>
 		{/if}
 	</span>
 {/snippet}
@@ -103,7 +113,9 @@
 			<div class="titlebar">
 				<span class="title">{name}</span>
 				{#if mana.length}
-					<span class="mana">{#each mana as m}{@render pip(m)}{/each}</span>
+					<span class="mana"
+						>{#each mana as m}{@render pip(m)}{/each}</span
+					>
 				{/if}
 			</div>
 
@@ -123,7 +135,9 @@
 			<div class="textbox">
 				<div class="rules">
 					{#each rules as line}
-						<p>{#each segments(line) as s}<span class:reminder={s.i}>{s.t}</span>{/each}</p>
+						<p>
+							{#each segments(line) as s}<span class:reminder={s.i}>{s.t}</span>{/each}
+						</p>
 					{/each}
 				</div>
 			</div>
@@ -268,7 +282,9 @@
 				#e2c877 88%,
 				#9c7529 100%
 			);
-		background-size: 120px 120px, auto;
+		background-size:
+			120px 120px,
+			auto;
 		background-blend-mode: overlay, normal;
 	}
 
@@ -321,7 +337,11 @@
 		width: calc(var(--card-w, 240px) * 0.052);
 		height: calc(var(--card-w, 240px) * 0.052);
 		border-radius: 50%;
-		background: radial-gradient(circle at 38% 32%, color-mix(in srgb, var(--pip) 100%, white 22%), var(--pip) 70%);
+		background: radial-gradient(
+			circle at 38% 32%,
+			color-mix(in srgb, var(--pip) 100%, white 22%),
+			var(--pip) 70%
+		);
 		box-shadow:
 			inset 0 0 0 1px rgba(0, 0, 0, 0.55),
 			inset 0 -1px 1px rgba(0, 0, 0, 0.35),
@@ -371,8 +391,7 @@
 	.art--placeholder {
 		width: 100%;
 		height: 100%;
-		background:
-			radial-gradient(120% 80% at 50% 18%, #33414c 0%, #1a2028 45%, #0c0f13 100%);
+		background: radial-gradient(120% 80% at 50% 18%, #33414c 0%, #1a2028 45%, #0c0f13 100%);
 	}
 
 	/* Text box — parchment inset panel. */

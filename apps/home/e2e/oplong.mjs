@@ -14,10 +14,62 @@ const LONGWORD = 'AIR TRANSPORT INTERNATIONAL'; // long final word → hard cut
 const SHORT = 'SOUTHWEST AIRLINES CO'; // tidyOp strips CO → 18 chars, untouched
 
 const AC = [
-	{ hex: 'a1b2c3', flight: 'GCC201 ', t: 'B763', r: 'N741CX', ownOp: LONG, desc: 'BOEING 767-300', lat: 41.6, lon: -93.7, alt_baro: 4200, gs: 240, track: 310, baro_rate: -900 },
-	{ hex: 'd4e5f6', flight: 'ATN15  ', t: 'B752', r: 'N123AA', ownOp: LONGWORD, desc: 'BOEING 757-200', lat: 41.7, lon: -93.6, alt_baro: 21000, gs: 410, track: 90, baro_rate: 1200 },
-	{ hex: '112233', flight: 'SWA88  ', t: 'B738', r: 'N8600F', ownOp: SHORT, desc: 'BOEING 737-800', lat: 41.4, lon: -93.5, alt_baro: 'ground', gs: 12, track: 180, baro_rate: null },
-	{ hex: '445566', flight: 'N771QS ', t: 'C68A', r: 'N771QS', ownOp: '', desc: 'CESSNA 680A', lat: 41.45, lon: -93.55, alt_baro: 8000, gs: 300, track: 45, baro_rate: 400 }
+	{
+		hex: 'a1b2c3',
+		flight: 'GCC201 ',
+		t: 'B763',
+		r: 'N741CX',
+		ownOp: LONG,
+		desc: 'BOEING 767-300',
+		lat: 41.6,
+		lon: -93.7,
+		alt_baro: 4200,
+		gs: 240,
+		track: 310,
+		baro_rate: -900
+	},
+	{
+		hex: 'd4e5f6',
+		flight: 'ATN15  ',
+		t: 'B752',
+		r: 'N123AA',
+		ownOp: LONGWORD,
+		desc: 'BOEING 757-200',
+		lat: 41.7,
+		lon: -93.6,
+		alt_baro: 21000,
+		gs: 410,
+		track: 90,
+		baro_rate: 1200
+	},
+	{
+		hex: '112233',
+		flight: 'SWA88  ',
+		t: 'B738',
+		r: 'N8600F',
+		ownOp: SHORT,
+		desc: 'BOEING 737-800',
+		lat: 41.4,
+		lon: -93.5,
+		alt_baro: 'ground',
+		gs: 12,
+		track: 180,
+		baro_rate: null
+	},
+	{
+		hex: '445566',
+		flight: 'N771QS ',
+		t: 'C68A',
+		r: 'N771QS',
+		ownOp: '',
+		desc: 'CESSNA 680A',
+		lat: 41.45,
+		lon: -93.55,
+		alt_baro: 8000,
+		gs: 300,
+		track: 45,
+		baro_rate: 400
+	}
 ];
 
 // The flap renders a hidden sizer + a visible glyph per letter, so textContent doubles
@@ -30,7 +82,8 @@ const flapVisible = (td) =>
 			.join('')
 			.replace(/ /g, ' ')
 	);
-const flapLabel = (td) => td.evaluate((el) => el.querySelector('.flap')?.getAttribute('aria-label'));
+const flapLabel = (td) =>
+	td.evaluate((el) => el.querySelector('.flap')?.getAttribute('aria-label'));
 
 // Rows are sorted nearest-first, so never address them by index.
 const opCellFor = (page, callsign) =>
@@ -69,30 +122,66 @@ async function board({ width = 1600, expand = true, reduce = false } = {}) {
 
 	const c0 = opCellFor(page, 'GCC201');
 	const vis0 = await flapVisible(c0);
-	ok('long name is truncated', vis0 === 'Gulf & Caribbean Cargo / Contract Air…', JSON.stringify(vis0));
+	ok(
+		'long name is truncated',
+		vis0 === 'Gulf & Caribbean Cargo / Contract Air…',
+		JSON.stringify(vis0)
+	);
 	ok('truncated to <= 40 flaps (wide tier)', [...vis0].length <= 40, String([...vis0].length));
 	ok('no ellipsis dangling off a separator', !/[\s/,.&-]…$/.test(vis0), vis0);
-	ok('full name is the cell tooltip', (await c0.getAttribute('title')) === 'Gulf & Caribbean Cargo / Contract Air Cargo', String(await c0.getAttribute('title')));
-	ok('full name is the accessible name', (await flapLabel(c0)) === 'Gulf & Caribbean Cargo / Contract Air Cargo', String(await flapLabel(c0)));
+	ok(
+		'full name is the cell tooltip',
+		(await c0.getAttribute('title')) === 'Gulf & Caribbean Cargo / Contract Air Cargo',
+		String(await c0.getAttribute('title'))
+	);
+	ok(
+		'full name is the accessible name',
+		(await flapLabel(c0)) === 'Gulf & Caribbean Cargo / Contract Air Cargo',
+		String(await flapLabel(c0))
+	);
 
 	// ── 2. A long FINAL word hard-cuts rather than losing the word entirely ──
 	// 27 chars fits inside the 40-flap tier untouched — the hard-cut path is exercised at
 	// the narrow tier in section 7 instead.
 	const c1 = opCellFor(page, 'ATN15');
 	const vis1 = await flapVisible(c1);
-	ok('a 27-char name fits the wide tier whole', vis1 === 'Air Transport International', JSON.stringify(vis1));
-	ok('untruncated name has no tooltip', (await c1.getAttribute('title')) === null, String(await c1.getAttribute('title')));
+	ok(
+		'a 27-char name fits the wide tier whole',
+		vis1 === 'Air Transport International',
+		JSON.stringify(vis1)
+	);
+	ok(
+		'untruncated name has no tooltip',
+		(await c1.getAttribute('title')) === null,
+		String(await c1.getAttribute('title'))
+	);
 
 	// ── 3. A short name is untouched and gets NO tooltip (no redundant noise) ──
 	const c2 = opCellFor(page, 'SWA88');
-	ok('short name untouched', (await flapVisible(c2)) === 'Southwest Airlines', await flapVisible(c2));
-	ok('short name has no tooltip', (await c2.getAttribute('title')) === null, String(await c2.getAttribute('title')));
-	ok('short name accessible name matches what is shown', (await flapLabel(c2)) === 'Southwest Airlines', String(await flapLabel(c2)));
+	ok(
+		'short name untouched',
+		(await flapVisible(c2)) === 'Southwest Airlines',
+		await flapVisible(c2)
+	);
+	ok(
+		'short name has no tooltip',
+		(await c2.getAttribute('title')) === null,
+		String(await c2.getAttribute('title'))
+	);
+	ok(
+		'short name accessible name matches what is shown',
+		(await flapLabel(c2)) === 'Southwest Airlines',
+		String(await flapLabel(c2))
+	);
 
 	// ── 4. Missing operator still shows the em-dash placeholder ──
 	const c3 = opCellFor(page, 'N771QS');
 	ok('empty operator → em dash', (await flapVisible(c3)) === '—', await flapVisible(c3));
-	ok('em dash has no tooltip', (await c3.getAttribute('title')) === null, String(await c3.getAttribute('title')));
+	ok(
+		'em dash has no tooltip',
+		(await c3.getAttribute('title')) === null,
+		String(await c3.getAttribute('title'))
+	);
 
 	// ── 5. THE BUG: no cell may paint outside its own box, or over its neighbour ──
 	for (let i = 0; i < 4; i++) {
@@ -100,16 +189,35 @@ async function board({ width = 1600, expand = true, reduce = false } = {}) {
 		const m = await td.evaluate((el) => {
 			const ink = el.querySelector('.flap').getBoundingClientRect();
 			const next = el.nextElementSibling.getBoundingClientRect();
-			return { inkRight: ink.right, nextLeft: next.left, scrollW: el.scrollWidth, clientW: el.clientWidth };
+			return {
+				inkRight: ink.right,
+				nextLeft: next.left,
+				scrollW: el.scrollWidth,
+				clientW: el.clientWidth
+			};
 		});
-		ok(`row ${i}: content fits its cell`, m.scrollW <= m.clientW + 1, `scrollW=${m.scrollW} clientW=${m.clientW}`);
-		ok(`row ${i}: ink never reaches the Alt column`, m.inkRight <= m.nextLeft + 0.5, `inkRight=${m.inkRight.toFixed(1)} nextLeft=${m.nextLeft.toFixed(1)}`);
+		ok(
+			`row ${i}: content fits its cell`,
+			m.scrollW <= m.clientW + 1,
+			`scrollW=${m.scrollW} clientW=${m.clientW}`
+		);
+		ok(
+			`row ${i}: ink never reaches the Alt column`,
+			m.inkRight <= m.nextLeft + 0.5,
+			`inkRight=${m.inkRight.toFixed(1)} nextLeft=${m.nextLeft.toFixed(1)}`
+		);
 	}
 
 	// ── 6. The table itself no longer overflows the board ──
-	const bd = await page.locator('.board').first().evaluate((el) => ({ c: el.clientWidth, s: el.scrollWidth }));
+	const bd = await page
+		.locator('.board')
+		.first()
+		.evaluate((el) => ({ c: el.clientWidth, s: el.scrollWidth }));
 	ok('board does not scroll horizontally', bd.s <= bd.c, `${bd.s} > ${bd.c}`);
-	const doc = await page.evaluate(() => ({ c: document.documentElement.clientWidth, s: document.documentElement.scrollWidth }));
+	const doc = await page.evaluate(() => ({
+		c: document.documentElement.clientWidth,
+		s: document.documentElement.scrollWidth
+	}));
 	ok('page does not scroll horizontally', doc.s <= doc.c, `${doc.s} > ${doc.c}`);
 
 	await page.screenshot({ path: artifact('oplong-after.png') });
@@ -124,7 +232,11 @@ async function board({ width = 1600, expand = true, reduce = false } = {}) {
 	ok('operator column present near its 940px breakpoint', visible);
 	if (visible) {
 		const containerW = await page.locator('.scroll').evaluate((el) => el.clientWidth);
-		ok('narrow: container is just past the 940px breakpoint', containerW >= 940 && containerW < 1080, String(containerW));
+		ok(
+			'narrow: container is just past the 940px breakpoint',
+			containerW >= 940 && containerW < 1080,
+			String(containerW)
+		);
 		const nv0 = await flapVisible(opCellFor(page, 'GCC201'));
 		ok('narrow: budget shrinks with the board', nv0 === 'Gulf & Caribbean…', JSON.stringify(nv0));
 		ok('narrow: within the 22-flap tier', [...nv0].length <= 22, String([...nv0].length));
@@ -134,7 +246,10 @@ async function board({ width = 1600, expand = true, reduce = false } = {}) {
 		const nv1 = await flapVisible(opCellFor(page, 'ATN15'));
 		ok('narrow: backs up to a word boundary', nv1 === 'Air Transport…', JSON.stringify(nv1));
 		ok('narrow: never exceeds the budget', [...nv1].length <= 22, String([...nv1].length));
-		ok('narrow: truncated name is tooltipped', (await opCellFor(page, 'ATN15').getAttribute('title')) === 'Air Transport International');
+		ok(
+			'narrow: truncated name is tooltipped',
+			(await opCellFor(page, 'ATN15').getAttribute('title')) === 'Air Transport International'
+		);
 	}
 	if (visible) {
 		for (let i = 0; i < 4; i++) {
@@ -143,9 +258,16 @@ async function board({ width = 1600, expand = true, reduce = false } = {}) {
 				const next = el.nextElementSibling.getBoundingClientRect();
 				return { inkRight: ink.right, nextLeft: next.left };
 			});
-			ok(`narrow row ${i}: ink never reaches Alt`, m.inkRight <= m.nextLeft + 0.5, `${m.inkRight.toFixed(1)} vs ${m.nextLeft.toFixed(1)}`);
+			ok(
+				`narrow row ${i}: ink never reaches Alt`,
+				m.inkRight <= m.nextLeft + 0.5,
+				`${m.inkRight.toFixed(1)} vs ${m.nextLeft.toFixed(1)}`
+			);
 		}
-		const bd = await page.locator('.board').first().evaluate((el) => ({ c: el.clientWidth, s: el.scrollWidth }));
+		const bd = await page
+			.locator('.board')
+			.first()
+			.evaluate((el) => ({ c: el.clientWidth, s: el.scrollWidth }));
 		ok('narrow board does not scroll horizontally', bd.s <= bd.c, `${bd.s} > ${bd.c}`);
 	}
 	await page.screenshot({ path: artifact('oplong-narrow.png') });
@@ -156,8 +278,16 @@ async function board({ width = 1600, expand = true, reduce = false } = {}) {
 {
 	const { ctx, page } = await board({ reduce: true });
 	const c0 = opCellFor(page, 'GCC201');
-	ok('reduced motion: still truncated', (await flapVisible(c0)) === 'Gulf & Caribbean Cargo / Contract Air…', await flapVisible(c0));
-	ok('reduced motion: still tooltipped', (await c0.getAttribute('title')) === 'Gulf & Caribbean Cargo / Contract Air Cargo', String(await c0.getAttribute('title')));
+	ok(
+		'reduced motion: still truncated',
+		(await flapVisible(c0)) === 'Gulf & Caribbean Cargo / Contract Air…',
+		await flapVisible(c0)
+	);
+	ok(
+		'reduced motion: still tooltipped',
+		(await c0.getAttribute('title')) === 'Gulf & Caribbean Cargo / Contract Air Cargo',
+		String(await c0.getAttribute('title'))
+	);
 	await ctx.close();
 }
 
@@ -170,7 +300,11 @@ async function board({ width = 1600, expand = true, reduce = false } = {}) {
 		.click();
 	await page.waitForTimeout(900);
 	const card = await page.locator('.photo-card').first().innerText();
-	ok('photo card shows the full operator', card.includes('Gulf & Caribbean Cargo / Contract Air Cargo'), card.slice(0, 200).replace(/\n/g, ' | '));
+	ok(
+		'photo card shows the full operator',
+		card.includes('Gulf & Caribbean Cargo / Contract Air Cargo'),
+		card.slice(0, 200).replace(/\n/g, ' | ')
+	);
 	await ctx.close();
 }
 
@@ -195,10 +329,12 @@ async function board({ width = 1600, expand = true, reduce = false } = {}) {
 		ok(`@${width}: shown chars never shrink as the board grows`, n >= prev, `${n} < ${prev}`);
 		ok(`@${width}: board never scrolls horizontally`, !geom.overflow && !geom.docOverflow);
 		ok(`@${width}: operator ink never reaches the Alt column`, ink <= 0.5, ink.toFixed(1));
-		ok(`@${width}: full name always available as a tooltip when cut`,
+		ok(
+			`@${width}: full name always available as a tooltip when cut`,
 			n === 'Gulf & Caribbean Cargo / Contract Air Cargo'.length
 				? (await cell.getAttribute('title')) === null
-				: (await cell.getAttribute('title')) === 'Gulf & Caribbean Cargo / Contract Air Cargo');
+				: (await cell.getAttribute('title')) === 'Gulf & Caribbean Cargo / Contract Air Cargo'
+		);
 		console.log(`      container ${containerW}px → ${n} flaps: "${vis}"`);
 		prev = n;
 		await ctx.close();

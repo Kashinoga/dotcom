@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import { popSpring } from '$lib/pop-spring';
 	import SplitFlap from '$lib/SplitFlap.svelte';
-	import { airports } from '$lib/network';
+	import { airports } from '$lib/places';
 	import { viewPath } from '$lib/views';
 	import { HOME_SVG, USER_SVG, GRID_SVG, GEAR_SVG } from '$lib/icons';
 
@@ -75,12 +75,14 @@
 			<span class="brand-dot" aria-hidden="true" style="--n:2; --dot:#e05a4e"></span>
 		</div>
 	</div>
-	<p class="tagline">{#each taglineWords as word, i}<span
-			class="tw"
-			class:em={word.em}
-			class:strong={word.strong}
-			style="--n:{i}">{word.text}</span
-		>{' '}{/each}</p>
+	<p class="tagline">
+		{#each taglineWords as word, i}<span
+				class="tw"
+				class:em={word.em}
+				class:strong={word.strong}
+				style="--n:{i}">{word.text}</span
+			>{' '}{/each}
+	</p>
 	<!-- Primary nav: the top-level stations as a horizontal menu bar below the wordmark. Each
 	     link is the station's real URL; the active destination highlights while its panel is open.
 	     On a phone the words hand over to their station marks (see the media query below) —
@@ -96,16 +98,15 @@
 						data-sveltekit-preload-data="off"
 						aria-expanded={popCodes.includes(code) && navPop ? popCode === code : undefined}
 						onclick={(e) => onNavigate(code, e)}
-					><span class="menu-ico" aria-hidden="true">{@html icon}</span><span class="menu-word">{airports[code].title}</span></a>
+						><span class="menu-ico" aria-hidden="true">{@html icon}</span><span class="menu-word"
+							>{airports[code].title}</span
+						></a
+					>
 					{#if code === popCode && navPop}
 						<!-- The card springs out of its button (see popSpring); clicks inside stay
 						     inside (the stage's anywhere-off dismiss must not see them). -->
 						<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-						<div
-							class="nav-pop"
-							transition:popSpring
-							onclick={(e) => e.stopPropagation()}
-						>
+						<div class="nav-pop" transition:popSpring onclick={(e) => e.stopPropagation()}>
 							{@render navPop(code)}
 						</div>
 					{/if}
@@ -134,13 +135,17 @@
 		opacity: 0;
 		visibility: hidden;
 		pointer-events: none;
-		transition: opacity 0.3s ease, visibility 0s 0.3s;
+		transition:
+			opacity 0.3s ease,
+			visibility 0s 0.3s;
 	}
 	/* Title and tagline animate on their own so open/close staggers like the entrance:
 	   the tagline trails the title coming in, and leads going out. */
 	.masthead h1,
 	.masthead .tagline {
-		transition: opacity 0.4s ease, transform 0.4s ease;
+		transition:
+			opacity 0.4s ease,
+			transform 0.4s ease;
 	}
 	/* The circles unfurl left→right: the leftmost fades in place (its --roll is 0),
 	   the rest roll out from behind it, each a beat later. Same effect on open/close
@@ -276,7 +281,9 @@
 	}
 	.menubar li {
 		display: flex;
-		transition: opacity 0.4s ease, transform 0.45s cubic-bezier(0.34, 1.5, 0.64, 1);
+		transition:
+			opacity 0.4s ease,
+			transform 0.45s cubic-bezier(0.34, 1.5, 0.64, 1);
 		transition-delay: calc(var(--n, 0) * 0.05s);
 	}
 	/* A flyout hangs off its own button. */

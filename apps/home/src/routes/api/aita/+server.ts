@@ -171,6 +171,9 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
 		return json(body, { headers: { 'cache-control': 'public, max-age=300' } });
 	} catch {
 		if (hit) return json(hit.body, { headers: { 'cache-control': 'public, max-age=60' } });
-		return json({ msg: 'reddit is not answering (or that post has no story text)' }, { status: 502 });
+		return json(
+			{ msg: 'reddit is not answering (or that post has no story text)' },
+			{ status: 502 }
+		);
 	}
 };

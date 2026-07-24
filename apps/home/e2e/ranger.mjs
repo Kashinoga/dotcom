@@ -22,7 +22,10 @@ const DESCEND_TOTAL_MS = 1200; // location-state.svelte.ts — descent's flight 
 const PUD = '/apps/intergalactic-park-ranger';
 
 const res = [];
-const ok = (n, p, d = '') => { res.push(p); console.log(`  ${p ? 'PASS' : 'FAIL'}  ${n}${d ? '  — ' + d : ''}`); };
+const ok = (n, p, d = '') => {
+	res.push(p);
+	console.log(`  ${p ? 'PASS' : 'FAIL'}  ${n}${d ? '  — ' + d : ''}`);
+};
 
 // Wait out every FINITE animation, then a settle beat. The forest's drift (240s/150s) and the sky
 // are Infinity iterations — awaiting those would never return, so they're excluded. Copied from
@@ -31,7 +34,8 @@ const ok = (n, p, d = '') => { res.push(p); console.log(`  ${p ? 'PASS' : 'FAIL'
 const settle = async (p) => {
 	await p.evaluate(() =>
 		Promise.all(
-			document.getAnimations()
+			document
+				.getAnimations()
 				.filter((a) => a.effect?.getTiming().iterations !== Infinity)
 				.map((a) => a.finished.catch(() => {}))
 		)
@@ -43,25 +47,48 @@ const settle = async (p) => {
 // > 0), shards to spare, and ONE ledger row so the rail is present to travel with the ranger. Same
 // ksh-pud shape buttons.mjs seeds; the `log` field rides along so `.pud-ledger` (gated on log.length)
 // is on stage in both deployments.
-const seed = () => localStorage.setItem('ksh-pud', JSON.stringify({
-	v: 1, shards: 1e7, lifetime: 1e7, clickLevel: 3, owned: { probe: 2, relay: 1 },
-	boostUntil: 0, boostReadyAt: 0, paused: false, rigPaused: {},
-	stores: {}, dropAt: 0, rushed: false, fireUntil: 0,
-	log: [{ id: 1, kind: 'rig', message: 'Division seeded for the suite.', at: Date.now() }],
-	savedAt: Date.now()
-}));
+const seed = () =>
+	localStorage.setItem(
+		'ksh-pud',
+		JSON.stringify({
+			v: 1,
+			shards: 1e7,
+			lifetime: 1e7,
+			clickLevel: 3,
+			owned: { probe: 2, relay: 1 },
+			boostUntil: 0,
+			boostReadyAt: 0,
+			paused: false,
+			rigPaused: {},
+			stores: {},
+			dropAt: 0,
+			rushed: false,
+			fireUntil: 0,
+			log: [{ id: 1, kind: 'rig', message: 'Division seeded for the suite.', at: Date.now() }],
+			savedAt: Date.now()
+		})
+	);
 
 // Count the VISIBLE leads reading exactly "Shuttle". This is the spine of the whole suite: the
 // dashboard's Shuttle place-card and the cabin BOTH lead with the word, and the double-reveal bug
 // (two at once) and the mid-crossing bug (one riding through the wash) were both "the wrong number
 // of Shuttle leads on stage". getClientRects() drops an unmounted or hidden node, so an element
 // still finishing its out-transition doesn't get counted once we've settled past it.
-const shuttleLeads = (p) => p.evaluate(() =>
-	[...document.querySelectorAll('.pud-lead')]
-		.filter((e) => e.textContent.trim() === 'Shuttle' && e.getClientRects().length > 0).length);
-const hasLead = (p, text) => p.evaluate((t) =>
-	[...document.querySelectorAll('.pud-lead')]
-		.some((e) => e.textContent.trim() === t && e.getClientRects().length > 0), text);
+const shuttleLeads = (p) =>
+	p.evaluate(
+		() =>
+			[...document.querySelectorAll('.pud-lead')].filter(
+				(e) => e.textContent.trim() === 'Shuttle' && e.getClientRects().length > 0
+			).length
+	);
+const hasLead = (p, text) =>
+	p.evaluate(
+		(t) =>
+			[...document.querySelectorAll('.pud-lead')].some(
+				(e) => e.textContent.trim() === t && e.getClientRects().length > 0
+			),
+		text
+	);
 const count = (p, sel) => p.locator(sel).count();
 
 const browser = await firefox.launch();
@@ -90,14 +117,24 @@ const openPud = async () => {
 // nowhere (it's orbit-only), the forest painted behind the glass, and no cabin — you haven't boarded.
 console.log('\n===== A · fresh open, planetside =====');
 await openPud();
-ok('planetside: exactly one Shuttle lead', (await shuttleLeads(page)) === 1, String(await shuttleLeads(page)));
+ok(
+	'planetside: exactly one Shuttle lead',
+	(await shuttleLeads(page)) === 1,
+	String(await shuttleLeads(page))
+);
 ok('planetside: Basecamp place present', await hasLead(page, 'Basecamp'));
 ok('planetside: requisitions (.pud-shop) present', (await count(page, '.pud-shop')) === 1);
 ok('planetside: forestry (.pud-wood) present', (await count(page, '.pud-wood')) === 1);
 ok('planetside: stores (.pud-inv) present', (await count(page, '.pud-inv')) === 1);
 ok('planetside: NO Courier place', !(await hasLead(page, 'Courier')));
-ok('planetside: forest scenery painted behind the glass', (await count(page, '.locale-scenes .forest')) === 1);
-ok('planetside: no cabin on stage', (await count(page, 'section[aria-label="Shuttle cabin"]')) === 0);
+ok(
+	'planetside: forest scenery painted behind the glass',
+	(await count(page, '.locale-scenes .forest')) === 1
+);
+ok(
+	'planetside: no cabin on stage',
+	(await count(page, 'section[aria-label="Shuttle cabin"]')) === 0
+);
 
 // ── B. Enter Shuttle → the cabin ─────────────────────────────────────────────────────────────
 // Boarding clears the WHOLE dashboard (the card you just pressed included) and slides the cabin in
@@ -108,16 +145,35 @@ console.log('\n===== B · board the shuttle =====');
 await page.getByRole('button', { name: 'Enter Shuttle' }).click();
 await page.waitForTimeout(BOARD_CLEAR_MS + 250); // cabin mounts at BOARD_CLEAR_MS; give it a beat
 await settle(page);
-ok('boarded: cabin section is on stage', (await count(page, 'section[aria-label="Shuttle cabin"]')) === 1);
-ok('boarded: dashboard sections gone (actions/shop/places/side)',
-	(await count(page, '.pud-actions')) === 0 && (await count(page, '.pud-shop')) === 0 &&
-	(await count(page, '.pud-places')) === 0 && (await count(page, '.pud-side')) === 0);
-ok('boarded: cabin carries the destination control', (await page.getByRole('button', { name: 'Enter Orbit' }).count()) === 1);
-ok('boarded: cabin carries Disembark', (await page.getByRole('button', { name: 'Disembark' }).count()) === 1);
-ok('boarded: focus lands on the destination button',
+ok(
+	'boarded: cabin section is on stage',
+	(await count(page, 'section[aria-label="Shuttle cabin"]')) === 1
+);
+ok(
+	'boarded: dashboard sections gone (actions/shop/places/side)',
+	(await count(page, '.pud-actions')) === 0 &&
+		(await count(page, '.pud-shop')) === 0 &&
+		(await count(page, '.pud-places')) === 0 &&
+		(await count(page, '.pud-side')) === 0
+);
+ok(
+	'boarded: cabin carries the destination control',
+	(await page.getByRole('button', { name: 'Enter Orbit' }).count()) === 1
+);
+ok(
+	'boarded: cabin carries Disembark',
+	(await page.getByRole('button', { name: 'Disembark' }).count()) === 1
+);
+ok(
+	'boarded: focus lands on the destination button',
 	(await page.evaluate(() => document.activeElement?.textContent?.trim())) === 'Enter Orbit',
-	await page.evaluate(() => document.activeElement?.textContent?.trim() ?? 'none'));
-ok('boarded: exactly one Shuttle lead (the cabin\'s)', (await shuttleLeads(page)) === 1, String(await shuttleLeads(page)));
+	await page.evaluate(() => document.activeElement?.textContent?.trim() ?? 'none')
+);
+ok(
+	"boarded: exactly one Shuttle lead (the cabin's)",
+	(await shuttleLeads(page)) === 1,
+	String(await shuttleLeads(page))
+);
 
 // ── C. Disembark → back to the dashboard ─────────────────────────────────────────────────────
 // Backing out before you commit: the cabin leaves first, the dashboard returns behind it, and the
@@ -128,8 +184,15 @@ await page.waitForTimeout(EXIT_END_MS + 500);
 await settle(page);
 ok('disembarked: dashboard is back (.pud-shop present)', (await count(page, '.pud-shop')) === 1);
 ok('disembarked: Basecamp place present', await hasLead(page, 'Basecamp'));
-ok('disembarked: exactly one Shuttle lead', (await shuttleLeads(page)) === 1, String(await shuttleLeads(page)));
-ok('disembarked: no cabin left behind', (await count(page, 'section[aria-label="Shuttle cabin"]')) === 0);
+ok(
+	'disembarked: exactly one Shuttle lead',
+	(await shuttleLeads(page)) === 1,
+	String(await shuttleLeads(page))
+);
+ok(
+	'disembarked: no cabin left behind',
+	(await count(page, 'section[aria-label="Shuttle cabin"]')) === 0
+);
 
 // ── D. Board → Enter Orbit → the crossing → arrival in orbit ─────────────────────────────────
 // The cinematic path. Committing DROPS the cabin at once and mounts the wipe; the world is swapped
@@ -145,29 +208,59 @@ ok('re-boarded: cabin on stage', (await count(page, 'section[aria-label="Shuttle
 
 await page.getByRole('button', { name: 'Enter Orbit' }).click();
 const clickT = Date.now();
-const afterClick = async (ms) => { const d = ms - (Date.now() - clickT); if (d > 0) await page.waitForTimeout(d); };
+const afterClick = async (ms) => {
+	const d = ms - (Date.now() - clickT);
+	if (d > 0) await page.waitForTimeout(d);
+};
 
 await afterClick(200); // early in the cover — the wipe mounts synchronously with the transit leg
 ok('transit: the .locale-wipe overlay is playing', (await count(page, '.locale-wipe')) >= 1);
 await afterClick(600);
-ok('transit ~600ms: zero Shuttle leads on stage', (await shuttleLeads(page)) === 0, String(await shuttleLeads(page)));
+ok(
+	'transit ~600ms: zero Shuttle leads on stage',
+	(await shuttleLeads(page)) === 0,
+	String(await shuttleLeads(page))
+);
 await afterClick(1500);
-ok('transit ~1500ms: zero Shuttle leads on stage', (await shuttleLeads(page)) === 0, String(await shuttleLeads(page)));
+ok(
+	'transit ~1500ms: zero Shuttle leads on stage',
+	(await shuttleLeads(page)) === 0,
+	String(await shuttleLeads(page))
+);
 
 // Past arrival (≥3300ms clears TRANSIT_TOTAL_MS with headroom), then settle the fly-in.
 await afterClick(3400);
 await settle(page);
-ok('orbit: the space scene is shown (.scene-orbit.shown)', (await count(page, '.scene-orbit.shown')) >= 1);
-ok('orbit: the bar carries the orbit re-theme class', (await count(page, '.surface-head.orbit')) >= 1);
-ok('orbit: the bar re-themes to a dark colour-scheme',
-	(await page.locator('.surface-head.orbit').first().evaluate((e) => getComputedStyle(e).colorScheme)) === 'dark');
-ok('orbit: exactly one Shuttle lead', (await shuttleLeads(page)) === 1, String(await shuttleLeads(page)));
+ok(
+	'orbit: the space scene is shown (.scene-orbit.shown)',
+	(await count(page, '.scene-orbit.shown')) >= 1
+);
+ok(
+	'orbit: the bar carries the orbit re-theme class',
+	(await count(page, '.surface-head.orbit')) >= 1
+);
+ok(
+	'orbit: the bar re-themes to a dark colour-scheme',
+	(await page
+		.locator('.surface-head.orbit')
+		.first()
+		.evaluate((e) => getComputedStyle(e).colorScheme)) === 'dark'
+);
+ok(
+	'orbit: exactly one Shuttle lead',
+	(await shuttleLeads(page)) === 1,
+	String(await shuttleLeads(page))
+);
 ok('orbit: Courier place present', await hasLead(page, 'Courier'));
 ok('orbit: Division ledger present', (await count(page, '.pud-ledger')) === 1);
 ok('orbit: NO Basecamp place', !(await hasLead(page, 'Basecamp')));
-ok('orbit: NO requisitions / forestry / stores / actions',
-	(await count(page, '.pud-shop')) === 0 && (await count(page, '.pud-wood')) === 0 &&
-	(await count(page, '.pud-inv')) === 0 && (await count(page, '.pud-actions')) === 0);
+ok(
+	'orbit: NO requisitions / forestry / stores / actions',
+	(await count(page, '.pud-shop')) === 0 &&
+		(await count(page, '.pud-wood')) === 0 &&
+		(await count(page, '.pud-inv')) === 0 &&
+		(await count(page, '.pud-actions')) === 0
+);
 
 // ── E. Descend the same way → planetside restored ───────────────────────────────────────────
 // The Shuttle place stands in both deployments, so it's the door home too. The destination button
@@ -176,8 +269,10 @@ console.log('\n===== E · descend to basecamp =====');
 await page.getByRole('button', { name: 'Enter Shuttle' }).click();
 await page.waitForTimeout(BOARD_CLEAR_MS + 250);
 await settle(page);
-ok('re-boarded in orbit: cabin destination reads "Descend to Basecamp"',
-	(await page.getByRole('button', { name: 'Descend to Basecamp' }).count()) === 1);
+ok(
+	're-boarded in orbit: cabin destination reads "Descend to Basecamp"',
+	(await page.getByRole('button', { name: 'Descend to Basecamp' }).count()) === 1
+);
 await page.getByRole('button', { name: 'Descend to Basecamp' }).click();
 // Descent lands on ITS OWN, shorter clock — the ascend total would pass here too, but waiting
 // only DESCEND_TOTAL + headroom asserts the improvement itself: a regression back to charging
@@ -187,7 +282,11 @@ await settle(page);
 ok('descended: Basecamp place restored', await hasLead(page, 'Basecamp'));
 ok('descended: requisitions back on stage', (await count(page, '.pud-shop')) === 1);
 ok('descended: NO Courier place', !(await hasLead(page, 'Courier')));
-ok('descended: exactly one Shuttle lead', (await shuttleLeads(page)) === 1, String(await shuttleLeads(page)));
+ok(
+	'descended: exactly one Shuttle lead',
+	(await shuttleLeads(page)) === 1,
+	String(await shuttleLeads(page))
+);
 ok('descended: space scene no longer shown', (await count(page, '.scene-orbit.shown')) === 0);
 ok('descended: bar drops the orbit class', (await count(page, '.surface-head.orbit')) === 0);
 
@@ -221,8 +320,15 @@ await settle(page);
 ok('F1: boarded before closing', (await count(page, 'section[aria-label="Shuttle cabin"]')) === 1);
 await backToApps();
 await openViaCard();
-ok('F1 reopen: lands on the dashboard, no cabin', (await count(page, 'section[aria-label="Shuttle cabin"]')) === 0);
-ok('F1 reopen: exactly one Shuttle lead', (await shuttleLeads(page)) === 1, String(await shuttleLeads(page)));
+ok(
+	'F1 reopen: lands on the dashboard, no cabin',
+	(await count(page, 'section[aria-label="Shuttle cabin"]')) === 0
+);
+ok(
+	'F1 reopen: exactly one Shuttle lead',
+	(await shuttleLeads(page)) === 1,
+	String(await shuttleLeads(page))
+);
 
 // F2 — closed MID-CROSSING (committed, then away before the flight lands). leaveShuttle must cancel
 // the pending flip/land timers so the crossing can't complete under a future panel.
@@ -235,9 +341,16 @@ ok('F2: a crossing is in the air', (await count(page, '.locale-wipe')) >= 1);
 await backToApps();
 await openViaCard();
 await page.waitForTimeout(600); // outlast any stale timer that a broken leaveShuttle would let fire
-ok('F2 reopen: no cabin, no crossing left behind',
-	(await count(page, 'section[aria-label="Shuttle cabin"]')) === 0 && (await count(page, '.locale-wipe')) === 0);
-ok('F2 reopen: exactly one Shuttle lead (never two)', (await shuttleLeads(page)) === 1, String(await shuttleLeads(page)));
+ok(
+	'F2 reopen: no cabin, no crossing left behind',
+	(await count(page, 'section[aria-label="Shuttle cabin"]')) === 0 &&
+		(await count(page, '.locale-wipe')) === 0
+);
+ok(
+	'F2 reopen: exactly one Shuttle lead (never two)',
+	(await shuttleLeads(page)) === 1,
+	String(await shuttleLeads(page))
+);
 
 // ── G. Global pause — the bar disc and the requisitions disc drive one bit ──────────────────
 // The pause lives in the module (ranger.paused); the panel bar's disc and the requisitions head's
@@ -248,17 +361,25 @@ await openPud();
 const barDisc = page.locator('.surface-head .head-actions button[aria-pressed]').first();
 const shopDisc = page.locator('.pud-pauseall').first();
 const pressed = (loc) => loc.getAttribute('aria-pressed');
-ok('pause: both discs start unpressed',
+ok(
+	'pause: both discs start unpressed',
 	(await pressed(barDisc)) === 'false' && (await pressed(shopDisc)) === 'false',
-	`bar=${await pressed(barDisc)} shop=${await pressed(shopDisc)}`);
+	`bar=${await pressed(barDisc)} shop=${await pressed(shopDisc)}`
+);
 await barDisc.click();
 await page.waitForTimeout(150);
-ok('pause: bar disc pressed → .pud-pauseall reads pressed', (await pressed(shopDisc)) === 'true', await pressed(shopDisc));
+ok(
+	'pause: bar disc pressed → .pud-pauseall reads pressed',
+	(await pressed(shopDisc)) === 'true',
+	await pressed(shopDisc)
+);
 await shopDisc.click();
 await page.waitForTimeout(150);
-ok('pause: .pud-pauseall click → both read unpressed',
+ok(
+	'pause: .pud-pauseall click → both read unpressed',
 	(await pressed(barDisc)) === 'false' && (await pressed(shopDisc)) === 'false',
-	`bar=${await pressed(barDisc)} shop=${await pressed(shopDisc)}`);
+	`bar=${await pressed(barDisc)} shop=${await pressed(shopDisc)}`
+);
 
 await ctx.close();
 await browser.close();

@@ -39,7 +39,11 @@ ok('pick JFK → URL gains ?field=jfk', page.url() === `${B}${A}?field=jfk`, pag
 ok('pick JFK → dropdown shows it', (await field()) === 'New York JFK');
 ok('pick JFK → title follows', (await page.title()).includes('New York JFK'));
 ok('pick JFK → no page reload', loads === loadsBefore);
-ok('pick JFK → replaces, does not push history', (await histLen()) === before, `${before} → ${await histLen()}`);
+ok(
+	'pick JFK → replaces, does not push history',
+	(await histLen()) === before,
+	`${before} → ${await histLen()}`
+);
 
 // ── the default field drops the param entirely ──────────────────────────────
 await pickField('Gracemeria');

@@ -106,8 +106,17 @@ const PANEL_UI = ['dots', 'header', 'noshadow', 'glass', 'pcclose'];
 // are currently parked (see SKIP); the parked ones are filtered out at run time, so this map
 // stays the TRUE coupling and un-parking a suite needs no edit here.
 const NARROW = [
-	{ re: /^src\/lib\/network\.ts$/, suites: ['maplayout', 'hubsize', 'dots'] },
+	// The register of places ($lib/places) — one entry per place, and every panel's title, accent,
+	// mark, favicon, chrome and cards derive from it. It replaced $lib/network, whose entry here
+	// still named `maplayout` and `hubsize`: two suites deleted with the route map. They were
+	// filtered out at run time as "parked", so a change to the site's shape quietly selected one
+	// live suite. The three below are the ones that can actually see this file change: `masthead`
+	// reads the titles, `dots` the accents, `deeplink` the hierarchy the URLs come from.
+	{ re: /^src\/lib\/places\.ts$/, suites: ['masthead', 'dots', 'deeplink', 'cards'] },
 	{ re: /^src\/lib\/views\.ts$/, suites: ['deeplink', 'dots'] },
+	// The written copy. It is data now, so editing a paragraph no longer touches the page — but
+	// the panels that render it are still laid out around it.
+	{ re: /^src\/lib\/content\.(ts|json)$/, suites: ['masthead', 'cards'] },
 	{ re: /^src\/lib\/scope\.ts$/, suites: ['scope', 'field'] },
 	{ re: /^src\/lib\/fields\.ts$/, suites: ['field', 'scope', 'oplong'] },
 	{ re: /^src\/params\/view\.ts$/, suites: ['deeplink'] },
@@ -126,9 +135,15 @@ const NARROW = [
 	{ re: /^src\/lib\/stage\.svelte\.ts$/, suites: ['ranger', 'buttons'] },
 	{ re: /^src\/lib\/LocaleForest\.svelte$/, suites: ['ranger', 'buttons'] },
 	{ re: /^src\/lib\/LocaleSpace(Scene)?\.svelte$/, suites: ['ranger', 'buttons'] },
-	{ re: /^src\/lib\/TrafficBoard\.svelte$/, suites: ['scope', 'field', 'oplong', 'pcclose', 'dots'] },
+	{
+		re: /^src\/lib\/TrafficBoard\.svelte$/,
+		suites: ['scope', 'field', 'oplong', 'pcclose', 'dots']
+	},
 	{ re: /^src\/lib\/SplitFlap\.svelte$/, suites: ['scope', 'field', 'oplong', 'pcclose'] },
-	{ re: /^src\/routes\/api\/traffic\/\+server\.ts$/, suites: ['scope', 'field', 'oplong', 'pcclose'] },
+	{
+		re: /^src\/routes\/api\/traffic\/\+server\.ts$/,
+		suites: ['scope', 'field', 'oplong', 'pcclose']
+	},
 	// puhig design system (out-of-app): tokens/base/themes re-colour and re-material everything;
 	// Panel/Card/Sleeve/grid are the surfaces the panels render on. Either way a regression shows
 	// up in the visual suites, so scope there rather than forcing the full run. One rule covers
@@ -143,7 +158,12 @@ const IGNORE = [/^src\/app\.d\.ts$/];
 function changedFiles(ref) {
 	const git = (args, cwd = APP) => {
 		const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
-		return r.status === 0 ? r.stdout.split('\n').map((s) => s.trim()).filter(Boolean) : [];
+		return r.status === 0
+			? r.stdout
+					.split('\n')
+					.map((s) => s.trim())
+					.filter(Boolean)
+			: [];
 	};
 	// The home app's files come back app-relative (`--relative`, cwd = apps/home). The puhig
 	// design system lives OUTSIDE the app, so those queries can't see it — yet a token/component
@@ -188,7 +208,8 @@ function suitesForChanges(files) {
 		if (BROAD.some((re) => re.test(f))) return { suites: SUITES, reason: `broad change: ${f}` };
 		const e2e = /^e2e\/(.+)\.mjs$/.exec(f);
 		if (e2e) {
-			if (SUITES.includes(e2e[1])) chosen.add(e2e[1]); // editing a suite reruns that suite
+			if (SUITES.includes(e2e[1]))
+				chosen.add(e2e[1]); // editing a suite reruns that suite
 			else return { suites: SUITES, reason: `shared e2e helper: ${f}` }; // run.mjs, artifacts.mjs, …
 			continue;
 		}
@@ -197,7 +218,8 @@ function suitesForChanges(files) {
 		else unknown.push(f);
 	}
 	// A source file we haven't classified could touch anything — fail safe to the full suite.
-	if (unknown.length) return { suites: SUITES, reason: `unclassified, running all: ${unknown.join(', ')}` };
+	if (unknown.length)
+		return { suites: SUITES, reason: `unclassified, running all: ${unknown.join(', ')}` };
 	return { suites: SUITES.filter((s) => chosen.has(s)), reason: 'scoped to changed files' };
 }
 
@@ -239,7 +261,10 @@ const SKIP = new Set([]);
 // while it's being repaired — but a parked suite is coverage you aren't getting, so the note by
 // SKIP must say what's wrong and what un-parks it.
 const parked = chosen.filter((s) => SKIP.has(s));
-if (parked.length) console.log(`e2e: skipping ${parked.length} parked suite(s) — see SKIP in run.mjs: ${parked.join(', ')}`);
+if (parked.length)
+	console.log(
+		`e2e: skipping ${parked.length} parked suite(s) — see SKIP in run.mjs: ${parked.join(', ')}`
+	);
 chosen = chosen.filter((s) => !SKIP.has(s));
 if (!chosen.length) {
 	console.log('e2e: nothing to run (every selected suite is parked — see SKIP in run.mjs).');

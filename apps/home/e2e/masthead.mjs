@@ -28,7 +28,10 @@ const open = async (vp) => {
 	const ctx = await browser.newContext({ viewport: vp });
 	const page = await ctx.newPage();
 	await page.goto(B + '/', { waitUntil: 'domcontentloaded' });
-	await page.evaluate(() => { localStorage.setItem('ksh-sky', 'off'); localStorage.setItem('ksh-theme', 'light'); });
+	await page.evaluate(() => {
+		localStorage.setItem('ksh-sky', 'off');
+		localStorage.setItem('ksh-theme', 'light');
+	});
 	await page.goto(B + '/', { waitUntil: 'networkidle' });
 	await page.waitForTimeout(1500);
 	return { ctx, page };
@@ -57,11 +60,23 @@ const open = async (vp) => {
 	// flap is built shows up here rather than being quietly absorbed by a looser match.
 	const everyOther = [...brand.wordmark].filter((_, i) => i % 2 === 0).join('');
 	const doubled = [...'Kashinoga'].map((c) => c + c).join('');
-	ok('wordmark reads Kashinoga', everyOther === 'Kashinoga' && brand.wordmark === doubled, brand.wordmark.slice(0, 40));
+	ok(
+		'wordmark reads Kashinoga',
+		everyOther === 'Kashinoga' && brand.wordmark === doubled,
+		brand.wordmark.slice(0, 40)
+	);
 	ok('three station bullets beside it', brand.dotCount === 3, String(brand.dotCount));
 	ok('the bullets are decorative, not announced', brand.hidden);
-	ok('the bullets run left to right', brand.xs.every((x, i) => i === 0 || x > brand.xs[i - 1]), brand.xs.join(', '));
-	ok('each bullet carries its own colour', new Set(brand.colors).size === 3, brand.colors.join(' '));
+	ok(
+		'the bullets run left to right',
+		brand.xs.every((x, i) => i === 0 || x > brand.xs[i - 1]),
+		brand.xs.join(', ')
+	);
+	ok(
+		'each bullet carries its own colour',
+		new Set(brand.colors).size === 3,
+		brand.colors.join(' ')
+	);
 
 	const tagline = await page.evaluate(() => {
 		const words = [...document.querySelectorAll('.masthead .tagline .tw')];
@@ -74,9 +89,16 @@ const open = async (vp) => {
 			}))
 		};
 	});
-	ok('tagline reads "Different, Together"', /Different,\s*Together/.test(tagline.text), tagline.text);
+	ok(
+		'tagline reads "Different, Together"',
+		/Different,\s*Together/.test(tagline.text),
+		tagline.text
+	);
 	// Each word carries its own emphasis — "Different" italic, "Together" bold.
-	ok('"Different," is italicised', tagline.styles.find((s) => /Different/.test(s.t))?.italic === true);
+	ok(
+		'"Different," is italicised',
+		tagline.styles.find((s) => /Different/.test(s.t))?.italic === true
+	);
 	ok('"Together" is bolded', tagline.styles.find((s) => /Together/.test(s.t))?.bold === true);
 
 	const nav = await page.evaluate(() => {
@@ -97,8 +119,11 @@ const open = async (vp) => {
 		const got = nav.items.find((i) => i.name === s.name);
 		ok(`${s.name} links to ${s.href}`, got?.href === s.href, got?.href ?? 'missing');
 	}
-	ok('desktop keeps the stations on one row', new Set(nav.items.map((i) => i.y)).size === 1,
-		nav.items.map((i) => i.y).join(', '));
+	ok(
+		'desktop keeps the stations on one row',
+		new Set(nav.items.map((i) => i.y)).size === 1,
+		nav.items.map((i) => i.y).join(', ')
+	);
 
 	// The open destination highlights while its panel is open.
 	await page.goto(B + '/apps', { waitUntil: 'networkidle' });
@@ -107,8 +132,11 @@ const open = async (vp) => {
 		const on = [...document.querySelectorAll('.menubar .menu-btn.active')];
 		return { count: on.length, name: on[0]?.textContent.trim() ?? null };
 	});
-	ok('the open station is the only one highlighted', active.count === 1 && active.name === 'Apps',
-		`${active.count} active (${active.name})`);
+	ok(
+		'the open station is the only one highlighted',
+		active.count === 1 && active.name === 'Apps',
+		`${active.count} active (${active.name})`
+	);
 	await ctx.close();
 }
 
@@ -140,8 +168,16 @@ const open = async (vp) => {
 	ok('phone keeps all four stations on one row', g.rows === 1, `${g.rows} rows`);
 	ok('phone shows the station marks', g.iconShown);
 	ok('phone hides the words visually', g.wordClipped);
-	ok('phone keeps the words as accessible names', g.names.join(',') === 'Home,About,Apps,Settings', g.names.join(','));
-	ok('phone gives each a 42px touch target', g.sizes.every((s) => s === '42x42'), g.sizes.join(' '));
+	ok(
+		'phone keeps the words as accessible names',
+		g.names.join(',') === 'Home,About,Apps,Settings',
+		g.names.join(',')
+	);
+	ok(
+		'phone gives each a 42px touch target',
+		g.sizes.every((s) => s === '42x42'),
+		g.sizes.join(' ')
+	);
 	ok('phone fits the nav on screen', !g.overflows);
 	// The accessible name has to survive as a real name, not just as text in the DOM.
 	const byRole = await page.getByRole('link', { name: 'Settings', exact: true }).count();
@@ -188,10 +224,17 @@ const open = async (vp) => {
 	const g = await page.evaluate(() => {
 		const m = document.querySelector('.masthead');
 		const cs = getComputedStyle(m);
-		return { covered: m.classList.contains('covered'), opacity: cs.opacity, visibility: cs.visibility };
+		return {
+			covered: m.classList.contains('covered'),
+			opacity: cs.opacity,
+			visibility: cs.visibility
+		};
 	});
-	ok('an ordinary panel leaves the masthead up', !g.covered && g.opacity === '1' && g.visibility === 'visible',
-		`covered=${g.covered} opacity=${g.opacity} visibility=${g.visibility}`);
+	ok(
+		'an ordinary panel leaves the masthead up',
+		!g.covered && g.opacity === '1' && g.visibility === 'visible',
+		`covered=${g.covered} opacity=${g.opacity} visibility=${g.visibility}`
+	);
 	await ctx.close();
 }
 

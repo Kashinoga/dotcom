@@ -14,7 +14,11 @@ const B = process.env.BASE || 'http://localhost:5199';
 // So the checks below come in two kinds:
 //   structural — two real lists, both flush at the top, and NOT multicol (the fix, locked in)
 //   painted    — a screenshot of the second column, which must not come back blank
-const ENGINES = [['chromium', chromium], ['firefox', firefox], ['webkit', webkit]];
+const ENGINES = [
+	['chromium', chromium],
+	['firefox', firefox],
+	['webkit', webkit]
+];
 
 const results = [];
 const ok = (name, pass, detail = '') => {
@@ -49,7 +53,11 @@ for (const [name, engine] of ENGINES) {
 	} catch (e) {
 		// A missing engine must be LOUD. Reporting nothing here would turn the one suite that
 		// covers Safari into a silent no-op — precisely the failure it exists to prevent.
-		ok(`${name}: browser is installed (pnpm --filter home exec playwright install ${name})`, false, e.message.split('\n')[0]);
+		ok(
+			`${name}: browser is installed (pnpm --filter home exec playwright install ${name})`,
+			false,
+			e.message.split('\n')[0]
+		);
 		continue;
 	}
 	console.log(`\n[${name}]`);
@@ -58,7 +66,10 @@ for (const [name, engine] of ENGINES) {
 	{
 		const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
 		await page.goto(B + '/', { waitUntil: 'domcontentloaded' });
-		await page.evaluate(() => { localStorage.setItem('ksh-sky', 'off'); localStorage.setItem('ksh-theme', 'light'); });
+		await page.evaluate(() => {
+			localStorage.setItem('ksh-sky', 'off');
+			localStorage.setItem('ksh-theme', 'light');
+		});
 		await page.goto(B + '/apps', { waitUntil: 'networkidle' });
 		await page.waitForTimeout(1400);
 		const g = await page.evaluate(probe);
@@ -66,18 +77,34 @@ for (const [name, engine] of ENGINES) {
 		ok(`${name}: the panel body packs cards into columns`, !g.err, g.err);
 		if (!g.err) {
 			ok(`${name}: two real lists, not one multicol list`, g.lists === 2, `lists=${g.lists}`);
-			ok(`${name}: neither the wrapper nor a list uses CSS columns`,
+			ok(
+				`${name}: neither the wrapper nor a list uses CSS columns`,
 				g.columnCount === 'auto' && g.listColumnCount.every((c) => c === 'auto'),
-				`wrap=${g.columnCount} lists=${g.listColumnCount.join('/')}`);
+				`wrap=${g.columnCount} lists=${g.listColumnCount.join('/')}`
+			);
 			ok(`${name}: the columns sit side by side`, g.side === 'row', g.side);
-			ok(`${name}: both columns start flush at the top`, g.tops.every((t) => t === g.tops[0]), `tops=${g.tops.join(', ')}`);
-			ok(`${name}: the columns are in different places`, new Set(g.xs).size === 2, `x=${g.xs.join(', ')}`);
-			ok(`${name}: every card landed in a column`, g.counts.reduce((a, b) => a + b, 0) === 7, `counts=${g.counts.join('+')}`);
+			ok(
+				`${name}: both columns start flush at the top`,
+				g.tops.every((t) => t === g.tops[0]),
+				`tops=${g.tops.join(', ')}`
+			);
+			ok(
+				`${name}: the columns are in different places`,
+				new Set(g.xs).size === 2,
+				`x=${g.xs.join(', ')}`
+			);
+			ok(
+				`${name}: every card landed in a column`,
+				g.counts.reduce((a, b) => a + b, 0) === 7,
+				`counts=${g.counts.join('+')}`
+			);
 			// The cut is contiguous so the stacked phone order stays alphabetical (see cardSplit).
 			const flat = g.names.flat();
-			ok(`${name}: cards read alphabetically down the columns`,
+			ok(
+				`${name}: cards read alphabetically down the columns`,
 				JSON.stringify(flat) === JSON.stringify([...flat].sort((a, b) => a.localeCompare(b))),
-				flat.join(' | '));
+				flat.join(' | ')
+			);
 
 			// ── …and the second column is actually PAINTED ─────────────────────
 			// The bug that motivated this suite left correct geometry behind, so the only proof
@@ -92,9 +119,12 @@ for (const [name, engine] of ENGINES) {
 			// something small, and an uncaught throw here would abandon every engine still to
 			// run — including the one engine this suite exists for. A column that can't be
 			// photographed is a failure, not a crash.
-			let ink = null, shotErr = '';
+			let ink = null,
+				shotErr = '';
 			try {
-				const shot = await page.locator('.surface-body .app-cols > .app-cards').nth(1)
+				const shot = await page
+					.locator('.surface-body .app-cols > .app-cards')
+					.nth(1)
 					.screenshot({ timeout: 5000 });
 				ink = await page.evaluate(async (b64) => {
 					const img = new Image();
@@ -119,21 +149,35 @@ for (const [name, engine] of ENGINES) {
 					for (let y = 0; y < c.height; y++) {
 						for (let x = 0; x < c.width; x++) {
 							const i = (y * c.width + x) * 4;
-							if (data[i] < 235 || data[i + 1] < 235 || data[i + 2] < 235) { inkedRows++; break; }
+							if (data[i] < 235 || data[i + 1] < 235 || data[i + 2] < 235) {
+								inkedRows++;
+								break;
+							}
 						}
 					}
-					return { pct: +(100 * inked / total).toFixed(2), rowPct: +(100 * inkedRows / c.height).toFixed(1), w: c.width, h: c.height };
+					return {
+						pct: +((100 * inked) / total).toFixed(2),
+						rowPct: +((100 * inkedRows) / c.height).toFixed(1),
+						w: c.width,
+						h: c.height
+					};
 				}, shot.toString('base64'));
 			} catch (e) {
 				shotErr = e.message.split('\n')[0];
 			}
-			ok(`${name}: the second column has ink of its own`, !!ink && ink.pct > 1,
-				ink ? `${ink.pct}% of ${ink.w}×${ink.h}px` : shotErr);
+			ok(
+				`${name}: the second column has ink of its own`,
+				!!ink && ink.pct > 1,
+				ink ? `${ink.pct}% of ${ink.w}×${ink.h}px` : shotErr
+			);
 			// Four cards separated by 12px gaps leave only thin blank bands, so the great
 			// majority of rows carry something. A dropped card would take a ~130px bite out of
 			// this; a dropped COLUMN takes all of it.
-			ok(`${name}: the column paints down its whole length`, !!ink && ink.rowPct > 85,
-				ink ? `${ink.rowPct}% of rows inked` : shotErr);
+			ok(
+				`${name}: the column paints down its whole length`,
+				!!ink && ink.rowPct > 85,
+				ink ? `${ink.rowPct}% of rows inked` : shotErr
+			);
 		}
 		await page.close();
 	}
@@ -142,18 +186,27 @@ for (const [name, engine] of ENGINES) {
 	{
 		const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 		await page.goto(B + '/', { waitUntil: 'domcontentloaded' });
-		await page.evaluate(() => { localStorage.setItem('ksh-sky', 'off'); localStorage.setItem('ksh-theme', 'light'); });
+		await page.evaluate(() => {
+			localStorage.setItem('ksh-sky', 'off');
+			localStorage.setItem('ksh-theme', 'light');
+		});
 		await page.goto(B + '/apps', { waitUntil: 'networkidle' });
 		await page.waitForTimeout(1400);
 		const g = await page.evaluate(probe);
 		if (!g.err) {
 			ok(`${name}: phone stacks the columns`, g.side === 'column', g.side);
-			ok(`${name}: phone puts every list in the same place`, new Set(g.xs).size === 1, `x=${g.xs.join(', ')}`);
+			ok(
+				`${name}: phone puts every list in the same place`,
+				new Set(g.xs).size === 1,
+				`x=${g.xs.join(', ')}`
+			);
 			// Stacked, the two contiguous halves must read back as the one alphabetical run.
 			const flat = g.names.flat();
-			ok(`${name}: phone order is still alphabetical`,
+			ok(
+				`${name}: phone order is still alphabetical`,
 				JSON.stringify(flat) === JSON.stringify([...flat].sort((a, b) => a.localeCompare(b))),
-				flat.join(' | '));
+				flat.join(' | ')
+			);
 		}
 		await page.close();
 	}

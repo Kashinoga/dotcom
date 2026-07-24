@@ -25,22 +25,12 @@
 		CLOUD_SVG,
 		REFRESH_SVG,
 		ARROW_LEFT_SVG,
-		AIRPLANE_SVG,
-		PRESENTATION_SVG,
 		CAMERA_SVG,
 		HOME_SVG,
-		USER_SVG,
-		BRIEFCASE_SVG,
-		CODE_SVG,
-		GRID_SVG,
+		// Not a place's mark — the Park Ranger's own gear buttons, which are its UI, not the
+		// Settings place. (Every place's icon now comes from PORT_ICONS.)
 		GEAR_SVG,
 		EXTERNAL_SVG,
-		CLOUD_SUN_SVG,
-		STARS_SVG,
-		GAVEL_SVG,
-		PLANET_SVG,
-		SMILE_SVG,
-		WAND_SVG,
 		MAXIMIZE_SVG,
 		MINIMIZE_SVG,
 		PLAY_SVG,
@@ -48,7 +38,6 @@
 	} from '$lib/icons';
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
-	import faviconAtfc from '$lib/assets/favicon-atfc.svg';
 	import cloudFar from '$lib/assets/cloud-far.webp';
 	import cloudNear from '$lib/assets/cloud-near.webp';
 	import {
@@ -59,14 +48,35 @@
 		setUnit as wxSetUnit,
 		type WeatherKind
 	} from '$lib/weather-state.svelte';
-	import faviconPres from '$lib/assets/favicon-pres.svg';
-	import faviconWeather from '$lib/assets/favicon-weather.svg';
-	import faviconStar from '$lib/assets/favicon-star.svg';
-	import faviconAita from '$lib/assets/favicon-aita.svg';
-	import faviconPud from '$lib/assets/favicon-pud.svg';
-	import faviconEmoji from '$lib/assets/favicon-emoji.svg';
-	import { airports, accent, portDescriptions, HUB, parentOf } from '$lib/network';
-	import { viewPath, sameView, viewTitle, viewDescription, SITE, type View } from '$lib/views';
+	// The one register of places — see $lib/places. Everything below that used to be a hand-kept
+	// list of codes (which panels take the shared bar, which are full-viewport, which mark each
+	// one wears, which favicon flies in the tab) is derived from it.
+	import {
+		airports,
+		accent,
+		portDescriptions,
+		HUB,
+		parentOf,
+		PORT_ICONS,
+		FAVICONS,
+		NEW_HEADER,
+		FULL_APPS,
+		BAR_HEADER,
+		DOCS_BLEED,
+		PANEL_CARDS,
+		APP_CARDS
+	} from '$lib/places';
+	// The written copy — see $lib/content. Data, not a literal, so Edit Mode can write it back.
+	import { defaultPages, defaultSettings, type Block } from '$lib/content';
+	import {
+		viewPath,
+		viewToSlug,
+		sameView,
+		viewTitle,
+		viewDescription,
+		SITE,
+		type View
+	} from '$lib/views';
 	import { DEFAULT_FIELD, fieldByIata } from '$lib/fields';
 	import { rangeToken, refreshToken, expandedToken } from '$lib/scope';
 	import { popSpring } from '$lib/pop-spring';
@@ -83,7 +93,6 @@
 	// incoming URL asked for, so a shared /atfc link renders that board server-side
 	// instead of flashing the overview map first.
 	let { data }: { data: PageData } = $props();
-
 
 	// Stops are named in full ("Work"), never coded ("WRK"). This used to be a Settings toggle; the
 	// codes option is gone and full names are simply what the site does. The key is still listed in
@@ -275,7 +284,8 @@
 			if (!list.length) return;
 			photos = list;
 			const saved = localStorage.getItem(PHOTO_KEY);
-			const pick = list.find((p) => p.date === saved) ?? list[Math.floor(Math.random() * list.length)];
+			const pick =
+				list.find((p) => p.date === saved) ?? list[Math.floor(Math.random() * list.length)];
 			await showPhoto(pick);
 		} catch {
 			/* offline / upstream down — the solid background stands in */
@@ -389,8 +399,7 @@
 			// lays a translucent fill over an image. Contrast, though, is defined on LINEAR luminance.
 			// Conflating the two is not a rounding error: it predicted 6:1 for a panel that rendered
 			// 2.3:1. So: solve in encoded space, convert to linear only to state the target.
-			const toLinear = (e: number) =>
-				e <= 0.04045 ? e / 12.92 : ((e + 0.055) / 1.055) ** 2.4;
+			const toLinear = (e: number) => (e <= 0.04045 ? e / 12.92 : ((e + 0.055) / 1.055) ** 2.4);
 			const toEncoded = (l: number) =>
 				l <= 0.0031308 ? 12.92 * l : 1.055 * l ** (1 / 2.4) - 0.055;
 
@@ -662,127 +671,57 @@
 	const isMobile = $derived(vw <= 960);
 
 	// ─── Page content per destination ───────────────────────────────────────────
-	// A block list rendered into the content surface. Swap the placeholder copy for
-	// real writing; add { h }, { p }, { img }, { quote }, { code } blocks freely.
-	type Block =
-		| { h: string }
-		| { sub: string }
-		| { p: string }
-		| { img: string }
-		| { quote: string }
-		| { code: string }
-		| { email: string };
+	// The copy itself lives in $lib/content (backed by content.json) — see that module for why.
+	// What stays here is the RENDERING of a block list, and Edit Mode, which is the authoring
+	// tool for it.
 	// reicon "mailbox", tucked at the end of the contact address.
 	const MAILBOX_SVG =
 		'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M18.3715 3.02906C17.9435 2.86413 17.4778 2.82269 17.0274 2.90947L16.75 2.96292V4.61813C17.4742 4.47982 18.2228 4.54702 18.9109 4.8122C19.338 4.97679 19.8019 5.01813 20.25 4.93273V3.27443C19.6437 3.35379 19.025 3.28092 18.4506 3.05957L18.3715 3.02906ZM16.75 6.14572L17.0274 6.09227C17.4778 6.00549 17.9435 6.04692 18.3715 6.21186C19.1193 6.50005 19.9371 6.55389 20.7163 6.36623L20.7829 6.35019C21.3502 6.21354 21.75 5.706 21.75 5.12246V2.90097C21.75 2.13165 21.0305 1.56486 20.2825 1.745C19.8531 1.84845 19.4023 1.81877 18.99 1.65991L18.9109 1.6294C18.2207 1.36345 17.4698 1.29663 16.7436 1.43657L16.2575 1.53023C15.6726 1.64293 15.25 2.15479 15.25 2.75042V6.24956H7C6.95339 6.24956 6.90777 6.25381 6.86352 6.26195C6.74341 6.25373 6.62219 6.24956 6.5 6.24956C3.6005 6.24956 1.25 8.60006 1.25 11.4996V16.767C1.25 18.4142 2.58534 19.7496 4.23256 19.7496H9.75V21.9996C9.75 22.4138 10.0858 22.7496 10.5 22.7496C10.9142 22.7496 11.25 22.4138 11.25 21.9996V19.7496H13.75V21.9996C13.75 22.4138 14.0858 22.7496 14.5 22.7496C14.9142 22.7496 15.25 22.4138 15.25 21.9996V19.7496H19.7931C21.4261 19.7496 22.75 18.4257 22.75 16.7927V11.4996C22.75 8.60006 20.3995 6.24956 17.5 6.24956H16.75V6.14572ZM15.25 7.74956V10.9996C15.25 11.4138 15.5858 11.7496 16 11.7496C16.4142 11.7496 16.75 11.4138 16.75 10.9996V7.74956H17.5C19.5711 7.74956 21.25 9.42849 21.25 11.4996V16.7927C21.25 17.5973 20.5977 18.2496 19.7931 18.2496H11.75V11.4996C11.75 10.0305 11.1466 8.70245 10.1742 7.74956H15.25ZM10.25 18.2496V11.4996C10.25 9.42849 8.57107 7.74956 6.5 7.74956C4.42893 7.74956 2.75 9.42849 2.75 11.4996V16.767C2.75 17.5858 3.41376 18.2496 4.23256 18.2496H10.25ZM4.25 15.9996C4.25 15.5853 4.58579 15.2496 5 15.2496H8C8.41421 15.2496 8.75 15.5853 8.75 15.9996C8.75 16.4138 8.41421 16.7496 8 16.7496H5C4.58579 16.7496 4.25 16.4138 4.25 15.9996Z" fill="currentColor"/></svg>';
-	const defaultPages: Record<string, Block[]> = {
-		// Welcome — the home hub greeting, from dotcom-2 card K 001.
-		KSH: [
-			{ p: 'This is Kashinoga, my virtual home.' },
-			{ p: 'Here, you’ll find the (mostly) fun things that I’ve created or found.' },
-			{ p: 'I hope you enjoy your time here.' },
-			{ quote: 'Take care.' }
-		],
-		// Work — a stop off About, from dotcom-2 About card K 202. It opens on its tagline —
-		// the same line its card and meta description carry (portDescriptions, so the three
-		// can never drift apart).
-		WRK: [
-			{ p: portDescriptions.WRK },
-			{ sub: 'Employment' },
-			{ p: 'I’m a digital infrastructure engineer for U.S. energy companies.' },
-			{ p: 'I was formerly a software engineering consultant for the State of Iowa and other midwestern U.S. companies.' },
-			{ sub: 'Education' },
-			{ p: 'I have a B.S. in Computer Science from Iowa State University, and acquired general education from Drake University.' },
-			{ quote: 'I do love ranch.' }
-		],
-		// Projects — a stop off About, from dotcom-2 About card K 203. Same deal as Work:
-		// the tagline leads.
-		PRJ: [
-			{ p: portDescriptions.PRJ },
-			{ sub: 'Digital Community Services' },
-			{ p: 'Matrix, Nextcloud, and Open WebUI: for a better digital wellbeing.' },
-			{ sub: 'Digital Play Services' },
-			{ p: 'Casual, community, and competitive gaming for friends.' },
-			{ sub: 'SDKK' },
-			{ p: 'A safe, friendly Discord community.' },
-			{ quote: ':3dloldeepfried: - IYKYK' }
-		],
-		// Apps — the hub for the little live apps.
-		APP: [
-			{ p: 'A collection of apps that I’ve built for personal use, shared with you.' },
-			{ quote: 'Making data fun to use.' }
-		],
-		// About / intro — dotcom-2 About card K 201.
-		ABT: [
-			{ h: 'Andrew Nguyen' },
-			{ p: 'I enjoy nature, literature, and video games — and heightened experiences.' },
-			{ p: 'I’m based in the Midwestern United States, with occasional visits to Southeast Asia for friends and family.' },
-			{ email: 'contact@kashinoga.com' }
-		]
-	};
-	// Panels on the NEW HEADER MODEL: the accent bullet leaves the title and becomes a
-	// badge beside Back (see .app-badge). The rollout is done — this is now every panel
-	// that renders the SHARED super bar, so the list reads as "all of them minus the ones
-	// that can't".
+	// NEW_HEADER, DOCS_BLEED, FULL_APPS, BAR_HEADER, APP_CARDS, APP_ICONS, PORT_ICONS and
+	// PANEL_CARDS were eight hand-kept lists here. They are now derived from the one register in
+	// $lib/places, and imported at the top of this script — each place declares its `chrome`, its
+	// `icon` and whether it deals `cards`, and the lists fall out of that.
 	//
-	// The three that can't are ATFC, PRES and STAR: they own their whole panel interior and
-	// build their own header (see the branch above), so there's no shared bar here to move a
-	// bullet in. Moving them over means editing those components, not this list. KSH never
-	// reaches this branch either — Home is the map, not a panel.
-	const NEW_HEADER = ['APP', 'EMOJ', 'ABT', 'WRK', 'PRJ', 'STG', 'WTHR', 'AITA', 'PUD', 'DENS'];
-	// Pixelite docs mode (see pixeliteBody): the self-chrome readings that title and lay themselves
-	// out, so they render FULL-BLEED on the gutter — no docs chapter head, no measure wrapper.
-	// Everything else (the block pages + Settings) gets the bare prose treatment: a chapter head
-	// over a readable measure.
-	const DOCS_BLEED = ['WTHR', 'AITA', 'EMOJ'];
-	// The self-chrome full-viewport apps: the board, the Builder, the Star Map, and the Park Ranger.
-	// They own their whole interior and are always full-viewport (force-expanded), so in EITHER theme
-	// they render through the stage's existing full-viewport path — never inside the docs shell. Under
-	// Pixelite their interior chrome is restyled in-component via :global(html[data-look='pixelite'])
-	// branches (bars/buttons/labels only — PUD's stage choreography and scenes are left untouched).
-	const FULL_APPS = ['ATFC', 'PRES', 'STAR', 'PUD'];
+	// What each one means still matters when reading the markup below, so, briefly:
+	//   NEW_HEADER   renders the SHARED super bar — the accent bullet leaves the title and becomes
+	//                a badge beside Back (see .app-badge). Every panel except the three that build
+	//                their own header, and the hub, which is the map rather than a panel.
+	//   FULL_APPS    self-chrome full-viewport apps: the board, the Builder, the Star Map and the
+	//                Park Ranger. They own their whole interior and render through the stage's
+	//                full-viewport path in EITHER theme — never inside the docs shell. Under
+	//                Pixelite their interior chrome is restyled in-component, via
+	//                :global(html[data-look='pixelite']) branches (bars/buttons/labels only —
+	//                PUD's stage choreography and scenes are left untouched).
+	//   BAR_HEADER   the DENSE bar: one row, the title in it beside the badge, the header's
+	//                generous inset traded for the Traffic board's bar inset. Same recipe as
+	//                E-ATFC (see .tfc-head.bar): one --bar-inset drives the padding and the gap.
+	//   DOCS_BLEED   Pixelite docs mode (see pixeliteBody): readings that title and lay themselves
+	//                out, so they render FULL-BLEED on the gutter — no chapter head, no measure
+	//                wrapper. Everything else gets a chapter head over a readable measure.
+	//   PANEL_CARDS  panels that lay their onward destinations INTO the body as cards. (The
+	//                Related chip rail this replaced is gone everywhere: each panel ends on its own
+	//                content, and Back/Home already lead out.)
+	//
 	// Pixelite's one accent — cobalt-600. Passed to the full apps in place of their orange station
 	// accent so their internal dots/highlights read cobalt, matching the manual's ink-and-cobalt.
+	// It stays here, not in the register: it is a property of the THEME, not of any one place.
 	const PIXEL_INK = '#103dff';
-	// …and the panels whose bar is DENSE: one row, the title in it beside the badge, the
-	// header's generous inset traded for the Traffic board's bar inset. A full-viewport app
-	// wants its vertical space for content, and a wordmark that scrolls away is a luxury a
-	// panel can afford only when there's a column of prose under it. Same recipe as E-ATFC
-	// (see .tfc-head.bar): one --bar-inset drives the padding and the row's gap.
-	const BAR_HEADER = ['PUD'];
-	// The apps the Apps panel shows as CARDS in its body.
-	// Alphabetical by TITLE: the cards' order is presentation, not hierarchy, so a new
-	// app files itself in rather than landing wherever it was added.
-	const APP_CARDS = ['ATFC', 'PRES', 'WTHR', 'STAR', 'AITA', 'PUD', 'EMOJ', 'DENS'].sort((a, b) =>
-		airports[a].title.localeCompare(airports[b].title)
-	);
-	const APP_ICONS: Record<string, string> = {
-		ATFC: AIRPLANE_SVG,
-		PRES: PRESENTATION_SVG,
-		WTHR: CLOUD_SUN_SVG,
-		STAR: STARS_SVG,
-		AITA: GAVEL_SVG,
-		PUD: PLANET_SVG,
-		EMOJ: SMILE_SVG,
-		DENS: WAND_SVG
-	};
-	// A mark per destination, worn by its chip in the Related rail. It replaced a plain accent dot:
-	// the dot named the LINE a stop sits on and nothing about the stop itself. The mark says what the
-	// place is — and keeps the line's colour, so the rail reads the same at a glance.
-	const PORT_ICONS: Record<string, string> = {
-		KSH: HOME_SVG,
-		ABT: USER_SVG,
-		WRK: BRIEFCASE_SVG,
-		PRJ: CODE_SVG,
-		APP: GRID_SVG,
-		STG: GEAR_SVG,
-		...APP_ICONS
-	};
-	// The panels that lay their onward destinations INTO the body as cards. (The Related
-	// chip rail this replaced is gone everywhere: each panel ends on its own content, and
-	// Back/Home already lead out.) Apps deals its live apps; About fans out to its two
-	// branches.
-	const PANEL_CARDS: Record<string, string[]> = { APP: APP_CARDS, ABT: ['PRJ', 'WRK'] };
+
+	// On a phone EVERY docs page hands its TITLE UP TO THE SUPERBAR (DocsShell's barTitle) instead
+	// of printing it on the sheet — see the .docs-page-head rule in the mobile media block, which
+	// is the other half of this. The serif cover is a page's whole first screen at that width, and
+	// what stands under it always wants the room more than the name does: Weather's city tabs, the
+	// Emoji search, a block page's prose. In the bar the name reads the way Air Traffic's own bar
+	// carries "Air Traffic", and it is where the Emoji page's search already goes when it scrolls
+	// away — one arrangement for the whole page's chrome, not a per-page judgement.
+	//
+	// This started as a three-page list and became the rule, so there is no list any more: the
+	// title follows activeCode. The hub falls out on its own (no activeCode) — it IS the site's
+	// cover, not a page under one. Densette keeps both, and they don't collide: the bar says
+	// DENSETTE, where you are, while its paper prints "The Curriculum", what you are reading.
+	//
+	// Desktop is untouched: the breadcrumb ends in this same name there, and the sheet has the
+	// room for a printed cover.
 
 	// Where to cut the card list into the two desktop columns (see .app-cols). The cut is
 	// CONTIGUOUS — column one takes a prefix, column two the rest — so that when the columns
@@ -806,7 +745,7 @@
 		for (let k = 1; k < codes.length; k++) {
 			run += h[k - 1];
 			const delta = Math.abs(run - (total - run));
-			if (delta < bestDelta) (bestDelta = delta), (best = k);
+			if (delta < bestDelta) ((bestDelta = delta), (best = k));
 		}
 		return best;
 	}
@@ -856,7 +795,16 @@
 	function clearLocalStorage() {
 		if (!dev) return;
 		try {
-			for (const k of [NAMES_KEY, THEME_KEY, CONTENT_KEY, EXPAND_KEY, SKY_KEY, STARS_KEY, UI_KEY, LOOK_KEY])
+			for (const k of [
+				NAMES_KEY,
+				THEME_KEY,
+				CONTENT_KEY,
+				EXPAND_KEY,
+				SKY_KEY,
+				STARS_KEY,
+				UI_KEY,
+				LOOK_KEY
+			])
 				localStorage.removeItem(k);
 		} catch {
 			/* storage unavailable — nothing to clear */
@@ -897,19 +845,38 @@
 			for (const k of Object.keys(settings)) {
 				if (settings[k] !== defaultSettings[k]) overrides[settingsKey(k)] = settings[k];
 			}
-			if (Object.keys(overrides).length) localStorage.setItem(CONTENT_KEY, JSON.stringify(overrides));
+			if (Object.keys(overrides).length)
+				localStorage.setItem(CONTENT_KEY, JSON.stringify(overrides));
 			else localStorage.removeItem(CONTENT_KEY);
 		} catch {
 			/* storage unavailable — the clipboard copy is still the source of truth */
 		}
-		// Hand the full edited copy back: copy JSON to the clipboard (and log it).
+		// Write the edit back to src/lib/content.json, through the dev-only endpoint. This is what
+		// makes an edit real: the file changes, Vite reloads it, and the change is a git diff.
+		//
+		// It used to end at the clipboard — Save copied the whole content object and the toast
+		// asked you to paste it back into the source. That step is where an edit gets lost, so
+		// the clipboard is now the FALLBACK, for when the write fails (or someone is running a
+		// production build locally, where the endpoint 404s by design).
+		try {
+			const res = await fetch('/api/content', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ pages, settings })
+			});
+			if (!res.ok) throw new Error(String(res.status));
+			showToast('Saved to src/lib/content.json.');
+			return;
+		} catch {
+			/* not writable here — fall through to the clipboard */
+		}
 		const json = JSON.stringify({ pages, settings }, null, 2);
 		console.log('[Kashinoga] edited panel copy:\n' + json);
 		try {
 			await navigator.clipboard.writeText(json);
-			showToast('Saved. Content copied — paste it to Claude to make it permanent.');
+			showToast('Saved locally. Content copied — paste it into src/lib/content.json.');
 		} catch {
-			showToast('Saved locally. Copy the JSON from the console to make it permanent.');
+			showToast('Saved locally. Copy the JSON from the console into src/lib/content.json.');
 		}
 	}
 	// Apply any saved overrides from this browser onto the live pages.
@@ -938,21 +905,9 @@
 	// machinery, under a SETTINGS.<key> draft namespace.
 	// Section descriptions and the flavor notes. Notes use a `{}` placeholder that
 	// renders the live value (e.g. the current map style); editing keeps the token.
-	const defaultSettings: Record<string, string> = {
-		displayLead: 'Display Mode',
-		displayNote: 'Inside of you, there are two wolves.',
-		skyLead: 'Skybox Theme',
-		skyNote: '',
-		starsLead: 'Starry Night',
-		starsNote: '',
-		resetLead: 'Start Over',
-		lookLead: 'Theme',
-		lookNote: '',
-		// Air Traffic board intro copy. `atfcLead` uses a `{}` token for the live range
-		// (NM); the demo variant has none. Edited via Edit Mode inside the board itself.
-		atfcLead: 'Live traffic within {} NM of a field — arriving, departing, or passing over.',
-		atfcLeadDemo: ''
-	};
+	// (The values live in content.json's `settings`, beside the page copy — the Air Traffic
+	// board's intro is in there too: `atfcLead` uses a `{}` token for the live range in NM, and
+	// is edited via Edit Mode inside the board itself.)
 	let settings = $state<Record<string, string>>({ ...defaultSettings });
 	const settingsKey = (k: string) => `SETTINGS.${k}`;
 	function settingsText(k: string) {
@@ -1425,9 +1380,7 @@
 	const urlView = $derived(page.state.view !== undefined ? page.state.view : data.view);
 	const urlField = $derived(page.state.field !== undefined ? page.state.field : data.field);
 	const urlRange = $derived(page.state.range !== undefined ? page.state.range : data.range);
-	const urlRefresh = $derived(
-		page.state.refresh !== undefined ? page.state.refresh : data.refresh
-	);
+	const urlRefresh = $derived(page.state.refresh !== undefined ? page.state.refresh : data.refresh);
 
 	// The Traffic board's three controls, mirrored into the query. Seeded from the URL; see
 	// the note on `view` above for why reading `data` once is right. `null` means "the
@@ -1470,26 +1423,12 @@
 	// stale `field` can never bleed into another panel's title or canonical URL.
 	const onBoard = $derived(view?.kind === 'port' && view.code === 'ATFC');
 	const selectedField = $derived(onBoard ? fieldByIata(field) : null);
-	// The tab's mark follows the open panel: each app flies its own, and everything else wears the
-	// site heart (orange while developing, so a dev tab is obvious at a glance).
+	// The tab's mark follows the open panel: each app flies its own (FAVICONS, from the register),
+	// and everything else wears the site heart — orange while developing, so a dev tab is obvious
+	// at a glance. This was a nine-deep ternary over hard-coded codes; a new app that forgot to
+	// join it simply flew the wrong mark, which nothing would ever have told us.
 	const favicon = $derived(
-		view?.kind === 'port' && view.code === 'ATFC'
-			? faviconAtfc
-			: view?.kind === 'port' && view.code === 'PRES'
-				? faviconPres
-				: view?.kind === 'port' && view.code === 'WTHR'
-					? faviconWeather
-					: view?.kind === 'port' && view.code === 'STAR'
-						? faviconStar
-						: view?.kind === 'port' && view.code === 'AITA'
-							? faviconAita
-							: view?.kind === 'port' && view.code === 'PUD'
-								? faviconPud
-								: view?.kind === 'port' && view.code === 'EMOJ'
-									? faviconEmoji
-									: dev
-										? faviconDev
-										: faviconSite
+		(view?.kind === 'port' ? FAVICONS[view.code] : undefined) ?? (dev ? faviconDev : faviconSite)
 	);
 	const headTitle = $derived(
 		selectedField ? `Air Traffic · ${selectedField.name} — ${SITE}` : viewTitle(view)
@@ -1505,6 +1444,16 @@
 			viewPath(view) + (selectedField ? `?field=${selectedField.iata.toLowerCase()}` : ''),
 			page.url.origin
 		).href
+	);
+	// The share card — baked per place by scripts/gen-og.mjs, named by the place's canonical
+	// slug with the slashes flattened (`apps/air-traffic` → `apps-air-traffic.png`). The rule is
+	// the same one the generator writes by, so a new place gets its card without a second list.
+	//
+	// ABSOLUTE, and it has to be: an unfurler fetches this URL from its own servers, with no page
+	// to resolve a relative path against. `page.url.origin` is what makes it right on a preview
+	// deploy as well as in production.
+	const ogImage = $derived(
+		new URL(`/og/${view ? viewToSlug(view).replace(/\//g, '-') : 'home'}.png`, page.url.origin).href
 	);
 
 	// Show a destination/line: fly the camera there and render its panel content.
@@ -1534,12 +1483,7 @@
 		// ATFC now joins the force-expand set: the board dropped its compact/panel shape, so the
 		// full-viewport app is its only form in both themes. AITA is the last panel that keeps
 		// whatever the user last toggled; everything else is compact-only.
-		if (
-			nv.code === 'PRES' ||
-			nv.code === 'STAR' ||
-			nv.code === 'PUD' ||
-			nv.code === 'ATFC'
-		)
+		if (nv.code === 'PRES' || nv.code === 'STAR' || nv.code === 'PUD' || nv.code === 'ATFC')
 			panelExpanded = true;
 		else if (nv.code !== 'AITA') panelExpanded = false;
 	}
@@ -1608,7 +1552,6 @@
 		if (view) home();
 		else board('STG');
 	}
-
 
 	// Shared by every in-app link (the masthead's nav, Related chips, the Apps cards).
 	//
@@ -1749,7 +1692,6 @@
 		clearInterval(skyTimer);
 		for (const off of cleanups) off();
 	});
-
 </script>
 
 <svelte:window onkeydown={onKey} onresize={onResize} />
@@ -1770,7 +1712,17 @@
 	<meta property="og:title" content={headTitle} />
 	<meta property="og:description" content={headDescription} />
 	<meta property="og:url" content={canonicalHref} />
-	<meta name="twitter:card" content="summary" />
+	<meta property="og:site_name" content={SITE} />
+	<!-- The share card. Without it, a link to any of these apps unfurled as a grey rectangle —
+	     which is how the site looks to everyone who has not visited it yet. `summary_large_image`
+	     is the card shape that actually shows a 1200×630 image; plain `summary` crops it to a
+	     thumbnail beside the text, which is what this used to be. -->
+	<meta property="og:image" content={ogImage} />
+	<meta property="og:image:width" content="1200" />
+	<meta property="og:image:height" content="630" />
+	<meta property="og:image:alt" content={headTitle} />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:image" content={ogImage} />
 </svelte:head>
 
 <!-- Decorative station-sign bullet beside a panel title, in the colour of the line the
@@ -1865,289 +1817,308 @@
 {#snippet appBody(v: View)}
 	{@const port = airports[v.code]}
 	{@const blocks = pages[v.code] ?? stub(port.title)}
-						{#if v.code === 'WTHR'}
-							<!-- Weather lives INSIDE the ordinary panel — it's a reading, not a workspace, so
+	{#if v.code === 'WTHR'}
+		<!-- Weather lives INSIDE the ordinary panel — it's a reading, not a workspace, so
 							     it doesn't take over the viewport the way the board and the Builder do.
 							     Under Pixelite (docs) it grows a pixel sky window beside the reading to fill
 							     the wide column; Aeropalite passes docs=false and keeps its arrangement. -->
-							<Weather docs={look === 'pixelite'} />
-						{:else if v.code === 'AITA'}
-							<!-- The Court of Public Opinion makes the same bargain as Weather: a reading
+		<Weather docs={look === 'pixelite'} />
+	{:else if v.code === 'AITA'}
+		<!-- The Court of Public Opinion makes the same bargain as Weather: a reading
 							     inside the ordinary panel, its chrome the panel's own. -->
-							<Aita />
-						{:else if v.code === 'PUD'}
-							<!-- Intergalactic Park Ranger makes it too: the game lives in the ordinary panel — a clicker
+		<Aita />
+	{:else if v.code === 'PUD'}
+		<!-- Intergalactic Park Ranger makes it too: the game lives in the ordinary panel — a clicker
 							     is a thing you visit, not a workspace that takes the viewport. -->
-							<PudIdle settingsOpen={pudSettings} onCloseSettings={() => (pudSettings = false)} />
-						{:else if v.code === 'EMOJ'}
-							<!-- The Emoji Viewer: a wall of the system's own emojis to browse and copy.
+		<PudIdle settingsOpen={pudSettings} onCloseSettings={() => (pudSettings = false)} />
+	{:else if v.code === 'EMOJ'}
+		<!-- The Emoji Viewer: a wall of the system's own emojis to browse and copy.
 							     Its big title is the shared one above, at the top of the scroll body.
 							     Under Pixelite docs mode (docs), the viewer grows its own sticky search
 							     bar (the header EmojiSearch disc isn't rendered on the docs path); under
 							     Aeropalite that disc stays, so docs is false and no bar is added. -->
-							<EmojiViewer docs={look === 'pixelite'} />
-						{:else if v.code === 'DENS'}
-							<!-- Densette: The Curriculum, an in-universe RPG manual. A reading like Weather
+		<EmojiViewer docs={look === 'pixelite'} />
+	{:else if v.code === 'DENS'}
+		<!-- Densette: The Curriculum, an in-universe RPG manual. A reading like Weather
 							     and the Court, but printed — it renders as a Pixelite technical manual under
 							     any theme, and comes home when the look is set to Pixelite. -->
-							<Densette />
-						{:else if v.code === 'STG'}
-							{@const editStg = dev && editMode}
-							<div class="stg-group">
-							<p
-								class="seg-lead"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('displayLead', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{settingsText('displayLead')}</p>
-							<div class="segmented three" role="radiogroup" aria-label="Display mode">
-								{#each themeModes as m}
-									<button
-										type="button"
-										class="seg"
-										class:on={theme === m.id}
-										role="radio"
-										aria-checked={theme === m.id}
-										onclick={() => setTheme(m.id)}
-									>
-										<span class="seg-icon">{@html m.svg}</span>
-										<span class="seg-title">{m.label}</span>
-									</button>
-								{/each}
-							</div>
-							<p
-								class="seg-note"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('displayNote', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{noteText('displayNote', displayValue, editStg)}</p>
-							</div>
-							<div class="stg-group">
-							<p
-								class="seg-lead"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('lookLead', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{settingsText('lookLead')}</p>
-							<div class="segmented" role="radiogroup" aria-label="Theme">
-								{#each lookOptions as o}
-									<button
-										type="button"
-										class="seg"
-										class:on={look === o.id}
-										role="radio"
-										aria-checked={look === o.id}
-										onclick={() => setLook(o.id)}
-									>
-										<span class="seg-title">{o.label}</span>
-										<span class="seg-sub">{o.sub}</span>
-									</button>
-								{/each}
-							</div>
-							<p
-								class="seg-note"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('lookNote', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{noteText('lookNote', lookStatus, editStg)}</p>
-							</div>
-							<div class="stg-group">
-							<p
-								class="seg-lead"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('skyLead', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{settingsText('skyLead')}</p>
-							<div class="sky-picker" role="radiogroup" aria-label="Sky background">
-								{#each skyOptions as o}
-									<button
-										type="button"
-										class="sky-opt"
-										class:on={skyMode === o.id}
-										role="radio"
-										aria-checked={skyMode === o.id}
-										onclick={() => setSkyMode(o.id)}
-									>
-										{o.label}
-									</button>
-								{/each}
-							</div>
-							<p
-								class="seg-note"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('skyNote', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{noteText('skyNote', skyStatus, editStg)}</p>
-							</div>
-							<div class="stg-group">
-							<p
-								class="seg-lead"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('starsLead', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{settingsText('starsLead')}</p>
-							<div class="sky-picker" role="radiogroup" aria-label="Stars">
-								<button
-									type="button"
-									class="sky-opt"
-									class:on={!starsOn}
-									role="radio"
-									aria-checked={!starsOn}
-									onclick={() => setStars(false)}
-								>
-									Off
-								</button>
-								<button
-									type="button"
-									class="sky-opt"
-									class:on={starsOn}
-									role="radio"
-									aria-checked={starsOn}
-									onclick={() => setStars(true)}
-								>
-									On
-								</button>
-							</div>
-							<p
-								class="seg-note"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('starsNote', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{noteText('starsNote', starsStatus, editStg)}</p>
-							</div>
-							<div class="stg-group">
-							<p
-								class="seg-lead"
-								class:editable={editStg}
-								contenteditable={editStg}
-								oninput={editStg
-									? (e) => stageSettings('resetLead', e.currentTarget.textContent ?? '')
-									: undefined}
-							>{settingsText('resetLead')}</p>
-							<div class="reset-row">
-								<button
-									type="button"
-									class="edit-enter ghost"
-									onclick={resetSettings}
-									disabled={settingsAreDefault}
-								>
-									Reset to Defaults
-								</button>
-							</div>
-							<!-- Not editable copy: it states what the button does, and it swaps on state. -->
-							<p class="seg-note">
-								{settingsAreDefault
-									? 'No changes have been made.'
-									: 'Revert all changes.'}
-							</p>
-							</div>
-							{#if dev}
-								<div class="stg-group">
-								<p class="seg-lead">Other</p>
-								<div class="dev-actions">
-									<button
-										type="button"
-										class="edit-enter"
-										onclick={enterEditMode}
-										disabled={editMode}
-									>
-										{editMode ? 'Editing…' : 'Enter Edit Mode'}
-									</button>
-									<button type="button" class="edit-enter ghost" onclick={clearLocalStorage}>
-										Clear Saved Settings
-									</button>
-								</div>
-								</div>
-							{/if}
-						{:else}
-						{@const edit = dev && editMode && !!pages[v.code]}
-						{#each blocks as b, i}
-							{#if 'h' in b}
-								<h3
-									class:editable={edit}
-									contenteditable={edit}
-									oninput={edit
-										? (e) => stageEdit(v.code, i, 'h', e.currentTarget.textContent ?? '')
-										: undefined}
-								>{fieldText(v.code, i, 'h', b.h)}</h3>
-							{:else if 'sub' in b}
-								<h4
-									class:editable={edit}
-									contenteditable={edit}
-									oninput={edit
-										? (e) => stageEdit(v.code, i, 'sub', e.currentTarget.textContent ?? '')
-										: undefined}
-								>{fieldText(v.code, i, 'sub', b.sub)}</h4>
-							{:else if 'quote' in b}
-								<blockquote
-									class:editable={edit}
-									contenteditable={edit}
-									oninput={edit
-										? (e) => stageEdit(v.code, i, 'quote', e.currentTarget.textContent ?? '')
-										: undefined}
-								>{fieldText(v.code, i, 'quote', b.quote)}</blockquote>
-							{:else if 'code' in b}
-								<pre
-									class:editable={edit}
-									contenteditable={edit}
-									oninput={edit
-										? (e) => stageEdit(v.code, i, 'code', e.currentTarget.textContent ?? '')
-										: undefined}><code>{fieldText(v.code, i, 'code', b.code)}</code></pre>
-							{:else if 'img' in b}
-								<figure class="img">
-									<div class="img-ph" style:--tint={accent[v.code]}><span>image</span></div>
-									<figcaption>{b.img}</figcaption>
-								</figure>
-							{:else if 'email' in b}
-								<p>
-									Say hello:
-									{#if edit}
-										<span
-											class="editable mail-edit"
-											contenteditable="true"
-											oninput={(e) =>
-												stageEdit(v.code, i, 'email', e.currentTarget.textContent ?? '')}
-										>{fieldText(v.code, i, 'email', b.email)}</span>
-									{:else}
-										<a class="mail" href="mailto:{b.email}">
-											{b.email}<span class="mail-ico">{@html MAILBOX_SVG}</span>
-										</a>
-									{/if}
-								</p>
-							{:else if 'p' in b}
-								<p
-									class:editable={edit}
-									contenteditable={edit}
-									oninput={edit
-										? (e) => stageEdit(v.code, i, 'p', e.currentTarget.textContent ?? '')
-										: undefined}
-								>{fieldText(v.code, i, 'p', b.p)}</p>
-							{/if}
-						{/each}
-						{/if}
+		<Densette />
+	{:else if v.code === 'STG'}
+		{@const editStg = dev && editMode}
+		<div class="stg-group">
+			<p
+				class="seg-lead"
+				class:editable={editStg}
+				contenteditable={editStg}
+				oninput={editStg
+					? (e) => stageSettings('displayLead', e.currentTarget.textContent ?? '')
+					: undefined}
+			>
+				{settingsText('displayLead')}
+			</p>
+			<div class="segmented three" role="radiogroup" aria-label="Display mode">
+				{#each themeModes as m}
+					<button
+						type="button"
+						class="seg"
+						class:on={theme === m.id}
+						role="radio"
+						aria-checked={theme === m.id}
+						onclick={() => setTheme(m.id)}
+					>
+						<span class="seg-icon">{@html m.svg}</span>
+						<span class="seg-title">{m.label}</span>
+					</button>
+				{/each}
+			</div>
+			<p
+				class="seg-note"
+				class:editable={editStg}
+				contenteditable={editStg}
+				oninput={editStg
+					? (e) => stageSettings('displayNote', e.currentTarget.textContent ?? '')
+					: undefined}
+			>
+				{noteText('displayNote', displayValue, editStg)}
+			</p>
+		</div>
+		<div class="stg-group">
+			<p
+				class="seg-lead"
+				class:editable={editStg}
+				contenteditable={editStg}
+				oninput={editStg
+					? (e) => stageSettings('lookLead', e.currentTarget.textContent ?? '')
+					: undefined}
+			>
+				{settingsText('lookLead')}
+			</p>
+			<div class="segmented" role="radiogroup" aria-label="Theme">
+				{#each lookOptions as o}
+					<button
+						type="button"
+						class="seg"
+						class:on={look === o.id}
+						role="radio"
+						aria-checked={look === o.id}
+						onclick={() => setLook(o.id)}
+					>
+						<span class="seg-title">{o.label}</span>
+						<span class="seg-sub">{o.sub}</span>
+					</button>
+				{/each}
+			</div>
+			<p
+				class="seg-note"
+				class:editable={editStg}
+				contenteditable={editStg}
+				oninput={editStg
+					? (e) => stageSettings('lookNote', e.currentTarget.textContent ?? '')
+					: undefined}
+			>
+				{noteText('lookNote', lookStatus, editStg)}
+			</p>
+		</div>
+		<div class="stg-group">
+			<p
+				class="seg-lead"
+				class:editable={editStg}
+				contenteditable={editStg}
+				oninput={editStg
+					? (e) => stageSettings('skyLead', e.currentTarget.textContent ?? '')
+					: undefined}
+			>
+				{settingsText('skyLead')}
+			</p>
+			<div class="sky-picker" role="radiogroup" aria-label="Sky background">
+				{#each skyOptions as o}
+					<button
+						type="button"
+						class="sky-opt"
+						class:on={skyMode === o.id}
+						role="radio"
+						aria-checked={skyMode === o.id}
+						onclick={() => setSkyMode(o.id)}
+					>
+						{o.label}
+					</button>
+				{/each}
+			</div>
+			<p
+				class="seg-note"
+				class:editable={editStg}
+				contenteditable={editStg}
+				oninput={editStg
+					? (e) => stageSettings('skyNote', e.currentTarget.textContent ?? '')
+					: undefined}
+			>
+				{noteText('skyNote', skyStatus, editStg)}
+			</p>
+		</div>
+		<div class="stg-group">
+			<p
+				class="seg-lead"
+				class:editable={editStg}
+				contenteditable={editStg}
+				oninput={editStg
+					? (e) => stageSettings('starsLead', e.currentTarget.textContent ?? '')
+					: undefined}
+			>
+				{settingsText('starsLead')}
+			</p>
+			<div class="sky-picker" role="radiogroup" aria-label="Stars">
+				<button
+					type="button"
+					class="sky-opt"
+					class:on={!starsOn}
+					role="radio"
+					aria-checked={!starsOn}
+					onclick={() => setStars(false)}
+				>
+					Off
+				</button>
+				<button
+					type="button"
+					class="sky-opt"
+					class:on={starsOn}
+					role="radio"
+					aria-checked={starsOn}
+					onclick={() => setStars(true)}
+				>
+					On
+				</button>
+			</div>
+			<p
+				class="seg-note"
+				class:editable={editStg}
+				contenteditable={editStg}
+				oninput={editStg
+					? (e) => stageSettings('starsNote', e.currentTarget.textContent ?? '')
+					: undefined}
+			>
+				{noteText('starsNote', starsStatus, editStg)}
+			</p>
+		</div>
+		<div class="stg-group">
+			<p
+				class="seg-lead"
+				class:editable={editStg}
+				contenteditable={editStg}
+				oninput={editStg
+					? (e) => stageSettings('resetLead', e.currentTarget.textContent ?? '')
+					: undefined}
+			>
+				{settingsText('resetLead')}
+			</p>
+			<div class="reset-row">
+				<button
+					type="button"
+					class="edit-enter ghost"
+					onclick={resetSettings}
+					disabled={settingsAreDefault}
+				>
+					Reset to Defaults
+				</button>
+			</div>
+			<!-- Not editable copy: it states what the button does, and it swaps on state. -->
+			<p class="seg-note">
+				{settingsAreDefault ? 'No changes have been made.' : 'Revert all changes.'}
+			</p>
+		</div>
+		{#if dev}
+			<div class="stg-group">
+				<p class="seg-lead">Other</p>
+				<div class="dev-actions">
+					<button type="button" class="edit-enter" onclick={enterEditMode} disabled={editMode}>
+						{editMode ? 'Editing…' : 'Enter Edit Mode'}
+					</button>
+					<button type="button" class="edit-enter ghost" onclick={clearLocalStorage}>
+						Clear Saved Settings
+					</button>
+				</div>
+			</div>
+		{/if}
+	{:else}
+		{@const edit = dev && editMode && !!pages[v.code]}
+		{#each blocks as b, i}
+			{#if 'h' in b}
+				<h3
+					class:editable={edit}
+					contenteditable={edit}
+					oninput={edit
+						? (e) => stageEdit(v.code, i, 'h', e.currentTarget.textContent ?? '')
+						: undefined}
+				>
+					{fieldText(v.code, i, 'h', b.h)}
+				</h3>
+			{:else if 'sub' in b}
+				<h4
+					class:editable={edit}
+					contenteditable={edit}
+					oninput={edit
+						? (e) => stageEdit(v.code, i, 'sub', e.currentTarget.textContent ?? '')
+						: undefined}
+				>
+					{fieldText(v.code, i, 'sub', b.sub)}
+				</h4>
+			{:else if 'quote' in b}
+				<blockquote
+					class:editable={edit}
+					contenteditable={edit}
+					oninput={edit
+						? (e) => stageEdit(v.code, i, 'quote', e.currentTarget.textContent ?? '')
+						: undefined}
+				>
+					{fieldText(v.code, i, 'quote', b.quote)}
+				</blockquote>
+			{:else if 'code' in b}
+				<pre
+					class:editable={edit}
+					contenteditable={edit}
+					oninput={edit
+						? (e) => stageEdit(v.code, i, 'code', e.currentTarget.textContent ?? '')
+						: undefined}><code>{fieldText(v.code, i, 'code', b.code)}</code></pre>
+			{:else if 'img' in b}
+				<figure class="img">
+					<div class="img-ph" style:--tint={accent[v.code]}><span>image</span></div>
+					<figcaption>{b.img}</figcaption>
+				</figure>
+			{:else if 'email' in b}
+				<p>
+					Say hello:
+					{#if edit}
+						<span
+							class="editable mail-edit"
+							contenteditable="true"
+							oninput={(e) => stageEdit(v.code, i, 'email', e.currentTarget.textContent ?? '')}
+							>{fieldText(v.code, i, 'email', b.email)}</span
+						>
+					{:else}
+						<a class="mail" href="mailto:{b.email}">
+							{b.email}<span class="mail-ico">{@html MAILBOX_SVG}</span>
+						</a>
+					{/if}
+				</p>
+			{:else if 'p' in b}
+				<p
+					class:editable={edit}
+					contenteditable={edit}
+					oninput={edit
+						? (e) => stageEdit(v.code, i, 'p', e.currentTarget.textContent ?? '')
+						: undefined}
+				>
+					{fieldText(v.code, i, 'p', b.p)}
+				</p>
+			{/if}
+		{/each}
+	{/if}
 
-						<!-- Onward destinations as cards in the body — each its own icon, name and
+	<!-- Onward destinations as cards in the body — each its own icon, name and
 						     blurb: the Apps panel's live apps, About's two branches (see PANEL_CARDS).
 						     They're the panel's real content, not a rail under it. -->
-						{#if PANEL_CARDS[v.code]}
-							{@render appCards(PANEL_CARDS[v.code])}
-						{/if}
+	{#if PANEL_CARDS[v.code]}
+		{@render appCards(PANEL_CARDS[v.code])}
+	{/if}
 {/snippet}
 
 {#snippet pixeliteBody(v: View)}
@@ -2158,7 +2129,8 @@
 		<!-- Self-chrome readings — Weather, the Court, the Emoji wall — each ride a SHEET OF PAPER
 		     (Densette's): their title prints ON the sheet as a cover rather than floating on the
 		     grey gutter above it, so the head goes INSIDE the sheet. Keyed so navigation replays
-		     the entrance. -->
+		     the entrance. (On a phone the head stays in the DOM as the page's heading but comes off
+		     the sheet — the superbar carries the name there; see the .docs-page-head mobile rule.) -->
 		{#key v.code}
 			<div class="docs-sheet">
 				<header class="docs-page-head">
@@ -2200,7 +2172,8 @@
 		<!-- Block pages: a SHEET OF PAPER (Densette's) capped to the reading measure, so a short
 		     page is a tidy card — the serif title prints on the sheet as a cover, the body held to
 		     a readable measure below it and hugging the sheet's left. Keyed so page-to-page
-		     navigation remounts the column and replays the entrance. -->
+		     navigation remounts the column and replays the entrance. (The cover comes off the sheet
+		     on a phone — the superbar carries the name; see the .docs-page-head mobile rule.) -->
 		{#key v.code}
 			<div class="docs-sheet prose">
 				<div class="docs-prose">
@@ -2218,299 +2191,337 @@
 	<!-- Docs world and stage crossfade when a full app opens or closes under Pixelite —
 	     the stage sits fixed above the flow, so its fade dissolves onto the docs page. -->
 	<div transition:fade={{ duration: 200 }}>
-		<DocsShell {view} {activeCode} pageIcon={PORT_ICONS[activeCode ?? HUB] ?? HOME_SVG} onNavigate={(code) => (code === HUB ? home() : board(code))} body={pixeliteBody} />
+		<DocsShell
+			{view}
+			{activeCode}
+			pageIcon={PORT_ICONS[activeCode ?? HUB] ?? HOME_SVG}
+			barTitle={activeCode ? airports[activeCode].title : ''}
+			onNavigate={(code) => (code === HUB ? home() : board(code))}
+			body={pixeliteBody}
+		/>
 	</div>
 {/if}
 {#if look !== 'pixelite' || stageFullApp}
-<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<!-- Under Aeropalite the stage never unmounts, so the zero duration keeps it inert there. -->
-<div
-	class="stage"
-	class:photo={photoSky}
-	onclick={onStageClick}
-	transition:fade={{ duration: look === 'pixelite' ? 200 : 0 }}
->
-	{#if photoSky && photo}
-		<!-- Bing's photo of the day. Two layers, not one: the picture, and a veil over it. The panels
+	<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+	<!-- Under Aeropalite the stage never unmounts, so the zero duration keeps it inert there. -->
+	<div
+		class="stage"
+		class:photo={photoSky}
+		onclick={onStageClick}
+		transition:fade={{ duration: look === 'pixelite' ? 200 : 0 }}
+	>
+		{#if photoSky && photo}
+			<!-- Bing's photo of the day. Two layers, not one: the picture, and a veil over it. The panels
 		     are opaque so they're fine, but the masthead and nav sit straight on the sky — over a
 		     photograph their ink would be unreadable, and a scrim is the cheapest way to give them
 		     back their contrast without touching a single token. The credit is not optional: these
 		     photos are licensed to Microsoft, not to us. -->
-		<div
-			class="photo-bg"
-			aria-hidden="true"
-			style:background-image="url('{photo.url}')"
-			transition:fade={{ duration: 500 }}
-		></div>
-		<div class="photo-veil" aria-hidden="true" transition:fade={{ duration: 500 }}></div>
-		{#if !decorHidden}
-			<!-- The credit doubles as the picker: the line names the photo that's up (and links out to
+			<div
+				class="photo-bg"
+				aria-hidden="true"
+				style:background-image="url('{photo.url}')"
+				transition:fade={{ duration: 500 }}
+			></div>
+			<div class="photo-veil" aria-hidden="true" transition:fade={{ duration: 500 }}></div>
+			{#if !decorHidden}
+				<!-- The credit doubles as the picker: the line names the photo that's up (and links out to
 			     Bing's page for it, because the credit is not decoration — these are licensed to
 			     Microsoft, not to us), and the button beside it opens the other seven. -->
-			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-			<div
-				class="photo-credit"
-				transition:fade={{ duration: 500 }}
-				onclick={(e) => e.stopPropagation()}
-			>
-				{#if photoOpen}
-					<!-- The flyout, above the credit so it never covers it. Choosing the photo that's
+				<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+				<div
+					class="photo-credit"
+					transition:fade={{ duration: 500 }}
+					onclick={(e) => e.stopPropagation()}
+				>
+					{#if photoOpen}
+						<!-- The flyout, above the credit so it never covers it. Choosing the photo that's
 					     already up un-pins it — that's how you get back to a fresh one each visit. -->
-					<div class="photo-pick" transition:fly={{ y: 8, duration: 180 }}>
-						<p class="photo-pick-head">
-							{photoPinned ? 'Pinned — pick it again to unpin' : 'A different one each visit'}
-						</p>
-						<ul>
-							{#each photos as p (p.date)}
-								<li>
-									<button
-										type="button"
-										class="photo-opt"
-										class:on={photo?.date === p.date}
-										aria-pressed={photo?.date === p.date}
-										onclick={() => choosePhoto(p)}
-									>
-										<img src={p.thumb} alt="" loading="lazy" width="64" height="38" />
-										<span class="photo-opt-copy">
-											<span class="photo-opt-title">{p.title}</span>
-											<span class="photo-opt-sub">{p.copyright}</span>
-										</span>
-									</button>
-								</li>
-							{/each}
-						</ul>
+						<div class="photo-pick" transition:fly={{ y: 8, duration: 180 }}>
+							<p class="photo-pick-head">
+								{photoPinned ? 'Pinned — pick it again to unpin' : 'A different one each visit'}
+							</p>
+							<ul>
+								{#each photos as p (p.date)}
+									<li>
+										<button
+											type="button"
+											class="photo-opt"
+											class:on={photo?.date === p.date}
+											aria-pressed={photo?.date === p.date}
+											onclick={() => choosePhoto(p)}
+										>
+											<img src={p.thumb} alt="" loading="lazy" width="64" height="38" />
+											<span class="photo-opt-copy">
+												<span class="photo-opt-title">{p.title}</span>
+												<span class="photo-opt-sub">{p.copyright}</span>
+											</span>
+										</button>
+									</li>
+								{/each}
+							</ul>
+						</div>
+					{/if}
+					<div class="photo-credit-row">
+						<button
+							type="button"
+							class="photo-toggle"
+							aria-expanded={photoOpen}
+							aria-label={photoOpen ? 'Close the photo picker' : 'Choose a photo'}
+							onclick={() => (photoOpen = !photoOpen)}
+						>
+							{@html CAMERA_SVG}
+						</button>
+						<a
+							class="photo-link"
+							href={photo.copyrightlink}
+							target="_blank"
+							rel="noreferrer noopener"
+						>
+							{photo.copyright}<span class="ext-ico">{@html EXTERNAL_SVG}</span>
+						</a>
 					</div>
-				{/if}
-				<div class="photo-credit-row">
-					<button
-						type="button"
-						class="photo-toggle"
-						aria-expanded={photoOpen}
-						aria-label={photoOpen ? 'Close the photo picker' : 'Choose a photo'}
-						onclick={() => (photoOpen = !photoOpen)}
-					>
-						{@html CAMERA_SVG}
-					</button>
-					<a class="photo-link" href={photo.copyrightlink} target="_blank" rel="noreferrer noopener">
-						{photo.copyright}<span class="ext-ico">{@html EXTERNAL_SVG}</span>
-					</a>
 				</div>
-			</div>
+			{/if}
 		{/if}
-	{/if}
-	<!-- Daylit-sky clouds: two baked, tileable strips drifting at different speeds (the near
+		<!-- Daylit-sky clouds: two baked, tileable strips drifting at different speeds (the near
 	     one faster — parallax without a z-axis). All the softness lives in the bitmaps; the
 	     only thing that ever changes per frame is each strip's transform, which the
 	     compositor slides between two cached layers — no paint, no main-thread work, the
 	     budget the stars' spans already live in. -->
-	{#if cloudsVisible}
-		<!-- The fade is for SKY changes. When the hide is panel-driven (decorHidden), it's
+		{#if cloudsVisible}
+			<!-- The fade is for SKY changes. When the hide is panel-driven (decorHidden), it's
 		     instant — and it happens AFTER the panel's own animation has settled (see
 		     decorHidden): the panel already covers the stage, so there's nothing to see, and
 		     Safari never has to blur a dissolving scene while animating the panel's width.
 		     Same guard on every decor layer below. -->
-		<div class="clouds" class:overcast={fxOvercast} aria-hidden="true" transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 700 }}>
-			<div class="cloud-layer cloud-far" style="background-image: url({cloudFar})"></div>
-			<div class="cloud-layer cloud-near" style="background-image: url({cloudNear})"></div>
-		</div>
-	{/if}
-	{#if starsVisible}
-		<div class="stars" aria-hidden="true" transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 700 }}>
-			{#each STARS as s}
-				<span
-					class:tw={s.tw}
-					style="left:{s.x}%; top:{s.y}%; width:{s.size}px; height:{s.size}px; animation-duration:{s.dur}s; animation-delay:{s.delay}s"
-				></span>
-			{/each}
-			{#each SHOOT as sh}
-				<span
-					class="shoot"
-					style="left:{sh.x}%; top:{sh.y}%; width:{sh.len}px; --ang:{sh.ang}deg; --dist:{sh.dist}vw; --peak:{sh.peak}; --dur:{sh.dur}s; --delay:{sh.delay}s"
-				></span>
-			{/each}
-		</div>
-	{/if}
+			<div
+				class="clouds"
+				class:overcast={fxOvercast}
+				aria-hidden="true"
+				transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 700 }}
+			>
+				<div class="cloud-layer cloud-far" style="background-image: url({cloudFar})"></div>
+				<div class="cloud-layer cloud-near" style="background-image: url({cloudNear})"></div>
+			</div>
+		{/if}
+		{#if starsVisible}
+			<div
+				class="stars"
+				aria-hidden="true"
+				transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 700 }}
+			>
+				{#each STARS as s}
+					<span
+						class:tw={s.tw}
+						style="left:{s.x}%; top:{s.y}%; width:{s.size}px; height:{s.size}px; animation-duration:{s.dur}s; animation-delay:{s.delay}s"
+					></span>
+				{/each}
+				{#each SHOOT as sh}
+					<span
+						class="shoot"
+						style="left:{sh.x}%; top:{sh.y}%; width:{sh.len}px; --ang:{sh.ang}deg; --dist:{sh.dist}vw; --peak:{sh.peak}; --dur:{sh.dur}s; --delay:{sh.delay}s"
+					></span>
+				{/each}
+			</div>
+		{/if}
 
-	<!-- The sky console: the skybox's own dials, drawn only on the OPEN stage (no panel)
+		<!-- The sky console: the skybox's own dials, drawn only on the OPEN stage (no panel)
 	     under a gradient sky. Top row picks the time of day (the same modes Settings
 	     offers, minus Off/Photo — those belong to Settings); bottom row hand-picks the
 	     stage's weather. Chips, like everything else here. -->
-	{#if !view && skyMode !== 'off' && skyMode !== 'photo' && !decorHidden}
-		<!-- Clicks are stopped on the POP and the TOGGLE, not the container: the container's
+		{#if !view && skyMode !== 'off' && skyMode !== 'photo' && !decorHidden}
+			<!-- Clicks are stopped on the POP and the TOGGLE, not the container: the container's
 		     box is as wide as the open pop, and swallowing clicks there meant the empty run
 		     beside the toggle couldn't dismiss (the stage's own click handler is the
 		     anywhere-off-the-card close). -->
-		<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-		<div
-			class="sky-console"
-			transition:fade={{ duration: 300 }}
-			role="group"
-			aria-label="Sky controls"
-			onkeydown={(e) => {
-				if (e.key === 'Escape') skyConsoleOpen = false;
-			}}
-		>
-			{#if skyConsoleOpen}
-				<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
-				<!-- The card springs out of its toggle — the nav flyouts' popSpring, mirrored:
+			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+			<div
+				class="sky-console"
+				transition:fade={{ duration: 300 }}
+				role="group"
+				aria-label="Sky controls"
+				onkeydown={(e) => {
+					if (e.key === 'Escape') skyConsoleOpen = false;
+				}}
+			>
+				{#if skyConsoleOpen}
+					<!-- svelte-ignore a11y_no_static_element_interactions, a11y_click_events_have_key_events -->
+					<!-- The card springs out of its toggle — the nav flyouts' popSpring, mirrored:
 				     this card opens ABOVE its caller, so it starts tucked down toward the disc
 				     and rises, the swell anchored at the disc's corner (left bottom). Each
 				     group still rises in bottom-first (--n counts up from the group nearest
 				     the toggle the card grows out of). -->
-				<div
-					class="sky-pop"
-					transition:popSpring={{ y: 10, origin: 'left bottom' }}
-					onclick={(e) => e.stopPropagation()}
-				>
-					<div class="sky-group" role="group" aria-labelledby="sky-lab-time" style="--n:1">
-						<span class="sky-lab" id="sky-lab-time">Time of Day</span>
-						<div class="sky-row">
-				{#each [['auto', 'Auto'], ['dawn', 'Dawn'], ['morning', 'Morning'], ['noon', 'Noon'], ['dusk', 'Dusk'], ['night', 'Night']] as [id, label] (id)}
-					<button
-						type="button"
-						class="chip sky-chip"
-						class:on={skyMode === id}
-						aria-pressed={skyMode === id}
-						onclick={() => setSkyMode(id as SkyMode)}>{label}</button
+					<div
+						class="sky-pop"
+						transition:popSpring={{ y: 10, origin: 'left bottom' }}
+						onclick={(e) => e.stopPropagation()}
 					>
-					{/each}
+						<div class="sky-group" role="group" aria-labelledby="sky-lab-time" style="--n:1">
+							<span class="sky-lab" id="sky-lab-time">Time of Day</span>
+							<div class="sky-row">
+								{#each [['auto', 'Auto'], ['dawn', 'Dawn'], ['morning', 'Morning'], ['noon', 'Noon'], ['dusk', 'Dusk'], ['night', 'Night']] as [id, label] (id)}
+									<button
+										type="button"
+										class="chip sky-chip"
+										class:on={skyMode === id}
+										aria-pressed={skyMode === id}
+										onclick={() => setSkyMode(id as SkyMode)}>{label}</button
+									>
+								{/each}
+							</div>
 						</div>
-					</div>
-					<div class="sky-group" role="group" aria-labelledby="sky-lab-wx" style="--n:0">
-						<span class="sky-lab" id="sky-lab-wx">Weather Feature</span>
-						<div class="sky-row">
-				<!-- Clear is a CHOICE, not the absence of one: it empties the sky (see
+						<div class="sky-group" role="group" aria-labelledby="sky-lab-wx" style="--n:0">
+							<span class="sky-lab" id="sky-lab-wx">Weather Feature</span>
+							<div class="sky-row">
+								<!-- Clear is a CHOICE, not the absence of one: it empties the sky (see
 				     cloudsVisible), where no selection keeps the ambient drift. Clicking the
 				     active chip again deselects back to ambient. -->
-				{#each [['clear', 'Clear'], ['cloudy', 'Clouds'], ['rain', 'Rain'], ['snow', 'Snow'], ['fog', 'Fog'], ['storm', 'Storm']] as [id, label] (label)}
-					<button
-						type="button"
-						class="chip sky-chip"
-						class:on={stageWx === id}
-						aria-pressed={stageWx === id}
-						onclick={() => setStageWx(stageWx === id ? null : (id as WeatherKind))}>{label}</button
-					>
-					{/each}
+								{#each [['clear', 'Clear'], ['cloudy', 'Clouds'], ['rain', 'Rain'], ['snow', 'Snow'], ['fog', 'Fog'], ['storm', 'Storm']] as [id, label] (label)}
+									<button
+										type="button"
+										class="chip sky-chip"
+										class:on={stageWx === id}
+										aria-pressed={stageWx === id}
+										onclick={() => setStageWx(stageWx === id ? null : (id as WeatherKind))}
+										>{label}</button
+									>
+								{/each}
+							</div>
 						</div>
 					</div>
-				</div>
-			{/if}
-			<!-- The toggle wears reicon's cloud on the shared disc (.icon-btn), so the bubble
+				{/if}
+				<!-- The toggle wears reicon's cloud on the shared disc (.icon-btn), so the bubble
 			     gloss and the universal spring come for free — the current phase/weather read
 			     lives in the title instead of a label. -->
-			<button
-				type="button"
-				class="icon-btn sky-toggle"
-				class:boot={skyBoot}
-				aria-expanded={skyConsoleOpen}
-				aria-label="Sky controls"
-				title={`Sky · ${skyMode === 'auto' ? `auto (${skyPhase})` : skyMode}${stageWx ? ` · ${stageWx}` : ''}`}
-				onclick={(e) => {
-					e.stopPropagation(); // or the stage's dismiss undoes the open on the way up
-					skyConsoleOpen = !skyConsoleOpen;
-				}}
-			>
-				{@html CLOUD_SVG}
-			</button>
-		</div>
-	{/if}
+				<button
+					type="button"
+					class="icon-btn sky-toggle"
+					class:boot={skyBoot}
+					aria-expanded={skyConsoleOpen}
+					aria-label="Sky controls"
+					title={`Sky · ${skyMode === 'auto' ? `auto (${skyPhase})` : skyMode}${stageWx ? ` · ${stageWx}` : ''}`}
+					onclick={(e) => {
+						e.stopPropagation(); // or the stage's dismiss undoes the open on the way up
+						skyConsoleOpen = !skyConsoleOpen;
+					}}
+				>
+					{@html CLOUD_SVG}
+				</button>
+			</div>
+		{/if}
 
-	<!-- The weather dressing: the ACTIVE CITY's sky while its panel is open (see wxKind).
+		<!-- The weather dressing: the ACTIVE CITY's sky while its panel is open (see wxKind).
 	     Everything animates transform or opacity only — the same physics as the clouds and
 	     the stars' twinkle. -->
-	{#if fxRain}
-		<div class="fx-rain" aria-hidden="true" transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 500 }}>
-			{#each RAIN as d}
-				<span
-					style="left:{d.x}%; height:{d.len}px; animation-duration:{d.dur}s; animation-delay:{d.delay}s"
-				></span>
-			{/each}
-		</div>
-	{/if}
-	{#if fxSnow}
-		<div class="fx-snow" aria-hidden="true" transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 500 }}>
-			{#each SNOW as f}
-				<span
-					style="left:{f.x}%; width:{f.size}px; height:{f.size}px; --drift:{f.drift}vw; animation-duration:{f.dur}s; animation-delay:{f.delay}s"
-				></span>
-			{/each}
-		</div>
-	{/if}
-	{#if fxFog}
-		<!-- The fog reuses the far cloud strip, stretched tall and slowed — the same baked
+		{#if fxRain}
+			<div
+				class="fx-rain"
+				aria-hidden="true"
+				transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 500 }}
+			>
+				{#each RAIN as d}
+					<span
+						style="left:{d.x}%; height:{d.len}px; animation-duration:{d.dur}s; animation-delay:{d.delay}s"
+					></span>
+				{/each}
+			</div>
+		{/if}
+		{#if fxSnow}
+			<div
+				class="fx-snow"
+				aria-hidden="true"
+				transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 500 }}
+			>
+				{#each SNOW as f}
+					<span
+						style="left:{f.x}%; width:{f.size}px; height:{f.size}px; --drift:{f.drift}vw; animation-duration:{f.dur}s; animation-delay:{f.delay}s"
+					></span>
+				{/each}
+			</div>
+		{/if}
+		{#if fxFog}
+			<!-- The fog reuses the far cloud strip, stretched tall and slowed — the same baked
 		     softness at bank scale, one layer rolling against the other. The veil beneath
 		     flattens the contrast the way real fog does. -->
-		<div class="fx-fog" aria-hidden="true" transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 900 }}>
-			<div class="fog-veil"></div>
-			<div class="fog-band fog-a" style="background-image: url({cloudFar})"></div>
-			<div class="fog-band fog-b" style="background-image: url({cloudFar})"></div>
-			<div class="fog-band fog-c" style="background-image: url({cloudFar})"></div>
-			<div class="fog-band fog-d" style="background-image: url({cloudFar})"></div>
-		</div>
-	{/if}
-	{#if fxFlash}
-		<div class="fx-flash" aria-hidden="true"></div>
-	{/if}
+			<div
+				class="fx-fog"
+				aria-hidden="true"
+				transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 900 }}
+			>
+				<div class="fog-veil"></div>
+				<div class="fog-band fog-a" style="background-image: url({cloudFar})"></div>
+				<div class="fog-band fog-b" style="background-image: url({cloudFar})"></div>
+				<div class="fog-band fog-c" style="background-image: url({cloudFar})"></div>
+				<div class="fog-band fog-d" style="background-image: url({cloudFar})"></div>
+			</div>
+		{/if}
+		{#if fxFlash}
+			<div class="fx-flash" aria-hidden="true"></div>
+		{/if}
 
-	<!-- Persistent masthead (wordmark + tagline + station nav) — its own component so a
+		<!-- Persistent masthead (wordmark + tagline + station nav) — its own component so a
 	     homepage-chrome tweak stays out of this catch-all page. It reports which destination
 	     was clicked; the page keeps the modifier-aware click + camera handling. -->
-	<Masthead
-		{activeCode}
-		covered={backdropHidden}
-		popCodes={NAV_POPS}
-		popCode={navPopCode}
-		{navPop}
-		onNavigate={(code, e) => {
-			// Desktop's Home and About are flyouts under their own buttons (see navPop),
-			// not panels. Modified clicks stay the browser's (new tab and friends), like
-			// every in-app link; on a phone both open their panels as before.
-			if (NAV_POPS.includes(code) && !isMobile) {
-				if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-				e.preventDefault();
-				e.stopPropagation(); // or the stage's anywhere-off dismiss undoes the open on the way up
-				navPopCode = navPopCode === code ? null : code;
-				return;
-			}
-			onNodeClick(e, () => board(code));
-		}}
-	/>
+		<Masthead
+			{activeCode}
+			covered={backdropHidden}
+			popCodes={NAV_POPS}
+			popCode={navPopCode}
+			{navPop}
+			onNavigate={(code, e) => {
+				// Desktop's Home and About are flyouts under their own buttons (see navPop),
+				// not panels. Modified clicks stay the browser's (new tab and friends), like
+				// every in-app link; on a phone both open their panels as before.
+				if (NAV_POPS.includes(code) && !isMobile) {
+					if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+					e.preventDefault();
+					e.stopPropagation(); // or the stage's anywhere-off dismiss undoes the open on the way up
+					navPopCode = navPopCode === code ? null : code;
+					return;
+				}
+				onNodeClick(e, () => board(code));
+			}}
+		/>
 
-	{#if view}
-		{@const v = view}
-		<aside
-			bind:this={panelEl}
-			class="surface"
-			class:leaving={panelLeaving}
-			class:expanded={panelExpanded}
-			in:panelIn|global={look === 'pixelite'
-				? { duration: 300 }
-				: isMobile
-					? { y: 900, duration: 380 }
-					: { x: panelExpanded ? vw : 680, duration: 380 }}
-			out:fly|global={look === 'pixelite'
-				? { duration: 300 }
-				: isMobile
-					? { y: 900, opacity: 1, duration: 380 }
-					: { x: panelExpanded ? vw : 680, opacity: 1, duration: 380 }}
-		>
-			<!-- Frosted glass pane. Held OFF the scroller (a static, non-scrolling layer) so
+		{#if view}
+			{@const v = view}
+			<aside
+				bind:this={panelEl}
+				class="surface"
+				class:leaving={panelLeaving}
+				class:expanded={panelExpanded}
+				in:panelIn|global={look === 'pixelite'
+					? { duration: 300 }
+					: isMobile
+						? { y: 900, duration: 380 }
+						: { x: panelExpanded ? vw : 680, duration: 380 }}
+				out:fly|global={look === 'pixelite'
+					? { duration: 300 }
+					: isMobile
+						? { y: 900, opacity: 1, duration: 380 }
+						: { x: panelExpanded ? vw : 680, opacity: 1, duration: 380 }}
+			>
+				<!-- Frosted glass pane. Held OFF the scroller (a static, non-scrolling layer) so
 			     WebKit rasterises the backdrop blur once instead of re-blurring every scroll
 			     frame - the fix for Safari big-surface backdrop-filter cost. -->
-			<div class="surface-backdrop" aria-hidden="true" class:orbit={v.code === 'PUD' && ranger.deployment === 'orbit'}></div>
-			<!-- No generic expand toggle: only the Air Traffic board, the Star Map, the
+				<div
+					class="surface-backdrop"
+					aria-hidden="true"
+					class:orbit={v.code === 'PUD' && ranger.deployment === 'orbit'}
+				></div>
+				<!-- No generic expand toggle: only the Air Traffic board, the Star Map, the
 			     Presentation Builder, and the Court are designed to fill the viewport (ATFC
 			     and the Court render their own toggles; PRES and STAR are always full).
 			     Every other panel is compact-only. -->
 
-			<!-- The panel is reused across destinations: on navigation the whole panel
+				<!-- The panel is reused across destinations: on navigation the whole panel
 			     slides out, swaps to the new node's content while off-screen, then
 			     slides back in. transition:fly handles the map⇄panel open/close. The
 			     inner key (no transition) just remounts content so the arrival-board
 			     titles re-flip on each destination. -->
-			<div class="surface-scroll">
-			{#if v?.kind === 'port' && v.code === 'PUD'}
-				<!-- The Location backdrop — scenery behind the ranger's chrome.
+				<div class="surface-scroll">
+					{#if v?.kind === 'port' && v.code === 'PUD'}
+						<!-- The Location backdrop — scenery behind the ranger's chrome.
 				     It lives INSIDE the panel because the sheet is opaque: there is no "behind the
 				     panel" the viewer can see. The space scene is imported lazily so three.js is
 				     never paid for until the ranger first goes up.
@@ -2520,46 +2531,46 @@
 				     opaque beneath everything, and the space scene above it is the only thing that
 				     moves: one CSS opacity transition, compositor-driven, nothing for a snapshot to
 				     catch half-dressed. Either direction, the fade happens over an opaque scene. -->
-				<!-- The wrapper is an ISOLATED stacking context: space pins itself over the forest
+						<!-- The wrapper is an ISOLATED stacking context: space pins itself over the forest
 				     with a z-index that must never escape to outrank the chrome, which sits above
 				     these scenes by DOM order alone. -->
-				<div class="locale-scenes" aria-hidden="true">
-					<div class="locale-scene">
-						<LocaleForest />
-					</div>
-					{#if everOrbited}
-						<!-- class:instant kills the 0.7s opacity fade WHILE a transit is in the air: the
+						<div class="locale-scenes" aria-hidden="true">
+							<div class="locale-scene">
+								<LocaleForest />
+							</div>
+							{#if everOrbited}
+								<!-- class:instant kills the 0.7s opacity fade WHILE a transit is in the air: the
 						     scene swap is timed to land at WIPE_COVER_MS, when the white owns the screen,
 						     so it must be INSTANT — a fade would still be crossing when the white lifts
 						     and the seam would show. Either direction, the swap happens unseen. And the
 						     space loop must keep running through BOTH legs (the descend dives while
 						     deployment has already flipped planetside under the wash), so `active` reads
 						     the transit too, not just the resting deployment. -->
-						<div
-							class="locale-scene scene-orbit"
-							class:shown={ranger.deployment === 'orbit'}
-							class:instant={ranger.transit !== null}
-						>
-							{#await import('$lib/LocaleSpace.svelte') then m}
-								<m.default active={ranger.deployment === 'orbit' || ranger.transit !== null} />
-							{/await}
-						</div>
-					{/if}
-					<!-- THE WIPE — an atmosphere flash over both scenes (z above them, inside the isolated
+								<div
+									class="locale-scene scene-orbit"
+									class:shown={ranger.deployment === 'orbit'}
+									class:instant={ranger.transit !== null}
+								>
+									{#await import('$lib/LocaleSpace.svelte') then m}
+										<m.default active={ranger.deployment === 'orbit' || ranger.transit !== null} />
+									{/await}
+								</div>
+							{/if}
+							<!-- THE WIPE — an atmosphere flash over both scenes (z above them, inside the isolated
 					     wrapper), mounted only for the length of a transit. One keyframes animation
 					     (fill-mode forwards) covers, holds, then reveals; the world is swapped under it
 					     during the hold, so the change is never seen. See .locale-wipe for the phasing. -->
-					{#if ranger.transit}
-						<div class="locale-wipe"></div>
+							{#if ranger.transit}
+								<div class="locale-wipe"></div>
+							{/if}
+						</div>
 					{/if}
-				</div>
-			{/if}
-			{#if !contentHeld}
-			{#key v.code + ':' + editRev + ':' + arriveRev}
-					{@const port = airports[v.code]}
-					{@const blocks = pages[v.code] ?? stub(port.title)}
-					{#if v.code === 'ATFC'}
-						<!-- The Traffic board owns its whole panel interior so, when expanded, its
+					{#if !contentHeld}
+						{#key v.code + ':' + editRev + ':' + arriveRev}
+							{@const port = airports[v.code]}
+							{@const blocks = pages[v.code] ?? stub(port.title)}
+							{#if v.code === 'ATFC'}
+								<!-- The Traffic board owns its whole panel interior so, when expanded, its
 						     controls + a live summary fill the header beside the title. It gets the
 						     panel chrome it can't reach from a child: title, code, back, expanded.
 						     (No Connections snippet: the Related rail is gone site-wide — onward
@@ -2569,343 +2580,367 @@
 						     shape the board no longer has. Without the callback, TrafficBoard's two
 						     {#if onToggleExpand} collapse buttons (the deck super bar's and the compact
 						     header's) simply don't render, in either theme. -->
-						<TrafficBoard
-							accent={look === 'pixelite' ? PIXEL_INK : accent[v.code]}
-							code={v.code}
-							title={port.title}
-							expanded={panelExpanded}
-							onhome={() => home()}
-							edit={dev && editMode}
-							copyText={settingsText}
-							onCopyEdit={stageSettings}
-							initialField={field}
-							onFieldChange={setField}
-							initialRange={range}
-							onRangeChange={setRange}
-							initialRefresh={refresh}
-							onRefreshChange={setRefresh}
-						/>
-					{:else if v.code === 'PRES'}
-						<!-- The Presentation Builder owns its whole panel interior (its own toolbar +
+								<TrafficBoard
+									accent={look === 'pixelite' ? PIXEL_INK : accent[v.code]}
+									code={v.code}
+									title={port.title}
+									expanded={panelExpanded}
+									onhome={() => home()}
+									edit={dev && editMode}
+									copyText={settingsText}
+									onCopyEdit={stageSettings}
+									initialField={field}
+									onFieldChange={setField}
+									initialRange={range}
+									onRangeChange={setRange}
+									initialRefresh={refresh}
+									onRefreshChange={setRefresh}
+								/>
+							{:else if v.code === 'PRES'}
+								<!-- The Presentation Builder owns its whole panel interior (its own toolbar +
 						     three-column editor), like the Traffic board. It's always full-viewport —
 						     forced expanded on open (applyView), with no collapse toggle. -->
-						<PresentationBuilder accent={look === 'pixelite' ? PIXEL_INK : accent[v.code]} title={port.title} onback={goBack} />
-					{:else if v.code === 'STAR'}
-						<!-- The Star Map owns its interior the same way, and — like the Builder —
+								<PresentationBuilder
+									accent={look === 'pixelite' ? PIXEL_INK : accent[v.code]}
+									title={port.title}
+									onback={goBack}
+								/>
+							{:else if v.code === 'STAR'}
+								<!-- The Star Map owns its interior the same way, and — like the Builder —
 						     it's always full-viewport: forced expanded on open (applyView), with no
 						     collapse toggle. Its header is the board's super bar, with the location
 						     control and a sky summary riding beside the title. -->
-						<StarMap
-							accent={look === 'pixelite' ? PIXEL_INK : accent[v.code]}
-							title={port.title}
-							onback={goBack}
-							onhome={() => home()}
-						/>
-					{:else}
-					<!-- csb / csb-on: the shared collapsed-super-bar recipe (puhig base.css) —
+								<StarMap
+									accent={look === 'pixelite' ? PIXEL_INK : accent[v.code]}
+									title={port.title}
+									onback={goBack}
+									onhome={() => home()}
+								/>
+							{:else}
+								<!-- csb / csb-on: the shared collapsed-super-bar recipe (puhig base.css) —
 					     head-collapsed stays for the page's own seasoning (phantom scroll room). -->
-					<div
-						class="surface-head csb"
-						class:head-collapsed={surfHeadCollapsed}
-						class:csb-on={surfHeadCollapsed}
-						class:bar={BAR_HEADER.includes(v.code)}
-						class:orbit={ranger.deployment === 'orbit'}
-						class:court={v.code === 'AITA'}
-						class:scrolled={surfScrolled}
-					>
-						<div class="head-row csb-fold">
-							{#if BAR_HEADER.includes(v.code)}
-								<!-- A dense bar draws NO Back cap at all now (it was already gone on
+								<div
+									class="surface-head csb"
+									class:head-collapsed={surfHeadCollapsed}
+									class:csb-on={surfHeadCollapsed}
+									class:bar={BAR_HEADER.includes(v.code)}
+									class:orbit={ranger.deployment === 'orbit'}
+									class:court={v.code === 'AITA'}
+									class:scrolled={surfScrolled}
+								>
+									<div class="head-row csb-fold">
+										{#if BAR_HEADER.includes(v.code)}
+											<!-- A dense bar draws NO Back cap at all now (it was already gone on
 								     phones, where the cap's 50px squeezed everything to its right) —
 								     and no badge either, so the TITLE takes the left end outright.
 								     Leaving goes through the bar's Home key (see the PUD head-actions)
 								     or the browser's own back gesture, which works because every panel
 								     is a real URL (pushState, see applyView). -->
-							{:else if v.code === 'AITA' && panelExpanded}
-								<!-- E-COPO trades Back for Home, like the other full-viewport apps:
+										{:else if v.code === 'AITA' && panelExpanded}
+											<!-- E-COPO trades Back for Home, like the other full-viewport apps:
 								     expanded has nowhere to peel back to mid-thought, so the left cap
 								     goes straight home (the right cap already collapses). -->
-								<button
-									class="icon-btn back"
-									onclick={() => home()}
-									aria-label="Close and go home"
-									title="Home">{@html HOME_SVG}</button
-								>
-							{:else}
-								<button
-									class="icon-btn back"
-									onclick={goBack}
-									aria-label={ownPushes > 0 ? 'Back' : 'Back to home'}
-									title={ownPushes > 0 ? 'Back' : 'Home'}>{@html ARROW_LEFT_SVG}</button
-								>
-							{/if}
-							{#if NEW_HEADER.includes(v.code) && !BAR_HEADER.includes(v.code)}
-								<!-- NEW HEADER MODEL: the accent bullet leaves the title and becomes a
+											<button
+												class="icon-btn back"
+												onclick={() => home()}
+												aria-label="Close and go home"
+												title="Home">{@html HOME_SVG}</button
+											>
+										{:else}
+											<button
+												class="icon-btn back"
+												onclick={goBack}
+												aria-label={ownPushes > 0 ? 'Back' : 'Back to home'}
+												title={ownPushes > 0 ? 'Back' : 'Home'}>{@html ARROW_LEFT_SVG}</button
+											>
+										{/if}
+										{#if NEW_HEADER.includes(v.code) && !BAR_HEADER.includes(v.code)}
+											<!-- NEW HEADER MODEL: the accent bullet leaves the title and becomes a
 								     badge here, right of Back — the app's mark in its accent circle,
 								     arriving solid then settling to the marked light wash (see
 								     .app-badge). Action TBD. (A dense BAR_HEADER bar carries no badge:
 								     with its Back cap gone too, the title takes the left end outright.) -->
-								<button
-									type="button"
-									class="app-badge"
-									style:--accent={accent[v.code]}
-									aria-label={port.title}
-									title={port.title}
-								>
-									<span class="app-badge-mark">{@html PORT_ICONS[v.code] ?? ''}</span>
-								</button>
-							{/if}
-							{#if BAR_HEADER.includes(v.code)}
-								<!-- A dense bar names itself outright: no big title below to hand over
+											<button
+												type="button"
+												class="app-badge"
+												style:--accent={accent[v.code]}
+												aria-label={port.title}
+												title={port.title}
+											>
+												<span class="app-badge-mark">{@html PORT_ICONS[v.code] ?? ''}</span>
+											</button>
+										{/if}
+										{#if BAR_HEADER.includes(v.code)}
+											<!-- A dense bar names itself outright: no big title below to hand over
 								     FROM, so the title simply sits here beside the badge. -->
-								<span class="head-title">{port.title}</span>
-								{#if v.code === 'PUD'}
-									<!-- The beta tag reads as part of the NAME — "Intergalactic Park Ranger ‹Beta›"
+											<span class="head-title">{port.title}</span>
+											{#if v.code === 'PUD'}
+												<!-- The beta tag reads as part of the NAME — "Intergalactic Park Ranger ‹Beta›"
 									     — so it sits right after the title rather than off in the corner with the
 									     global controls, where it looked like one more thing to press. Still
 									     puhig's .beta, twin of the Presentation Builder's; the head-row's 0.5rem
 									     gap sets the space to the title. -->
-									<button
-										type="button"
-										class="beta"
-										aria-label="Intergalactic Park Ranger is in beta"
-										title="This app is in beta — expect it to change"
-									>Beta</button>
-								{/if}
-							{:else if NEW_HEADER.includes(v.code) && headTitleShown && !(v.code === 'EMOJ' && emojiSearch.open && isMobile)}
-								<!-- The compact title flies in beside the badge once the big title (in the
+												<button
+													type="button"
+													class="beta"
+													aria-label="Intergalactic Park Ranger is in beta"
+													title="This app is in beta — expect it to change">Beta</button
+												>
+											{/if}
+										{:else if NEW_HEADER.includes(v.code) && headTitleShown && !(v.code === 'EMOJ' && emojiSearch.open && isMobile)}
+											<!-- The compact title flies in beside the badge once the big title (in the
 								     scrolling body) has gone by — but yields when the Emoji Viewer's grown
 								     search would crowd it (on a phone, the field takes most of the row). -->
-								<span class="head-title" in:fly={{ x: -14, duration: 380, easing: backOut }} out:fly={{ x: -10, duration: 150 }}>{port.title}</span>
-							{/if}
-							{#if v.code === 'EMOJ'}
-								<!-- The Emoji Viewer's search rides the super bar's right edge, Weather's
+											<span
+												class="head-title"
+												in:fly={{ x: -14, duration: 380, easing: backOut }}
+												out:fly={{ x: -10, duration: 150 }}>{port.title}</span
+											>
+										{/if}
+										{#if v.code === 'EMOJ'}
+											<!-- The Emoji Viewer's search rides the super bar's right edge, Weather's
 								     arrangement: a disc that grows into a field, sharing its query with the
 								     wall below through $lib/emoji-search. -->
-								<div class="head-actions">
-									<EmojiSearch />
-								</div>
-							{/if}
-							{#if v.code === 'WTHR'}
-								<!-- Weather's search lives up here, on the Back row: it acts on the whole panel, so
+											<div class="head-actions">
+												<EmojiSearch />
+											</div>
+										{/if}
+										{#if v.code === 'WTHR'}
+											<!-- Weather's search lives up here, on the Back row: it acts on the whole panel, so
 								     it belongs with the panel's own controls. It's a disc that GROWS into a field —
 								     see CitySearch — and it shares the app's cities with the body through
 								     $lib/weather-state, since neither half can own state the other needs. -->
-								<!-- …clustered with refresh-now at its left, the same corner ATFC keeps.
+											<!-- …clustered with refresh-now at its left, the same corner ATFC keeps.
 								     The reading lives in $lib/weather-state, so the header (the page's) can
 								     drive it exactly the way the search does. -->
-								<div class="head-actions">
-									<!-- Refresh and the unit fold away while the search is open — the
+											<div class="head-actions">
+												<!-- Refresh and the unit fold away while the search is open — the
 									     grown field wants the whole row, and neither is a thing you do
 									     mid-typing. They return when the field folds back to its disc. -->
-									{#if !weather.searchOpen}
-										<button
-											type="button"
-											class="icon-btn"
-											onclick={() => wxLoad(wxCurrent())}
-											aria-label="Refresh now"
-											title="Refresh now">{@html REFRESH_SVG}</button
-										>
-										<!-- ONE disc, not a segmented pair: it shows the unit you're on and
+												{#if !weather.searchOpen}
+													<button
+														type="button"
+														class="icon-btn"
+														onclick={() => wxLoad(wxCurrent())}
+														aria-label="Refresh now"
+														title="Refresh now">{@html REFRESH_SVG}</button
+													>
+													<!-- ONE disc, not a segmented pair: it shows the unit you're on and
 										     flips to the other — there are only two, so the toggle IS the
 										     picker. Lives here so the whole reading (body + rail) follows. -->
-										<button
-											type="button"
-											class="icon-btn unit-btn"
-											onclick={() => wxSetUnit(weather.unit === 'F' ? 'C' : 'F')}
-											aria-label={`Showing °${weather.unit} — switch to °${weather.unit === 'F' ? 'C' : 'F'}`}
-											title={`Switch to °${weather.unit === 'F' ? 'C' : 'F'}`}>°{weather.unit}</button
-										>
-									{/if}
-									<CitySearch />
-								</div>
-							{/if}
-							{#if v.code === 'AITA'}
-								<!-- The Court can be taken full-viewport — a long docket is a reading,
+													<button
+														type="button"
+														class="icon-btn unit-btn"
+														onclick={() => wxSetUnit(weather.unit === 'F' ? 'C' : 'F')}
+														aria-label={`Showing °${weather.unit} — switch to °${weather.unit === 'F' ? 'C' : 'F'}`}
+														title={`Switch to °${weather.unit === 'F' ? 'C' : 'F'}`}
+														>°{weather.unit}</button
+													>
+												{/if}
+												<CitySearch />
+											</div>
+										{/if}
+										{#if v.code === 'AITA'}
+											<!-- The Court can be taken full-viewport — a long docket is a reading,
 								     and E-COPO centres it as a column (see .surface-body.court). Same
 								     corner the other panels keep their global controls in. -->
-								<div class="head-actions">
-									<button
-										type="button"
-										class="icon-btn"
-										onclick={toggleExpand}
-										aria-label={panelExpanded ? 'Collapse panel' : 'Expand panel'}
-										title={panelExpanded ? 'Collapse' : 'Expand'}
-									>{@html panelExpanded ? MINIMIZE_SVG : MAXIMIZE_SVG}</button>
-								</div>
-							{/if}
-							{#if v.code === 'PUD' && !isMobile}
-								<!-- DESKTOP: the bar's right-hand corner keeps the GLOBAL controls, the same
+											<div class="head-actions">
+												<button
+													type="button"
+													class="icon-btn"
+													onclick={toggleExpand}
+													aria-label={panelExpanded ? 'Collapse panel' : 'Expand panel'}
+													title={panelExpanded ? 'Collapse' : 'Expand'}
+													>{@html panelExpanded ? MINIMIZE_SVG : MAXIMIZE_SVG}</button
+												>
+											</div>
+										{/if}
+										{#if v.code === 'PUD' && !isMobile}
+											<!-- DESKTOP: the bar's right-hand corner keeps the GLOBAL controls, the same
 								     corner every other panel uses: the pause twin, Home, and the gear. On a
 								     PHONE these leave the bar for the floating controls key at the bottom-right
 								     (see .pud-fab below) — the narrow bar keeps only the name. (The beta tag
 								     used to ride here too; it reads as part of the name, so it moved up beside
 								     the title — see the BAR_HEADER block above.) -->
-								<div class="head-actions">
-									<!-- The global twin of the shop's pause disc — the game's one verb you
+											<div class="head-actions">
+												<!-- The global twin of the shop's pause disc — the game's one verb you
 									     might reach for mid-scroll, when the requisitions head has slid away.
 									     So it rides the bar (shared .icon-btn) beside the gear, driving the
 									     same ranger.paused bit the header switch does. -->
-									<button
-										type="button"
-										class="icon-btn"
-										aria-pressed={ranger.paused}
-										aria-label={ranger.paused ? 'Resume the works' : 'Pause the works'}
-										title={ranger.paused ? 'Resume the works' : 'Pause the works'}
-										onclick={togglePaused}
-									>{@html ranger.paused ? PLAY_SVG : PAUSE_SVG}</button>
-									<!-- Home rides between the verbs and the gear: with the Back cap gone
+												<button
+													type="button"
+													class="icon-btn"
+													aria-pressed={ranger.paused}
+													aria-label={ranger.paused ? 'Resume the works' : 'Pause the works'}
+													title={ranger.paused ? 'Resume the works' : 'Pause the works'}
+													onclick={togglePaused}
+													>{@html ranger.paused ? PLAY_SVG : PAUSE_SVG}</button
+												>
+												<!-- Home rides between the verbs and the gear: with the Back cap gone
 									     from the dense bar (see the head-row above), this is the one door
 									     out of the ranger's full-viewport world. -->
-									<button
-										type="button"
-										class="icon-btn"
-										onclick={() => home()}
-										aria-label="Close and go home"
-										title="Home">{@html HOME_SVG}</button>
-									<button
-										type="button"
-										class="icon-btn"
-										data-pud-settings
-										aria-expanded={pudSettings}
-										onclick={() => (pudSettings = !pudSettings)}
-										aria-label={pudSettings ? 'Close division settings' : 'Division settings'}
-										title="Division settings"
-									>{@html GEAR_SVG}</button>
-								</div>
-							{/if}
-						</div>
-						{#if !NEW_HEADER.includes(v.code)}
-							<!-- Panels off the model keep the old arrangement: the title sits in the
+												<button
+													type="button"
+													class="icon-btn"
+													onclick={() => home()}
+													aria-label="Close and go home"
+													title="Home">{@html HOME_SVG}</button
+												>
+												<button
+													type="button"
+													class="icon-btn"
+													data-pud-settings
+													aria-expanded={pudSettings}
+													onclick={() => (pudSettings = !pudSettings)}
+													aria-label={pudSettings ? 'Close division settings' : 'Division settings'}
+													title="Division settings">{@html GEAR_SVG}</button
+												>
+											</div>
+										{/if}
+									</div>
+									{#if !NEW_HEADER.includes(v.code)}
+										<!-- Panels off the model keep the old arrangement: the title sits in the
 							     header, with the accent bullet beside it. On the model the title moves
 							     to the BODY (below) so it scrolls away, and the bullet becomes the
 							     badge on the row above. -->
-							<div class="title-row csb-row">
-								<h2 class="dest csb-title" style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
-								{@render accentDot(v.code, destSize(port.title))}
-							</div>
-						{/if}
-					</div>
-					<div
-						class="surface-body"
-						class:settings={v.code === 'STG'}
-						class:court={v.code === 'AITA'}
-						class:ranger={v.code === 'PUD'}
-						class:orbit={v.code === 'PUD' && ranger.deployment === 'orbit'}
-						class:scrolled={surfScrolled}
-						onscroll={onSurfaceScroll}
-					>
-						{#if NEW_HEADER.includes(v.code) && !BAR_HEADER.includes(v.code)}
-							<!-- (A BAR_HEADER panel has none of this: its bar carries the name outright,
+										<div class="title-row csb-row">
+											<h2 class="dest csb-title" style:font-size={destSize(port.title)}>
+												<SplitFlap text={port.title} base={160} stagger={45} />
+											</h2>
+											{@render accentDot(v.code, destSize(port.title))}
+										</div>
+									{/if}
+								</div>
+								<div
+									class="surface-body"
+									class:settings={v.code === 'STG'}
+									class:court={v.code === 'AITA'}
+									class:ranger={v.code === 'PUD'}
+									class:orbit={v.code === 'PUD' && ranger.deployment === 'orbit'}
+									class:scrolled={surfScrolled}
+									onscroll={onSurfaceScroll}
+								>
+									{#if NEW_HEADER.includes(v.code) && !BAR_HEADER.includes(v.code)}
+										<!-- (A BAR_HEADER panel has none of this: its bar carries the name outright,
 							     so there's no big title here to scroll away or hand over.) -->
-							<!-- THE BIG TITLE, first thing in the scrolling body — so it scrolls away and
+										<!-- THE BIG TITLE, first thing in the scrolling body — so it scrolls away and
 							     hands the naming over to the compact title in the bar (headTitleShown).
 							     It's the panel's h2 wherever it sits; only the parent changed, from the
 							     header to the scroller. Bound so its own height is the handover threshold. -->
-							<h2 class="dest body-title" bind:this={bodyTitleEl} style:font-size={destSize(port.title)}><SplitFlap text={port.title} base={160} stagger={45} /></h2>
-						{/if}
-						{@render appBody(v)}
-					</div>
+										<h2
+											class="dest body-title"
+											bind:this={bodyTitleEl}
+											style:font-size={destSize(port.title)}
+										>
+											<SplitFlap text={port.title} base={160} stagger={45} />
+										</h2>
+									{/if}
+									{@render appBody(v)}
+								</div>
+							{/if}
+						{/key}
 					{/if}
-			{/key}
-			{/if}
-			</div>
-			{#if v.code === 'PUD' && isMobile}
-				<!-- IPR mobile controls key — the Emoji Viewer's floating-disclosure shape, ported
+				</div>
+				{#if v.code === 'PUD' && isMobile}
+					<!-- IPR mobile controls key — the Emoji Viewer's floating-disclosure shape, ported
 				     to the panel. The dense bar's global controls (pause, Home, the gear) leave the
 				     narrow bar and gather here: a plastic key at the bottom-right that opens a small
 				     stack of them, with a scrim to tap away. The key wears the app's own mark, so it
 				     doubles as a "you are here" badge (the docs FAB's trick). -->
-				{#if pudFabOpen}
-					<button
-						class="pud-scrim"
-						aria-label="Close controls"
-						transition:fade={{ duration: 180 }}
-						onclick={() => (pudFabOpen = false)}
-					></button>
-				{/if}
-				<div class="pud-fab-stack" class:open={pudFabOpen}>
-					<!-- The pause twin — the game's one verb you might reach for mid-scroll. -->
-					<button
-						type="button"
-						class="icon-btn"
-						aria-pressed={ranger.paused}
-						aria-label={ranger.paused ? 'Resume the works' : 'Pause the works'}
-						title={ranger.paused ? 'Resume the works' : 'Pause the works'}
-						onclick={togglePaused}
-					>{@html ranger.paused ? PLAY_SVG : PAUSE_SVG}</button>
-					<!-- Home — the one door out of the ranger's full-viewport world on a phone. -->
-					<button
-						type="button"
-						class="icon-btn"
-						aria-label="Close and go home"
-						title="Home"
-						onclick={() => home()}
-					>{@html HOME_SVG}</button>
-					<!-- The gear opens the division settings card, and folds the key away so the card
+					{#if pudFabOpen}
+						<button
+							class="pud-scrim"
+							aria-label="Close controls"
+							transition:fade={{ duration: 180 }}
+							onclick={() => (pudFabOpen = false)}
+						></button>
+					{/if}
+					<div class="pud-fab-stack" class:open={pudFabOpen}>
+						<!-- The pause twin — the game's one verb you might reach for mid-scroll. -->
+						<button
+							type="button"
+							class="icon-btn"
+							aria-pressed={ranger.paused}
+							aria-label={ranger.paused ? 'Resume the works' : 'Pause the works'}
+							title={ranger.paused ? 'Resume the works' : 'Pause the works'}
+							onclick={togglePaused}>{@html ranger.paused ? PLAY_SVG : PAUSE_SVG}</button
+						>
+						<!-- Home — the one door out of the ranger's full-viewport world on a phone. -->
+						<button
+							type="button"
+							class="icon-btn"
+							aria-label="Close and go home"
+							title="Home"
+							onclick={() => home()}>{@html HOME_SVG}</button
+						>
+						<!-- The gear opens the division settings card, and folds the key away so the card
 					     has the screen (data-pud-settings keeps the click-away from re-closing it). -->
+						<button
+							type="button"
+							class="icon-btn"
+							data-pud-settings
+							aria-expanded={pudSettings}
+							aria-label={pudSettings ? 'Close division settings' : 'Division settings'}
+							title="Division settings"
+							onclick={() => {
+								pudSettings = !pudSettings;
+								pudFabOpen = false;
+							}}>{@html GEAR_SVG}</button
+						>
+					</div>
 					<button
 						type="button"
-						class="icon-btn"
-						data-pud-settings
-						aria-expanded={pudSettings}
-						aria-label={pudSettings ? 'Close division settings' : 'Division settings'}
-						title="Division settings"
-						onclick={() => {
-							pudSettings = !pudSettings;
-							pudFabOpen = false;
-						}}
-					>{@html GEAR_SVG}</button>
-				</div>
-				<button
-					type="button"
-					class="pud-fab"
-					aria-expanded={pudFabOpen}
-					aria-label={pudFabOpen ? 'Hide controls' : 'Show controls'}
-					title={pudFabOpen ? 'Hide controls' : 'Controls'}
-					onclick={() => (pudFabOpen = !pudFabOpen)}
-				>{@html PORT_ICONS['PUD'] ?? ''}</button>
-			{/if}
-		</aside>
-	{/if}
+						class="pud-fab"
+						aria-expanded={pudFabOpen}
+						aria-label={pudFabOpen ? 'Hide controls' : 'Show controls'}
+						title={pudFabOpen ? 'Hide controls' : 'Controls'}
+						onclick={() => (pudFabOpen = !pudFabOpen)}>{@html PORT_ICONS['PUD'] ?? ''}</button
+					>
+				{/if}
+			</aside>
+		{/if}
 
-	<!-- The reopen bubble: while no panel is open and one was closed this visit, it floats
+		<!-- The reopen bubble: while no panel is open and one was closed this visit, it floats
 	     at the right edge — where the panel went — offering it back. Its entrance waits for
 	     the panel's slide-out; leaving is immediate (the opening panel covers that edge). -->
-	{#if !view && lastClosed}
-		{@const last = lastClosed}
-		<button
-			type="button"
-			class="icon-btn reopen"
-			in:fly={isMobile ? { y: 24, duration: 250, delay: 400 } : { x: 24, duration: 250, delay: 400 }}
-			out:fly={isMobile ? { y: 24, duration: 180 } : { x: 24, duration: 180 }}
-			aria-label="Reopen {airports[last].title}"
-			title="Reopen {airports[last].title}"
-			onclick={() => board(last)}
-		>{@html ARROW_LEFT_SVG}</button>
-	{/if}
+		{#if !view && lastClosed}
+			{@const last = lastClosed}
+			<button
+				type="button"
+				class="icon-btn reopen"
+				in:fly={isMobile
+					? { y: 24, duration: 250, delay: 400 }
+					: { x: 24, duration: 250, delay: 400 }}
+				out:fly={isMobile ? { y: 24, duration: 180 } : { x: 24, duration: 180 }}
+				aria-label="Reopen {airports[last].title}"
+				title="Reopen {airports[last].title}"
+				onclick={() => board(last)}>{@html ARROW_LEFT_SVG}</button
+			>
+		{/if}
 
-	{#if dev && editMode}
-		<div class="edit-bar" role="toolbar" aria-label="Edit mode actions">
-			<span class="edit-flag">Edit mode</span>
-			<button type="button" class="edit-btn discard" onclick={discardEdits}>Discard &amp; exit</button>
-			<button type="button" class="edit-btn save" onclick={saveEdits}>Save &amp; exit</button>
-		</div>
-	{/if}
-	{#if toast}
-		<!-- Drops in from above the top edge and lifts back out the same way. Distances are
+		{#if dev && editMode}
+			<div class="edit-bar" role="toolbar" aria-label="Edit mode actions">
+				<span class="edit-flag">Edit mode</span>
+				<button type="button" class="edit-btn discard" onclick={discardEdits}
+					>Discard &amp; exit</button
+				>
+				<button type="button" class="edit-btn save" onclick={saveEdits}>Save &amp; exit</button>
+			</div>
+		{/if}
+		{#if toast}
+			<!-- Drops in from above the top edge and lifts back out the same way. Distances are
 		     small — it's a notice, not an entrance — and both collapse to a plain fade under
 		     reduced motion. -->
-		<div
-			class="edit-toast"
-			role="status"
-			in:fly={{ y: reduce ? 0 : -18, duration: reduce ? 140 : 280 }}
-			out:fly={{ y: reduce ? 0 : -12, duration: reduce ? 120 : 200 }}
-		>
-			{toast}
-		</div>
-	{/if}
-</div>
+			<div
+				class="edit-toast"
+				role="status"
+				in:fly={{ y: reduce ? 0 : -18, duration: reduce ? 140 : 280 }}
+				out:fly={{ y: reduce ? 0 : -12, duration: reduce ? 120 : 200 }}
+			>
+				{toast}
+			</div>
+		{/if}
+	</div>
 {/if}
 
 <style>
@@ -3624,7 +3659,11 @@
 		position: absolute;
 		height: 1.5px;
 		border-radius: 999px;
-		background: linear-gradient(to right, transparent, light-dark(transparent, rgba(234, 243, 255, 0.95)));
+		background: linear-gradient(
+			to right,
+			transparent,
+			light-dark(transparent, rgba(234, 243, 255, 0.95))
+		);
 		opacity: 0;
 	}
 	@media (prefers-reduced-motion: no-preference) {
@@ -4041,7 +4080,9 @@
 		border-radius: 4px;
 		box-shadow: var(--pixel-bevel, 0 3px 10px rgba(4, 7, 15, 0.28));
 		cursor: pointer;
-		transition: color 0.15s ease, border-color 0.15s ease;
+		transition:
+			color 0.15s ease,
+			border-color 0.15s ease;
 	}
 	.pud-fab:active {
 		box-shadow: var(--pixel-bevel-press, inset 0 2px 6px rgba(0, 0, 0, 0.3));
@@ -4069,13 +4110,18 @@
 		transform: translateY(0.5rem);
 		opacity: 0;
 		visibility: hidden;
-		transition: opacity 0.2s ease, transform 0.24s ease, visibility 0s linear 0.24s;
+		transition:
+			opacity 0.2s ease,
+			transform 0.24s ease,
+			visibility 0s linear 0.24s;
 	}
 	.pud-fab-stack.open {
 		transform: translateY(0);
 		opacity: 1;
 		visibility: visible;
-		transition: opacity 0.2s ease, transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+		transition:
+			opacity 0.2s ease,
+			transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
 	}
 	/* The stack's keys are touch-sized (40px, off the 28px control line) and wear the key's
 	   own frosted face, so the cluster reads as one material with the FAB. */
@@ -4088,7 +4134,9 @@
 	}
 	@media (prefers-reduced-motion: reduce) {
 		.pud-fab-stack {
-			transition: opacity 0.12s ease, visibility 0s linear 0.12s;
+			transition:
+				opacity 0.12s ease,
+				visibility 0s linear 0.12s;
 			transform: none;
 		}
 		.pud-fab-stack.open {
@@ -4702,7 +4750,9 @@
 		/* The body content, a layer past the chrome — it fills the sheet the frame just drew. */
 		.surface-body > * {
 			animation: rise 0.5s ease backwards;
-			animation-delay: calc(var(--enter-lead) + var(--enter-layer) + var(--n, 0) * var(--enter-step));
+			animation-delay: calc(
+				var(--enter-lead) + var(--enter-layer) + var(--n, 0) * var(--enter-step)
+			);
 		}
 		/* The beat per item. Settings runs to twenty children, and a delay that kept counting
 		   would still be dealing them out most of a second after the panel landed — so the
@@ -4762,7 +4812,9 @@
 		outline-offset: 3px;
 		border-radius: 3px;
 		cursor: text;
-		transition: outline-color 0.15s ease, background 0.15s ease;
+		transition:
+			outline-color 0.15s ease,
+			background 0.15s ease;
 	}
 	.editable:hover {
 		background: color-mix(in srgb, var(--ink) 4%, transparent);
@@ -4796,7 +4848,9 @@
 		border: 1.5px solid var(--ink);
 		border-radius: 999px;
 		cursor: pointer;
-		transition: opacity 0.15s ease, background 0.15s ease;
+		transition:
+			opacity 0.15s ease,
+			background 0.15s ease;
 	}
 	.edit-enter:hover {
 		opacity: 0.85;
@@ -4848,7 +4902,10 @@
 		border-radius: 999px;
 		border: 1.5px solid transparent;
 		cursor: pointer;
-		transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+		transition:
+			opacity 0.15s ease,
+			background 0.15s ease,
+			border-color 0.15s ease;
 	}
 	.edit-btn:focus-visible {
 		outline: var(--focus-ring);
@@ -4963,7 +5020,9 @@
 		border: 1.5px solid var(--line-edge);
 		border-radius: 12px;
 		cursor: pointer;
-		transition: border-color 0.15s ease, background 0.15s ease;
+		transition:
+			border-color 0.15s ease,
+			background 0.15s ease;
 	}
 	.seg:hover {
 		background: color-mix(in srgb, var(--ink) 8%, transparent);
@@ -5117,7 +5176,10 @@
 		border: 1.5px solid var(--line-edge);
 		border-radius: 999px;
 		cursor: pointer;
-		transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+		transition:
+			border-color 0.15s ease,
+			background 0.15s ease,
+			color 0.15s ease;
 	}
 	.sky-opt:hover {
 		border-color: var(--line-strong);
@@ -5206,7 +5268,9 @@
 		/* The chips' exact fill (not 3%): the cards wear the same material as every other
 		   control — an ink mix, so it flips with the scheme on its own. */
 		background: var(--aero-face);
-		transition: border-color 0.15s ease, background 0.15s ease;
+		transition:
+			border-color 0.15s ease,
+			background 0.15s ease;
 		/* The cards ride the universal button spring, but at card size the standard 5%
 		   pop is a 30px lurch — soften both amounts; the spring itself is shared. */
 		--btn-hover-scale: 1.015;
@@ -5399,7 +5463,7 @@
 	:global(html:root .seg:active:not(:disabled)),
 	:global(html:root .sky-opt:active:not(:disabled)),
 	:global(html:root .photo-toggle:active:not(:disabled)),
-:global(html:root .icon-btn:active:not(:disabled)),
+	:global(html:root .icon-btn:active:not(:disabled)),
 	:global(html:root .field:active:not(:disabled)),
 	:global(html:root .field-select:active:not(:disabled)),
 	:global(html:root .edit-enter:active:not(:disabled)),
@@ -5461,7 +5525,7 @@
 		:global(html:root .seg:active:not(:disabled)),
 		:global(html:root .sky-opt:active:not(:disabled)),
 		:global(html:root .photo-toggle:active:not(:disabled)),
-:global(html:root .icon-btn:active:not(:disabled)),
+		:global(html:root .icon-btn:active:not(:disabled)),
 		:global(html:root .field:active:not(:disabled)),
 		:global(html:root .field-select:active:not(:disabled)),
 		:global(html:root .edit-enter:active:not(:disabled)),
@@ -5599,25 +5663,25 @@
 	/* Bubble flat-scheme hover recolour — fine-pointer only; touch scroll would
 	   smear this fill across the cards and controls it slides over. */
 	@media (hover: hover) {
-	:global(html[data-ui='bubble']:not(.scheme-dark) .seg:not(.on):hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .sky-opt:not(.on):hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .chip:not(.on):hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .tb:hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .mini:hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .swatch-btn:hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .field:not(.on):hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .field-select:hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .app-card:hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .menu-btn:hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .edit-enter:hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .wx-add:hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .icon-btn:hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .manual:hover:not(:disabled)),
-	:global(html[data-ui='bubble']:not(.scheme-dark) .cs:not(.open):hover) {
-		background: rgba(255, 255, 255, 0.36);
-		color: var(--ink);
-		border-color: color-mix(in srgb, var(--ink) 24%, transparent);
-	}
+		:global(html[data-ui='bubble']:not(.scheme-dark) .seg:not(.on):hover:not(:disabled)),
+		:global(html[data-ui='bubble']:not(.scheme-dark) .sky-opt:not(.on):hover:not(:disabled)),
+		:global(html[data-ui='bubble']:not(.scheme-dark) .chip:not(.on):hover:not(:disabled)),
+		:global(html[data-ui='bubble']:not(.scheme-dark) .tb:hover:not(:disabled)),
+		:global(html[data-ui='bubble']:not(.scheme-dark) .mini:hover:not(:disabled)),
+		:global(html[data-ui='bubble']:not(.scheme-dark) .swatch-btn:hover:not(:disabled)),
+		:global(html[data-ui='bubble']:not(.scheme-dark) .field:not(.on):hover:not(:disabled)),
+		:global(html[data-ui='bubble']:not(.scheme-dark) .field-select:hover:not(:disabled)),
+		:global(html[data-ui='bubble']:not(.scheme-dark) .app-card:hover:not(:disabled)),
+		:global(html[data-ui='bubble']:not(.scheme-dark) .menu-btn:hover:not(:disabled)),
+		:global(html[data-ui='bubble']:not(.scheme-dark) .edit-enter:hover:not(:disabled)),
+		:global(html[data-ui='bubble']:not(.scheme-dark) .wx-add:hover:not(:disabled)),
+		:global(html[data-ui='bubble']:not(.scheme-dark) .icon-btn:hover:not(:disabled)),
+		:global(html[data-ui='bubble']:not(.scheme-dark) .manual:hover:not(:disabled)),
+		:global(html[data-ui='bubble']:not(.scheme-dark) .cs:not(.open):hover) {
+			background: rgba(255, 255, 255, 0.36);
+			color: var(--ink);
+			border-color: color-mix(in srgb, var(--ink) 24%, transparent);
+		}
 	}
 	/* Two-line settings segments stay softly rounded rather than full pill. */
 	:global(html[data-ui='bubble'] .seg) {
@@ -5685,25 +5749,25 @@
 	   you; the scale-forward (motion) is gated on reduced-motion below. Hover-capable
 	   pointers only — on touch this gloss would cling to whatever a scroll drags over. */
 	@media (hover: hover) {
-	:global(html[data-ui='bubble'] .seg:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .sky-opt:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .icon-btn:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .edit-enter:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .chip:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .tb:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .mini:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .swatch-btn:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .field:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .field-select:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .manual:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .app-card:hover:not(:disabled)),
-	:global(html[data-ui='bubble'] .menu-btn:hover:not(:disabled)) {
-		box-shadow:
-			inset 0 1px 0 rgba(255, 255, 255, 0.8),
-			inset 0 7px 10px -8px rgba(255, 255, 255, 0.7),
-			0 2px 5px rgba(8, 10, 14, 0.07),
-			0 9px 22px rgba(8, 10, 14, 0.1);
-	}
+		:global(html[data-ui='bubble'] .seg:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .sky-opt:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .icon-btn:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .edit-enter:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .chip:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .tb:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .mini:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .swatch-btn:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .field:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .field-select:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .manual:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .app-card:hover:not(:disabled)),
+		:global(html[data-ui='bubble'] .menu-btn:hover:not(:disabled)) {
+			box-shadow:
+				inset 0 1px 0 rgba(255, 255, 255, 0.8),
+				inset 0 7px 10px -8px rgba(255, 255, 255, 0.7),
+				0 2px 5px rgba(8, 10, 14, 0.07),
+				0 9px 22px rgba(8, 10, 14, 0.1);
+		}
 	}
 	/* (A selected control used to restate a lit-hover stack here so the plain hover rule
 	   wouldn't strip its halo — retired with the halo itself: selected is a GRAY FILL now
@@ -5817,14 +5881,46 @@
 			animation: docs-settle 0.45s ease backwards;
 		}
 	}
-	/* On mobile the sheet bleeds its BOTTOM into the content gutter (a negative margin cancelling
-	   .docs-body's --docs-pad, the same trick Densette's paper uses). Without it the sheet kept
-	   that gutter beneath it and so sat --docs-pad further from the floating key than the bare
-	   paper did; bled, every page's blank foot is just the scroller's foot — a uniform 1.25rem
-	   clearance above the key, matching its 1.25rem left/bottom insets. */
+	/* On a phone the sheet is the page: DocsShell zeroes --docs-pad there, so the gutter around
+	   it is already gone on all four sides (and with it the negative bottom margin that used to
+	   cancel that gutter). The reading measure is the last thing holding a block page short of
+	   the right edge — between ~620px and 860px the cap left a band of bare gutter beside a page
+	   that has no gutter anywhere else — so it comes off too. The measure still governs the PROSE
+	   inside (.docs-prose keeps its 72ch); only the paper under it runs full width. The blank
+	   foot below every page is the scroller's own, the floating key's safe area. */
 	@media (max-width: 860px) {
-		.docs-sheet {
-			margin-bottom: calc(-1 * var(--docs-pad));
+		.docs-sheet.prose {
+			max-width: none;
+		}
+		/* Every sheet's printed cover comes off on a phone: the superbar carries the page's name at
+		   this width (DocsShell's barTitle — see the note by it in the script), so each page opens
+		   on what it is for — Weather's city tabs, the emoji search, a block page's prose — the way
+		   Air Traffic's board opens under its own bar. Screen-reader-only rather than display:none:
+		   the page keeps its <h1>, and its echo in the bar is aria-hidden, so the heading is spoken
+		   once and the document still has an outline. (Masthead's menu words go the same way at
+		   560px.) The head's bottom padding goes with it — an invisible box must not hold air.
+		   The descendant selector reaches both arrangements: the head sits directly on the sheet
+		   for the self-chrome readings, and inside .docs-prose on the block, Apps and Settings
+		   pages. Densette isn't touched — its cover is printed inside its own paper, not here. */
+		.docs-sheet .docs-page-head {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+		/* …and the line that now leads the page loses its top margin. That margin is the air a
+		   paragraph or a sub-head keeps from what came BEFORE it — with the head lifted out of
+		   flow there is nothing before it, so the air became a gap between the sheet's top padding
+		   and its first word: an inset of 20 + 16 where every other edge of the sheet keeps 20.
+		   The pages whose body opens with its own root (Weather's .wx, the Emoji wall, Settings'
+		   group grid) already sat right at the padding — this brings the prose pages in line with
+		   them. Adjacent-sibling, so it reaches exactly the one element the head used to sit on
+		   top of and nothing deeper down the page. */
+		.docs-sheet .docs-page-head + * {
+			margin-top: 0;
 		}
 	}
 	.docs-page-title {
@@ -5906,5 +6002,4 @@
 			transform: translateY(0);
 		}
 	}
-
 </style>

@@ -104,7 +104,11 @@ await page.locator('a.app-card[href="/apps/air-traffic"]').click({ modifiers: ['
 const popup = await popupPromise;
 if (popup) {
 	await popup.waitForLoadState('domcontentloaded');
-	ok('ctrl-click opens /apps/air-traffic in a new tab', popup.url() === `${B}/apps/air-traffic`, popup.url());
+	ok(
+		'ctrl-click opens /apps/air-traffic in a new tab',
+		popup.url() === `${B}/apps/air-traffic`,
+		popup.url()
+	);
 	await popup.close();
 } else {
 	ok('ctrl-click opens /apps/air-traffic in a new tab', false, 'no popup fired');
