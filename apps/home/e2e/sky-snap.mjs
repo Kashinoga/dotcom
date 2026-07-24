@@ -70,8 +70,15 @@ const STATES = [
 	{ name: 'photo', seed: { 'ksh-sky': 'photo', 'ksh-theme': 'light' }, photo: true },
 	// Off — the claim is that nothing paints, so the counts are the assertion.
 	{ name: 'off', seed: { 'ksh-sky': 'off', 'ksh-theme': 'light' } },
-	// Overcast, reached by hand through the sky console rather than by stubbing the weather.
-	{ name: 'noon-overcast', seed: { 'ksh-sky': 'noon', 'ksh-theme': 'light' }, overcast: true },
+	// The hand-picked stage weather, reached through the sky console rather than by stubbing an
+	// upstream. Each one summons a different set of layers — thickened clouds, falling rain or
+	// snow, a fog bank over a veil, a lightning sheet — and every one of them is a separate
+	// arrangement of elements that a refactor can drop on the floor.
+	{ name: 'noon-overcast', seed: { 'ksh-sky': 'noon', 'ksh-theme': 'light' }, feature: /^Clouds$/ },
+	{ name: 'noon-rain', seed: { 'ksh-sky': 'noon', 'ksh-theme': 'light' }, feature: /^Rain$/ },
+	{ name: 'noon-snow', seed: { 'ksh-sky': 'noon', 'ksh-theme': 'light' }, feature: /^Snow$/ },
+	{ name: 'noon-fog', seed: { 'ksh-sky': 'noon', 'ksh-theme': 'light' }, feature: /^Fog$/ },
+	{ name: 'dusk-storm', seed: { 'ksh-sky': 'dusk', 'ksh-theme': 'dark' }, feature: /^Storm$/ },
 	// A panel open over the stage: decorHidden, the decor's other exit.
 	{ name: 'panel-open', route: '/about', seed: { 'ksh-sky': 'night', 'ksh-theme': 'dark' } },
 	// The phone — the decor's mobile rules, and the sky console at a width that has to fold.
@@ -116,6 +123,17 @@ const SELECTORS = [
 	'.sky-group',
 	'.sky-lab',
 	'.sky-row',
+	'.fx-rain',
+	{ sel: '.fx-rain span', sampled: false },
+	{ sel: '.fx-rain span:first-child', counted: false },
+	'.fx-snow',
+	{ sel: '.fx-snow span', sampled: false },
+	{ sel: '.fx-snow span:first-child', counted: false },
+	'.fx-fog',
+	'.fog-veil',
+	'.fog-band.fog-a',
+	'.fog-band.fog-d',
+	'.fx-flash',
 	'.surface-backdrop'
 ].map((s) => ({ counted: true, sampled: true, ...(typeof s === 'string' ? { sel: s } : s) }));
 
@@ -336,20 +354,23 @@ try {
 		await page.goto(`${base}${state.route ?? '/'}`, { waitUntil: 'networkidle' });
 		await page.waitForTimeout(1500);
 
-		if (state.overcast) {
-			// The sky console's Weather Feature row — the hand-picked stage weather. Its chips are
-			// the same controls a reader uses, so this exercises the real path into .clouds.overcast.
-			const toggle = page.locator('.sky-console button').first();
+		if (state.feature) {
+			// The sky console's Weather Feature row — the hand-picked stage weather. These are the
+			// same chips a reader presses, so the state is reached the way it is really reached:
+			// through the console's callback, the page's own state, and out to the layers. That
+			// makes each of these a check on the console as much as on what it summons.
+			const toggle = page.locator('.sky-console button').last();
 			if (await toggle.count()) {
 				await toggle.click();
 				await page.waitForTimeout(400);
 				const chip = page
 					.locator('.sky-row')
 					.last()
-					.locator('button', { hasText: /overcast|cloud/i })
+					.locator('button', { hasText: state.feature })
 					.first();
 				if (await chip.count()) await chip.click();
-				await page.waitForTimeout(900);
+				// Long enough for the slowest layer to finish arriving (the fog bank, 900ms).
+				await page.waitForTimeout(1200);
 			}
 		}
 

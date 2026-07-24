@@ -22,6 +22,7 @@
 	import DocsShell from '$lib/DocsShell.svelte';
 	import Sky from '$lib/Sky.svelte';
 	import SkyConsole from '$lib/SkyConsole.svelte';
+	import SkyWeather from '$lib/SkyWeather.svelte';
 	import CitySearch from '$lib/CitySearch.svelte';
 	import {
 		CLOUD_SVG,
@@ -1110,31 +1111,6 @@
 		fxOn && (wxKind === 'cloudy' || wxKind === 'rain' || wxKind === 'storm' || wxKind === 'snow')
 	);
 
-	// The particle fields, built LAZILY on first need (client-only, like the stars) and
-	// kept after — closing the panel just unmounts the spans; reopening reuses the field.
-	const makeRain = () =>
-		Array.from({ length: 44 }, () => ({
-			x: Math.random() * 100,
-			len: 9 + Math.random() * 8,
-			dur: 0.9 + Math.random() * 0.7,
-			delay: -Math.random() * 2 // negative: the sky is already mid-rain on arrival
-		}));
-	let RAIN = $state<ReturnType<typeof makeRain>>([]);
-	const makeSnow = () =>
-		Array.from({ length: 36 }, () => ({
-			x: Math.random() * 100,
-			size: 3 + Math.random() * 3,
-			dur: 7 + Math.random() * 6,
-			drift: -14 + Math.random() * 28, // sideways vw across one fall — the flutter
-			delay: -Math.random() * 13
-		}));
-	let SNOW = $state<ReturnType<typeof makeSnow>>([]);
-	$effect(() => {
-		if (fxRain && !RAIN.length) RAIN = makeRain();
-	});
-	$effect(() => {
-		if (fxSnow && !SNOW.length) SNOW = makeSnow();
-	});
 	// Expanding is a PROMOTION, not a resize. Every attempt to animate the panel between
 	// widths — width transitions, then a FLIP scaleX — stuttered in Safari, because WebKit
 	// re-rasterises the backdrop blur whenever the blurred surface's on-screen geometry
@@ -2285,54 +2261,17 @@
 			/>
 		{/if}
 
-		<!-- The weather dressing: the ACTIVE CITY's sky while its panel is open (see wxKind).
-	     Everything animates transform or opacity only — the same physics as the clouds and
-	     the stars' twinkle. -->
-		{#if fxRain}
-			<div
-				class="fx-rain"
-				aria-hidden="true"
-				transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 500 }}
-			>
-				{#each RAIN as d}
-					<span
-						style="left:{d.x}%; height:{d.len}px; animation-duration:{d.dur}s; animation-delay:{d.delay}s"
-					></span>
-				{/each}
-			</div>
-		{/if}
-		{#if fxSnow}
-			<div
-				class="fx-snow"
-				aria-hidden="true"
-				transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 500 }}
-			>
-				{#each SNOW as f}
-					<span
-						style="left:{f.x}%; width:{f.size}px; height:{f.size}px; --drift:{f.drift}vw; animation-duration:{f.dur}s; animation-delay:{f.delay}s"
-					></span>
-				{/each}
-			</div>
-		{/if}
-		{#if fxFog}
-			<!-- The fog reuses the far cloud strip, stretched tall and slowed — the same baked
-		     softness at bank scale, one layer rolling against the other. The veil beneath
-		     flattens the contrast the way real fog does. -->
-			<div
-				class="fx-fog"
-				aria-hidden="true"
-				transition:fade={{ duration: decorHidden ? (isMobile ? 0 : 420) : 900 }}
-			>
-				<div class="fog-veil"></div>
-				<div class="fog-band fog-a" style="background-image: url({cloudFar})"></div>
-				<div class="fog-band fog-b" style="background-image: url({cloudFar})"></div>
-				<div class="fog-band fog-c" style="background-image: url({cloudFar})"></div>
-				<div class="fog-band fog-d" style="background-image: url({cloudFar})"></div>
-			</div>
-		{/if}
-		{#if fxFlash}
-			<div class="fx-flash" aria-hidden="true"></div>
-		{/if}
+		<!-- The weather dressing: the ACTIVE CITY's sky while its panel is open (see wxKind), in
+	     $lib/SkyWeather. Like the decor above it, it takes no decisions — the page works out
+	     which layers the reading calls for, and how fast they should come and go. -->
+		<SkyWeather
+			rain={fxRain}
+			snow={fxSnow}
+			fog={fxFog}
+			flash={fxFlash}
+			fadeMs={decorHidden ? (isMobile ? 0 : 420) : 500}
+			fogFadeMs={decorHidden ? (isMobile ? 0 : 420) : 900}
+		/>
 
 		<!-- Persistent masthead (wordmark + tagline + station nav) — its own component so a
 	     homepage-chrome tweak stays out of this catch-all page. It reports which destination
@@ -3093,155 +3032,6 @@
 		}
 	}
 
-	/* ── Weather dressing ── the ACTIVE CITY's sky, worn by the stage while its panel is
-	   open. Same physics as the clouds and the stars' twinkle: every animation is
-	   transform or opacity on small fixed elements — no paint after first composite. */
-	.fx-rain,
-	.fx-snow,
-	.fx-fog,
-	.fx-flash {
-		position: absolute;
-		inset: 0;
-		overflow: hidden;
-		pointer-events: none;
-	}
-	.fx-rain span {
-		position: absolute;
-		top: -24px;
-		width: 1.5px;
-		border-radius: 1px;
-		/* Blue-gray on the daylit sky, pale on the dark phases — same light-dark() trick
-		   as the stars, so no JS scheme check. */
-		background: light-dark(rgba(60, 82, 110, 0.38), rgba(200, 220, 245, 0.42));
-		animation: fx-fall linear infinite;
-		will-change: transform;
-	}
-	@keyframes fx-fall {
-		to {
-			transform: translate3d(0, 108vh, 0);
-		}
-	}
-	.fx-snow span {
-		position: absolute;
-		top: -10px;
-		border-radius: 50%;
-		background: light-dark(rgba(178, 196, 220, 0.9), rgba(235, 242, 255, 0.85));
-		animation: fx-snow-fall linear infinite;
-		will-change: transform;
-	}
-	@keyframes fx-snow-fall {
-		to {
-			transform: translate3d(var(--drift), 108vh, 0);
-		}
-	}
-	/* Fog: the far cloud strip at bank scale — same drift keyframes as the clouds, three
-	   bands rolling against each other; the veil flattens contrast the way real fog does.
-	   The bands are three DISTINCT DEPTH PLANES, not one texture thrice: each has its own
-	   height (background-size ties the tile's wavelength to it, so each rolls at its own
-	   scale), its own blur (soft far, defined near — one uniform blur read as a flat
-	   low-res smear), its own weight, and its own speed (nearest fastest: parallax).
-	   Static filters, rasterised once; only transform animates. */
-	.fog-veil {
-		position: absolute;
-		inset: 0;
-		/* Graded, not flat: fog pools — denser at the ground, thinner up high. */
-		background: linear-gradient(
-			to top,
-			light-dark(rgba(233, 238, 245, 0.78), rgba(24, 30, 42, 0.72)),
-			light-dark(rgba(233, 238, 245, 0.42), rgba(24, 30, 42, 0.38))
-		);
-	}
-	.fog-band {
-		position: absolute;
-		left: 0;
-		height: var(--ch);
-		width: calc(100% + var(--ch) * 4);
-		background-repeat: repeat-x;
-		background-size: auto 100%;
-		will-change: transform;
-	}
-	/* Four planes, INTERLEAVED: the baked strip carries transparent margins inside its
-	   tile, so bands laid end to end left clear horizontal stripes between their cloud
-	   belts. These overlap by half their height — each band's belt sits over its
-	   neighbours' margins — and the last is BOTTOM-ANCHORED, so the sky console's row is
-	   always inside the fog whatever the viewport's height. */
-	/* Farthest: a soft, faint ceiling across the whole sky. */
-	.fog-a {
-		--ch: 90vh;
-		top: -20vh;
-		opacity: 0.55;
-		filter: blur(22px);
-	}
-	.fog-b {
-		--ch: 75vh;
-		top: 5vh;
-		opacity: 0.7;
-		filter: blur(14px);
-	}
-	.fog-c {
-		--ch: 60vh;
-		top: 35vh;
-		opacity: 0.85;
-		filter: blur(8px);
-	}
-	/* Nearest: low, dense, defined enough to keep real texture in the picture. */
-	.fog-d {
-		--ch: 55vh;
-		top: auto;
-		bottom: -15vh;
-		opacity: 0.95;
-		filter: blur(5px);
-	}
-	/* Lightning: one full-stage white layer, dark the vast majority of a long cycle with a
-	   double blink near the middle — opacity only, and rare. */
-	.fx-flash {
-		background: #fff;
-		opacity: 0;
-	}
-	@media (prefers-reduced-motion: no-preference) {
-		/* Depth-ordered speeds: the near bank rolls past while the ceiling barely moves. */
-		.fog-a {
-			animation: cloud-drift 380s linear infinite;
-		}
-		.fog-b {
-			animation: cloud-drift 260s linear infinite reverse;
-		}
-		.fog-c {
-			animation: cloud-drift 180s linear infinite;
-		}
-		.fog-d {
-			animation: cloud-drift 120s linear infinite reverse;
-		}
-		.fx-flash {
-			animation: fx-flash 9s linear infinite;
-		}
-	}
-	@keyframes fx-flash {
-		0%,
-		55.9%,
-		57.3%,
-		58.6%,
-		100% {
-			opacity: 0;
-		}
-		56.3% {
-			opacity: 0.5;
-		}
-		56.8% {
-			opacity: 0.08;
-		}
-		57.9% {
-			opacity: 0.35;
-		}
-	}
-	/* Reduced motion: precipitation frozen mid-air reads as broken glass, so it's simply
-	   not shown; the fog just sits, which is also weather. */
-	@media (prefers-reduced-motion: reduce) {
-		.fx-rain span,
-		.fx-snow span {
-			display: none;
-		}
-	}
 	/* Content surface — the destination page. Header stays put; body scrolls, so
 	 * the surface holds substantial content while the stage height stays locked. */
 	.surface {

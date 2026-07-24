@@ -24,12 +24,26 @@
 		".sky-group": 0,
 		".sky-lab": 0,
 		".sky-row": 0,
+		".fx-rain": 0,
+		".fx-rain span": 0,
+		".fx-snow": 0,
+		".fx-snow span": 0,
+		".fx-fog": 0,
+		".fog-veil": 0,
+		".fog-band.fog-a": 0,
+		".fog-band.fog-d": 0,
+		".fx-flash": 0,
 		".surface-backdrop": 0
 	},
 	"nodes": {
 		"html": [
 			{
-				"rect": [0, 0, 1500, 0],
+				"rect": [
+					0,
+					0,
+					1500,
+					0
+				],
 				"props": {
 					"accent-color": "auto",
 					"align-content": "normal",
@@ -484,7 +498,12 @@
 		],
 		".stage": [
 			{
-				"rect": [0, 0, 1500, 950],
+				"rect": [
+					0,
+					0,
+					1500,
+					950
+				],
 				"props": {
 					"accent-color": "auto",
 					"align-content": "normal",
@@ -955,6 +974,15 @@
 		".sky-group": [],
 		".sky-lab": [],
 		".sky-row": [],
+		".fx-rain": [],
+		".fx-rain span:first-child": [],
+		".fx-snow": [],
+		".fx-snow span:first-child": [],
+		".fx-fog": [],
+		".fog-veil": [],
+		".fog-band.fog-a": [],
+		".fog-band.fog-d": [],
+		".fx-flash": [],
 		".surface-backdrop": []
 	},
 	"animations": []
