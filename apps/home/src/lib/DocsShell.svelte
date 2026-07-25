@@ -935,6 +935,23 @@
 		/* The same measure as the content gutter — the three columns share one rhythm. No
 		   right-hand rule: the gutter of space between the nav and the sheet is the divide. */
 		padding: var(--docs-pad);
+		/* …except on the LEFT, where there is no column to be parted from — only the browser's
+		   own chrome. One --docs-pad put the tree's ink about 12px off the window edge, close
+		   enough to rub against the frame (and against a scrollbar, on the systems that draw
+		   one). Doubled, it stops rubbing.
+		   Two, and not some new number, because it is the gutter the layout ALREADY uses between
+		   ink and ink: on the right of the content column the gap is that column's --docs-pad
+		   plus the rail's, and the tree now keeps the same distance from the window that the
+		   rail keeps from the reading. The measure still moves with --docs-pad, so the rhythm
+		   holds at every width.
+		   The wordmark does NOT follow it, and the resulting stagger is deliberate: KASHINOGA
+		   leads the whole app and keeps its corner, while the tree is a child of it and steps in.
+		   Do not "correct" the two back into a line.
+		   Stated as a longhand AFTER the shorthand: the mobile receipt below re-declares
+		   `padding` outright, and a shorthand later in the file resets this. That is the
+		   intended reading — a phone's flyout spans the viewport and has no window edge to
+		   stand off from. */
+		padding-left: calc(2 * var(--docs-pad));
 	}
 	.docs-toc ol {
 		list-style: none;
