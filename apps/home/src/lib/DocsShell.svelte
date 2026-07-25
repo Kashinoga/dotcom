@@ -1534,11 +1534,22 @@
 				scrollbar-color: color-mix(in srgb, var(--ink) 30%, transparent) transparent;
 			}
 		}
-		/* The key's safe area: the band it sits in, frosted like everything else at this width,
-		   laid OVER the drawer. Same wash and blur as the scrim, so the two read as one backdrop
-		   with the key resting on it — and because it sits above the list, a row scrolling out of
-		   the drawer dissolves into the blur rather than being clipped. Height is the key's own
-		   zone: its 1.25rem inset, its 40px, and the same inset again as the air above it. */
+		/* The key's safe area: the band it sits in, laid OVER the drawer. Because it sits above the
+		   list, a row scrolling out of the drawer dissolves into it rather than being clipped, and
+		   its height is the key's own zone: 1.25rem, the key's 40px, and the same inset again as
+		   the air above it.
+		   It wears THE SUPERBAR'S MATERIAL, not the scrim's. It took the scrim's wash and blur
+		   before, so that the two read as one backdrop with the key resting on it — but the band is
+		   not backdrop, it is CHROME. It is the bottom end of the same shell the superbar caps: a
+		   fixed strip that page content passes under, carrying a control. Saying that in the
+		   scrim's voice made the key's ground look like a hole in the page, and made the band
+		   appear and vanish as a dark bar whenever the drawer opened and shut, since the scrim's
+		   wash is a dim and the bar's is the sheet.
+		   The scrolled recipe, not the resting one: the bar is opaque --page at the very top only
+		   because nothing is behind it there, and there is ALWAYS something behind this band. Same
+		   stock, same 78%, same 8px — see .docs-superbar.scrolled in the phone block above, and
+		   keep the three in step. --sheet-stock is light-dark(), so the dark arm needs no rule of
+		   its own; the scrim's did. */
 		.docs-fab-cove {
 			display: block;
 			position: fixed;
@@ -1554,13 +1565,10 @@
 			   Its HEIGHT is the key's own ground: 40px with the same 1.25rem above and below that
 			   the key keeps from the screen, and that the receipt's tiles keep from the left. */
 			height: calc(1.25rem + 40px + 1.25rem);
-			background: rgba(0, 0, 0, 0.18);
-			-webkit-backdrop-filter: blur(18px);
-			backdrop-filter: blur(18px);
+			background: color-mix(in srgb, var(--sheet-stock) 78%, transparent);
+			-webkit-backdrop-filter: blur(8px);
+			backdrop-filter: blur(8px);
 			pointer-events: none;
-		}
-		:global(html.scheme-dark) .docs-fab-cove {
-			background: rgba(0, 0, 0, 0.45);
 		}
 		/* ── The receipt's rows, as KEYS ────────────────────────────────────────────────
 		   On a phone every row becomes what the floating key's stack already is: a mark on a
