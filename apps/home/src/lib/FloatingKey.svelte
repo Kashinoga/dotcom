@@ -19,7 +19,8 @@
 		open = $bindable(false),
 		icon = '',
 		label = 'Controls',
-		buttons
+		buttons,
+		card
 	}: {
 		/* Is the stack disclosed? Bindable, so a caller can fold it from outside — opening a
 		   panel resets the ranger's, for instance. */
@@ -31,6 +32,11 @@
 		/* The controls themselves. Give them class="icon-btn" and they inherit the stack's
 		   touch-sized frosted face. */
 		buttons: Snippet;
+		/* Optional: anything that will not fit a 40px disc — a row of fields, a set of choices.
+		   It rides in a card ABOVE the key column, on the same frosted material, and opens and
+		   closes with it. ATFC puts its Airport/Range/Refresh controls here, which is the whole
+		   reason the flyout has two shapes rather than one. */
+		card?: Snippet;
 	} = $props();
 </script>
 
@@ -42,8 +48,16 @@
 		onclick={() => (open = false)}
 	></button>
 {/if}
-<div class="fkey-stack" class:open>
-	{@render buttons()}
+<!-- ONE anchored flyout, so the card and the keys rise and fall as a single object and the
+     card never has to know how tall the key column is. Column-reverse inside the stack seats
+     the first button nearest the thumb; the card sits above the lot. -->
+<div class="fkey-flyout" class:open>
+	{#if card}
+		<div class="fkey-card">{@render card()}</div>
+	{/if}
+	<div class="fkey-stack">
+		{@render buttons()}
+	</div>
 </div>
 <button
 	type="button"
@@ -95,16 +109,18 @@
 		width: 1.35rem;
 		height: 1.35rem;
 	}
-	/* The disclosed stack rises from just above the key; column-reverse seats the pause twin
-	   nearest the thumb, the gear at the top. Parked down + faded + non-interactive when shut
-	   (visibility drops it from the focus order), springing up on open. */
-	.fkey-stack {
+	/* The disclosed flyout rises from just above the key. Parked down + faded + non-interactive
+	   when shut (visibility drops it from the focus order), springing up on open. The card and
+	   the key column live inside it, so one transform carries both and the card never needs to
+	   know how tall the column below it is. */
+	.fkey-flyout {
 		position: fixed;
 		left: 1.25rem;
 		bottom: calc(1.25rem + 40px + 0.5rem);
 		z-index: 18;
 		display: flex;
-		flex-direction: column-reverse;
+		flex-direction: column;
+		align-items: flex-start;
 		gap: 0.5rem;
 		transform: translateY(0.5rem);
 		opacity: 0;
@@ -114,13 +130,36 @@
 			transform 0.24s ease,
 			visibility 0s linear 0.24s;
 	}
-	.fkey-stack.open {
+	.fkey-flyout.open {
 		transform: translateY(0);
 		opacity: 1;
 		visibility: visible;
 		transition:
 			opacity 0.2s ease,
 			transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+	/* column-reverse seats the FIRST button nearest the thumb (the ranger's pause twin, the
+	   board's refresh) and works up from there. */
+	.fkey-stack {
+		display: flex;
+		flex-direction: column-reverse;
+		gap: 0.5rem;
+	}
+	/* The card: the key's own frosted material at panel size, held to the viewport with the same
+	   1.25rem insets the key keeps. Its CONTENTS are the caller's — styled by the caller, which
+	   is why there is nothing here about fields or labels. */
+	.fkey-card {
+		box-sizing: border-box;
+		width: calc(100vw - 2 * 1.25rem);
+		max-width: 24rem;
+		padding: 0.75rem;
+		color: var(--ink);
+		background: color-mix(in srgb, var(--page) 92%, transparent);
+		-webkit-backdrop-filter: blur(8px);
+		backdrop-filter: blur(8px);
+		border: 1px solid var(--pixel-key-border, rgba(0, 0, 0, 0.4));
+		border-radius: 4px;
+		box-shadow: var(--pixel-bevel, 0 3px 10px rgba(4, 7, 15, 0.28));
 	}
 	/* The stack's keys are touch-sized (40px, off the 28px control line) and wear the key's
 	   own frosted face, so the cluster reads as one material with the FAB.
@@ -138,13 +177,13 @@
 		backdrop-filter: blur(8px);
 	}
 	@media (prefers-reduced-motion: reduce) {
-		.fkey-stack {
+		.fkey-flyout {
 			transition:
 				opacity 0.12s ease,
 				visibility 0s linear 0.12s;
 			transform: none;
 		}
-		.fkey-stack.open {
+		.fkey-flyout.open {
 			transition: opacity 0.12s ease;
 			transform: none;
 		}

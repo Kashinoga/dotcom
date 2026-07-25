@@ -1560,7 +1560,36 @@
 	style:--accent={accent}
 	style:--bar-h="{barH}px"
 >
+	<!-- Airport, Range and Refresh — the board's three settings, in the one arrangement used by
+	     both the compact panel's strip and the phone's flyout card. The rungs (1, 2, 3) are
+	     consecutive: there are no field pills here to ripple past. -->
+	{#snippet compactRows()}
+		<div class="fields ranges" style="--bn:1">
+			<span class="range-label">Airport</span>
+			{@render fieldSelect()}
+		</div>
+
+		<div class="fields ranges" style="--bn:2">
+			<span class="range-label">Range</span>{@render rangeButtons()}
+		</div>
+
+		<div class="fields ranges" style="--bn:3">
+			<span class="range-label">Refresh</span>{@render refreshButtons()}
+		</div>
+	{/snippet}
+
+	<!-- The same three rows, in the flyout's card. .controls-compact carries the layout, so the
+	     card gets the identical arrangement without this file stating it twice. -->
+	{#snippet boardControls()}
+		<div class="controls-compact in-key">{@render compactRows()}</div>
+	{/snippet}
+
 	{#snippet boardKeys()}
+		<!-- Refresh first, so column-reverse seats it nearest the thumb: it is the one you press
+	     again and again, where Home is pressed once. (This is the plain "refresh now" control —
+	     the COUNTDOWN ring is .refresh, a separate element in the board's own header row, and it
+	     stays on screen where it can be watched.) -->
+		{@render manualButton()}
 		<!-- Home — the full-viewport board's one way out, the same close idiom the wide deck's right
 	     cluster uses. -->
 		<button
@@ -1679,16 +1708,16 @@
 				     the only place ATFC names itself. No scroll-reveal: it's always here. -->
 				<span class="head-title">{title}</span>
 			</div>
-			<!-- Top-right corner: the live refresh control, then the expand toggle. Home has LEFT
-			     this bar for the floating key at the bottom-left (see FloatingKey below) — a way
-			     out is a reach you make once, and it was taking a slot in a strip barely wider
-			     than the board's name. The refresh stays, because it is not a button so much as a
-			     readout: its ring counts down to the next poll, and a control you watch cannot
-			     live inside a menu you have to open. It stays put inside the header while the body
-			     scrolls. -->
-			<div class="corner corner-compact" style="--bn:2">
-				{@render manualButton()}
-				{#if onToggleExpand}
+			<!-- Top-right corner: only the expand toggle now, and only where one is offered — as a
+			     full-viewport app there is nothing to expand INTO, so on the board this renders
+			     nothing at all and the strip is the board's name alone.
+			     Both Home and the refresh have left for the floating key at the bottom-left (see
+			     FloatingKey below). The bar was a slim strip barely wider than the title, and a
+			     control you press repeatedly is no worse off one tap away than crowded into it —
+			     the countdown RING, the thing you actually watch, was never up here: it sits in
+			     the board's own header row and stays on screen. -->
+			{#if onToggleExpand}
+				<div class="corner corner-compact" style="--bn:2">
 					<button
 						type="button"
 						class="icon-btn expand-compact"
@@ -1698,8 +1727,8 @@
 					>
 						{@html expanded ? MINIMIZE_SVG : MAXIMIZE_SVG}
 					</button>
-				{/if}
-			</div>
+				</div>
+			{/if}
 		{/if}
 	</header>
 
@@ -1764,10 +1793,11 @@
 			</p>
 		{/if}
 
-		{#if !showDeck}
-			<!-- Compact controls. On a wide panel these stack as three labelled rows, the field a
-			     row of pills. On mobile (bottom sheet) the pills would wrap to several lines, so the
-			     field collapses to a dropdown and all three sit on one row — see the media query. -->
+		{#if !showDeck && !narrow}
+			<!-- Compact controls, for the compact PANEL. On a phone these are not here at all: they
+			     ride in the floating key's card instead (see boardControls), which is what lets the
+			     narrow layout open on the board itself rather than on a strip of chrome. Same three
+			     rows either way — the snippet below renders them for both. -->
 			<div class="controls-compact">
 				<!-- The compact panel (any width) uses the field DROPDOWN, not the pills — the pill
 				     row wrapped to several lines even on desktop, and one dropdown lets Airport,
@@ -1777,18 +1807,7 @@
 				     here to ripple past, and keeping the bar's 12/13 left an eleven-beat hole
 				     after the dropdown — Airport landed alone, then Range and Refresh arrived a
 				     visible beat later, reading as a separate entrance rather than one flow. -->
-				<div class="fields ranges" style="--bn:1">
-					<span class="range-label">Airport</span>
-					{@render fieldSelect()}
-				</div>
-
-				<div class="fields ranges" style="--bn:2">
-					<span class="range-label">Range</span>{@render rangeButtons()}
-				</div>
-
-				<div class="fields ranges" style="--bn:3">
-					<span class="range-label">Refresh</span>{@render refreshButtons()}
-				</div>
+				{@render compactRows()}
 			</div>
 
 			<div class="board-head">
@@ -2078,6 +2097,7 @@
 			icon={AIRPLANE_SVG}
 			label="Board controls"
 			buttons={boardKeys}
+			card={boardControls}
 		/>
 	{/if}
 </div>
@@ -2826,6 +2846,22 @@
 	/* The compact panel's controls, at every width: Airport, Range and Refresh on ONE row, each a
 	   labelled column with its dropdown below. (The field is a <select> here — the pills only
 	   appear in the expanded super bar.) */
+	/* In the phone's flyout card the three rows STACK. Side by side they were sized for the full
+	   width of the board; inside a card 2.5rem narrower, three dropdowns abreast squeeze the
+	   airport name — which is the one that carries a place's whole name — down to an ellipsis.
+	   One per line, each the card's full width, and every field says what it holds. */
+	.controls-compact.in-key {
+		flex-direction: column;
+		gap: 0.6rem;
+	}
+	/* Each field takes the card's full width. In the strip they are sized by a shared row, so
+	   Refresh's "1m" is a thumbnail beside Airport's place name; stacked, those same widths left
+	   three short fields against a lot of empty card and read as a ragged left column rather than
+	   a set of controls. Full width also buys the small ones a proper tap target. */
+	.controls-compact.in-key .fields.ranges,
+	.controls-compact.in-key select {
+		width: 100%;
+	}
 	.controls-compact {
 		display: flex;
 		flex-direction: row;
