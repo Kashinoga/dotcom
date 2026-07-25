@@ -115,6 +115,35 @@
 	// Mobile: the sidebar folds away; the superbar's plastic-key discloses it as a dropdown.
 	let sidebarOpen = $state(false);
 
+	// The receipt's scroll shades. The drawer runs the full height on purpose — under the superbar
+	// at the top, into the key's cove at the bottom — so it has no edge of its own to show: its
+	// real ones are off-screen behind those two bands. Now that both bands wear the same material,
+	// the rows nearest either end simply merged into them, and the list read as chrome rather than
+	// as a list passing beneath chrome.
+	// So the shade is painted BY each band, onto whatever is under it, and only when something is:
+	// the same .scrolled / .more pair the PUD ledger keeps (see PudIdle's .pud-log). The pair is
+	// what makes it a SCROLL shade rather than a drop shadow — at the top of the list nothing is
+	// hidden above, at the end nothing is hidden below, and a shade over nothing is a lie about
+	// where the list ends.
+	let receiptEl = $state<HTMLElement | undefined>(undefined);
+	let receiptScrolled = $state(false);
+	let receiptMore = $state(false);
+	const readReceipt = () => {
+		const el = receiptEl;
+		if (!el) return;
+		receiptScrolled = el.scrollTop > 4;
+		// The same 4px of slack the superbar's own trigger keeps: a list that has landed can hold a
+		// hair of scroll range from sub-pixel layout, and a shade that never quite goes out at the
+		// end is worse than none.
+		receiptMore = el.scrollTop + el.clientHeight < el.scrollHeight - 4;
+	};
+	// The drawer is laid out at all times (visibility, not display), so it can be measured whenever
+	// — but it MUST be measured as it opens: nothing scrolls on the way in, so without this the
+	// shades would stand as the last opening left them.
+	$effect(() => {
+		if (sidebarOpen) readReceipt();
+	});
+
 	// The superbar goes translucent-and-blurred only once the page has scrolled under it — at
 	// the very top it's a clean edge (makingsoftware's own behaviour). Measured height feeds
 	// --superbar-h so the sticky rails start below it and anchor jumps clear it. Measured with
@@ -153,8 +182,12 @@
 		const ro = new ResizeObserver(() => {
 			if (superbarEl) superbarH = superbarEl.getBoundingClientRect().height;
 			measureScrollbar();
+			readReceipt();
 		});
 		if (superbarEl) ro.observe(superbarEl);
+		// The drawer too, so a rotation (which changes how much of the list is hidden, and can end
+		// the scroll range altogether) re-reads the shades. It is the box that knows.
+		if (receiptEl) ro.observe(receiptEl);
 		return () => {
 			ro.disconnect();
 		};
@@ -403,6 +436,8 @@
 <div
 	class="docs"
 	class:sidebar-open={sidebarOpen}
+	class:receipt-scrolled={receiptScrolled}
+	class:receipt-more={receiptMore}
 	style="--superbar-h: {superbarH}px; --scrollbar-w: {scrollbarW}px"
 >
 	<!-- Full-width superbar over all three columns: the wordmark at its left end, the breadcrumb
@@ -533,6 +568,8 @@
 			<aside
 				class="docs-sidebar"
 				aria-label="Site contents"
+				bind:this={receiptEl}
+				onscroll={readReceipt}
 				onclick={(e) => {
 					if (sidebarOpen && !(e.target as HTMLElement).closest('a')) sidebarOpen = false;
 				}}
@@ -1319,6 +1356,12 @@
 			   sheet keeps its own fill, so nothing here depends on the two staying in step; they
 			   simply read as one sheet when they agree. */
 			background: var(--sheet-stock);
+			/* ONE ink for both of the receipt's scroll shades, so the top and the bottom of the list
+			   can never drift apart. Very faint on purpose: the shade is there to say the list goes
+			   ON under the band, not to draw a rule between them. Dark mode takes more, as every
+			   shade in this repo does — a wash of black over an already dark field says almost
+			   nothing until it is about twice the light figure. */
+			--receipt-shade: light-dark(rgba(8, 10, 14, 0.13), rgba(0, 0, 0, 0.34));
 		}
 		/* The bar goes with it. It is opaque --page at rest and a 78% frost once the page scrolls
 		   under it; against the sheet that read as a darker band capping the screen — the same
@@ -1330,6 +1373,34 @@
 		}
 		.docs-superbar.scrolled {
 			background: color-mix(in srgb, var(--sheet-stock) 78%, transparent);
+		}
+		/* The receipt's TOP shade, cast by the bar onto the rows running under it. It hangs BELOW
+		   the bar's own box (top: 100%) rather than inside it, so the bar's frost is untouched and
+		   the shade falls on the list — the bar is not darker, the list is darker where it passes
+		   beneath. It lives on the bar because the receipt cannot draw it: the drawer's own top
+		   edge is off-screen behind this band, and a fixed pseudo inside the drawer would be
+		   trapped by its transform anyway.
+		   Only while the drawer stands, and only once something is actually hidden up there. */
+		.docs-superbar::after {
+			content: '';
+			position: absolute;
+			top: 100%;
+			left: 0;
+			right: 0;
+			height: 18px;
+			background: linear-gradient(to bottom, var(--receipt-shade), transparent);
+			/* It lies over the list's first rows — it must never take a tap meant for one. */
+			pointer-events: none;
+			opacity: 0;
+			transition: opacity 0.2s ease;
+		}
+		.docs.sidebar-open.receipt-scrolled .docs-superbar::after {
+			opacity: 1;
+		}
+		@media (prefers-reduced-motion: reduce) {
+			.docs-superbar::after {
+				transition: none;
+			}
 		}
 		.docs-cols {
 			grid-template-columns: 1fr;
@@ -1569,6 +1640,30 @@
 			-webkit-backdrop-filter: blur(8px);
 			backdrop-filter: blur(8px);
 			pointer-events: none;
+		}
+		/* The receipt's BOTTOM shade — the top one's twin, and the reason the ink is a variable:
+		   above the band rather than inside it (bottom: 100%), so the rows go dark as they reach
+		   the cove instead of the cove going dark. Shown while there are rows still to come, and
+		   out at the end of the list, where nothing is behind the band and a shade would be
+		   claiming otherwise. pointer-events comes down from the cove, which is inert. */
+		.docs-fab-cove::before {
+			content: '';
+			position: absolute;
+			bottom: 100%;
+			left: 0;
+			right: 0;
+			height: 18px;
+			background: linear-gradient(to top, var(--receipt-shade), transparent);
+			opacity: 0;
+			transition: opacity 0.2s ease;
+		}
+		.docs.receipt-more .docs-fab-cove::before {
+			opacity: 1;
+		}
+		@media (prefers-reduced-motion: reduce) {
+			.docs-fab-cove::before {
+				transition: none;
+			}
 		}
 		/* ── The receipt's rows, as KEYS ────────────────────────────────────────────────
 		   On a phone every row becomes what the floating key's stack already is: a mark on a
