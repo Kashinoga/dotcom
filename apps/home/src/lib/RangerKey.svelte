@@ -4,7 +4,7 @@
 	// THE RANGER'S MOBILE CONTROLS KEY — the Emoji Viewer's floating-disclosure shape, ported to
 	// the Park Ranger's panel. On a phone the dense bar has no room for the global controls
 	// (pause, Home, the gear), so they leave it and gather here: a plastic key at the
-	// bottom-right that opens a small stack of them, with a scrim to tap away. The key wears the
+	// bottom-left that opens a small stack of them, with a scrim to tap away. The key wears the
 	// app's own mark, so it doubles as a "you are here" badge — the docs FAB's trick.
 	//
 	// Same bargain as the sky components: the page decides. Whether this is on screen at all
@@ -95,12 +95,17 @@
 <style>
 	/* ── IPR (PUD) mobile controls key ───────────────────────────────────────────
 	   The Emoji Viewer's floating-disclosure shape (DocsShell .docs-fab), ported to the panel
-	   for the ranger's phone layout. A plastic key at the bottom-right opens a small stack of
+	   for the ranger's phone layout. A plastic key at the bottom-LEFT opens a small stack of
 	   the global controls that leave the dense bar on a phone; a scrim taps it away. Rendered
-	   only for PUD on a phone (see the {#if} in the panel), so no display toggle is needed. */
+	   only for PUD on a phone (see the {#if} in the panel), so no display toggle is needed.
+
+	   LEFT, like every other floating key on a phone — the docs shell's contents key sits at
+	   the same corner with the same 1.25rem insets, and this one was the only one on the right.
+	   A reader moving between the manual and the ranger reaches the same corner for the same
+	   kind of control, instead of learning a second habit for one app. */
 	.pud-fab {
 		position: fixed;
-		right: 1.25rem;
+		left: 1.25rem;
 		bottom: 1.25rem;
 		z-index: 19;
 		display: grid;
@@ -139,7 +144,7 @@
 	   (visibility drops it from the focus order), springing up on open. */
 	.pud-fab-stack {
 		position: fixed;
-		right: 1.25rem;
+		left: 1.25rem;
 		bottom: calc(1.25rem + 40px + 0.5rem);
 		z-index: 18;
 		display: flex;

@@ -922,7 +922,7 @@
 	// which owns the numbers in it (the lifetime tally, and abandoning the universe).
 	let pudSettings = $state(false);
 	// On a phone the ranger's global controls (pause, home, the gear) leave the dense bar and
-	// gather in a floating key at the bottom-right — the Emoji Viewer's disclosure pattern —
+	// gather in a floating key at the bottom-left — the Emoji Viewer's disclosure pattern —
 	// so the narrow bar keeps only the name. This flag opens that key's cluster.
 	let pudFabOpen = $state(false);
 	// Nothing decorative is BUILT unless it can be seen: the stars are dark-only, and
@@ -2515,7 +2515,7 @@
 										{#if v.code === 'PUD' && !isMobile}
 											<!-- DESKTOP: the bar's right-hand corner keeps the GLOBAL controls, the same
 								     corner every other panel uses: the pause twin, Home, and the gear. On a
-								     PHONE these leave the bar for the floating controls key at the bottom-right
+								     PHONE these leave the bar for the floating controls key at the bottom-left
 								     (see .pud-fab below) — the narrow bar keeps only the name. (The beta tag
 								     used to ride here too; it reads as part of the name, so it moved up beside
 								     the title — see the BAR_HEADER block above.) -->
@@ -2600,7 +2600,7 @@
 				</div>
 				{#if v.code === 'PUD' && isMobile}
 					<!-- IPR mobile controls key, in $lib/RangerKey: the dense bar's global controls
-				     gather into a floating key at the bottom-right, because the narrow bar has no
+				     gather into a floating key at the bottom-left, because the narrow bar has no
 				     room for them. The page still owns all three verbs and the settings card. -->
 					<RangerKey
 						bind:open={pudFabOpen}
@@ -3064,7 +3064,7 @@
 			border-radius: 0;
 		}
 		/* Reserve a foot so the ranger's own content never hides beneath the fixed controls
-		   key at the bottom-right. */
+		   key at the bottom-left. */
 		.surface-body.ranger {
 			padding-bottom: calc(40px + 1.75rem);
 		}
