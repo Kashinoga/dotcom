@@ -1448,14 +1448,16 @@
 			display: block;
 			position: fixed;
 			left: 0;
+			right: 0;
 			bottom: 0;
 			z-index: 18;
-			/* The key's own ground, and nothing more: 40px of key with the SAME 1.25rem on every
-			   side of it — the inset the key already keeps from the screen, and the one the
-			   receipt's tiles keep too. As a full-width band its right side ran the whole screen
-			   while its other three sides were 20px, so the single measure that was meant to be
-			   shared was the only one that varied. */
-			width: calc(1.25rem + 40px + 1.25rem);
+			/* FULL WIDTH, and that is the point: the band is what the drawer scrolls INTO, so it
+			   has to reach wherever a row does. Hugged around the key instead — 80px square — the
+			   rows either side of it ran on to the screen's bottom edge unblurred and stopped
+			   dead there, which put a hard cut and a small frosted box next to each other in the
+			   same corner: exactly the clutter the band exists to avoid.
+			   Its HEIGHT is the key's own ground: 40px with the same 1.25rem above and below that
+			   the key keeps from the screen, and that the receipt's tiles keep from the left. */
 			height: calc(1.25rem + 40px + 1.25rem);
 			background: rgba(0, 0, 0, 0.18);
 			-webkit-backdrop-filter: blur(18px);
