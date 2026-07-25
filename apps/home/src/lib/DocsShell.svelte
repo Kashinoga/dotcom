@@ -523,8 +523,20 @@
 	     the frost is real AND the scrollbar is never obscured. -->
 	<div class="docs-scroll" bind:this={scrollEl} onscroll={onDocsScroll}>
 		<div class="docs-cols">
-			<!-- Sticky sidebar: the numbered docs TOC (the wordmark now lives in the superbar). -->
-			<aside class="docs-sidebar" aria-label="Site contents">
+			<!-- Sticky sidebar: the numbered docs TOC (the wordmark now lives in the superbar).
+			     On a phone this same box IS the drawer, and there it has to swallow every touch that
+			     lands on it — see .docs-sidebar's pointer-events note. Swallowing them costs the
+			     "tap the gaps to dismiss" the scrim behind used to give, so the box hands that back
+			     itself: a tap that did not land on a row closes the list. -->
+			<!-- svelte-ignore a11y_click_events_have_key_events -->
+			<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+			<aside
+				class="docs-sidebar"
+				aria-label="Site contents"
+				onclick={(e) => {
+					if (sidebarOpen && !(e.target as HTMLElement).closest('a')) sidebarOpen = false;
+				}}
+			>
 				<nav class="docs-toc">
 					<ol>
 						{#each sections as { code, kids }, i}
@@ -636,6 +648,22 @@
 		position: relative;
 		background: var(--page);
 		color: var(--ink);
+	}
+	/* The document must not bounce. The shell owns the viewport and nothing overflows the window,
+	   so on a desktop the page simply never scrolls — but iOS Safari rubber-bands the document
+	   anyway, on any drag it does not otherwise have a use for, and that bounce is the whole
+	   mobile-flyout bug: a drag over the drawer that the drawer itself did not take (a gap between
+	   rows, or a list too short to scroll) hauls the entire shell up and down behind the frost.
+	   Worse, the same drag runs Safari's URL bar in and out, which changes 100dvh mid-gesture, so
+	   the drawer and the key's cove — both measured in dvh — resize under the finger.
+	   `overscroll-behavior: contain` on the inner boxes cannot reach this: a fixed-position drawer
+	   chains to the VIEWPORT, not to the scroller it happens to sit inside, so the chain being cut
+	   lower down is not the chain that moves. It has to be stated at the root.
+	   Scoped with :has so it is the docs shell asking, not this file quietly changing every page
+	   the stylesheet is loaded on — Aeropalite's own full-viewport apps keep their own behaviour. */
+	:global(html:has(.docs)),
+	:global(body:has(.docs)) {
+		overscroll-behavior: none;
 	}
 	/* The scroller the superbar OVERLAYS (bar absolute, scroller padded under it) — this is
 	   what lets content genuinely pass behind the bar and smear through its frost. The
@@ -1400,19 +1428,39 @@
 			max-height: 100vh;
 			max-height: 100dvh;
 			overflow-y: auto;
-			/* Contain overscroll — flicking the list never chains to the page behind it. */
+			/* Contain overscroll — flicking the list never chains to the page behind it. Note what
+			   this does NOT cover, which is why the root rule at the top of this file exists: a
+			   container with nothing to scroll (the tree fits, which it does on a tall phone) has no
+			   overscroll to contain, and the gesture goes straight past it. */
 			overscroll-behavior: contain;
+			/* The finger reads as up-and-down here and nothing else. Without it iOS treats a drag
+			   that starts slightly off-axis as a gesture the list has no use for, and hands it to
+			   whatever is behind. */
+			touch-action: pan-y;
 			/* No mask. It was here to soften a top edge that no longer exists — the list runs
 			   under the bar now, and the bar is the edge. */
 			background: none;
 			border: 0;
 			box-shadow: none;
-			/* The BOX catches nothing; its rows catch everything. Now that the drawer spans the
-			   screen, a solid box would have swallowed every tap meant for the scrim behind it —
-			   "tap anywhere else to dismiss" would have died the moment the list stopped being a
-			   small card, and silently. The rows take pointer events back, so a touch that starts
-			   on one still scrolls the list; a touch in the gaps falls through and closes it. */
-			pointer-events: none;
+			/* THE BOX CATCHES EVERYTHING. It used to catch nothing — pointer-events: none here, and
+			   auto on the rows — so that a tap in the gaps would fall through to the scrim and close
+			   the list. That worked for taps and leaked every DRAG: a finger that came down between
+			   two rows was never the drawer's, so iOS gave it to the page behind, and the reading
+			   scrolled under a standing flyout. The drawer spans the whole screen, so the gaps are
+			   most of it.
+			   The dismissal it cost is given back in script, where it belongs: the box closes itself
+			   on a tap that did not land on a row (see the aside's onclick). A drag on a gap now
+			   scrolls the list, or does nothing — never the page.
+			   Above this box the superbar (20), the key (19) and its cove (18) still take their own
+			   taps; the cove is inert on purpose, and a touch there falls to this box, which is the
+			   list, which is right. */
+			pointer-events: auto;
+			/* Nobody sees this — a phone has no cursor — and iOS Safari needs it. Safari only
+			   synthesises a bubbling click for a tap on a non-interactive element when that element
+			   looks clickable, and an <aside> does not; without this the dismissing tap above never
+			   reaches Svelte's delegated listener and the drawer cannot be closed by tapping the
+			   gaps at all. Measured: WebKit does not close, and does close with it. */
+			cursor: pointer;
 			/* A DRAWER, not a puff. Parked fully below the screen — its own height plus the gap it
 			   keeps above the key — and slid up into place, with no fade at all: a thing that
 			   fades in has no location, while a thing that slides has come FROM somewhere, and
@@ -1438,6 +1486,16 @@
 			.docs.sidebar-open .docs-sidebar {
 				transition: none;
 			}
+		}
+		/* And the page underneath holds still while the drawer stands. The two rules above stop the
+		   gesture reaching it; this makes reaching it pointless, which is the part that does not
+		   depend on a browser honouring anything. The drawer is a DOM child of this scroller — that
+		   is what a chained flick found — and a scroller that cannot scroll has nothing to chain to.
+		   Safe here in a way `overflow: hidden` on the body is not: this is an element scroller, so
+		   it keeps its scrollTop, and the reading is exactly where it was when the list folds away.
+		   A phone draws overlay scrollbars, so no gutter appears or disappears with it. */
+		.docs.sidebar-open .docs-scroll {
+			overflow: hidden;
 		}
 		/* The drawer's own scrollbar, kept OFF the two things that overlay it. The box runs the
 		   full height on purpose — under the superbar at the top, under the key's cove at the
@@ -1547,7 +1605,6 @@
 			align-items: center;
 			gap: 0.6rem;
 			padding: 0.15rem 0;
-			pointer-events: auto;
 		}
 		/* The open page's row wears its state on the TILE as well as the ink — the same orange
 		   border the floating key takes when its stack is out. */
