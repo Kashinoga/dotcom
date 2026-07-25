@@ -538,6 +538,17 @@
 		color: var(--dens-ink);
 		font-family: var(--dens-body);
 	}
+	/* On a phone inside the docs shell there IS no gutter — --docs-pad is zero there, so this
+	   paper is padding-less and the sheet covers it. What was left of it showed as a sliver
+	   between the superbar and the sheet's top edge, in the manual's own darker stock against the
+	   shell's lighter one. Take the shell's stock and the sliver stops existing. The fallback
+	   keeps the manual's own paper wherever it is NOT in the shell (the Aeropalite panel), which
+	   is the only place the gutter is still drawn. */
+	@media (max-width: 860px) {
+		.dens {
+			background: var(--sheet-stock, var(--dens-paper));
+		}
+	}
 	/* ONE white sheet of paper — told from the barely-grey gutter by its FILL alone now: no
 	   hairline edge, no print shadow (the docs sheets went the same way). Its inner padding
 	   stays, so the reading keeps its breathing room. The chapters flow down it as a single long

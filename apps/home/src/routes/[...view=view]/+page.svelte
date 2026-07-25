@@ -4295,7 +4295,9 @@
 		   (or dark-stock) leaf on the greyer page — not by a hairline or a lifted edge. Space and
 		   colour mark the sheet; hard lines are retired. Its inner padding stays — the reading
 		   keeps its breathing room; only the outer gutter around the sheet is gone (see .docs-body). */
-		background: light-dark(#ffffff, #202023);
+		/* The shell's own stock (DocsShell publishes --sheet-stock on .docs). The literal stays as
+		   a fallback for a sheet rendered outside the shell, which nothing does today. */
+		background: var(--sheet-stock, light-dark(#ffffff, #202023));
 		border-radius: 2px;
 		padding: clamp(1.25rem, 3vw, 2.25rem);
 	}

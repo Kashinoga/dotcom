@@ -610,6 +610,11 @@
 		   columns' top padding), so a smaller value pulls the whole grid in — the sheets' own inner
 		   padding is untouched, so the reading keeps its breathing room. */
 		--docs-pad: clamp(0.4rem, 0.9vw, 0.8rem);
+		/* The paper's own stock — the white (or dark) leaf every sheet in the shell is cut from:
+		   the docs sheets in +page.svelte, the homepage cover below, and on a phone the shell
+		   itself. Named once here because the phone makes them the SAME surface, and two files
+		   restating one colour is how they drift apart. */
+		--sheet-stock: light-dark(#ffffff, #202023);
 		display: flex;
 		flex-direction: column;
 		/* The shell OWNS the viewport and its scrolling (see .docs-scroll): fixed height,
@@ -1050,7 +1055,7 @@
 		   card now — no hairline, no print shadow. Space and colour, not a drawn edge. The inner
 		   padding stays; only the outer gutter around the sheet is gone (see .docs-body). */
 		max-width: calc(65ch + 2 * clamp(1.25rem, 3vw, 2.25rem));
-		background: light-dark(#ffffff, #202023);
+		background: var(--sheet-stock);
 		border-radius: 2px;
 		padding: clamp(1.25rem, 3vw, 2.25rem);
 	}
@@ -1247,6 +1252,25 @@
 		   floating contents key's safe area, not page furniture. */
 		.docs {
 			--docs-pad: 0px;
+			/* …and the shell is the same stock as the paper on it. With the gutter gone the sheet
+			   already runs edge to edge, so the only thing --page still coloured was whatever the
+			   sheet did not reach: the strip behind the superbar, and the run below a short page —
+			   on the Work page that was a near-black slab about a third of the screen tall, with
+			   the floating key sitting on it. A phone has one surface, not a leaf on a table. The
+			   sheet keeps its own fill, so nothing here depends on the two staying in step; they
+			   simply read as one sheet when they agree. */
+			background: var(--sheet-stock);
+		}
+		/* The bar goes with it. It is opaque --page at rest and a 78% frost once the page scrolls
+		   under it; against the sheet that read as a darker band capping the screen — the same
+		   mismatch as the slab below, just smaller and at the top. Same stock, same frost recipe,
+		   so the bar still tells itself from the reading by its blur when there is something to
+		   blur, and by nothing at all when there is not. */
+		.docs-superbar {
+			background: var(--sheet-stock);
+		}
+		.docs-superbar.scrolled {
+			background: color-mix(in srgb, var(--sheet-stock) 78%, transparent);
 		}
 		.docs-cols {
 			grid-template-columns: 1fr;
