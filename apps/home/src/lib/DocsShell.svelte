@@ -503,6 +503,11 @@
 			transition:sbReveal={{ duration: 180 }}
 			onclick={() => (sidebarOpen = false)}
 		></button>
+		<!-- The key's own safe area, as a frosted band ABOVE the drawer. The list runs UNDER it,
+		     so a row scrolling out passes into the blur instead of vanishing at a hard edge, and
+		     the key keeps a piece of ground that is unmistakably its own. Inert — every tap in
+		     this band belongs to the key sitting on it. -->
+		<div class="docs-fab-cove" aria-hidden="true" transition:sbReveal={{ duration: 180 }}></div>
 	{/if}
 	<button
 		type="button"
@@ -928,6 +933,10 @@
 	.docs-mark {
 		display: none;
 	}
+	/* The key and its cove are phone-only, like the drawer they belong to. */
+	.docs-fab-cove {
+		display: none;
+	}
 	.docs-num {
 		font-family: var(--font-pixel);
 		font-size: 1.15em;
@@ -1235,17 +1244,27 @@
 		display: none;
 		position: fixed;
 		inset: 0;
-		z-index: 17;
+		/* The stack from the page up: scrim, drawer, the key's cove, the key itself. */
+		z-index: 16;
 		padding: 0;
 		/* A real DIM in both schemes — a black wash, NOT --ink: --ink is light on a dark page, so
-		   mixing it in lightened the backdrop instead of dimming it. Light mode wants only a faint
-		   veil; dark mode a firmer one to read as a dim over an already-dark page. */
-		background: rgba(0, 0, 0, 0.08);
+		   mixing it in lightened the backdrop instead of dimming it.
+		   The FROST does most of the work, not the wash. A wash only darkens the page's prose and
+		   keeps every letterform intact, so the eye still finds lines to read behind the list; a
+		   blur takes the shapes away and leaves tone, which is what a backdrop should be. So the
+		   blur is deep — well past the site's 8px chrome frost, because this is hiding a page
+		   rather than tinting a bar — and the dim is only what is needed to seat the rows on it:
+		   enough to keep the tiles' own faces distinct from the blur behind them, no more. */
+		background: rgba(0, 0, 0, 0.18);
+		-webkit-backdrop-filter: blur(18px);
+		backdrop-filter: blur(18px);
 		border: 0;
 		cursor: default;
 	}
 	:global(html.scheme-dark) .docs-scrim {
-		background: rgba(0, 0, 0, 0.55);
+		/* Dark mode still wants more wash than light: blurring a dark page leaves a dark field
+		   either way, and without some depth the frosted tiles have nothing to sit against. */
+		background: rgba(0, 0, 0, 0.45);
 	}
 
 	@media (max-width: 860px) {
@@ -1338,70 +1357,113 @@
 		.docs-scrim {
 			display: block;
 		}
-		/* The site tree opens as a RECEIPT printing out of the superbar: a fixed paper sheet
-		   flush under the bar — NO top border and square top corners, so the bar's own bottom
-		   hairline reads as the slot it feeds from — visible at any scroll depth. Below the
-		   bar in the stack (18 vs 20), so the motion happens BEHIND it: closed, the sheet is
-		   translated fully above the viewport; opening slides it down out of the frost,
-		   closing feeds it back up. Transform + visibility, not display — display can't
-		   transition, and the sheet must stay laid out to slide both ways. */
+		/* The site tree RISES FROM ITS KEY, the way every other flyout on a phone does. It used
+		   to print out of the superbar like a receipt from a till — a lovely idea while the key
+		   that opened it lived up in that bar, and an odd one now the key is a floating disc at
+		   the bottom-left: you pressed something by your thumb and an answer appeared at the far
+		   end of the screen. Anchored to the key instead, the list opens where the hand is.
+		   And it carries NO SURFACE of its own. The rows are already tiles on the key's own
+		   frosted material; a sheet behind them was a second card holding a set of cards. What
+		   separates the list from the reading is the SCRIM — see .docs-scrim, dimmed harder now
+		   that it does the whole job — and the tiles' own faces. Transform + visibility, not
+		   display: display cannot transition, and the list must stay laid out to move both ways. */
 		.docs-sidebar {
 			display: block;
 			position: fixed;
-			top: var(--superbar-h);
-			/* Line up with the SHEET underneath: inset by --docs-pad each side (the content
-			   gutter the sheet sits in — zero on a phone, so both run to the viewport's edges),
-			   so the receipt's edges match the page's sheet rather than capping at a narrow 300px
-			   column. The sheet lives inside the scroller, whose scrollbar gutter (--scrollbar-w,
-			   measured) narrows its content — subtract it so the fixed receipt, sized off 100vw,
-			   doesn't overrun the sheet's right edge. */
-			left: var(--docs-pad);
-			z-index: 18;
+			top: auto;
+			/* The BOX spans the screen; the INSET is padding. The rows still line up with the key
+			   they grow from — same 1.25rem, so the tiles sit over the disc rather than beside it
+			   — but the scrolling box itself reaches both edges, which is where a scrollbar
+			   belongs. Inset as a box, its bar rode 1.25rem in from the screen edge and hung in
+			   open space with nothing to belong to; against the edge it reads as the browser's
+			   own, which on a short viewport is the only time it appears at all. */
+			left: 0;
+			/* All the way to the floor. The list used to stop above the key; now it runs BEHIND
+			   the key's frosted cove (see .docs-fab-cove) and the last rows scroll into the blur.
+			   The padding below keeps them reachable — a row can always rise clear of the cove. */
+			bottom: 0;
+			z-index: 17;
 			height: auto;
-			width: calc(100vw - 2 * var(--docs-pad) - var(--scrollbar-w, 0px));
-			max-height: calc(100vh - var(--superbar-h) - 5rem);
-			max-height: calc(100dvh - var(--superbar-h) - 5rem);
+			width: calc(100vw - var(--scrollbar-w, 0px));
+			/* The inset the box gave up, restored as padding so the rows do not move. The right
+			   side keeps it too, so a long place name never runs under the scrollbar. */
+			/* The bar's height as padding, so at rest the first row sits just below it and has
+			   somewhere to go when the list scrolls. Below, the key's whole zone, so the last row
+			   can always rise clear of the cove. */
+			padding: calc(var(--superbar-h) + 0.5rem) 1.25rem calc(1.25rem + 40px + 1.25rem);
+			/* The full screen. The drawer used to stop below the superbar, which put a hard top
+			   edge — and a fade over it — in the middle of nothing: a list that ended in mid-air
+			   a few pixels under the bar. It now runs the whole height and scrolls UNDER the bar,
+			   the way the page's own content does; the bar is opaque at rest and frosted once
+			   there is something behind it, so it hides what passes beneath either way. The tree
+			   is fourteen rows today and grows with the register, so past that it scrolls. */
+			max-height: 100vh;
+			max-height: 100dvh;
 			overflow-y: auto;
-			/* Roomier inside than the desktop rail's tight --docs-pad gutter: the receipt is a menu
-			   you TAP, so it wants air between its edges and its rows. Independent of --docs-pad
-			   (which stayed tight for the desktop columns). */
-			padding: clamp(1rem, 5vw, 1.5rem);
-			/* The paper's stock, like everything else at this width. It was --page, which since the
-			   shell took the sheet's stock left the receipt DARKER than the page it hangs over —
-			   an overlay reading as a hole. The scrim behind it and its own shadow are what tell
-			   it from the reading; it does not need a second colour to do it. */
-			background: var(--sheet-stock);
-			border: 1px solid var(--pixel-hairline);
-			border-top: 0;
-			border-radius: 0 0 4px 4px;
-			/* A drop shadow below, AND a soft TOP INSET shadow: with no top border (the receipt
-			   feeds flush from under the bar), the bar and the flyout read as one light plane.
-			   The inset shades the flyout's top edge as if the bar casts onto it, telling the two
-			   apart. Negative spread keeps it to the top lip, off the sides and bottom. */
-			box-shadow:
-				0 8px 22px color-mix(in srgb, var(--ink) 10%, transparent),
-				inset 0 8px 13px -9px color-mix(in srgb, var(--ink) 15%, transparent);
-			/* Parked above the viewport entirely (own height + the bar's), not just behind the
-			   bar: the scrolled bar is translucent frost, and a sheet parked behind it would
-			   show through. */
-			transform: translateY(calc(-100% - var(--superbar-h)));
+			/* Contain overscroll — flicking the list never chains to the page behind it. */
+			overscroll-behavior: contain;
+			/* No mask. It was here to soften a top edge that no longer exists — the list runs
+			   under the bar now, and the bar is the edge. */
+			background: none;
+			border: 0;
+			box-shadow: none;
+			/* The BOX catches nothing; its rows catch everything. Now that the drawer spans the
+			   screen, a solid box would have swallowed every tap meant for the scrim behind it —
+			   "tap anywhere else to dismiss" would have died the moment the list stopped being a
+			   small card, and silently. The rows take pointer events back, so a touch that starts
+			   on one still scrolls the list; a touch in the gaps falls through and closes it. */
+			pointer-events: none;
+			/* A DRAWER, not a puff. Parked fully below the screen — its own height plus the gap it
+			   keeps above the key — and slid up into place, with no fade at all: a thing that
+			   fades in has no location, while a thing that slides has come FROM somewhere, and
+			   this one comes from under the key you pressed. It travels behind the key (18 vs
+			   19), so the key stays put while the list runs out from beneath it.
+			   The park distance restates the `bottom` above; keep the two in step. */
+			transform: translateY(100%);
 			visibility: hidden;
 			/* Exit: the slide plays first, visibility cuts only after it lands. */
 			transition:
-				transform 0.28s ease,
-				visibility 0s linear 0.28s;
+				transform 0.34s cubic-bezier(0.4, 0, 0.2, 1),
+				visibility 0s linear 0.34s;
 		}
 		.docs.sidebar-open .docs-sidebar {
 			transform: translateY(0);
 			visibility: visible;
-			/* Enter: visible at once, then the feed-out plays. */
-			transition: transform 0.28s ease;
+			/* Enter: visible at once, then the drawer runs out — a touch springy at the end, the
+			   same landing the ranger's stack makes. */
+			transition: transform 0.34s cubic-bezier(0.2, 0.8, 0.2, 1);
 		}
 		@media (prefers-reduced-motion: reduce) {
 			.docs-sidebar,
 			.docs.sidebar-open .docs-sidebar {
 				transition: none;
 			}
+		}
+		/* The key's safe area: the band it sits in, frosted like everything else at this width,
+		   laid OVER the drawer. Same wash and blur as the scrim, so the two read as one backdrop
+		   with the key resting on it — and because it sits above the list, a row scrolling out of
+		   the drawer dissolves into the blur rather than being clipped. Height is the key's own
+		   zone: its 1.25rem inset, its 40px, and the same inset again as the air above it. */
+		.docs-fab-cove {
+			display: block;
+			position: fixed;
+			left: 0;
+			bottom: 0;
+			z-index: 18;
+			/* The key's own ground, and nothing more: 40px of key with the SAME 1.25rem on every
+			   side of it — the inset the key already keeps from the screen, and the one the
+			   receipt's tiles keep too. As a full-width band its right side ran the whole screen
+			   while its other three sides were 20px, so the single measure that was meant to be
+			   shared was the only one that varied. */
+			width: calc(1.25rem + 40px + 1.25rem);
+			height: calc(1.25rem + 40px + 1.25rem);
+			background: rgba(0, 0, 0, 0.18);
+			-webkit-backdrop-filter: blur(18px);
+			backdrop-filter: blur(18px);
+			pointer-events: none;
+		}
+		:global(html.scheme-dark) .docs-fab-cove {
+			background: rgba(0, 0, 0, 0.45);
 		}
 		/* ── The receipt's rows, as KEYS ────────────────────────────────────────────────
 		   On a phone every row becomes what the floating key's stack already is: a mark on a
@@ -1422,8 +1484,12 @@
 			place-items: center;
 			flex: none;
 			box-sizing: border-box;
-			width: 32px;
-			height: 32px;
+			/* The CALLING key's size, to the pixel: 40px, with its 1.35rem glyph. The list is the
+			   key's own contents spread out — a row is the same object you pressed to get here,
+			   so it should not be a size smaller. It is also the touch target these rows always
+			   wanted; 32px was the tidy-column instinct, not the thumb's. */
+			width: 40px;
+			height: 40px;
 			color: inherit;
 			background: color-mix(in srgb, var(--page) 78%, transparent);
 			border: 1px solid var(--pixel-key-border, rgba(0, 0, 0, 0.4));
@@ -1431,8 +1497,8 @@
 		}
 		.docs-mark :global(svg) {
 			display: block;
-			width: 1.05rem;
-			height: 1.05rem;
+			width: 1.35rem;
+			height: 1.35rem;
 		}
 		/* Both row kinds become the same shape: tile, gap, name — centred on the tile rather
 		   than on a text baseline, which is what the leaf used before it had one. */
@@ -1442,6 +1508,7 @@
 			align-items: center;
 			gap: 0.6rem;
 			padding: 0.15rem 0;
+			pointer-events: auto;
 		}
 		/* The open page's row wears its state on the TILE as well as the ink — the same orange
 		   border the floating key takes when its stack is out. */
@@ -1458,14 +1525,35 @@
 		}
 		/* The rows breathe more in the touch flyout than in the dense desktop rail — bigger gaps
 		   between sections, heads and leaves, so each is a comfortable tap target. */
-		.docs-sec {
-			margin-bottom: 1.35rem;
+		/* Tighter than they were (1.35rem / 0.7rem / 0.4rem). Those gaps were sized for rows that
+		   were text alone, where air is the only thing separating one tap target from the next;
+		   now every row is a 40px tile with its own edge, and the tile does that work. The saving
+		   is what keeps the whole tree on one screen at the key's size — fourteen rows at 40px
+		   overflowed by a hair, and a list that scrolls by 26px reads as a bug rather than a
+		   scroller. It still scrolls when it must: a shorter phone, or more places in the
+		   register. */
+		/* ONE gap between every row, whatever its rank. The desktop rail spaces by hierarchy —
+		   a wide gap between sections, a closer one under a head, closer still between leaves —
+		   because there the tree is read as an outline. Here it is a column of keys you tap, and
+		   an uneven rhythm made the columns of tiles look mis-set: Work to Apps opened wider than
+		   Apps to Air Traffic, so the tiles read as clumps rather than one list. Rank is already
+		   said twice over — by the voice and by the indent.
+		   Stated so that MARGIN COLLAPSING lands on the same number everywhere: each row carries
+		   the gap on its TOP only, and the two container margins match it, so head-to-leaf,
+		   leaf-to-leaf and section-to-section all resolve to exactly this. */
+		.docs-sec,
+		/* Home has no children, and the desktop rail zeroes its gaps for that reason — a lone
+		   line needs no group air under it. Here it is just another key, and zeroing left the one
+		   seam in the column that did not match: Home sat flush against About. */
+		.docs-sec.no-kids,
+		.docs-sec.no-kids .docs-sec-head {
+			margin-bottom: 0.5rem;
 		}
 		.docs-sec-head {
-			margin-bottom: 0.7rem;
+			margin-bottom: 0.5rem;
 		}
 		.docs-toc ul li {
-			margin: 0.4rem 0;
+			margin: 0.5rem 0 0;
 		}
 		/* Both margins fold away — the content column takes the whole width. */
 		.docs-rail {
