@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy, tick, type Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
-	import { HUB, children, airports, parentOf } from '$lib/places';
+	import { HUB, children, airports, parentOf, PORT_ICONS } from '$lib/places';
 	import { viewPath, type View } from '$lib/views';
 	import { emojiSearch } from '$lib/emoji-search.svelte';
 	import { SEARCH_SVG } from '$lib/icons';
@@ -529,7 +529,10 @@
 									class:active={activeCode === code || (code === HUB && activeCode === null)}
 									href={viewPath({ kind: 'port', code })}
 									onclick={(e) => nav(e, code)}
-									><span class="docs-num">{i + 1}.</span> {airports[code].title}</a
+									><span class="docs-num">{i + 1}.</span><span class="docs-mark" aria-hidden="true"
+										>{@html PORT_ICONS[code] ?? ''}</span
+									>
+									{airports[code].title}</a
 								>
 								{#if kids.length}
 									<ul>
@@ -541,7 +544,10 @@
 													href={viewPath({ kind: 'port', code: kid })}
 													onclick={(e) => nav(e, kid)}
 												>
-													<span class="docs-bullet" aria-hidden="true"></span>{airports[kid].title}
+													<span class="docs-bullet" aria-hidden="true"></span><span
+														class="docs-mark"
+														aria-hidden="true">{@html PORT_ICONS[kid] ?? ''}</span
+													>{airports[kid].title}
 												</a>
 											</li>
 										{/each}
@@ -916,6 +922,12 @@
 	}
 	/* The pixel accent for numerals — TOC section numbers, cover numbers. Bumped ~15% to match
 	   the optical size of the mono around it. */
+	/* The row marks are for the PHONE's receipt only (see the media block, where they become
+	   tiles). The desktop rail is a numbered table of contents — a column of icons beside it
+	   would say the same thing twice and cost the tree its typographic hierarchy. */
+	.docs-mark {
+		display: none;
+	}
 	.docs-num {
 		font-family: var(--font-pixel);
 		font-size: 1.15em;
@@ -1354,7 +1366,11 @@
 			   you TAP, so it wants air between its edges and its rows. Independent of --docs-pad
 			   (which stayed tight for the desktop columns). */
 			padding: clamp(1rem, 5vw, 1.5rem);
-			background: var(--page);
+			/* The paper's stock, like everything else at this width. It was --page, which since the
+			   shell took the sheet's stock left the receipt DARKER than the page it hangs over —
+			   an overlay reading as a hole. The scrim behind it and its own shadow are what tell
+			   it from the reading; it does not need a second colour to do it. */
+			background: var(--sheet-stock);
 			border: 1px solid var(--pixel-hairline);
 			border-top: 0;
 			border-radius: 0 0 4px 4px;
@@ -1386,6 +1402,59 @@
 			.docs.sidebar-open .docs-sidebar {
 				transition: none;
 			}
+		}
+		/* ── The receipt's rows, as KEYS ────────────────────────────────────────────────
+		   On a phone every row becomes what the floating key's stack already is: a mark on a
+		   frosted tile with its name beside it. The tree is a list of PLACES here, not an
+		   outline of a document — you are picking where to go, with a thumb — and a place is
+		   known by its mark everywhere else on the site (its app card, its Related chip, the
+		   contents key itself wears the open page's). The number and the bullet, which are the
+		   desktop rail's way of showing rank, come off: the tile carries the row now, and rank
+		   is left to the voice (body for a section, mono for a leaf) and the indent.
+		   The tiles are the KEY's material exactly — same 78% frost, same border token, same
+		   4px radius — so the receipt and the key that opens it read as one set of controls. */
+		.docs-num,
+		.docs-bullet {
+			display: none;
+		}
+		.docs-mark {
+			display: grid;
+			place-items: center;
+			flex: none;
+			box-sizing: border-box;
+			width: 32px;
+			height: 32px;
+			color: inherit;
+			background: color-mix(in srgb, var(--page) 78%, transparent);
+			border: 1px solid var(--pixel-key-border, rgba(0, 0, 0, 0.4));
+			border-radius: 4px;
+		}
+		.docs-mark :global(svg) {
+			display: block;
+			width: 1.05rem;
+			height: 1.05rem;
+		}
+		/* Both row kinds become the same shape: tile, gap, name — centred on the tile rather
+		   than on a text baseline, which is what the leaf used before it had one. */
+		.docs-sec-head,
+		.docs-leaf {
+			display: flex;
+			align-items: center;
+			gap: 0.6rem;
+			padding: 0.15rem 0;
+		}
+		/* The open page's row wears its state on the TILE as well as the ink — the same orange
+		   border the floating key takes when its stack is out. */
+		.docs-sec-head.active .docs-mark,
+		.docs-leaf.active .docs-mark {
+			color: var(--orange);
+			border-color: var(--orange);
+		}
+		/* The leaves' step-in shrinks: with a 32px tile leading every row, the desktop rail's
+		   1.1rem indent pushed the children's tiles out of line with nothing above them. Half of
+		   it still reads as "under", and the tiles stay in one column down the receipt. */
+		.docs-toc ul {
+			padding-left: 0.55rem;
 		}
 		/* The rows breathe more in the touch flyout than in the dense desktop rail — bigger gaps
 		   between sections, heads and leaves, so each is a comfortable tap target. */
