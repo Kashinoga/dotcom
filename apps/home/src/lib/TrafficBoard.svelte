@@ -4,7 +4,15 @@
 	import { flip } from 'svelte/animate';
 	import { cubicOut } from 'svelte/easing';
 	import SplitFlap from '$lib/SplitFlap.svelte';
-	import { EXTERNAL_SVG, REFRESH_SVG, MAXIMIZE_SVG, MINIMIZE_SVG, HOME_SVG } from '$lib/icons';
+	import {
+		EXTERNAL_SVG,
+		REFRESH_SVG,
+		MAXIMIZE_SVG,
+		MINIMIZE_SVG,
+		HOME_SVG,
+		AIRPLANE_SVG
+	} from '$lib/icons';
+	import FloatingKey from '$lib/FloatingKey.svelte';
 	import { AIRPORTS, DEFAULT_FIELD, fieldByIata, type Airport } from '$lib/fields';
 	import { RANGES, DEFAULT_RANGE, INTERVALS, DEFAULT_POLL_MS } from '$lib/scope';
 
@@ -1376,6 +1384,9 @@
 	// at the seam, and matchMedia flips it without a resize listener.
 	let narrowMq: MediaQueryList | undefined;
 	let narrow = $state(false);
+	// The phone's floating controls key (see FloatingKey at the end of the markup). Its own
+	// state, not the page's: nothing outside this board opens or closes it.
+	let keyOpen = $state(false);
 	const onNarrow = (e: MediaQueryListEvent) => {
 		narrow = e.matches;
 		if (narrow) headCollapsed = false; // crossing to mobile unfolds the header
@@ -1549,6 +1560,23 @@
 	style:--accent={accent}
 	style:--bar-h="{barH}px"
 >
+	{#snippet boardKeys()}
+		<!-- Home — the full-viewport board's one way out, the same close idiom the wide deck's right
+	     cluster uses. -->
+		<button
+			type="button"
+			class="icon-btn"
+			aria-label="Close and go home"
+			title="Home"
+			onclick={() => {
+				keyOpen = false;
+				onhome?.();
+			}}
+		>
+			{@html HOME_SVG}
+		</button>
+	{/snippet}
+
 	<!-- csb / csb-on: the shared collapsed-super-bar recipe (puhig base.css) — this board
 	     is where it grew; the root's head-collapsed stays for local seasoning (the corner
 	     pin below). -->
@@ -1651,24 +1679,15 @@
 				     the only place ATFC names itself. No scroll-reveal: it's always here. -->
 				<span class="head-title">{title}</span>
 			</div>
-			<!-- Top-right corner: the live refresh control, then Home. The Back cap is gone from
-			     this superbar (it was the sheet's down-arrow), so — like the wide deck's own right
-			     cluster, and the Emoji shell's KASHINOGA wordmark — Home is the mobile board's way
-			     out: straight to the homepage, the full-viewport panel's close idiom. It stays put
-			     inside the header while the body scrolls. -->
+			<!-- Top-right corner: the live refresh control, then the expand toggle. Home has LEFT
+			     this bar for the floating key at the bottom-left (see FloatingKey below) — a way
+			     out is a reach you make once, and it was taking a slot in a strip barely wider
+			     than the board's name. The refresh stays, because it is not a button so much as a
+			     readout: its ring counts down to the next poll, and a control you watch cannot
+			     live inside a menu you have to open. It stays put inside the header while the body
+			     scrolls. -->
 			<div class="corner corner-compact" style="--bn:2">
 				{@render manualButton()}
-				{#if onhome}
-					<button
-						type="button"
-						class="icon-btn nav-edge"
-						onclick={onhome}
-						aria-label="Close and go home"
-						title="Home"
-					>
-						{@html HOME_SVG}
-					</button>
-				{/if}
 				{#if onToggleExpand}
 					<button
 						type="button"
@@ -2045,6 +2064,22 @@
 			{/if}
 		</p>
 	</div>
+
+	<!-- The board's floating controls key — phone only. Home used to cap the mobile superbar,
+	     which is a slim strip barely wider than the board's name; a way out is a reach you make
+	     once, so it moved down here to the corner every other floating key on the site uses (the
+	     docs shell's contents key, the ranger's controls). The key wears the board's own mark, so
+	     it doubles as a "you are here" badge.
+	     Only rendered on the narrow layout: on a wide deck Home still sits in the bar's right
+	     cluster, where there is room for it. -->
+	{#if narrow && onhome}
+		<FloatingKey
+			bind:open={keyOpen}
+			icon={AIRPLANE_SVG}
+			label="Board controls"
+			buttons={boardKeys}
+		/>
+	{/if}
 </div>
 
 <style>
