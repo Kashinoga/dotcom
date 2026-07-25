@@ -1,5 +1,10 @@
 <script lang="ts">
 	import '@kashinoga/puhig/tokens.css';
+	// The control family's own sheet — the hover pop, the press squash, the Bubble style. Plain
+	// CSS rather than a component's <style>, because every rule in it was already :global(): it
+	// dresses controls that live in a dozen different components. Loaded here, after the tokens
+	// it reads and before any component style.
+	import '$lib/styles/controls.css';
 	import { installTapPress } from '$lib/press';
 
 	let { children } = $props();

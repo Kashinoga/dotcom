@@ -1,0 +1,457 @@
+/* ══ Control interaction ═══════════════════════════════════════════════════════════════
+   The universal hover pop and press squash, the Bubble button style, and the clear pills of
+   light mode — every rule that dresses a CONTROL, wherever it lives.
+
+   This was 440 lines inside +page.svelte's <style>, and every selector in it was already
+   :global(): they name controls the page long ago stopped owning — .wx-add is Weather's,
+   .pud-* the Park Ranger's, .chip the sky console's since it moved to $lib/SkyConsole. Nothing
+   about them was ever scoped to the page; the page was just where they happened to be typed.
+
+   As plain CSS the :global() wrappers come off, because a stylesheet is global by nature. That
+   is the whole transformation — same selectors, same declarations, same order.
+
+   It loads from +layout.svelte, after puhig's tokens (which it reads) and before any component
+   style. That ORDER is the one thing to keep in mind when editing: a component rule of equal
+   specificity now wins over these, where a rule in the page's own <style> used to tie and lose.
+   ═════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ══ Universal button interaction ═══════════════════════════════════════════════════
+   Every button in the app springs the same way, in both UI styles: a small pop on hover,
+   a squash + darken on press, on the shared --btn-spring. Amounts live in puhig's tokens
+   so a button's feel is changed in one place, never per component.
+
+   Why `html:root` and not plain `html`: Svelte scopes a component's own rule to
+   `.seg.svelte-hash` (specificity 0,2,0), which would beat `html .seg` (0,1,1) and drop
+   the transform transition on the floor. `:root` is a pseudo-class, so `html:root .seg`
+   reaches (0,2,1) and wins — the same trick `html[data-ui='bubble'] .seg` gets for free
+   from its attribute. Flat has no attribute to key on, hence `:root`.
+
+   Exclusions, deliberate: `.manual` spins on press (its own rotate would fight a scale)
+   and `.refresh` is a countdown ring. Both still darken. */
+html:root .seg,
+html:root .sky-opt,
+html:root .photo-toggle,
+html:root .icon-btn,
+html:root .edit-enter,
+html:root .edit-btn,
+html:root .chip,
+html:root .legend-btn,
+html:root .field,
+html:root .field-select,
+html:root .type-btn,
+html:root .pc-close,
+html:root .manual,
+html:root .tb,
+html:root .mini,
+html:root .swatch-btn,
+html:root .app-card,
+/* The Park Ranger's own controls — Extract, Overclock/pause, the shop's Buy pills, the rig
+   rows and Reset. Its CSS said "the universal spring gives the tap its thock" all along, but
+   the spring is opt-in BY CLASS NAME and these were never listed, so the buttons of the one
+   app that's entirely about clicking had no thock at all.
+   The rig row is `.pud-item-switch`, NOT `.pud-item-main`: an unowned rig has nothing to
+   switch, so its body renders as a <span> that only takes the switch class once the first
+   unit is online. A span is never :disabled, so listing .pud-item-main would have made
+   inert rows pop under the cursor as if they did something. */
+html:root .pud-extract,
+html:root .pud-boost,
+html:root .pud-buy,
+html:root .pud-reset,
+html:root .pud-pauseall,
+html:root .beta,
+html:root .pud-item-switch {
+	transition:
+		transform 0.3s var(--btn-spring),
+		background 0.18s var(--btn-soft),
+		background-color 0.18s var(--btn-soft),
+		border-color 0.18s var(--btn-soft),
+		box-shadow 0.28s var(--btn-soft),
+		opacity 0.18s var(--btn-soft),
+		color 0.15s ease;
+	/* Stay on a compositor layer from FIRST PAINT, in both UI styles. The hover pop is
+	   a transform, and a transform promotes: without the pin, promotion happens at
+	   hover start and the button re-rasterizes mid-interaction — at 100% zoom (dpr
+	   exactly 1) a 1px border or hairline rim sits on a device-pixel boundary and
+	   visibly snaps ("flashes") at hover start and end. Pinning makes the rest and
+	   in-motion renders identical. (This used to live only under the bubble key, on the
+	   theory that Flat had no shadows to snap — but Flat's 1px/1.5px BORDERS snap the
+	   same way.) Small controls, one small layer each; the exception is below. */
+	will-change: transform;
+}
+/* .type-btn is deliberately UNPINNED: it sits in EVERY table row, so the pin put one
+   compositor layer per row inside the board's scroller — and Safari scrolling a
+   layer-per-row table was the jank, far worse than the hover snap the pin bought.
+   The chips take the 100%-zoom flash; the scroll takes the win. */
+html:root .type-btn {
+	will-change: auto;
+}
+/* The 30px header icon circles sit flush at the top of a sticky header inside a clipping
+   scroller. Anchoring their scale to the TOP edge means the pop grows only downward, into
+   the header's padding, so it never crosses the clip boundary. */
+html:root .icon-btn,
+html:root .manual {
+	transform-origin: center top;
+}
+
+/* Press: DARKEN whatever colour the button already is rather than repaint the fill (which
+   turned coloured buttons grey). The black overlay has zero blur — it's a flood tint, a
+   fill, not a bevel — so it darkens a neutral button and the orange primary alike, in both
+   themes, without Flat ever growing a shadow. */
+html:root .seg:active:not(:disabled),
+html:root .sky-opt:active:not(:disabled),
+html:root .photo-toggle:active:not(:disabled),
+html:root .icon-btn:active:not(:disabled),
+html:root .field:active:not(:disabled),
+html:root .field-select:active:not(:disabled),
+html:root .edit-enter:active:not(:disabled),
+html:root .edit-btn:active:not(:disabled),
+html:root .chip:active:not(:disabled),
+html:root .legend-btn:active:not(:disabled),
+html:root .type-btn:active:not(:disabled),
+html:root .pc-close:active:not(:disabled),
+html:root .refresh:active:not(:disabled),
+html:root .manual:active:not(:disabled),
+html:root .tb:active:not(:disabled),
+html:root .mini:active:not(:disabled),
+html:root .swatch-btn:active:not(:disabled),
+html:root .app-card:active:not(:disabled),
+html:root .pud-extract:active:not(:disabled),
+html:root .pud-boost:active:not(:disabled),
+html:root .pud-buy:active:not(:disabled),
+html:root .pud-reset:active:not(:disabled),
+html:root .pud-pauseall:active:not(:disabled),
+html:root .beta:active:not(:disabled),
+html:root .pud-item-switch:active:not(:disabled) {
+	box-shadow: inset 0 0 0 999px rgba(0, 0, 0, 0.07);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+	/* The spring's forward pop is a HOVER gesture — gate it to a hover-capable
+	   pointer so touch never leaves it stuck. A finger scrolling over a card (or
+	   chip) fires a phantom :hover that sticks until the next tap elsewhere; on
+	   mouse the media query passes and nothing changes. The :active press below
+	   stays universal — touch still gets its press feedback. */
+	@media (hover: hover) {
+		html:root .seg:hover:not(:disabled),
+		html:root .sky-opt:hover:not(:disabled),
+		html:root .photo-toggle:hover:not(:disabled),
+		html:root .icon-btn:hover:not(:disabled),
+		html:root .edit-enter:hover:not(:disabled),
+		html:root .edit-btn:hover:not(:disabled),
+		html:root .chip:hover:not(:disabled),
+		html:root .legend-btn:hover:not(:disabled),
+		html:root .field:hover:not(:disabled),
+		html:root .field-select:hover:not(:disabled),
+		html:root .type-btn:hover:not(:disabled),
+		html:root .pc-close:hover:not(:disabled),
+		html:root .manual:hover:not(:disabled),
+		html:root .tb:hover:not(:disabled),
+		html:root .mini:hover:not(:disabled),
+		html:root .swatch-btn:hover:not(:disabled),
+		html:root .app-card:hover:not(:disabled),
+		html:root .pud-extract:hover:not(:disabled),
+		html:root .pud-boost:hover:not(:disabled),
+		html:root .pud-buy:hover:not(:disabled),
+		html:root .pud-reset:hover:not(:disabled),
+		html:root .pud-pauseall:hover:not(:disabled),
+		html:root .beta:hover:not(:disabled),
+		html:root .pud-item-switch:hover:not(:disabled) {
+			transform: scale(var(--btn-hover-scale));
+		}
+	}
+	html:root .seg:active:not(:disabled),
+	html:root .sky-opt:active:not(:disabled),
+	html:root .photo-toggle:active:not(:disabled),
+	html:root .icon-btn:active:not(:disabled),
+	html:root .field:active:not(:disabled),
+	html:root .field-select:active:not(:disabled),
+	html:root .edit-enter:active:not(:disabled),
+	html:root .edit-btn:active:not(:disabled),
+	html:root .chip:active:not(:disabled),
+	html:root .legend-btn:active:not(:disabled),
+	html:root .type-btn:active:not(:disabled),
+	html:root .pc-close:active:not(:disabled),
+	html:root .tb:active:not(:disabled),
+	html:root .mini:active:not(:disabled),
+	html:root .swatch-btn:active:not(:disabled),
+	html:root .app-card:active:not(:disabled),
+	html:root .pud-extract:active:not(:disabled),
+	html:root .pud-boost:active:not(:disabled),
+	html:root .pud-buy:active:not(:disabled),
+	html:root .pud-reset:active:not(:disabled),
+	html:root .pud-pauseall:active:not(:disabled),
+	html:root .beta:active:not(:disabled),
+	html:root .pud-item-switch:active:not(:disabled) {
+		transform: scale(var(--btn-press-scale));
+		transition-duration: 0.1s;
+	}
+	/* The TAP squash. A trackpad tap-to-click releases in under a frame, so :active is gone
+	   before the 0.1s press transition has moved — a tap got no feedback at all while a click
+	   got the full squash. $lib/press holds `.btn-tap` on for a short floor after pointerdown
+	   so the squash always plays; :active keeps it for anything longer.
+	   ONE class, not a copy of the family list: press.ts finds a control by the recipe's own
+	   fingerprint (a transform transition on the spring), so this can't drift out of step with
+	   the four lists above.
+	   Doubled class for weight: the pointer is still OVER the button during a tap, so this has
+	   to outrank the hover pop's 0,4,1 — the repeat matches it and being later wins the tie. */
+	html:root .btn-tap.btn-tap:not(:disabled) {
+		transform: scale(var(--btn-press-scale));
+		transition-duration: 0.1s;
+	}
+}
+/* NOTE: the universal interaction sits ABOVE the Bubble section on purpose. Its press
+   rule and Bubble's press rule have identical specificity (0,4,1), so whichever comes
+   LAST wins the tie. Bubble must win — its press is a sunken gloss, not a flat tint.
+   Move this block below and Bubble silently stops sinking on click. */
+
+/* ── "Bubble" button style (the DEFAULT; Settings → Button style; data-ui="bubble" is
+   shipped on <html> by app.html, stripped only for a saved 'flat') ── Glossy, airy,
+   gel-like buttons across every panel. The look leans on light, not lines: hairline
+   borders, a convex SHEEN riding on top as a background-IMAGE so each button's own
+   background-color still shows through (orange ATFC fields, active segments, …), and
+   depth from stacked inset highlights rather than dark edges. The ATFC Range/Refresh
+   <select>s keep their chevron — we give them depth but never touch their
+   background-image. (It read "kept :global so it reaches the buttons in every panel" while it
+   lived in the page's <style>; in a stylesheet that reach is simply what a selector has.) */
+
+/* The Settings segments and sky chips wear the SAME material as every other bubble
+   control (the chips, the pills, the Apps cards): their base ink-mix fill — the sky
+   reads through it, as it does everywhere else — with the border thinned to the same
+   1px line-edge the rest of the family draws. They used to keep a special paper-72
+   face here, and it was the odd one out once the app settled on the symmetric ink mix.
+   (.sky-opt.on used to keep Flat's solid ink pill past this rule; it wears the seg's
+   selected material now — see the selected rules below.) */
+html[data-ui='bubble'] .seg,
+html[data-ui='bubble'] .sky-opt {
+	border-width: 1px;
+}
+/* The Settings action pill (Enter Edit Mode) joins the family too. Its base look is a
+   solid ink pill — paper text on an ink fill — and the light scheme's clear-pills list
+   below already re-dresses it as glass, but DARK kept the base fill: a stark white
+   button in a column of glass. One rule for both schemes: the family face, ink text,
+   the family hairline. (The ghost variants — Reset, Clear — sit at 0,3,0 scoped and
+   keep their own transparent look past this 0,2,1.) */
+html[data-ui='bubble'] .edit-enter {
+	color: var(--ink);
+	background: var(--aero-face);
+	border-color: var(--line-edge);
+}
+
+/* NO sheen gradient — deliberately. There used to be a white-to-transparent wash here,
+   and on a translucent fill (the ATFC pills over the photo header) it frosted the top
+   half while the bottom half stayed bare glass: the button read as clipped in two, at
+   any stop position, dark or light. The ATFC <select>s never got the wash (their
+   bg-image is the chevron) and always looked right — so every control now gets the
+   select's material: its own uniform fill, with ALL of the gloss carried by the
+   edge-hugging insets in the depth rule below. background-image stays free for the
+   chevron; do not reintroduce a gradient on any of these. */
+
+/* Depth — every bubble control, selects included, all sharing ONE material. A white
+   rim light along the top, a short top glow hugging that rim (the gloss — an inset,
+   never a gradient, so it stays a highlight instead of a half-frost), and a drop
+   that's more air than ink. NOTHING at the bottom, inset or painted: a bottom inset
+   clips short of the border and leaves a bright rim (the "white underline"), and any
+   wash fading across the face reads as the button being clipped. The bottom edge
+   belongs to the hairline border alone. */
+html[data-ui='bubble'] .seg,
+html[data-ui='bubble'] .sky-opt,
+html[data-ui='bubble'] .icon-btn,
+html[data-ui='bubble'] .edit-enter,
+html[data-ui='bubble'] .chip,
+html[data-ui='bubble'] .tb,
+html[data-ui='bubble'] .mini,
+html[data-ui='bubble'] .swatch-btn,
+html[data-ui='bubble'] .field,
+html[data-ui='bubble'] .field-select,
+html[data-ui='bubble'] .manual,
+html[data-ui='bubble'] .app-card,
+html[data-ui='bubble'] .menu-btn {
+	border-radius: 999px;
+	box-shadow: var(--aero-gloss), var(--aero-drop);
+	/* Motion (transition, transform-origin, hover pop, press squash) is NOT set here —
+	   it's the universal button interaction at the bottom of this file, shared by both UI
+	   styles, and the compositor-layer pin (will-change) lives there too now. Bubble only
+	   adds its material: the pill radius and the gloss. */
+}
+/* ── Clear pills all day ── In LIGHT mode the bubble family wears the CLEAR glass the
+   dark scheme gets from its tokens: a barely-there face the sky reads through, a soft
+   hairline, the shared white gloss doing the rim — not paper, not ink. Scoped by the
+   scheme stamp (html.scheme-dark, kept by app.html + an effect), so dark mode keeps
+   its own untouched rules. Selected states keep their existing ink/accent treatments.
+   (.manual is NOT here: it wears a knockout *-circle glyph — see the disc rule.) */
+html[data-ui='bubble']:not(.scheme-dark) .seg:not(.on),
+html[data-ui='bubble']:not(.scheme-dark) .sky-opt:not(.on),
+html[data-ui='bubble']:not(.scheme-dark) .chip:not(.on),
+html[data-ui='bubble']:not(.scheme-dark) .tb,
+html[data-ui='bubble']:not(.scheme-dark) .mini,
+html[data-ui='bubble']:not(.scheme-dark) .swatch-btn,
+html[data-ui='bubble']:not(.scheme-dark) .field:not(.on),
+html[data-ui='bubble']:not(.scheme-dark) .field-select,
+html[data-ui='bubble']:not(.scheme-dark) .app-card,
+html[data-ui='bubble']:not(.scheme-dark) .menu-btn,
+html[data-ui='bubble']:not(.scheme-dark) .edit-enter,
+html[data-ui='bubble']:not(.scheme-dark) .wx-add,
+html[data-ui='bubble']:not(.scheme-dark) .icon-btn,
+html[data-ui='bubble']:not(.scheme-dark) .manual,
+html[data-ui='bubble']:not(.scheme-dark) .cs:not(.open) {
+	background: rgba(255, 255, 255, 0.16);
+	color: var(--ink);
+	border-color: color-mix(in srgb, var(--ink) 16%, transparent);
+}
+/* Bubble flat-scheme hover recolour — fine-pointer only; touch scroll would
+   smear this fill across the cards and controls it slides over. */
+@media (hover: hover) {
+	html[data-ui='bubble']:not(.scheme-dark) .seg:not(.on):hover:not(:disabled),
+	html[data-ui='bubble']:not(.scheme-dark) .sky-opt:not(.on):hover:not(:disabled),
+	html[data-ui='bubble']:not(.scheme-dark) .chip:not(.on):hover:not(:disabled),
+	html[data-ui='bubble']:not(.scheme-dark) .tb:hover:not(:disabled),
+	html[data-ui='bubble']:not(.scheme-dark) .mini:hover:not(:disabled),
+	html[data-ui='bubble']:not(.scheme-dark) .swatch-btn:hover:not(:disabled),
+	html[data-ui='bubble']:not(.scheme-dark) .field:not(.on):hover:not(:disabled),
+	html[data-ui='bubble']:not(.scheme-dark) .field-select:hover:not(:disabled),
+	html[data-ui='bubble']:not(.scheme-dark) .app-card:hover:not(:disabled),
+	html[data-ui='bubble']:not(.scheme-dark) .menu-btn:hover:not(:disabled),
+	html[data-ui='bubble']:not(.scheme-dark) .edit-enter:hover:not(:disabled),
+	html[data-ui='bubble']:not(.scheme-dark) .wx-add:hover:not(:disabled),
+	html[data-ui='bubble']:not(.scheme-dark) .icon-btn:hover:not(:disabled),
+	html[data-ui='bubble']:not(.scheme-dark) .manual:hover:not(:disabled),
+	html[data-ui='bubble']:not(.scheme-dark) .cs:not(.open):hover {
+		background: rgba(255, 255, 255, 0.36);
+		color: var(--ink);
+		border-color: color-mix(in srgb, var(--ink) 24%, transparent);
+	}
+}
+/* Two-line settings segments stay softly rounded rather than full pill. */
+html[data-ui='bubble'] .seg {
+	border-radius: 16px;
+}
+/* The masthead nav springs like the rest of the family — but ONLY in Bubble. In Flat
+   the nav is typographic (plain names, hover by opacity), so it takes none of the
+   universal interaction block; the motion is restated here under the bubble key
+   instead of adding .menu-btn to the shared lists. */
+html[data-ui='bubble'] .menu-btn {
+	transition:
+		transform 0.3s var(--btn-spring),
+		background 0.18s var(--btn-soft),
+		border-color 0.18s var(--btn-soft),
+		box-shadow 0.28s var(--btn-soft),
+		opacity 0.18s var(--btn-soft),
+		color 0.15s ease;
+	/* Pinned like the universal family (the nav isn't in those lists — Flat's nav is
+	   typographic and doesn't spring), so its rim doesn't snap at hover start. */
+	will-change: transform;
+}
+@media (prefers-reduced-motion: no-preference) {
+	html[data-ui='bubble'] .menu-btn:hover {
+		transform: scale(var(--btn-hover-scale));
+	}
+	html[data-ui='bubble'] .menu-btn:active {
+		transform: scale(var(--btn-press-scale));
+		transition-duration: 0.1s;
+	}
+}
+
+/* (The bubble-only pre-promotion lists that lived here folded into the universal
+   interaction block — every springing control is pinned there, in both UI styles,
+   with .type-btn as the one documented exception.) */
+/* The Apps cards join the family: the same material as everything above (fill + hairline,
+   all gloss from the shared edge-hugging insets — no gradient, see the sheen note), at the
+   card's own soft corners rather than the pill. The hover is the FAMILY's — gloss
+   brighten, face firming — with no station accent: that stayed Flat's language. */
+html[data-ui='bubble'] .app-card {
+	/* Only the corners are the card's own — everything else IS the chip material. The
+	   card's ink-mix fill and hairline (base rule above) already flip with the scheme
+	   the way the chips' do, and the chips' bubble reads right on a dark panel as-is:
+	   dark face, contrast from the hairline and the shared rim-light insets. No bespoke
+	   fills here — one material, worn at card size. */
+	border-radius: 14px;
+}
+
+/* Selected: the Settings GRAY FILL (the segs' denser var(--line) face), one voice for
+   every selected control. It used to be light — the aero-lit ring/halo stack — but the
+   ring read as barely-on next to an unselected sibling; the denser face tells the two
+   apart at a glance, so the lit stack is retired (the token survives in puhig, unworn).
+   The ink border .seg.on carries in Flat still reads as a hard black frame here, so
+   Bubble keeps the softer 22% hairline over it. (.field.on takes none of this: its
+   accent fill was always its own saying.)
+   (0,3,1 — beats the scoped base rules at 0,3,0.) */
+html[data-ui='bubble'] .seg.on,
+html[data-ui='bubble'] .sky-opt.on,
+html[data-ui='bubble'] .sky-chip.on {
+	color: var(--ink);
+	background: var(--line);
+	border-color: color-mix(in srgb, var(--ink) 22%, transparent);
+}
+
+/* Hover: brighten the gloss and lift the drop so the button reads as inflating toward
+   you; the scale-forward (motion) is gated on reduced-motion below. Hover-capable
+   pointers only — on touch this gloss would cling to whatever a scroll drags over. */
+@media (hover: hover) {
+	html[data-ui='bubble'] .seg:hover:not(:disabled),
+	html[data-ui='bubble'] .sky-opt:hover:not(:disabled),
+	html[data-ui='bubble'] .icon-btn:hover:not(:disabled),
+	html[data-ui='bubble'] .edit-enter:hover:not(:disabled),
+	html[data-ui='bubble'] .chip:hover:not(:disabled),
+	html[data-ui='bubble'] .tb:hover:not(:disabled),
+	html[data-ui='bubble'] .mini:hover:not(:disabled),
+	html[data-ui='bubble'] .swatch-btn:hover:not(:disabled),
+	html[data-ui='bubble'] .field:hover:not(:disabled),
+	html[data-ui='bubble'] .field-select:hover:not(:disabled),
+	html[data-ui='bubble'] .manual:hover:not(:disabled),
+	html[data-ui='bubble'] .app-card:hover:not(:disabled),
+	html[data-ui='bubble'] .menu-btn:hover:not(:disabled) {
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.8),
+			inset 0 7px 10px -8px rgba(255, 255, 255, 0.7),
+			0 2px 5px rgba(8, 10, 14, 0.07),
+			0 9px 22px rgba(8, 10, 14, 0.1);
+	}
+}
+/* (A selected control used to restate a lit-hover stack here so the plain hover rule
+   wouldn't strip its halo — retired with the halo itself: selected is a GRAY FILL now
+   (see the selected rules above), which hover's box-shadow never touches. Structurally
+   that also un-snapped hovering an .on control: the 6-shadow lit stack couldn't
+   interpolate with the 4-shadow resting one — mismatched inset order — so the shadow
+   popped instead of riding the 0.28s transition.) */
+/* Pressed: sink the gloss inward for a tactile squash. */
+html[data-ui='bubble'] .seg:active:not(:disabled),
+html[data-ui='bubble'] .sky-opt:active:not(:disabled),
+html[data-ui='bubble'] .icon-btn:active:not(:disabled),
+html[data-ui='bubble'] .edit-enter:active:not(:disabled),
+html[data-ui='bubble'] .chip:active:not(:disabled),
+html[data-ui='bubble'] .tb:active:not(:disabled),
+html[data-ui='bubble'] .mini:active:not(:disabled),
+html[data-ui='bubble'] .swatch-btn:active:not(:disabled),
+html[data-ui='bubble'] .field:active:not(:disabled),
+html[data-ui='bubble'] .field-select:active:not(:disabled),
+html[data-ui='bubble'] .manual:active:not(:disabled),
+html[data-ui='bubble'] .app-card:active:not(:disabled),
+html[data-ui='bubble'] .menu-btn:active:not(:disabled) {
+	/* Sunken, but still glass: a top inner shade for the dip and a lighter flood than
+	   before — the old 0.2/0.08 pairing went ink-dark and broke the airiness right at
+	   the most tactile moment. No bottom rim light here either: same white-underline
+	   clipping artifact as at rest. */
+	box-shadow:
+		inset 0 2px 4px rgba(8, 10, 14, 0.14),
+		inset 0 0 0 999px rgba(8, 10, 14, 0.05);
+}
+/* Hover pop and press squash used to be duplicated here at 1.05 / 0.94. They now come from
+   the universal interaction block, so Bubble and Flat move identically and only differ in
+   material. */
+
+/* The one-time disc-glyph gloss overlays are gone: the discs are family PILLS now
+   (face on the button, plain glyph on top — see base.css .icon-btn), so the depth
+   rule's own insets reach them like every other control. The search div still needs
+   the airy drops the depth rule gives buttons. */
+html[data-ui='bubble'] .cs:not(.open) {
+	box-shadow: var(--aero-gloss), var(--aero-drop);
+}
+/* OPEN, the field joins the family too: the chips' ink-mix face and 1px line-edge in
+   place of its bare glass + drawn outline (Flat keeps that look), with the depth
+   rule's full set carried directly — no ::after needed here, the face is a plain
+   background, not svg content like the disc's glyph. */
+html[data-ui='bubble'] .cs.open {
+	background: var(--aero-face);
+	border-color: var(--line-edge);
+	box-shadow: var(--aero-gloss), var(--aero-drop);
+}
