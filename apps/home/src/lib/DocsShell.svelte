@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy, tick, type Snippet } from 'svelte';
+	import { onMount, onDestroy, tick, untrack, type Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { HUB, children, airports, parentOf, PORT_ICONS } from '$lib/places';
 	import { viewPath, type View } from '$lib/views';
@@ -111,6 +111,83 @@
 			css: (t: number, u: number) => `opacity: ${t}; transform: translateY(${10 * u}px);`
 		};
 	}
+
+	// The separator's own fade. Out on a DELAY, so the word leaves and the "/" follows it rather
+	// than the two going together; in with none, so it leads on the way back. Wrapped rather than
+	// used inline because svelte/transition's fade knows nothing about reduced motion, and under
+	// `reduce` a 240ms tail on the separator kept a crumb mounted long after the trail had landed.
+	const sepIn = (node: Element) => fade(node, { duration: stillMotion() ? 0 : 120 });
+	const sepOut = (node: Element) =>
+		fade(node, stillMotion() ? { duration: 0 } : { duration: 120, delay: 120 });
+
+	// ── The trail changes ONE THING AT A TIME ──────────────────────────────────────
+	// A swap at a slot reads well because both faces are stacked in the same place: nothing moves
+	// sideways, so the eye has one thing to follow. A change of DEPTH did not, because the trail
+	// did everything at once — going APPS / WEATHER → SETTINGS, the first slot started widening
+	// to hold SETTINGS at the very instant WEATHER began sliding out, so WEATHER was shoved to the
+	// right while it fell. Two motions at right angles on the same object, and the width they
+	// argue over is the whole trail's, which is why it only showed when the depths differed.
+	// The answer is to REFUSE the simultaneity rather than to smooth it: the rendered trail lags
+	// the real one and walks to it a step at a time, innermost crumb first —
+	//   APPS / WEATHER  →  APPS  →  SETTINGS
+	// — so each beat is a single event with nothing else in flight, and by the time the surviving
+	// slot changes width there is nothing to its right left to push. Every step is a plain mount
+	// or unmount, so the existing face motion does the work unaltered: the beat that "looks great"
+	// today is the beat this now plays three times instead of once.
+	// Deepening runs the same machine backwards (swap first, then the new crumb arrives), because
+	// the steps are derived from the difference, not from a direction.
+	const CRUMB_SHRINK = 240; // a crumb leaves: it slides out, then its "/" fades after it
+	const CRUMB_SWAP = 220; // a slot's face is exchanged in place
+	const CRUMB_GROW = 240; // a crumb arrives
+	// Seeded from the derived value rather than from [] so the first paint is the real trail —
+	// the machine is for CHANGES, and a page's first crumbs are not one. untrack() states that the
+	// one-off read is deliberate (it is also what silences the compiler's warning about it).
+	let shownCrumbs = $state<string[]>(untrack(() => crumbs));
+	let crumbTimer: ReturnType<typeof setTimeout> | undefined;
+	function stepCrumbs(target: string[]) {
+		clearTimeout(crumbTimer);
+		const shown = untrack(() => shownCrumbs);
+		// With motion turned down the faces cross in zero time, so staging the beats would not be a
+		// sequence of movements — it would be a sequence of JUMPS, spread over half a second, which
+		// is the one thing worse than the collision this machine exists to prevent. Land it whole.
+		if (stillMotion()) {
+			shownCrumbs = target;
+			return;
+		}
+		// Deepest first, one per beat: a crumb can only leave from the end of the trail.
+		if (shown.length > target.length) {
+			shownCrumbs = shown.slice(0, -1);
+			crumbTimer = setTimeout(() => stepCrumbs(target), CRUMB_SHRINK);
+			return;
+		}
+		// Then the survivors that disagree — all of them together, and that is safe: a swap happens
+		// IN its slot, so two of them cannot collide the way an add and a remove can.
+		if (shown.some((c, i) => c !== target[i])) {
+			shownCrumbs = target.slice(0, shown.length);
+			crumbTimer = setTimeout(() => stepCrumbs(target), CRUMB_SWAP);
+			return;
+		}
+		// Then grow, again one per beat.
+		if (shown.length < target.length) {
+			shownCrumbs = target.slice(0, shown.length + 1);
+			crumbTimer = setTimeout(() => stepCrumbs(target), CRUMB_GROW);
+			return;
+		}
+	}
+	$effect(() => {
+		const target = crumbs;
+		stepCrumbs(target);
+		// A second navigation mid-sequence abandons the first: stepCrumbs re-enters with the new
+		// target from wherever the trail has got to, which is always a valid place to start.
+		return () => clearTimeout(crumbTimer);
+	});
+
+	// The crumb that is the OPEN PAGE, taken from the real trail and not the rendered one. Mid
+	// sequence the two disagree — the trail can be showing APPS alone while the page is already
+	// Settings — and keying the full-ink state off the rendered trail made that intermediate APPS
+	// light up as "you are here" for a beat before being swapped away. It is a link the whole
+	// time now, and the ink moves once, when the last beat lands.
+	const currentCrumb = $derived(crumbs.length ? crumbs[crumbs.length - 1] : null);
 
 	// Mobile: the sidebar folds away; the superbar's plastic-key discloses it as a dropdown.
 	let sidebarOpen = $state(false);
@@ -454,10 +531,13 @@
 			href={viewPath({ kind: 'port', code: HUB })}
 			onclick={(e) => nav(e, HUB)}>KASHINOGA</a
 		>
-		{#if crumbs.length}
+		{#if shownCrumbs.length}
 			<span class="docs-brand-sep" aria-hidden="true" transition:fade={{ duration: 180 }}></span>
 		{/if}
 		<!-- The trail is ALWAYS mounted (even empty), so add/remove and swaps both animate.
+		     It renders shownCrumbs, NOT crumbs: the rendered trail lags the real one and walks to
+		     it a beat at a time, so a change of depth never runs two motions at once (see the
+		     trail-changes note in the script).
 		     The each is keyed BY POSITION (i), so a unit is a stable SLOT: navigating between
 		     siblings/sections swaps the code AT a slot rather than removing one crumb and adding
 		     another at the same spot — which is what made the outgoing and incoming crumbs sit
@@ -465,15 +545,21 @@
 		     code there changes, and the two faces are grid-STACKED (see .docs-crumb-slot), so the
 		     old drops out the bottom while the new drops in from the top, IN PLACE — one vertical
 		     current, never two crumbs abreast. Adding/removing a slot at the trail's end animates
-		     the same way (the face has no sibling to overlap). -->
+		     the same way (the face has no sibling to overlap).
+		     The separator fades on its own clock, and out LAST: a crumb's word leaves first and its
+		     "/" follows it, so the pair reads as one thing withdrawing rather than a word and a
+		     mark vanishing together. Coming back it leads, which is the same rule read backwards. -->
 		<nav class="docs-crumbs" aria-label="Breadcrumb">
-			{#each crumbs as c, i (i)}
+			{#each shownCrumbs as c, i (i)}
 				<span class="docs-crumb-unit">
-					{#if i > 0}<span class="docs-crumb-sep" aria-hidden="true">/</span>{/if}<span
-						class="docs-crumb-slot"
-					>
+					{#if i > 0}<span
+							class="docs-crumb-sep"
+							aria-hidden="true"
+							in:sepIn|global
+							out:sepOut|global>/</span
+						>{/if}<span class="docs-crumb-slot">
 						{#key c}<span class="docs-crumb-face" in:crumbIn|global out:crumbOut|global
-								>{#if i < crumbs.length - 1}<a
+								>{#if c !== currentCrumb}<a
 										class="docs-crumb"
 										href={viewPath({ kind: 'port', code: c })}
 										onclick={(e) => nav(e, c)}>{airports[c].title}</a
@@ -968,6 +1054,18 @@
 	   :last-child: every unit now holds a crumb, so :last-child would brighten them all. */
 	.docs-crumb[aria-current='page'] {
 		color: var(--ink);
+	}
+	/* Both ink changes a crumb can make ride the same 0.15s the rest of the shell's controls use:
+	   the hover, and the promotion to full ink when the crumb above becomes the open page (going
+	   APPS / WEATHER → APPS, the surviving APPS brightens while WEATHER is still leaving, and a
+	   step change there read as a flash going off beside a thing already in motion). */
+	.docs-crumb {
+		transition: color 0.15s ease;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.docs-crumb {
+			transition: none;
+		}
 	}
 	/* Ancestor crumbs navigate — quiet until hovered, then cobalt like every docs link. */
 	a.docs-crumb {
