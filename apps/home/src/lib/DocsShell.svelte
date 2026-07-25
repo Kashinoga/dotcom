@@ -1439,6 +1439,43 @@
 				transition: none;
 			}
 		}
+		/* The drawer's own scrollbar, kept OFF the two things that overlay it. The box runs the
+		   full height on purpose — under the superbar at the top, under the key's cove at the
+		   bottom — so its scrollbar ran the full height too, sliding beneath both and reappearing
+		   out the other side. This is the same answer .docs-scroll gives on the desktop: solve it
+		   at the TRACK, not the box. Margin the track by what covers each end and the thumb's
+		   whole travel stays in the part of the drawer you can actually see, while the content
+		   still scrolls behind the bar and into the frost.
+		   The margins may use var() — it is the COLOURS that cannot: a custom property or a
+		   color-mix() inside a ::-webkit-scrollbar part silently kills the declaration and the
+		   thumb paints nothing, so the ink wash is stated raw and the dark arm keyed off the
+		   root class, exactly as the page scroller does it. */
+		.docs-sidebar::-webkit-scrollbar {
+			width: 10px;
+		}
+		.docs-sidebar::-webkit-scrollbar-track {
+			background: transparent;
+			margin-top: var(--superbar-h);
+			margin-bottom: calc(1.25rem + 40px + 1.25rem);
+		}
+		.docs-sidebar::-webkit-scrollbar-thumb {
+			background: rgba(0, 0, 0, 0.28);
+			border-radius: 4px;
+			border: 2px solid transparent;
+			background-clip: padding-box;
+		}
+		:global(html.scheme-dark) .docs-sidebar::-webkit-scrollbar-thumb {
+			background: rgba(255, 255, 255, 0.3);
+		}
+		/* Firefox has no ::-webkit-scrollbar parts and no track margins either, so it gets the
+		   on-palette thumb and lives with the full-height travel. Scoped behind @supports so it
+		   never reaches Chrome: a non-auto scrollbar-color DISABLES every webkit rule above,
+		   track margins included, which is the whole trick. */
+		@supports not selector(::-webkit-scrollbar) {
+			.docs-sidebar {
+				scrollbar-color: color-mix(in srgb, var(--ink) 30%, transparent) transparent;
+			}
+		}
 		/* The key's safe area: the band it sits in, frosted like everything else at this width,
 		   laid OVER the drawer. Same wash and blur as the scrim, so the two read as one backdrop
 		   with the key resting on it — and because it sits above the list, a row scrolling out of
