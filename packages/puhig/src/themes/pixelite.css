@@ -161,16 +161,22 @@
 		inset -1px -1px 0 2px rgba(255, 255, 255, 0.14), inset 1px 1px 0 2px rgba(0, 0, 0, 0.5);
 }
 
-/* IN ORBIT the ranger's chrome joins the night side even under a light scheme. The shared
- * orbit rule (+page) flips color-scheme: dark on this subtree, which carries every
- * light-dark() token — ink, sub, the key face/border/on-fill, the hairline, cobalt — to its
- * dark arm for free. The BEVELS are the one thing that can't ride along: they're keyed to
- * the .scheme-dark ROOT class above, not to light-dark(), so in light-theme orbit the keys
- * kept their bright white rims flaring on night faces. Restate the dark pair for the orbit
- * subtree (same values as .scheme-dark). */
+/* CHROME THAT IS NIGHT WHATEVER THE SCHEME. Two places on the site float controls on a surface
+ * that is dark at every hour and under every setting: the ranger IN ORBIT (planetside the panel
+ * is a lit page over daylit ground; aboard the courier it hangs in the void, and a white raft
+ * against space reads as a mistake), and the STAR MAP's phone key (the canvas is a starfield —
+ * there is no paper under it, unlike the wide layout's bar, which is deliberately a paper sheet
+ * and keeps its light keys).
+ * Each of those subtrees flips `color-scheme: dark` in its own file, which carries every
+ * light-dark() token — ink, sub, the key face/border/on-fill, the hairline, cobalt, and --page
+ * itself — to its dark arm for free. The BEVELS are the one thing that can't ride along: they're
+ * keyed to the .scheme-dark ROOT class above, not to light-dark(), so under a light scheme the
+ * keys kept their bright white rims flaring on night faces. Restate the dark pair here, once,
+ * for every such subtree (same values as .scheme-dark). */
 html[data-look='pixelite'] .surface-head.bar.orbit,
 html[data-look='pixelite'] .surface-body.ranger.orbit,
-html[data-look='pixelite'] .surface-backdrop.orbit {
+html[data-look='pixelite'] .surface-backdrop.orbit,
+html[data-look='pixelite'] .sm-key {
 	--pixel-bevel:
 		inset 1px 1px 0 2px rgba(255, 255, 255, 0.14), inset -1px -1px 0 2px rgba(0, 0, 0, 0.5);
 	--pixel-bevel-press:

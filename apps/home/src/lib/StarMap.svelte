@@ -17,14 +17,15 @@
 	import { fade } from 'svelte/transition';
 	import { popSpring } from '$lib/pop-spring';
 	import SplitFlap from '$lib/SplitFlap.svelte';
+	import FloatingKey from '$lib/FloatingKey.svelte';
 	import {
-		ARROW_LEFT_SVG,
 		CLOSE_SVG,
 		EXTERNAL_SVG,
 		HOME_SVG,
 		MAXIMIZE_SVG,
 		MINIMIZE_SVG,
-		PIN_SVG
+		PIN_SVG,
+		STARS_SVG
 	} from '$lib/icons';
 
 	type Place = { name: string; lat: number; lon: number };
@@ -35,18 +36,30 @@
 	// (No Connections rail here, deliberately: the stage is the app, and a footer under an
 	// infinite sky read as clutter. The nav caps and the Apps cards cover the navigation.)
 	let {
-		accent = '#f06030', // the station's colour — the title dot, and North on the map
+		accent = '#f06030', // the station's colour — North on the map
 		title = '',
-		onback,
 		onhome
 	}: {
 		accent?: string;
 		title?: string;
-		onback?: () => void;
-		// The super bar's right-end cap, E-ATFC's arrangement: straight to the homepage —
-		// the narrow layout keeps Back instead.
+		// The one way out, in both layouts: the super bar's right-end cap when there is a bar,
+		// and the floating key's stack when there is not. E-ATFC's arrangement, and the Park
+		// Ranger's — a full-viewport app has nowhere to peel back TO mid-look, and the browser's
+		// own back gesture still works because every panel is a real URL.
 		onhome?: () => void;
 	} = $props();
+
+	// The narrow layout's floating controls key — is its stack disclosed? (See the FloatingKey at
+	// the end of the markup. Bindable state lives here because the card's field wants focus when
+	// the stack opens, and only this file knows about the field.)
+	let keyOpen = $state(false);
+
+	// The super bar's real height, fed back out as --head-h. The things laid ON the sky (the
+	// caption, the expanded story card) have to clear the bar, and the bar is not one number: it
+	// is a fixed 42px under Pixelite and a title-line-plus-inset box under Aeropalite, at two
+	// layouts. Measuring it says the truth once instead of restating a guess in three rules.
+	// 42 is the SSR/first-paint fallback — the Pixelite figure, which is what ships by default.
+	let barH = $state(42);
 
 	// Is the viewport wide enough for the beside-the-title super bar? (The panel fills the
 	// viewport, so viewport width ≈ panel width — the Traffic board's same test.) Narrower
@@ -177,7 +190,12 @@
 	}
 	function choose(p: Place & { state?: string }) {
 		setPlace({ name: p.state ? `${p.name}, ${p.state}` : p.name, lat: p.lat, lon: p.lon });
-		searchOpen = false; // an answer closes the field; the disc waits for the next trip
+		// An answer closes the field. BOTH shapes, unconditionally: the wide bar's disc morphs
+		// shut and waits for the next trip, and the phone's flyout folds away — the map is what
+		// you came to look at, and you have just told it where you are standing. Setting the
+		// other layout's flag costs nothing, since only one of the two is ever on screen.
+		searchOpen = false;
+		keyOpen = false;
 	}
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
@@ -712,11 +730,42 @@
 	<span class="accent-dot" aria-hidden="true"></span>
 {/snippet}
 
+<!-- The geocoder's answers. Shared by the two shapes the search takes — the wide bar's morphing
+     disc and the phone key's flat card — because the LIST is the same object either way: it is
+     what the typing found, and it hangs under whatever field did the typing. `open` is the
+     enclosing shape's own disclosure (the disc's morph, or the flyout standing). -->
+{#snippet hitList(open: boolean)}
+	{#if open && hits.length}
+		<ul class="sm-hits" id="sm-cs-results" role="listbox">
+			{#each hits as h, i (h.id)}
+				<li>
+					<!-- pointerdown swallowed so the input never blurs — CitySearch's Safari/
+					     Firefox lesson: a blur here unmounts the list before its click lands. -->
+					<button
+						type="button"
+						role="option"
+						aria-selected={i === active}
+						class:active={i === active}
+						onpointerdown={(e) => e.preventDefault()}
+						onclick={() => choose(h)}
+						onmouseenter={() => (active = i)}
+					>
+						{h.name}<span class="sm-hit-state">{h.state}</span>
+					</button>
+				</li>
+			{/each}
+		</ul>
+	{:else if open && searching}
+		<p class="sm-searching">Searching…</p>
+	{/if}
+{/snippet}
+
 {#snippet locationField()}
 	<!-- Weather's morph, worn here: closed it's a 42px pin disc; open it's the field, grown
 	     sideways from the same spot (see CitySearch for the two-shapes-one-element notes).
 	     It wears the `cs` class so the page's bubble rules dress it exactly like every other
-	     disc — the same resting face and hairline the Back button gets. -->
+	     disc. WIDE LAYOUT ONLY now — the phone has no header to hold it, and no disc to morph:
+	     see skyCard, where the same field rides the floating key's card, already open. -->
 	<div class="sm-cs cs" class:open={searchOpen} bind:this={searchEl} onfocusout={onSearchFocusOut}>
 		<button
 			type="button"
@@ -744,45 +793,87 @@
 			oninput={(e) => onQuery(e.currentTarget.value)}
 			onkeydown={onKey}
 		/>
-		{#if searchOpen && hits.length}
-			<ul class="sm-hits" id="sm-cs-results" role="listbox">
-				{#each hits as h, i (h.id)}
-					<li>
-						<!-- pointerdown swallowed so the input never blurs — CitySearch's Safari/
-						     Firefox lesson: a blur here unmounts the list before its click lands. -->
-						<button
-							type="button"
-							role="option"
-							aria-selected={i === active}
-							class:active={i === active}
-							onpointerdown={(e) => e.preventDefault()}
-							onclick={() => choose(h)}
-							onmouseenter={() => (active = i)}
-						>
-							{h.name}<span class="sm-hit-state">{h.state}</span>
-						</button>
-					</li>
-				{/each}
-			</ul>
-		{:else if searchOpen && searching}
-			<p class="sm-searching">Searching…</p>
-		{/if}
+		{@render hitList(searchOpen)}
 	</div>
 {/snippet}
 
-<div class="sm" class:bar-mode={showBar} style:--accent={accent}>
-	<header class="sm-head" class:bar={showBar}>
+<!-- ── The phone's floating key ──────────────────────────────────────────────────
+     THE ROW: the location search, flat, on the key's own line and running to the screen's far
+     inset. The wide bar's version is a disc that grows sideways into a field, because up there
+     it has to earn its room on a slim strip of chrome. Down here the flyout IS the disclosure —
+     you pressed the key, the field came out — so a second one inside it would be a door behind a
+     door. The field simply stands.
+     It takes the key's ROW rather than a card above the stack because it is WIDE, not tall: one
+     line of input in a card would spend a whole band of screen on it while the space beside the
+     key sat empty. The pin stays as a mark on its left, not as a control — it says what the
+     field is for, which is the one job the disc had left. -->
+{#snippet skyRow()}
+	<div class="sm-key-search">
+		<span class="sm-key-pin" aria-hidden="true">{@html PIN_SVG}</span>
+		<input
+			bind:this={inputEl}
+			type="search"
+			class="sm-key-input"
+			placeholder="City, or lat, lon"
+			autocomplete="off"
+			spellcheck="false"
+			role="combobox"
+			aria-expanded={hits.length > 0}
+			aria-controls="sm-cs-results"
+			aria-label="Set location: a city name, or latitude, longitude"
+			value={query}
+			oninput={(e) => onQuery(e.currentTarget.value)}
+			onkeydown={onKey}
+		/>
+		<!-- Answers rise from the field, not below it: this row sits on the floor of the screen,
+		     so up is the only direction there is. -->
+		{@render hitList(keyOpen)}
+	</div>
+{/snippet}
+
+<!-- THE STACK: Home alone — the full-viewport map's one way out, the same key ATFC and the Park
+     Ranger put in this corner. The location control is not here: it is the card above, which is
+     where a thing that will not fit a 40px disc belongs. -->
+{#snippet skyKeys()}
+	{#if onhome}
+		<button
+			type="button"
+			class="icon-btn"
+			aria-label="Close and go home"
+			title="Home"
+			onclick={() => {
+				keyOpen = false;
+				onhome?.();
+			}}
+		>
+			{@html HOME_SVG}
+		</button>
+	{/if}
+{/snippet}
+
+<div class="sm" class:bar-mode={showBar} style:--accent={accent} style:--head-h="{barH}px">
+	<!-- ONE super bar, in BOTH layouts — the Traffic board's shape, and the site's one bar: 42px,
+	     the same measure the docs superbar and the ranger's dense bar keep. It used to be the wide
+	     layout's alone, and the phone signed its picture in the bottom-right corner instead; but a
+	     name written on the sky is a signature, not a header, and every other app on this site
+	     names itself in a bar at the top. So the title moved up here and the signature retired.
+	     What the phone does NOT get is the rest of the bar's contents: the sky summary needs four
+	     stats' worth of width, and the controls (the location field, Home) have their own corner
+	     now — the floating key at the bottom-left. On a phone the bar is the NAME and nothing else.
+	     No Back cap in either layout: a full-viewport app has nowhere to peel back to mid-thought
+	     (ATFC and the Ranger dropped theirs long ago), and the browser's own gesture still works
+	     because every panel is a real URL. -->
+	<!-- offsetHeight, not clientHeight: the bar carries a bottom border, and the content box stops
+	     a pixel short of it — which put the caption's top gap a pixel tighter than its left one,
+	     the exact thing the measure is there to keep equal. -->
+	<header class="sm-head bar" class:slim={!showBar} bind:offsetHeight={barH}>
+		<div class="ident">
+			<h2 class="dest">
+				{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}
+			</h2>
+			<div class="head-refresh">{@render accentDot()}</div>
+		</div>
 		{#if showBar}
-			<!-- Wide: ONE super bar, the Traffic board's shape — and its arrangement: no Back
-			     cap (full-viewport has nowhere to peel back to mid-thought), the title taking
-			     the left edge, and the global controls gathered at the right end — Home, then
-			     the location disc capping the row. -->
-			<div class="ident">
-				<h2 class="dest">
-					{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}
-				</h2>
-				<div class="head-refresh">{@render accentDot()}</div>
-			</div>
 			<div class="deck">
 				<dl class="deck-summary" aria-label="Sky summary">
 					<div class="stat stat-place">
@@ -827,41 +918,12 @@
 					</button>
 				{/if}
 			</div>
-		{:else}
-			<!-- Narrow: the location disc rides the Back row's far right — it acts on the whole
-			     panel, so it belongs with the panel's own controls (the Weather header's same
-			     arrangement). No title line here: the name signs the map itself, bottom right
-			     (see .sm-brand on the stage), so the header stays one slim row of controls. -->
-			<div class="head-row">
-				{#if onback}
-					<button
-						type="button"
-						class="icon-btn back"
-						onclick={onback}
-						aria-label="Back to route map"
-						title="Route map"
-					>
-						{@html ARROW_LEFT_SVG}
-					</button>
-				{/if}
-				{@render locationField()}
-			</div>
 		{/if}
 	</header>
 
-	<!-- The sky is the panel's own background: edge to edge, no frame, no footer, filling
-	     the WHOLE panel in both layouts — the super bar's frosted strip and the narrow
-	     layout's transparent disc row both float over it. -->
+	<!-- The sky is the panel's own background: edge to edge, no frame, no footer — the super bar
+	     floats over it in both layouts. -->
 	<div class="sm-stage" bind:this={wrap}>
-		{#if !showBar}
-			<!-- Narrow, the app SIGNS its own picture: the name rides the sky's bottom-right
-			     corner at caption size — the whole viewport is the map, so the title belongs
-			     on it, not on a header line spending vertical room over it. -->
-			<h2 class="sm-brand">
-				{#key title}<SplitFlap text={title} base={160} stagger={45} />{/key}
-				{@render accentDot()}
-			</h2>
-		{/if}
 		{#if !showBar && stars}
 			<!-- The caption lives ON the sky, top left — where/when/exactly-where, written in
 			     night ink whatever the site theme (the canvas beneath is always night). It
@@ -869,9 +931,13 @@
 			     sky itself (gated on the data, fading in with the first drawn frame): a
 			     caption over "Charting the sky…" would describe a picture that isn't there. -->
 			<div class="sm-where" in:fade={{ duration: 400 }}>
+				<!-- WHERE, not when. The clock came off: the caption's job is to say whose sky this
+				     is, and the map is drawn for right now by definition — a time printed beside
+				     it invited the reading that you could set it to some other one. (The wide
+				     bar's summary still carries a Local stat, where it sits among three other
+				     readings and is plainly one of them.) -->
 				<p class="sm-place">
 					Skies over <strong>{place.name}</strong>
-					<span class="sm-time">· {timeText}</span>
 					{#if showCoords}<span class="sm-coords">{coordText}</span>{/if}
 				</p>
 			</div>
@@ -963,6 +1029,24 @@
 			</aside>
 		{/if}
 	</div>
+
+	<!-- The map's floating controls key — narrow layout only, where the header used to be. The
+	     same $lib/FloatingKey the docs shell, the Park Ranger and the Traffic board carry, in the
+	     same bottom-left corner: one place, across the whole site, where a thumb finds an app's
+	     controls. The key wears the map's own mark, so it doubles as a "you are here" badge.
+	     On a wide deck none of this renders — the super bar has room for both controls.
+	     The WRAPPER carries the night tokens: see .sm-key in the style block. -->
+	{#if !showBar}
+		<div class="sm-key">
+			<FloatingKey
+				bind:open={keyOpen}
+				icon={STARS_SVG}
+				label="Map controls"
+				buttons={skyKeys}
+				row={skyRow}
+			/>
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -974,27 +1058,22 @@
 		flex-direction: column;
 		height: 100%;
 		position: relative;
-		/* The narrow header is one row of 42px discs wearing an EVEN inset all round —
-		   shared as tokens so the caption below knows where the header ends. */
+		/* The inset everything laid ON the sky keeps from the panel's edges. */
 		--head-inset: clamp(0.85rem, 2.5vw, 1.25rem);
-		--head-h: calc(42px + 2 * var(--head-inset));
+		/* Where the super bar ends, so the things under it know where to start. Overwritten
+		   inline from the bar's MEASURED height (see barH) — this is the first-paint fallback,
+		   the fixed 42px the Pixelite bar keeps. */
+		--head-h: 42px;
 	}
 	.sm-head {
 		flex: none;
-		/* TRANSPARENT, floating over the sky (the stage fills the whole panel behind it):
-		   the map is the background, and the bar is just its two controls. Even padding —
-		   with no title line left, the discs sit in a uniform pocket. The strip itself
-		   passes the pointer through, so the sky stays draggable between the discs; the
-		   controls opt back in below. */
+		/* Floating over the sky (the stage fills the whole panel behind it): the map is the
+		   background, and the bar is just its controls. Only the WIDE layout has one now — the
+		   narrow header, a transparent strip of discs that had to pass the pointer through so
+		   the sky stayed draggable between them, is gone with its two buttons. */
 		position: relative;
 		z-index: 1;
 		padding: var(--head-inset);
-	}
-	.sm-head:not(.bar) {
-		pointer-events: none;
-	}
-	.sm-head:not(.bar) .head-row > * {
-		pointer-events: auto;
 	}
 	/* Bar mode: the sky IS the panel background, and the bar floats over it — its own
 	   frosted strip, so the chrome stays legible over a starfield. The canvas is always
@@ -1017,6 +1096,118 @@
 		--line-edge: rgba(255, 255, 255, 0.16);
 		--line-strong: rgba(255, 255, 255, 0.34);
 		--aero-face: rgba(255, 255, 255, 0.07);
+	}
+
+	/* ── The phone key's night clothes ───────────────────────────────────────────────────────
+	   The floating key is the ONE piece of chrome that sits on bare sky. The wide bar does not
+	   need this and must not have it: under Pixelite that bar is deliberately a PAPER sheet (see
+	   the block below — --page frost, ink text, mono labels), so its keys are right to be the
+	   light ones in a light scheme. Down here there is no sheet. The canvas is night at every
+	   hour and in every scheme, and a light plastic key on it wore a bright white bevel rim and a
+	   near-black border: a control cut out of a page that is not there.
+
+	   One line does the work, and it is the Park Ranger's orbit line (puhig pixelite.css, the
+	   orbit block, and +page's .surface-head.bar.orbit): `color-scheme: dark` sends every
+	   light-dark() token in the family to its night arm — the key face, its border, the selected
+	   fill, the hairline, and --page itself, which is what FloatingKey mixes its frost from. So
+	   the key's own material follows too, not just the ink on it.
+	   The BEVELS cannot ride along: they are keyed to the .scheme-dark ROOT class rather than to
+	   light-dark(), so a light-scheme visitor's root does not carry them. They are restated for
+	   this subtree in pixelite.css, on the same rule the ranger's orbit chrome uses — one place,
+	   one copy of the values. */
+	.sm-key {
+		display: contents;
+		color-scheme: dark;
+	}
+
+	/* ── The key's card: the location search, flat ───────────────────────────────────────────
+	   The field and its pin, on the card's own frosted face. FloatingKey draws the card; what is
+	   inside it is this file's, which is why there is nothing about padding or frost here. */
+	/* The field IS the surface here — FloatingKey seats the row but dresses nothing inside it, so
+	   the plastic-key clothes are stated here: the same frost, border, radius and bevel the key
+	   to its left wears, because the two are one object on one row. */
+	.sm-key-search {
+		position: relative; /* the answers hang off this box */
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		box-sizing: border-box;
+		width: 100%;
+		/* 40px, pinned from both ends — the calling key's height, to the pixel. A field even a few
+		   pixels off the key beside it read as a different kind of thing. min and max both,
+		   because the row's contents (the input's own line box, a taller UA font) can push a
+		   plain `height` open. */
+		height: 40px;
+		min-height: 40px;
+		max-height: 40px;
+		padding: 0 0.75rem;
+		background: color-mix(in srgb, var(--page) 78%, transparent);
+		-webkit-backdrop-filter: blur(8px);
+		backdrop-filter: blur(8px);
+		border: 1px solid var(--pixel-key-border, rgba(0, 0, 0, 0.4));
+		border-radius: 4px;
+		box-shadow: var(--pixel-bevel);
+	}
+	.sm-key-pin {
+		display: grid;
+		place-items: center;
+		flex: none;
+		width: 1.15rem;
+		height: 1.15rem;
+		color: var(--sub);
+	}
+	.sm-key-pin :global(svg) {
+		display: block;
+		width: 1.15rem;
+		height: 1.15rem;
+	}
+	.sm-key-input {
+		flex: 1;
+		min-width: 0;
+		/* No box of its own: the card IS the field's frame. A bordered input inside a bordered
+		   card is the same doubling the disc-inside-a-flyout would have been. */
+		appearance: none;
+		background: none;
+		border: 0;
+		padding: 0;
+		color: var(--ink);
+		font: inherit;
+		font-size: 0.95rem;
+	}
+	.sm-key-input:focus {
+		outline: none;
+	}
+	.sm-key-input::placeholder {
+		color: var(--sub);
+	}
+	/* The search clear affordance WebKit draws in a type=search — it paints a dark glyph that
+	   vanishes on this face, and the card has a tap-away of its own. */
+	.sm-key-input::-webkit-search-cancel-button {
+		appearance: none;
+	}
+	/* The answers rise from the field. The bar's version drops BELOW its disc, which is right up
+	   there and impossible down here: this row sits on the floor of the screen. Flipped to hang
+	   off the top edge instead (bottom: 100%), squared to the field's own width so the list and
+	   the thing that filled it are plainly one control, and capped so a long list runs out of
+	   room before it runs off the top of the screen. The key's 4px corners, not the bar drop's
+	   12px — this belongs to the plastic-key family, not to the glass panel one. */
+	.sm-key-search .sm-hits {
+		top: auto;
+		bottom: calc(100% + 0.4rem);
+		left: 0;
+		right: 0;
+		width: auto;
+		max-height: 45vh;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+		border-color: var(--pixel-key-border, var(--line-edge));
+		border-radius: 4px;
+	}
+	.sm-key-search .sm-searching {
+		top: auto;
+		bottom: calc(100% + 0.5rem);
+		left: 0.25rem;
+		right: auto;
 	}
 	/* ── Pixelite: the floating chrome becomes a paper-and-ink toolbar ──────────────────────
 	   Same idiom as the bubble branches elsewhere. The starfield/canvas is left ALONE — only
@@ -1191,19 +1382,6 @@
 		background: var(--pixel-key-face);
 		border-color: var(--orange);
 	}
-	/* Panel chrome, matched to the generic .surface-head (this map just renders it itself).
-	   Back caps the left of the row, the location disc the right. No bottom margin: this
-	   is the narrow header's ONLY row now (the title signs the map instead), so the
-	   header's own padding is the separation. */
-	.head-row {
-		display: flex;
-		align-items: flex-start;
-		justify-content: space-between;
-		gap: 0.75rem;
-	}
-	.head-row .sm-cs {
-		margin-left: auto; /* right-caps the row even when Back is absent */
-	}
 	.dest {
 		margin: 0;
 		font-size: clamp(2.25rem, 9vw, 5.5rem);
@@ -1343,33 +1521,21 @@
 		color: var(--sub);
 	}
 
-	/* The narrow layout's signature, bottom right ON the sky: the app's name at caption
-	   size with its accent bullet — the header gave up its title line for map room. Same
-	   night-ink treatment as the caption. */
-	.sm-brand {
-		position: absolute;
-		z-index: 1;
-		right: var(--head-inset);
-		bottom: var(--head-inset);
-		display: flex;
-		align-items: center;
-		gap: 0.45rem;
-		margin: 0;
-		font-size: 1.15rem;
-		font-weight: 700;
-		letter-spacing: -0.02em;
-		line-height: 1;
-		color: #f2f2ee;
-		pointer-events: none;
-		text-shadow: 0 1px 3px rgba(4, 7, 15, 0.85);
+	/* SLIM: the phone's bar. Same 42px strip, same frost, carrying the name alone — so the
+	   ident has no siblings to be spaced from and simply takes the row. (The bar's own
+	   justify-content pushes a lone child around otherwise.) */
+	.sm-head.bar.slim {
+		justify-content: flex-start;
 	}
-	.sm-brand .accent-dot {
-		width: 14px;
-		height: 14px;
+	/* The accent bullet is the wide bar's. On the phone the bar is one short line and the mark
+	   read as a stray dot after the name rather than as a station sign's bullet — and under
+	   Pixelite it is hidden in both (see .head-refresh below), which is the arrangement the rest
+	   of the manual keeps. */
+	.sm-head.bar.slim .head-refresh {
+		display: none;
 	}
-
-	/* Chrome entrance — the boards' shared ripple (btn-in, from puhig): Back leads, the
-	   location control follows, and the bar's summary readout deals in label-then-value
+	/* Chrome entrance — the boards' shared ripple (btn-in, from puhig): the bar's summary
+	   readout deals in label-then-value
 	   behind them. The header remounts on every open (the panel keys its content), so
 	   the ripple replays like the other apps'. `backwards` is mandatory: these are all
 	   in the universal hover/press list (see TrafficBoard's same note). */
@@ -1380,10 +1546,6 @@
 		.sm-head .deck-summary dd {
 			animation: btn-in 0.42s var(--spring) backwards;
 			animation-delay: calc(var(--enter-lead) + var(--bn, 0) * var(--btn-enter-step));
-		}
-		/* Narrow: Back (0) then the pin disc across the row. */
-		.head-row .sm-cs {
-			--bn: 1;
 		}
 		/* The bar's summary deals in label-then-value behind the title (its pipe takes
 		   beat 1); the right end-cap — the disc (9, off the wrapper), then Home (10) —
@@ -1439,9 +1601,12 @@
 	.sm-where {
 		position: absolute;
 		z-index: 1;
-		/* The stage now starts at the panel's very top, so "top left" means "just under
-		   the floating disc row" — its height is shared as --head-h. */
-		top: calc(var(--head-h) + 0.3rem);
+		/* The stage fills the whole panel and the bar floats over its top, so the caption has to
+		   clear the bar itself. ONE inset all round: the gap under the bar is the same
+		   --head-inset the caption keeps from the left edge, so it sits in the corner of the sky
+		   the bar leaves rather than at some measure of its own. (It was the bar's height plus a
+		   flat 0.3rem, which read as a tighter margin above than beside.) */
+		top: calc(var(--head-h) + var(--head-inset));
 		left: var(--head-inset);
 		pointer-events: none;
 		text-shadow: 0 1px 3px rgba(4, 7, 15, 0.85);
@@ -1454,7 +1619,6 @@
 	.sm-place strong {
 		font-weight: 700;
 	}
-	.sm-time,
 	.sm-coords {
 		color: #9aa4bd;
 	}

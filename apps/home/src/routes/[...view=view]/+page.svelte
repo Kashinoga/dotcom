@@ -2388,7 +2388,6 @@
 								<StarMap
 									accent={look === 'pixelite' ? PIXEL_INK : accent[v.code]}
 									title={port.title}
-									onback={goBack}
 									onhome={() => home()}
 								/>
 							{:else}

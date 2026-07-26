@@ -20,7 +20,8 @@
 		icon = '',
 		label = 'Controls',
 		buttons,
-		card
+		card,
+		row
 	}: {
 		/* Is the stack disclosed? Bindable, so a caller can fold it from outside — opening a
 		   panel resets the ranger's, for instance. */
@@ -37,6 +38,12 @@
 		   closes with it. ATFC puts its Airport/Range/Refresh controls here, which is the whole
 		   reason the flyout has two shapes rather than one. */
 		card?: Snippet;
+		/* Optional: ONE control that belongs on the key's own row, running out to its right and
+		   filling the width left over. For a thing that is wide rather than tall — the Star Map's
+		   location field — where a card above the column would spend a whole band of screen on a
+		   single line of input while the row beside the key sat empty. It is the caller's to
+		   dress; this file only seats it, and opens and closes it with everything else. */
+		row?: Snippet;
 	} = $props();
 </script>
 
@@ -59,6 +66,11 @@
 		{@render buttons()}
 	</div>
 </div>
+<!-- The key's own row, to its right. Outside the flyout above on purpose: that box is anchored
+     ABOVE the key and stacks upward, and this one has to sit level with the key itself. -->
+{#if row}
+	<div class="fkey-row" class:open>{@render row()}</div>
+{/if}
 <button
 	type="button"
 	class="fkey"
@@ -144,6 +156,48 @@
 		display: flex;
 		flex-direction: column-reverse;
 		gap: 0.5rem;
+	}
+	/* The key's row: level with the key, starting where the key ends and running to the far inset.
+	   The measures restate the key's own — its 1.25rem insets, its 40px, and the 0.5rem the stack
+	   above keeps — so the row's left edge lands exactly one gap past the key's right edge.
+	   It runs OUT SIDEWAYS from behind the key rather than rising, because that is where it came
+	   from: the key is at its left, and a thing on the key's row has no reason to arrive from
+	   below. Same clock and same easing as the flyout, so the two read as one movement. */
+	.fkey-row {
+		position: fixed;
+		left: calc(1.25rem + 40px + 0.5rem);
+		right: 1.25rem;
+		bottom: 1.25rem;
+		z-index: 18;
+		display: flex;
+		align-items: center;
+		transform: translateX(-0.5rem);
+		opacity: 0;
+		visibility: hidden;
+		transition:
+			opacity 0.2s ease,
+			transform 0.24s ease,
+			visibility 0s linear 0.24s;
+	}
+	.fkey-row.open {
+		transform: translateX(0);
+		opacity: 1;
+		visibility: visible;
+		transition:
+			opacity 0.2s ease,
+			transform 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.fkey-row {
+			transition:
+				opacity 0.12s ease,
+				visibility 0s linear 0.12s;
+			transform: none;
+		}
+		.fkey-row.open {
+			transition: opacity 0.12s ease;
+			transform: none;
+		}
 	}
 	/* The card: the key's own frosted material at panel size, held to the viewport with the same
 	   1.25rem insets the key keeps. Its CONTENTS are the caller's — styled by the caller, which
