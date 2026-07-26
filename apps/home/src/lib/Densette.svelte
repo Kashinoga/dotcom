@@ -511,7 +511,10 @@
 		);
 		/* Densette's own type, the site's Pixelite trio (it prints as a Pixelite manual under any
 		   theme, so the stacks are stated outright, not borrowed from --font-* which move by theme):
-		   Space Mono chrome, Iowan Old Style serif, IBM Plex Sans body, VT323 pixel numerals. */
+		   Space Mono chrome, Iowan Old Style serif, IBM Plex Sans body, VT323 pixel numerals.
+		   The serif does double duty — it titles the manual AND sets its prose (see Body prose
+		   below). --dens-body is what is left over: the container default, for the matter that is
+		   neither chrome nor set text. */
 		--dens-mono: 'Space Mono', ui-monospace, 'SF Mono', Consolas, monospace;
 		--dens-serif: 'Iowan Old Style', Georgia, 'Times New Roman', serif;
 		--dens-body: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -723,11 +726,30 @@
 		vertical-align: 0.12em;
 	}
 
-	/* ── Body prose ─────────────────────────────────────────────────────────────── */
+	/* ── Body prose ───────────────────────────────────────────────────────────────
+	   EVERY run of reading matter is set in the serif — the same Iowan Old Style the cover
+	   and the chapter titles take. That is how a textbook or a rulebook is set: one serif
+	   carries display AND text, told apart by size and weight alone, and the sans is never
+	   invited into the column. --dens-body (IBM Plex Sans) still stands as the container's
+	   default, so the things that are NOT prose — table cells, the note's frame — keep it.
+	   Listed as one rule rather than pushed into the token, because that distinction is the
+	   whole point: this is the SET TEXT, not everything the manual happens to render. */
+	.body,
+	.cover-sub,
+	.school-desc,
+	.era-list,
+	.card3-body,
+	.mastery,
+	.note-list {
+		font-family: var(--dens-serif);
+	}
 	.body {
 		margin: 0.85rem 0 0;
+		/* Iowan carries a taller x-height than the sans it replaces, so the same nominal size
+		   reads a touch larger and a touch tighter. Nudge the leading out to keep the column's
+		   colour where it was. */
 		font-size: 0.96rem;
-		line-height: 1.62;
+		line-height: 1.66;
 		color: color-mix(in srgb, var(--dens-ink) 82%, var(--dens-sub));
 	}
 	.sign {
