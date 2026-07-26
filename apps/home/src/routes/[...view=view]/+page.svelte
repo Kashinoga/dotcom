@@ -2688,6 +2688,28 @@
 	:global(html[data-look='pixelite']) .stage {
 		background: var(--page, light-dark(#fbfbfb, #0e0e10));
 	}
+	/* …and the document must not bounce under them. Same rule the docs shell states for itself
+	   (see DocsShell's :has(.docs) note) and the same reasoning, because the stage makes the same
+	   bargain: fixed, inset 0, 100dvh, overflow hidden — it OWNS the visible viewport and nothing
+	   overflows the window, so the page never scrolls. iOS Safari rubber-bands the document
+	   regardless, on any drag it has no other use for, and every one of these apps is a full
+	   screen of things you drag: the board's rows, the Builder's columns and its inspector sheet,
+	   the Star Map's sky. When an inner scroller reaches its end, or a pan lands somewhere the app
+	   does not claim, the whole frame heaves — and it takes Safari's URL bar with it, which changes
+	   dvh mid-gesture and resizes the stage under the finger. The inner scrollers' own
+	   `overscroll-behavior: contain` cannot reach this: a chain that ends at the VIEWPORT is not a
+	   chain any of them are on.
+	   Scoped by data-look AND :has, which together say exactly "a full app is standing": under
+	   Pixelite the stage mounts only as a full app's floor (see the block above, and stageFullApp),
+	   and under Aeropalite this does not match at all — the map keeps its own behaviour, as it did
+	   before this rule existed.
+	   Both arms carry the data-look, and on the body arm that is not dressing: .stage exists on
+	   EVERY Aeropalite page, so a bare body:has(.stage) would have caught the whole map world —
+	   and the body's value is the one the viewport takes when the root's is auto. */
+	:global(html[data-look='pixelite']:has(.stage)),
+	:global(html[data-look='pixelite'] body:has(.stage)) {
+		overscroll-behavior: none;
+	}
 
 	/* Content surface — the destination page. Header stays put; body scrolls, so
 	 * the surface holds substantial content while the stage height stays locked. */
