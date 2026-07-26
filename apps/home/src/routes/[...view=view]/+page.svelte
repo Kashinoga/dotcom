@@ -1155,7 +1155,10 @@
 	let arriveRev = $state(0);
 	let arriveTimer = 0;
 	function holdContentForArrival() {
-		if (isMobile || !panelExpanded || reduce) return;
+		// Pixelite has no slide to hold the content out of (see playOpenLanding): the panel
+		// fades in where it stands, so a hold would only split one arrival into two — an empty
+		// surface, then a pop. The surface and its content come up together there.
+		if (isMobile || !panelExpanded || reduce || look === 'pixelite') return;
 		clearTimeout(arriveTimer);
 		contentHeld = true;
 		arriveTimer = window.setTimeout(() => {
@@ -1224,7 +1227,12 @@
 	// in:panelIn can't fire — the return leg replays the same landing by hand, over the
 	// .leaving class's plain transition (WAAPI wins while it runs, and both settle at rest).
 	function playOpenLanding() {
-		if (!panelEl || reduce) return;
+		// Not under Pixelite. The landing replays the aero SLIDE, and Pixelite's whole move
+		// between places is the crossfade (in:panelIn / out:fly both drop their offsets there,
+		// and the docs world dissolves into the stage). Left ungated, this drove a full-viewport
+		// translate over that fade — the panel flew in from the right edge while the page it
+		// came from was still dissolving underneath it.
+		if (!panelEl || reduce || look === 'pixelite') return;
 		const x = isMobile ? 0 : panelExpanded ? vw : 680;
 		const y = isMobile ? panelEl.clientHeight : 0;
 		const frames = Array.from({ length: 25 }, (_, i) => {
@@ -1444,7 +1452,17 @@
 	function navigate(nv: View, push = true) {
 		clearTimeout(navTimer);
 		navPopCode = null; // a real panel is taking the stage; any nav card yields
-		if (view && !reduce) {
+		// Under Pixelite the panel does not slide out and back — the theme's move between places
+		// is the crossfade, and the leaving phase has nothing to do there but cost 300ms. Worse,
+		// it cost them BLINDLY on the common case: leaving a docs page (Weather) for a full app
+		// (the Park Ranger) there is no panel on screen to slide, so the visitor watched the old
+		// page sit still for the whole beat before it finally dissolved.
+		//
+		// The one Pixelite move that still wants a phase is FULL APP → FULL APP: the panel is
+		// already standing and stays mounted, so no mount/unmount crossfade can carry it. That
+		// one dips to nothing and comes back (the .leaving rule below is a fade, not a slide).
+		const pixeliteFade = look === 'pixelite' && !(stageFullApp && FULL_APPS.includes(nv.code));
+		if (view && !reduce && !pixeliteFade) {
 			panelLeaving = true;
 			navTimer = window.setTimeout(() => {
 				applyView(nv, push);
@@ -3063,12 +3081,30 @@
 	.surface.leaving {
 		transform: translateX(680px);
 	}
+	/* Pixelite never slides the panel — the manual's pages turn, they don't drive in. The only
+	   move that reaches this class there is full app → full app (see navigate's pixeliteFade):
+	   the panel stays mounted across it, so there is no in:panelIn / out:fly crossfade to carry
+	   the change and the leaving phase does it instead, by dipping to nothing. Both spellings,
+	   for the same reason the phone block below needs both: the desktop .surface.expanded.leaving
+	   translate outranks a plain .surface.leaving, and every Pixelite full app is expanded. */
+	:global(html[data-look='pixelite']) .surface.leaving,
+	:global(html[data-look='pixelite']) .surface.expanded.leaving {
+		transform: none;
+		opacity: 0;
+	}
 	@media (prefers-reduced-motion: no-preference) {
 		.surface {
 			/* transform only — width is never animated: expanding SWAPS the size while the
 			   panel is off-stage (see toggleExpand), because any on-screen geometry change
 			   of the blurred surface makes WebKit re-rasterise the blur per frame. */
 			transition: transform 300ms cubic-bezier(0.6, 0, 0.3, 1);
+		}
+		/* Pixelite's leaving phase is a fade, so opacity is what has to be animated there.
+		   transform stays listed: the panel can carry one from a prior look before a swap. */
+		:global(html[data-look='pixelite']) .surface {
+			transition:
+				transform 300ms cubic-bezier(0.6, 0, 0.3, 1),
+				opacity 300ms ease;
 		}
 	}
 
