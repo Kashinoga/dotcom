@@ -249,12 +249,68 @@ html[data-look='pixelite'] .sky-opt {
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 }
-html[data-look='pixelite'] .seg-title {
-	font-size: 12px;
+/* ONE CONTROL LINE. The .seg card is Aeropalite's shape — a title with a description stacked
+ * under it, and for the display picker an icon above its label, which comes out around 80px. A
+ * Pixelite .seg is not a card, it is a KEY, and the manual's keys all stand on the same line:
+ * laid out as a ROW at 40px, the measure the rest of the site's touch controls already keep (the
+ * floating keys, the docs shell's pinned keys, the Star Map's location field). The page then
+ * reads as one set of controls instead of cards sitting above buttons.
+ * Specificity: the base sheet dresses the display picker through `.segmented.three .seg` (0,3,0),
+ * which outranks a plain `html[data-look] .seg` (0,2,1) — so both arms are spelled out. */
+/* AND THE ROWS WRAP. The base sheet pins the pickers to a fixed track count — two columns, and
+ * three for the display picker — which cannot reflow: on a narrow screen it just squeezes the
+ * keys until the labels run out of room inside them. That was survivable while a key was a card
+ * with a 12px label; at one 40px row carrying body-size mono it is not.
+ * auto-fit with a floor instead, so the keys stay 3-up (or 2-up) wherever they fit and drop to
+ * the next line where they do not. The floors are the widest label each picker carries at 1rem
+ * mono — SYSTEM with its icon, AEROPALITE — plus the key's own padding. */
+html[data-look='pixelite'] .segmented {
+	grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+html[data-look='pixelite'] .segmented.three {
+	grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
+}
+html[data-look='pixelite'] .segmented .seg,
+html[data-look='pixelite'] .segmented.three .seg {
+	flex-direction: row;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	box-sizing: border-box;
+	height: 40px;
+	min-height: 40px;
+	padding: 0 0.75rem;
+	text-align: center;
+}
+/* ONE SIZE. The settings read in three at once: the display keys at 1rem (the base sheet's
+ * `.segmented.three .seg-title`), the theme keys at 12px, and the notes under both at 0.9rem —
+ * so two rows of the same kind of control were plainly different sizes from each other, and from
+ * the buttons below them. Everything a setting SAYS is body size now, and the mono voice carries
+ * the difference instead of the scale.
+ * The group leads (.seg-lead) are deliberately left alone: they are section headings in the
+ * manual's running-head voice — the same one the docs rail speaks — not settings.
+ * Both `.segmented` arms again, to clear the base sheet's (0,3,0) display-picker rule. */
+html[data-look='pixelite'] .segmented .seg-title,
+html[data-look='pixelite'] .segmented.three .seg-title {
+	font-size: 1rem;
 	font-weight: 700;
 }
+html[data-look='pixelite'] .seg-note {
+	font-size: 1rem;
+}
+/* The description goes with the height. "PRINT & PIXEL — THE DEFAULT" cannot share a 40px row
+ * with its own title at any size still worth reading, and it was never the only place that copy
+ * lives: the note under each group (.seg-note) already says what the current choice means. */
 html[data-look='pixelite'] .seg-sub {
-	font-size: 10px;
+	display: none;
+}
+/* And the group's own buttons come to the same line, so "card" and "button" are one measure on
+ * this page rather than two. .edit-enter is Settings' alone — Reset, and the two dev actions. */
+html[data-look='pixelite'] .edit-enter {
+	box-sizing: border-box;
+	height: 40px;
+	min-height: 40px;
+	padding-block: 0;
 }
 html[data-look='pixelite'] .seg:hover:not(:disabled),
 html[data-look='pixelite'] .sky-opt:hover:not(:disabled) {

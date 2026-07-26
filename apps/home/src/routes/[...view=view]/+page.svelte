@@ -1886,86 +1886,96 @@
 				{noteText('lookNote', lookStatus, editStg)}
 			</p>
 		</div>
-		<div class="stg-group">
-			<p
-				class="seg-lead"
-				class:editable={editStg}
-				contenteditable={editStg}
-				oninput={editStg
-					? (e) => stageSettings('skyLead', e.currentTarget.textContent ?? '')
-					: undefined}
-			>
-				{settingsText('skyLead')}
-			</p>
-			<div class="sky-picker" role="radiogroup" aria-label="Sky background">
-				{#each skyOptions as o}
+		<!-- THE SKY IS AEROPALITE'S. Pixelite draws none — it is a printed manual, and the two
+		     groups below (Skybox Theme, Starry Night) were offering to dress a stage that is not
+		     on. They still rendered, and still saved, so the default look shipped two controls
+		     whose only effect was on a theme you had to leave to see. A setting that does nothing
+		     where it is shown is worse than a missing one: it reads as broken rather than absent.
+		     Hidden, NOT reset. The chosen sky and stars keep their saved values through a trip
+		     into Pixelite and back, so switching looks costs a visitor nothing — and the reset
+		     button still speaks for them, since it reverts everything the site remembers. -->
+		{#if look !== 'pixelite'}
+			<div class="stg-group">
+				<p
+					class="seg-lead"
+					class:editable={editStg}
+					contenteditable={editStg}
+					oninput={editStg
+						? (e) => stageSettings('skyLead', e.currentTarget.textContent ?? '')
+						: undefined}
+				>
+					{settingsText('skyLead')}
+				</p>
+				<div class="sky-picker" role="radiogroup" aria-label="Sky background">
+					{#each skyOptions as o}
+						<button
+							type="button"
+							class="sky-opt"
+							class:on={skyMode === o.id}
+							role="radio"
+							aria-checked={skyMode === o.id}
+							onclick={() => setSkyMode(o.id)}
+						>
+							{o.label}
+						</button>
+					{/each}
+				</div>
+				<p
+					class="seg-note"
+					class:editable={editStg}
+					contenteditable={editStg}
+					oninput={editStg
+						? (e) => stageSettings('skyNote', e.currentTarget.textContent ?? '')
+						: undefined}
+				>
+					{noteText('skyNote', skyStatus, editStg)}
+				</p>
+			</div>
+			<div class="stg-group">
+				<p
+					class="seg-lead"
+					class:editable={editStg}
+					contenteditable={editStg}
+					oninput={editStg
+						? (e) => stageSettings('starsLead', e.currentTarget.textContent ?? '')
+						: undefined}
+				>
+					{settingsText('starsLead')}
+				</p>
+				<div class="sky-picker" role="radiogroup" aria-label="Stars">
 					<button
 						type="button"
 						class="sky-opt"
-						class:on={skyMode === o.id}
+						class:on={!starsOn}
 						role="radio"
-						aria-checked={skyMode === o.id}
-						onclick={() => setSkyMode(o.id)}
+						aria-checked={!starsOn}
+						onclick={() => setStars(false)}
 					>
-						{o.label}
+						Off
 					</button>
-				{/each}
-			</div>
-			<p
-				class="seg-note"
-				class:editable={editStg}
-				contenteditable={editStg}
-				oninput={editStg
-					? (e) => stageSettings('skyNote', e.currentTarget.textContent ?? '')
-					: undefined}
-			>
-				{noteText('skyNote', skyStatus, editStg)}
-			</p>
-		</div>
-		<div class="stg-group">
-			<p
-				class="seg-lead"
-				class:editable={editStg}
-				contenteditable={editStg}
-				oninput={editStg
-					? (e) => stageSettings('starsLead', e.currentTarget.textContent ?? '')
-					: undefined}
-			>
-				{settingsText('starsLead')}
-			</p>
-			<div class="sky-picker" role="radiogroup" aria-label="Stars">
-				<button
-					type="button"
-					class="sky-opt"
-					class:on={!starsOn}
-					role="radio"
-					aria-checked={!starsOn}
-					onclick={() => setStars(false)}
+					<button
+						type="button"
+						class="sky-opt"
+						class:on={starsOn}
+						role="radio"
+						aria-checked={starsOn}
+						onclick={() => setStars(true)}
+					>
+						On
+					</button>
+				</div>
+				<p
+					class="seg-note"
+					class:editable={editStg}
+					contenteditable={editStg}
+					oninput={editStg
+						? (e) => stageSettings('starsNote', e.currentTarget.textContent ?? '')
+						: undefined}
 				>
-					Off
-				</button>
-				<button
-					type="button"
-					class="sky-opt"
-					class:on={starsOn}
-					role="radio"
-					aria-checked={starsOn}
-					onclick={() => setStars(true)}
-				>
-					On
-				</button>
+					{noteText('starsNote', starsStatus, editStg)}
+				</p>
 			</div>
-			<p
-				class="seg-note"
-				class:editable={editStg}
-				contenteditable={editStg}
-				oninput={editStg
-					? (e) => stageSettings('starsNote', e.currentTarget.textContent ?? '')
-					: undefined}
-			>
-				{noteText('starsNote', starsStatus, editStg)}
-			</p>
-		</div>
+		{/if}
 		<div class="stg-group">
 			<p
 				class="seg-lead"
