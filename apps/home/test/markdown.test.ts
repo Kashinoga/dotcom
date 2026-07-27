@@ -60,6 +60,34 @@ test('an image is not mistaken for a link', () => {
 	assert.doesNotMatch(md('![alt](/x.png)'), /^<p>!/);
 });
 
+test('a paragraph underlined with = or - is a heading', () => {
+	assert.equal(md('Chapter One\n==='), '<h1 id="chapter-one">Chapter One</h1>');
+	assert.equal(md('Chapter One\n---'), '<h2 id="chapter-one">Chapter One</h2>');
+	// The underline retitles EVERYTHING gathered above it, not just the last line.
+	assert.equal(md('Foo\nbar\n==='), '<h1 id="foo-bar">Foo\nbar</h1>');
+});
+
+test('the heading wins the argument with the rule', () => {
+	// The regression this exists for. `-` under a paragraph is ambiguous — a thematic break and
+	// a second-level underline are spelled the same — and reading it as a rule produced a
+	// paragraph AND a stray line: the heading silently lost its level and gained a rule nobody
+	// asked for. CommonMark resolves it the same way, in the heading's favour.
+	assert.doesNotMatch(md('Chapter One\n---'), /<hr>/);
+	assert.doesNotMatch(md('Chapter One\n---'), /<p>/);
+});
+
+test('but a rule with nothing above it is still a rule', () => {
+	assert.equal(md('---'), '<hr>');
+	assert.equal(md('Body.\n\n---\n\nMore.'), '<p>Body.</p><hr><p>More.</p>');
+	// A line that opened its own block cannot be retitled by the dashes under it.
+	assert.equal(md('# Foo\n---'), '<h1 id="foo">Foo</h1><hr>');
+	assert.equal(md('- a\n---'), '<ul><li>a</li></ul><hr>');
+});
+
+test('an underline works inside a quote, like any other block', () => {
+	assert.equal(md('> Foo\n> ---'), '<blockquote><h2 id="foo">Foo</h2></blockquote>');
+});
+
 test('horizontal rules, in each of their spellings', () => {
 	assert.equal(md('---'), '<hr>');
 	assert.equal(md('***'), '<hr>');
@@ -244,6 +272,15 @@ test('the margin marks each source line by what it opens', () => {
 		'--',
 		'|'
 	]);
+});
+
+test('the margin calls a setext underline a heading, not a rule', () => {
+	// The one mark that reads its neighbour. Marking the dashes `--` would have the margin
+	// telling the writer the opposite of what the proof is about to show them.
+	assert.deepEqual(lineMarks('Chapter One\n---'), ['', 'H2']);
+	assert.deepEqual(lineMarks('Chapter One\n==='), ['', 'H1']);
+	// …and a genuine rule keeps its own mark.
+	assert.deepEqual(lineMarks('Body.\n\n---'), ['', '', '--']);
 });
 
 test('the margin goes quiet inside a fence', () => {

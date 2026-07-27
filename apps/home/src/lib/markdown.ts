@@ -177,6 +177,18 @@ const RE_QUOTE = /^ {0,3}>[ \t]?/;
 const RE_UL = /^([ \t]*)([-*+])[ \t]+(.*)$/;
 const RE_OL = /^([ \t]*)(\d{1,9})[.)][ \t]+(.*)$/;
 const RE_TABLE_RULE = /^[ \t]*\|?[ \t]*:?-{1,}:?[ \t]*(\|[ \t]*:?-{1,}:?[ \t]*)*\|?[ \t]*$/;
+/**
+ * A SETEXT underline — a line of nothing but `=` (first level) or `-` (second). It only means
+ * anything directly under a paragraph, which is why it is not in `startsBlock`: on its own, at
+ * the head of a block, a row of dashes is a thematic break and stays one.
+ *
+ * The `-` form is genuinely ambiguous with a rule, and the ambiguity is resolved in the heading's
+ * favour — which is what CommonMark does, and what the writer meant. Left as a rule, typing a
+ * heading the older way produced a paragraph AND a stray line across the page: the heading lost
+ * its level silently and gained a horizontal rule it never asked for. That is a wrong render
+ * rather than an unsupported one, which is the reason this exists at all.
+ */
+const RE_SETEXT = /^ {0,3}(=+|-+)[ \t]*$/;
 
 /** How wide a leading indent reads, with a tab counting as four columns. */
 const indentOf = (s: string) => (s.match(/^[ \t]*/)?.[0] ?? '').replace(/\t/g, '    ').length;
@@ -367,12 +379,32 @@ function blocks(lines: string[]): string {
 		}
 
 		// Paragraph — everything else, running until a blank line or the start of a real block.
+		// It may also end as a SETEXT HEADING: a line of `=` or `-` under it retitles everything
+		// gathered so far, however many lines that is. The check has to live in here rather than
+		// beside the other block rules, because an underline is only an underline when there is a
+		// paragraph above it to underline — the same characters at the head of a block are a rule.
 		const para: string[] = [];
-		while (i < lines.length && !isBlank(lines[i]) && !(para.length && startsBlock(lines[i]))) {
+		let underlined = 0;
+		while (i < lines.length && !isBlank(lines[i])) {
+			if (para.length) {
+				const underline = lines[i].match(RE_SETEXT);
+				if (underline) {
+					underlined = underline[1][0] === '=' ? 1 : 2;
+					i++;
+					break;
+				}
+				if (startsBlock(lines[i])) break;
+			}
 			para.push(lines[i]);
 			i++;
 		}
-		out.push(`<p>${inline(paragraphText(para))}</p>`);
+		const body = inline(paragraphText(para));
+		if (underlined) {
+			const id = slug(body);
+			out.push(`<h${underlined}${id ? ` id="${id}"` : ''}>${body}</h${underlined}>`);
+		} else {
+			out.push(`<p>${body}</p>`);
+		}
 	}
 
 	return out.join('');
@@ -417,13 +449,25 @@ export function tally(src: string): Tally {
  *
  * Kept to two characters — the margin is 3ch wide and the marks are set in the pixel face.
  */
+/**
+ * Is line `n` a setext underline — a row of `=` or `-` with paragraph text directly above it?
+ * The line above has to be ordinary prose: blank, and there is nothing to underline; a heading,
+ * a quote, a list, a fence or a table row, and it opened its own block that the dashes cannot
+ * retitle. This mirrors what the block parser does when a paragraph runs into an underline.
+ */
+function setextUnder(lines: string[], n: number): boolean {
+	if (n === 0 || !RE_SETEXT.test(lines[n])) return false;
+	const above = lines[n - 1];
+	return !isBlank(above) && !startsBlock(above) && !/^[ \t]*\|/.test(above);
+}
+
 export function lineMarks(src: string): string[] {
 	const lines = src.split('\n');
 	const marks: string[] = [];
 	let inFence = false;
 	let fenceMark = '';
 
-	for (const line of lines) {
+	for (const [n, line] of lines.entries()) {
 		const fence = line.match(RE_FENCE);
 		if (fence) {
 			if (!inFence) {
@@ -444,6 +488,15 @@ export function lineMarks(src: string): string[] {
 		}
 		const heading = line.match(/^ {0,3}(#{1,6})(?:[ \t]|$)/);
 		if (heading) marks.push(`H${heading[1].length}`);
+		// A SETEXT underline, which is the one mark that needs to look at its neighbour. Everything
+		// else here is decided by the line alone — deliberately, so the margin follows the caret
+		// rather than the parse — but a row of dashes is a rule or a heading depending entirely on
+		// whether there are words directly above it, and marking it `--` when it is really an H2
+		// would be the margin telling the writer the opposite of what the proof is about to show.
+		// The UNDERLINE carries the mark, not the words above it: the mark names what the line IS,
+		// and this line is the thing that makes a heading a heading.
+		else if (setextUnder(lines, n))
+			marks.push(lines[n][lines[n].search(/\S/)] === '=' ? 'H1' : 'H2');
 		else if (RE_HR.test(line)) marks.push('--');
 		else if (RE_QUOTE.test(line)) marks.push('>');
 		else if (RE_UL.test(line)) marks.push('*');
