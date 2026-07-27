@@ -32,7 +32,8 @@ import {
 	GAVEL_SVG,
 	PLANET_SVG,
 	SMILE_SVG,
-	WAND_SVG
+	WAND_SVG,
+	NIB_SVG
 } from './icons';
 import faviconAtfc from './assets/favicon-atfc.svg';
 import faviconPres from './assets/favicon-pres.svg';
@@ -41,6 +42,7 @@ import faviconStar from './assets/favicon-star.svg';
 import faviconAita from './assets/favicon-aita.svg';
 import faviconPud from './assets/favicon-pud.svg';
 import faviconEmoji from './assets/favicon-emoji.svg';
+import faviconTextEditor from './assets/favicon-text-editor.svg';
 
 /**
  * How a panel is framed. The four values are not a style scale — they name which chrome the
@@ -193,6 +195,26 @@ export const places: Record<string, Place> = {
 		icon: SMILE_SVG,
 		favicon: faviconEmoji,
 		chrome: 'bleed'
+	},
+	TEXT: {
+		title: 'Text Editor',
+		parent: 'APP',
+		accent: '#f06030',
+		blurb: 'A Markdown editor, set as a page of the manual it renders.',
+		icon: NIB_SVG,
+		favicon: faviconTextEditor,
+		// `dense`, not `bleed`, and the choice is the app's whole shape. A reading can afford to
+		// scroll its own title away at the top of a docs sheet; an EDITOR cannot give up the
+		// vertical space, and its rack and its running foot both have to stay to hand while the
+		// sheet under them scrolls. That is what dense buys — the full viewport, and the bar in
+		// its one-row form with the name already in it.
+		//
+		// It keeps the Apps-branch orange rather than following Densette to cobalt. Densette is
+		// cobalt because it IS a printed manual under any theme; this one is an app that happens
+		// to be dressed as one, and under Pixelite the accent is re-read as the theme's cobalt
+		// anyway (see --orange), so the entry says what the place is in the Apps index and lets
+		// the theme have its say on top.
+		chrome: 'dense'
 	},
 	DENS: {
 		title: 'Densette',

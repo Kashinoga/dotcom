@@ -17,6 +17,14 @@
 	import EmojiViewer from '$lib/EmojiViewer.svelte';
 	import EmojiSearch from '$lib/EmojiSearch.svelte';
 	import Densette from '$lib/Densette.svelte';
+	import TextEditor from '$lib/TextEditor.svelte';
+	// The editor's keys, rendered in the dense BAR rather than in the body — see the TEXT branch
+	// in the head-row below, and the note at the top of $lib/text-editor-state.
+	import TextEditorRack from '$lib/TextEditorRack.svelte';
+	// The editor's own scroll state. The dense bar frosts when content goes under it, and this is
+	// the only way the bar can know: `surfScrolled` watches `.surface-body`, which in the editor
+	// never scrolls — its sheet and its proof scroll inside it instead.
+	import { editor as textEditor } from '$lib/text-editor-state.svelte';
 	import { emojiSearch } from '$lib/emoji-search.svelte';
 	import StarMap from '$lib/StarMap.svelte';
 	import DocsShell from '$lib/DocsShell.svelte';
@@ -910,6 +918,9 @@
 	// panels and reloads.
 	const EXPAND_KEY = 'ksh-panel-expanded';
 	let panelExpanded = $state(false);
+	// The dense bar's measured height, published to the surface as --bar-h so the body below can
+	// reserve exactly it. See the bind on .surface-head, and .surface-body.editor.
+	let barHeight = $state(0);
 	// Has the ranger EVER gone up this visit? The space scene mounts on the first orbit and
 	// then stays — a mounted-once layer just turns its opacity, so later deployments can't
 	// race a snapshot the way mount/unmount fades did. Until then three.js stays unpaid-for.
@@ -1442,8 +1453,16 @@
 		// ATFC now joins the force-expand set: the board dropped its compact/panel shape, so the
 		// full-viewport app is its only form in both themes. AITA is the last panel that keeps
 		// whatever the user last toggled; everything else is compact-only.
-		if (nv.code === 'PRES' || nv.code === 'STAR' || nv.code === 'PUD' || nv.code === 'ATFC')
-			panelExpanded = true;
+		//
+		// The set is DERIVED, not listed. It used to be spelled out here as four codes — and the
+		// four were exactly FULL_APPS, which the register already derives from `chrome` being
+		// 'own' or 'dense'. Two lists saying the same thing is the fault $lib/places was written
+		// to end, and this one had the quiet failure mode the register's comment describes: a new
+		// full-viewport app took the right chrome, took the right bar, passed every test, and
+		// then opened at 680px in the side panel because nobody thought to add its code to a
+		// condition three thousand lines away. Asking FULL_APPS makes the chrome field the one
+		// place that decides.
+		if (FULL_APPS.includes(nv.code)) panelExpanded = true;
 		else if (nv.code !== 'AITA') panelExpanded = false;
 	}
 	// Reuse the open panel across destinations: slide the whole panel out, swap its
@@ -1805,6 +1824,11 @@
 							     bar (the header EmojiSearch disc isn't rendered on the docs path); under
 							     Aeropalite that disc stays, so docs is false and no bar is added. -->
 		<EmojiViewer docs={look === 'pixelite'} />
+	{:else if v.code === 'TEXT'}
+		<!-- Text Editor: a Markdown editor. `dense` chrome, so this is the whole viewport under
+							     the one-row bar — the component lays out its own rack, sheet, proof and running
+							     foot inside it, and takes no arguments. -->
+		<TextEditor />
 	{:else if v.code === 'DENS'}
 		<!-- Densette: The Curriculum, an in-universe RPG manual. A reading like Weather
 							     and the Court, but printed — it renders as a Pixelite technical manual under
@@ -2275,6 +2299,7 @@
 				class="surface"
 				class:leaving={panelLeaving}
 				class:expanded={panelExpanded}
+				style:--bar-h={barHeight ? `${barHeight}px` : null}
 				in:panelIn|global={look === 'pixelite'
 					? { duration: 300 }
 					: isMobile
@@ -2403,6 +2428,14 @@
 							{:else}
 								<!-- csb / csb-on: the shared collapsed-super-bar recipe (puhig base.css) —
 					     head-collapsed stays for the page's own seasoning (phantom scroll room). -->
+								<!-- The bar MEASURES itself, and publishes its height as --bar-h. The body below
+						     reserves room for it (the bar is absolutely positioned over the scroller),
+						     and that reserve used to be a hard-coded `44px + 2 * inset` — right for a bar
+						     holding one 42px cap, and merely near-enough for one holding a row of 28px
+						     keys, which is what the text editor's bar is. Near-enough is a band of dead
+						     space at the top of a full-viewport app. Measured, the body sits exactly
+						     under the bar whatever the bar turns out to hold. The hard-coded calc stays
+						     as the fallback for the first paint, before the bind has a number. -->
 								<div
 									class="surface-head csb"
 									class:head-collapsed={surfHeadCollapsed}
@@ -2410,7 +2443,8 @@
 									class:bar={BAR_HEADER.includes(v.code)}
 									class:orbit={ranger.deployment === 'orbit'}
 									class:court={v.code === 'AITA'}
-									class:scrolled={surfScrolled}
+									class:scrolled={surfScrolled || (v.code === 'TEXT' && textEditor.scrolled)}
+									bind:clientHeight={barHeight}
 								>
 									<div class="head-row csb-fold">
 										{#if BAR_HEADER.includes(v.code)}
@@ -2454,7 +2488,16 @@
 												<span class="app-badge-mark">{@html PORT_ICONS[v.code] ?? ''}</span>
 											</button>
 										{/if}
-										{#if BAR_HEADER.includes(v.code)}
+										{#if v.code === 'TEXT'}
+											<!-- THE TEXT EDITOR spends the whole bar on its KEYS, and carries no name in it.
+								     A dense bar is one row wide and this app has sixteen controls; the
+								     name was the only thing standing between them and the room they
+								     needed, and it was the one piece of the bar saying something the tab,
+								     the URL and the favicon already say. The rack is $lib/TextEditorRack —
+								     it lives out here because the bar is the page's, and it reaches the
+								     editor below through the command table in $lib/text-editor-state. -->
+											<TextEditorRack />
+										{:else if BAR_HEADER.includes(v.code)}
 											<!-- A dense bar names itself outright: no big title below to hand over
 								     FROM, so the title simply sits here beside the badge. -->
 											<span class="head-title">{port.title}</span>
@@ -2581,6 +2624,25 @@
 												>
 											</div>
 										{/if}
+										{#if BAR_HEADER.includes(v.code) && v.code !== 'PUD'}
+											<!-- EVERY OTHER dense panel gets Home in the bar's right-hand corner, on
+								     every viewport. A dense bar draws no Back cap (see the head-row above),
+								     so without this there is no door out of a full-viewport app except the
+								     browser's own back gesture — which works, because every panel is a real
+								     URL, but it is not something a control on screen should rely on.
+								     The ranger is the exception above rather than a case here: it needs its
+								     pause twin and its gear alongside, and on a phone the three of them
+								     leave the bar together for a floating key. -->
+											<div class="head-actions">
+												<button
+													type="button"
+													class="icon-btn"
+													onclick={() => home()}
+													aria-label="Close and go home"
+													title="Home">{@html HOME_SVG}</button
+												>
+											</div>
+										{/if}
 									</div>
 									{#if !NEW_HEADER.includes(v.code)}
 										<!-- Panels off the model keep the old arrangement: the title sits in the
@@ -2599,6 +2661,7 @@
 									class="surface-body"
 									class:settings={v.code === 'STG'}
 									class:court={v.code === 'AITA'}
+									class:editor={v.code === 'TEXT'}
 									class:ranger={v.code === 'PUD'}
 									class:orbit={v.code === 'PUD' && ranger.deployment === 'orbit'}
 									class:scrolled={surfScrolled}
@@ -3327,6 +3390,27 @@
 		   1px border either side. The body starts where the in-flow bar used to end, so the
 		   app sits exactly where it always did — until it scrolls, and rows pass under glass. */
 		padding-top: calc(44px + 2 * var(--bar-inset));
+	}
+	/* THE TEXT EDITOR takes the body EDGE TO EDGE. Every other app in here is content laid on the
+	   panel and wants the panel's frame around it; an editor is a WORKING SURFACE, and a band of
+	   inset around a sheet of paper is a band of screen not being written on. Its own panes carry
+	   the padding the words actually need (--te-pad, inside each one), so the inset out here was
+	   simply being paid twice — and the bottom padding sat under a running foot that is pinned to
+	   the bottom of the app, holding it 2rem clear of the edge for no reason at all.
+	   The top reserve is the MEASURED bar rather than the 44px guess above it: this bar holds a row
+	   of 28px keys, not a 42px cap, and the difference was a visible strip of dead paper between
+	   the keys and the first line of the document. */
+	.surface-head.bar + .surface-body.editor {
+		padding-inline: 0;
+		padding-bottom: 0;
+		/* NO top reserve — the document runs UNDER the bar, which is the whole point of the bar
+		   being frosted. Reserving the bar's height here pushed the panes below it, so nothing
+		   ever passed beneath the glass and the frost had nothing to frost: a hard edge with the
+		   text stopping neatly under it, which is exactly what the docs superbar is designed not
+		   to look like. The room the first line needs is padding on the SCROLLERS instead (see
+		   --bar-h in $lib/TextEditor), so the text starts below the bar and then travels under
+		   it. The measured height is still published for them to read. */
+		padding-top: 0;
 	}
 	/* The header's control row: Back at the left, a panel's own action (Weather's search) at the
 	   right. It replaces the bare Back button, so the gap below it is the one Back used to set.

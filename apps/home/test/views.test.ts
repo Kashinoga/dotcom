@@ -190,7 +190,10 @@ describe('the register', () => {
 		// old nine-deep ternary invited: PUD flying the Weather mark.
 		for (const code of codes) {
 			const icon = FAVICONS[code];
-			if (icon) assert.match(icon, /favicon-[a-z]+\.svg$/, code);
+			// Hyphens allowed: a place whose name is two words names its mark the same way its URL
+			// slugs it (favicon-text-editor.svg), and a single-word pattern rejected the first one
+			// to arrive rather than the fault it was written to catch.
+			if (icon) assert.match(icon, /favicon-[a-z]+(?:-[a-z]+)*\.svg$/, code);
 		}
 		assert.match(String(FAVICONS.PUD), /favicon-pud\.svg$/);
 		assert.match(String(FAVICONS.WTHR), /favicon-weather\.svg$/);
