@@ -817,7 +817,17 @@
 		top: 0;
 		left: 0;
 		right: 0;
-		z-index: 20;
+		/* UNDER the floating key's layers (FloatingKey: scrim 17, flyout 18, key 19), and over
+		   everything else — the scroller and its content sit at auto.
+		   It used to be 20, over the lot, which is the one thing the old hand-built drawer needed
+		   and the shared key does not: the tree printed DOWN from the bar, so the bar had to stay
+		   above what it was printing. The key's stack rises from the other end of the screen.
+		   Being 20 also made the shell the odd one out. Every app that carries this key — the Star
+		   Map, the board, the ranger — keeps its bar below the scrim, so standing the stack up dims
+		   the bar along with the page there and left it lit here. The browser chrome follows the
+		   bar's colour ($lib/theme-color), so the inconsistency was visible twice over: on the page
+		   and in the safe areas above it. */
+		z-index: 16;
 		display: flex;
 		align-items: center;
 		gap: clamp(1rem, 3vw, 2rem);

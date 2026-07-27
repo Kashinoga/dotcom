@@ -4,6 +4,14 @@
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="text-scale" content="scale" />
+		<!-- The browser chrome's colour — iOS Safari's bars and the area behind the Dynamic
+		     Island, Android Chrome's bar. $lib/theme-color keeps it matched to whatever the
+		     SUPERBAR currently is, by measuring the top edge of the page.
+		     This value is only the pre-paint seed, so the chrome does not flash the wrong colour
+		     before that runs: the phone's docs bar at rest, which is --sheet-stock. The script
+		     below corrects it for a dark scheme, for the same reason it stamps data-theme there
+		     rather than waiting for hydration. -->
+		<meta name="theme-color" content="#ffffff" />
 		<script>
 			// Apply a saved named theme + display-mode override + time-of-day sky before paint.
 			try {
@@ -17,6 +25,13 @@
 				}
 				var t = localStorage.getItem('ksh-theme');
 				if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+				// Seed the browser chrome to match the bar it will abut, before the first frame.
+				// The RESOLVED scheme, the same three-way the tokens answer to: a forced choice
+				// wins, otherwise the OS. The measured value takes over a frame later
+				// ($lib/theme-color) — this only has to be right enough not to flash.
+				if (t === 'dark' || (t !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches)) {
+					document.querySelector('meta[name="theme-color"]').content = '#202023';
+				}
 				// Pixelite renders no sky, and data-sky FORCES color-scheme in base.css — stamping
 				// it would let a night phase overrule Display Mode → Light with nothing on screen
 				// to show for it. So the sky only stamps for Aeropalite (data-look was stripped).

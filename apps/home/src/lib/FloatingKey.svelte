@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { fade } from 'svelte/transition';
 	import type { Snippet } from 'svelte';
+	import { refreshThemeColor } from '$lib/theme-color';
 
 	// A FLOATING CONTROLS KEY — a plastic key at the phone's bottom-left that discloses a small
 	// stack of controls, with a scrim to tap away. The shape started in the Emoji Viewer, became
@@ -45,6 +46,16 @@
 		   dress; this file only seats it, and opens and closes it with everything else. */
 		row?: Snippet;
 	} = $props();
+
+	// Tell the browser chrome. Standing up puts a full-screen SCRIM over the page, and every bar on
+	// the site sits BELOW that scrim — so the bar the chrome is matched to is genuinely dimmed
+	// while the stack is out, and undimmed when it folds. Nothing else would notice: opening
+	// scrolls nothing, navigates nowhere, and touches no attribute on <html>, which is every signal
+	// $lib/theme-color listens for on its own.
+	$effect(() => {
+		void open;
+		refreshThemeColor();
+	});
 </script>
 
 {#if open}
