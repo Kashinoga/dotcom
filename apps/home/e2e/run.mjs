@@ -56,6 +56,7 @@ const SUITES = [
 	'field', // the field selector
 	'settings', // the settings panel
 	'ranger', // the Park Ranger's Location/Shuttle system — board, cross, re-theme, reopen, pause
+	'text-editor', // the Markdown editor — the mark keys, undo, the margin mirror, the proof
 	'reset', // reset to defaults
 	'masthead', // the homepage chrome: wordmark, bullets, tagline, the station nav
 	'dots', // the accent bullet: a badge on the header model, beside the title off it
@@ -112,8 +113,19 @@ const NARROW = [
 	// filtered out at run time as "parked", so a change to the site's shape quietly selected one
 	// live suite. The three below are the ones that can actually see this file change: `masthead`
 	// reads the titles, `dots` the accents, `deeplink` the hierarchy the URLs come from.
-	{ re: /^src\/lib\/places\.ts$/, suites: ['masthead', 'dots', 'deeplink', 'cards'] },
+	// `text editor` comes along too: the editor's whole shape is decided by its `chrome` field here
+	// — take it off 'dense' and the suite's first assertion (that it opens full-viewport rather
+	// than in the 680px side panel) is the one that notices.
+	{
+		re: /^src\/lib\/places\.ts$/,
+		suites: ['masthead', 'dots', 'deeplink', 'cards', 'text-editor']
+	},
 	{ re: /^src\/lib\/views\.ts$/, suites: ['deeplink', 'dots'] },
+	// The editor and the Markdown engine behind it. The engine's own grammar and its escaping are
+	// covered by `node --test` (test/markdown.test.ts); this suite is the browser half — the mark
+	// keys, undo, and the mirror that keeps the margin aligned through a soft wrap.
+	{ re: /^src\/lib\/Text Editor\.svelte$/, suites: ['text-editor', 'buttons'] },
+	{ re: /^src\/lib\/markdown\.ts$/, suites: ['text-editor'] },
 	// The written copy. It is data now, so editing a paragraph no longer touches the page — but
 	// the panels that render it are still laid out around it.
 	{ re: /^src\/lib\/content\.(ts|json)$/, suites: ['masthead', 'cards'] },
