@@ -138,7 +138,14 @@ const value = () => ta.inputValue();
 	// No KEYS in the body — counted by the key class, not by "any button". The contents rail's
 	// links and the workspace's rows are buttons too, and they belong there; what must not be in
 	// the body is a second copy of the bar's controls.
-	ok('and none are left in the body', (await page.locator('.te .tb').count()) === 0);
+	// The WORKSPACE's own three keys are in the body, and belong there — they act on the pane
+	// rather than on the document, and the pane is a column of the desk. What must not be in the
+	// body is a second copy of the BAR's controls, which is what this counts.
+	ok(
+		'and none of the bar’s are left in the body',
+		(await page.locator('.te .tb:not(.te-work-act)').count()) === 0,
+		`${await page.locator('.te .tb:not(.te-work-act)').count()}`
+	);
 	// The row must not have wrapped: the body reserves a fixed one-row height, so a second row
 	// would sit on top of the document's first lines.
 	{
@@ -1018,6 +1025,253 @@ await reset('first\n\n\nlast');
 			return names.length === 0;
 		})
 	);
+
+	// ── NEW MAKES A SCRATCH DOCUMENT ─────────────────────────────────────────
+	// It used to ask for a name and create a real file in the folder, which meant it only worked
+	// in Chromium, only with a folder open, and asked you to decide what a note was called before
+	// you had written a word of it. A new document is named for you and lives on a shelf of its
+	// own above Elsewhere — and it is the ONE kind of document this pane holds the text of,
+	// because there is nowhere to read it back from.
+	{
+		await wp.getByRole('button', { name: 'New', exact: true }).click();
+		await wp.waitForTimeout(400);
+		ok('New asks for no name', (await wp.locator('.te-work-field').count()) === 0);
+		ok(
+			'and puts a scratch document on a shelf of its own',
+			(await wp.locator('.te-loose-name').allTextContents()).join(',') === 'Scratch',
+			JSON.stringify(await wp.locator('.te-loose-name').allTextContents())
+		);
+		ok(
+			'named for you',
+			(await wp.locator('.te-loose').first().locator('.te-work-file').textContent()) ===
+				'Ephemeral 1'
+		);
+		ok('on a blank sheet', (await wp.locator('.te-type').inputValue()) === '');
+		ok(
+			'with the foot naming it',
+			(await wp.locator('.te-lamp').textContent()).trim() === 'Ephemeral 1'
+		);
+
+		// THE CASE THAT MATTERS: a scratch note's words exist nowhere else, so leaving it and
+		// coming back must not lose them.
+		await wp.locator('.te-type').fill('words that live nowhere else');
+		await wp.waitForTimeout(500);
+		await wp.getByRole('treeitem', { name: 'renamed.md' }).click();
+		await wp.waitForTimeout(600);
+		ok('a tree row still opens over it', (await wp.locator('.te-type').inputValue()) !== '');
+		await wp.locator('.te-loose').first().locator('.te-work-row').click();
+		await wp.waitForTimeout(600);
+		ok(
+			'and the scratch note still has its words',
+			(await wp.locator('.te-type').inputValue()) === 'words that live nowhere else',
+			await wp.locator('.te-type').inputValue()
+		);
+		// Closing one is the end of those words, so it asks twice — exactly as Clear does.
+		await wp.locator('.te-loose').first().locator('.te-work-row').click({ button: 'right' });
+		await wp.waitForTimeout(300);
+		const item = wp.locator('.te-file-menu [role=menuitem]');
+		await item.click();
+		await wp.waitForTimeout(300);
+		ok('closing a scratch note asks first', (await item.textContent()).trim() === 'Sure?');
+		await item.click();
+		await wp.waitForTimeout(400);
+		// The order of the scratch list is YOURS — the tree is alphabetical because a folder is,
+		// and the shelf is by recency because that is what it means, but these are notes you made.
+		// Two fresh ones — the first note was closed just above, so its name is free again.
+		await wp.getByRole('button', { name: 'New', exact: true }).click();
+		await wp.waitForTimeout(300);
+		await wp.getByRole('button', { name: 'New', exact: true }).click();
+		await wp.waitForTimeout(400);
+		await eq(
+			'two scratch notes stand in the order they were made',
+			wp
+				.locator('.te-loose')
+				.first()
+				.locator('.te-work-file')
+				.allTextContents()
+				.then((t) => t.join(',')),
+			'Ephemeral 1,Ephemeral 2'
+		);
+		await wp.dragAndDrop('.te-loose >> text=Ephemeral 2', '.te-loose >> text=Ephemeral 1');
+		await wp.waitForTimeout(500);
+		await eq(
+			'and one dragged onto the other takes its place',
+			wp
+				.locator('.te-loose')
+				.first()
+				.locator('.te-work-file')
+				.allTextContents()
+				.then((t) => t.join(',')),
+			'Ephemeral 2,Ephemeral 1'
+		);
+		// Both off again, so the shelf is empty for what follows.
+		for (const _ of [0, 1]) {
+			await wp
+				.locator('.te-loose')
+				.first()
+				.locator('.te-work-row')
+				.first()
+				.click({ button: 'right' });
+			await wp.waitForTimeout(300);
+			await wp.locator('.te-file-menu [role=menuitem]').click();
+			await wp.waitForTimeout(200);
+			await wp.locator('.te-file-menu [role=menuitem]').click();
+			await wp.waitForTimeout(400);
+		}
+
+		ok(
+			'and the second press takes it, and the empty shelf with it',
+			(await wp.locator('.te-loose').count()) === 0
+		);
+	}
+
+	// ── AN EMPTY FOLDER IS STILL A FOLDER ───────────────────────────────────
+	// The tree was derived from the file paths alone, so a folder with nothing readable in it had
+	// no row — which made it the one folder you could never drag anything into. The walk's own
+	// directory list is what fills the gap; a `webkitdirectory` pick cannot know them, because an
+	// empty directory leaves no File behind to be seen in.
+	{
+		await wp.evaluate(async () => {
+			const root = await navigator.storage.getDirectory();
+			await root.getDirectoryHandle('nothing-in-here', { create: true });
+		});
+		await wp.getByRole('button', { name: 'Change', exact: true }).click();
+		await wp.waitForTimeout(900);
+		ok(
+			'an empty folder gets a row of its own',
+			(await wp.getByRole('treeitem', { name: /^nothing-in-here/ }).count()) === 1
+		);
+		await eq(
+			'and says it holds nothing',
+			wp
+				.getByRole('treeitem', { name: /^nothing-in-here/ })
+				.locator('.te-work-tally')
+				.textContent(),
+			'0'
+		);
+	}
+
+	// ── A RENAME SAYS SO ─────────────────────────────────────────────────────
+	// It is the one write in this pane that changes nothing you can see — the sheet is unchanged
+	// and the row simply has a different word in it — so a rename the browser refused looks
+	// exactly like one that worked. The row answers in the emerald the Save key uses.
+	{
+		await wp.getByRole('treeitem', { name: 'renamed.md' }).click({ button: 'right' });
+		await wp.waitForTimeout(300);
+		await wp.locator('.te-file-menu [role=menuitem]', { hasText: 'Rename' }).click();
+		await wp.waitForTimeout(250);
+		await wp.locator('.te-work-field').fill('renamed-again.md');
+		await wp.locator('.te-work-field').press('Enter');
+		await wp.waitForTimeout(400);
+		const row = wp.getByRole('treeitem', { name: 'renamed-again.md' });
+		ok('the renamed row says Saved', (await wp.locator('.te-work-row.saved').count()) === 1);
+		ok(
+			'in the emerald, not the accent',
+			await row.evaluate((el) => {
+				const c = getComputedStyle(el, '::after').color.match(/\d+/g).map(Number);
+				return c[1] > c[0] + 30 && c[1] > c[2] + 20;
+			})
+		);
+		// The row's own text must NOT be what fades: animating the row's opacity whited the cell
+		// out and brought the filename back at the end, which reads as the row being replaced.
+		ok(
+			'and the filename does not fade with it',
+			await row.locator('.te-work-file').evaluate((el) => getComputedStyle(el).opacity === '1')
+		);
+		await wp.waitForTimeout(1600);
+		ok('and it goes on its own', (await wp.locator('.te-work-row.saved').count()) === 0);
+	}
+
+	// ── MOVING A DOCUMENT ────────────────────────────────────────────────────
+	// Drag a row onto a folder and the file moves ON DISK. Checked by reading the filesystem back,
+	// like every other write in this suite — a sidebar that redrew without the move happening
+	// would pass otherwise.
+	{
+		const TREE = '.te-work-list:not(.te-loose-list)';
+		ok(
+			'a document can be dragged',
+			(await wp
+				.locator(`${TREE} .te-work-row`, { hasText: 'beta.md' })
+				.first()
+				.getAttribute('draggable')) === 'true'
+		);
+		ok(
+			'a folder cannot — only documents move',
+			(await wp.locator('.te-work-dir').first().getAttribute('draggable')) !== 'true'
+		);
+		await wp.dragAndDrop(`${TREE} >> text=beta.md`, '.te-work-dir');
+		await wp.waitForTimeout(400);
+		// A move ANSWERS too, in the accent rather than the emerald — it is a write you can see,
+		// but only if you were looking at the part of the list it landed in.
+		ok('the moved row says so', (await wp.locator('.te-work-row.moved').count()) === 1);
+		ok(
+			'in the accent, not the emerald',
+			await wp.locator('.te-work-row.moved').evaluate((el) => {
+				const c = getComputedStyle(el, '::after').color.match(/\d+/g).map(Number);
+				return c[2] > c[1] + 40;
+			})
+		);
+		await wp.waitForTimeout(500);
+		// The whole path is on the row for the hover — indenting says where a document is only
+		// while the folder rows above it are still on screen, which stops being true the moment
+		// the list scrolls. Asked here because this is the first nested document the suite has.
+		await eq(
+			'a nested row carries its whole path for the hover',
+			wp.getByRole('treeitem', { name: 'beta.md' }).getAttribute('title'),
+			'drafts/beta.md'
+		);
+		ok(
+			'dropping one on a folder moves it there on disk',
+			await wp.evaluate(async () => {
+				const root = await navigator.storage.getDirectory();
+				const sub = await root.getDirectoryHandle('drafts');
+				const inSub = [];
+				for await (const [n] of sub.entries()) inSub.push(n);
+				const inTop = [];
+				for await (const [n] of root.entries()) inTop.push(n);
+				return inSub.includes('beta.md') && !inTop.includes('beta.md');
+			})
+		);
+		// Out again, onto the head — which is the root's drop target, because dragging a document
+		// out of a sub-folder has to have somewhere to land.
+		await wp.dragAndDrop(`${TREE} >> text=beta.md`, '.te-work-head');
+		await wp.waitForTimeout(800);
+		ok(
+			'dropping one on the head moves it back to the top level',
+			await wp.evaluate(async () => {
+				const root = await navigator.storage.getDirectory();
+				const inTop = [];
+				for await (const [n] of root.entries()) inTop.push(n);
+				return inTop.includes('beta.md');
+			})
+		);
+		// `move` OVERWRITES silently — the platform will not warn you that the file you dropped
+		// has just replaced one of the same name. So the app checks before it acts.
+		await wp.evaluate(async () => {
+			const root = await navigator.storage.getDirectory();
+			const sub = await root.getDirectoryHandle('drafts');
+			const h = await sub.getFileHandle('beta.md', { create: true });
+			const f = await h.createWritable();
+			await f.write('# the one already there');
+			await f.close();
+		});
+		await wp.getByRole('button', { name: 'Change', exact: true }).click();
+		await wp.waitForTimeout(900);
+		await wp.dragAndDrop(`${TREE} >> text=beta.md >> nth=1`, '.te-work-dir');
+		await wp.waitForTimeout(800);
+		ok(
+			'a name already taken at the destination cancels the move',
+			await wp.evaluate(async () => {
+				const root = await navigator.storage.getDirectory();
+				const sub = await root.getDirectoryHandle('drafts');
+				const kept = await (await sub.getFileHandle('beta.md')).getFile();
+				const inTop = [];
+				for await (const [n] of root.entries()) inTop.push(n);
+				return (await kept.text()) === '# the one already there' && inTop.includes('beta.md');
+			})
+		);
+	}
+
 	await w.close();
 }
 

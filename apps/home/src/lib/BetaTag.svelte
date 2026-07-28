@@ -115,9 +115,6 @@
 		     One run of text with real spaces in it rather than three spans held apart by a flex
 		     gap: a gap is not a space, and a screen reader read the legend as one word. -->
 		<p class="beta-scheme">collections · features · commits</p>
-		<p class="popover-note beta-note">
-			In beta, so the first number stays at zero until it is not.
-		</p>
 		<h3 class="beta-sub">Recently</h3>
 		<ul class="beta-list">
 			{#each release.recent.slice(0, 5) as feature (feature.what)}
@@ -197,12 +194,6 @@
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
 		color: var(--sub);
-	}
-	/* .popover-note carries the rule, the size and the colour. The inset is undone: this card
-	   sets its own padding, so the note must not add a menu item's again. */
-	.beta-note {
-		padding-left: 0;
-		padding-right: 0;
 	}
 	.beta-sub {
 		margin: 0.7rem 0 0.35rem;

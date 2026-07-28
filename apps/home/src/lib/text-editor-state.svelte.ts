@@ -80,6 +80,20 @@ export type LooseDoc = {
 };
 
 /**
+ * A document that exists only here. New makes one — `Ephemeral 1`, `Ephemeral 2` — and unlike
+ * everything else in this pane it has no file behind it at all: not a File, not a handle, not a
+ * path. So it is the one kind of document the workspace has to hold the TEXT of. A shelf row can
+ * afford to remember only where its document came from, because it can always read it again;
+ * there is nowhere to read this one back from, and a list that dropped it on the way to another
+ * row would be quietly destroying work.
+ *
+ * They are kept across a reload with the sheet, for the same reason the sheet is kept: this app
+ * has always promised that what you typed is still there when you come back, and three scratch
+ * notes are not less yours than one.
+ */
+export type Ephemeral = { id: string; name: string; text: string };
+
+/**
  * What counts as openable. Deliberately narrow: this is a Markdown editor, and handing it a
  * binary would put mojibake on the sheet rather than an error. The extension list is the gate
  * for a FOLDER (where the picker cannot filter for us); a single file also offers these to the
@@ -148,8 +162,22 @@ export const editor = $state({
 	 * So the pane comes back empty on a reload and the folder has to be picked again.
 	 */
 	folder: [] as FolderEntry[],
+	/**
+	 * Every DIRECTORY under the open folder, by path. Kept beside the files rather than derived
+	 * from them, because a folder with nothing readable in it has no file to be derived from —
+	 * and an empty folder that the sidebar refuses to draw is a folder you cannot put anything
+	 * into. Only a `showDirectoryPicker` walk can know them: a `webkitdirectory` pick hands over
+	 * a list of Files and an empty directory leaves no trace in one.
+	 */
+	folders: [] as string[],
 	folderName: '',
-	folderShown: false,
+	/**
+	 * The pane is OPEN by default. It is not only a folder listing any more — it holds the scratch
+	 * notes and the New key that makes them, so a workspace that started shut hid the one control
+	 * in it that does not need a folder at all. On a phone it is a sheet OVER the document rather
+	 * than a column beside it, so the editor shuts it again at mount (see `narrow`).
+	 */
+	folderShown: true,
 	/**
 	 * Which folders in the workspace TREE are shut, by path. The list stays flat — every other
 	 * thing this app does with a folder works in paths, and a nested structure would move open,
@@ -173,11 +201,19 @@ export const editor = $state({
 	 */
 	loose: [] as LooseDoc[],
 	/**
-	 * Does `openPath` name a row on the SHELF rather than one in the tree? Two flags rather than
-	 * one clever path prefix: a folder is free to hold a file called `loose:anything`, and a
-	 * marker that a real filename could forge is a marker that will mark the wrong row one day.
+	 * SCRATCH — what New makes, newest last. Above the shelf, because the shelf is where things
+	 * from elsewhere land and these came from nowhere at all.
 	 */
-	openLoose: false,
+	ephemeral: [] as Ephemeral[],
+	/**
+	 * WHICH LIST `openPath` names. Three lists draw rows in this pane and all three can hold the
+	 * same string; without this the mark would land on every row that matched.
+	 *
+	 * A field rather than a prefix on the path itself — a folder is free to hold a file called
+	 * `loose:anything`, and a marker that a real filename could forge is a marker that will mark
+	 * the wrong row one day.
+	 */
+	openIn: 'tree' as 'tree' | 'loose' | 'ephemeral',
 	/**
 	 * Can this browser reach the real file system for WRITING — save in place, rename, delete?
 	 *
@@ -211,8 +247,6 @@ export const editor = $state({
 	headingAt: null as { x: number; y: number } | null,
 	/** Is the contents rail showing? On by default: it is the one column that costs nothing. */
 	contentsShown: true,
-	/** True while the workspace is asking what to call a new document. */
-	naming: false,
 	/** Which entry is being renamed, if any — the workspace swaps its row for a field. */
 	renaming: '',
 	/** The entry armed for deletion, if any. Two presses, like Clear. */
@@ -226,7 +260,12 @@ export const editor = $state({
 	 * Carried as coordinates for the same reason `headingAt` is — the list SCROLLS, so a popover
 	 * inside it would be clipped by its own scroller. Fixed, at the measured point, it escapes.
 	 */
-	fileMenu: null as { path: string; x: number; y: number; loose: boolean } | null,
+	fileMenu: null as {
+		path: string;
+		x: number;
+		y: number;
+		list: 'tree' | 'loose' | 'ephemeral';
+	} | null,
 	/** Confirmation lamps, owned by the editor's timers, read by the rack's keys. */
 	copied: false,
 	armed: false,

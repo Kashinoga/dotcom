@@ -11,7 +11,8 @@
 		HEADING_LEVELS,
 		openHeadings,
 		type FolderEntry,
-		type LooseDoc
+		type LooseDoc,
+		type Ephemeral
 	} from '$lib/text-editor-state.svelte';
 	import FloatingKey from '$lib/FloatingKey.svelte';
 	import { NIB_SVG, RULE_SVG } from '$lib/icons';
@@ -216,6 +217,28 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			// Only an explicit '0' turns the measure off — an absent key is a first visit, and the
 			// measure is what a first visit should get.
 			editor.measured = localStorage.getItem(`${STORE}:measure`) !== '0';
+			// The scratch notes come back with the sheet. They are called ephemeral because they
+			// have no file behind them, not because losing them is fine — three scratch notes are
+			// not less yours than the one on the sheet, and the sheet has always survived a reload.
+			const scratch = JSON.parse(localStorage.getItem(`${STORE}:scratch`) || 'null');
+			if (scratch && Array.isArray(scratch.docs)) {
+				editor.ephemeral = scratch.docs.filter(
+					(d: unknown): d is Ephemeral =>
+						!!d && typeof d === 'object' && typeof (d as Ephemeral).id === 'string'
+				);
+				// Past every id already handed out, so a new note cannot take a restored one's.
+				ephemeralSeq =
+					editor.ephemeral.reduce((n, d) => Math.max(n, Number(d.id.slice(4)) || 0), 0) + 1;
+				// The pane comes up with them: they are the only place those words are, and a list
+				// you have to go looking for is a list you will forget you have.
+				if (editor.ephemeral.length) editor.folderShown = true;
+				if (editor.ephemeral.some((d) => d.id === scratch.open)) {
+					// The sheet was showing this one, and `text` above has just restored its words.
+					editor.openPath = scratch.open;
+					editor.openIn = 'ephemeral';
+					editor.filename = editor.ephemeral.find((d) => d.id === scratch.open)?.name ?? '';
+				}
+			}
 		} catch {
 			// Private mode, a storage quota, a browser with storage switched off. The editor works
 			// perfectly well without persistence; it just forgets. Nothing to tell the visitor.
@@ -225,6 +248,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// exists while the editor does, and one listener beats two that could disagree.
 		const mq = window.matchMedia('(max-width: 820px)');
 		editor.narrow = mq.matches;
+		// The workspace is open by default on a desk and shut on a phone, where it is a sheet OVER
+		// the document rather than a column beside it — and somebody who came to write should not
+		// have to dismiss a file list first.
+		if (mq.matches) editor.folderShown = false;
 		const onMq = (e: MediaQueryListEvent) => (editor.narrow = e.matches);
 		mq.addEventListener('change', onMq);
 
@@ -274,7 +301,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			saveInPlace,
 			heading,
 			readme,
-			newFile: () => (editor.naming = true)
+			newFile: () => newEphemeral()
 		};
 
 		return () => {
@@ -323,6 +350,21 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			localStorage.setItem(`${STORE}:measure`, editor.measured ? '1' : '0');
 		} catch {
 			/* nothing to do */
+		}
+	});
+
+	// The scratch list, written whenever it changes. Not debounced: the list changes when a note
+	// is made, opened or closed, which is a handful of times a session — the per-keystroke cost
+	// is on the sheet's own write above, and this reads the already-stashed text.
+	$effect(() => {
+		const docs = editor.ephemeral.map((d) => ({ ...d }));
+		const open = editor.openIn === 'ephemeral' ? editor.openPath : null;
+		if (typeof localStorage === 'undefined') return;
+		try {
+			if (docs.length) localStorage.setItem(`${STORE}:scratch`, JSON.stringify({ docs, open }));
+			else localStorage.removeItem(`${STORE}:scratch`);
+		} catch {
+			/* nothing to do — the notes are on screen, they just will not survive a reload */
 		}
 	});
 
@@ -806,6 +848,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 */
 	async function load(file: File, handle: FileSystemFileHandle | null = null) {
 		let body: string;
+		// Whatever is on the sheet may be a scratch note, and this is about to be over it.
+		stashEphemeral();
 		try {
 			body = await file.text();
 		} catch {
@@ -830,6 +874,126 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		fileInput?.click();
 	}
 
+	// ── Scratch ───────────────────────────────────────────────────────────────
+	// What New makes. It used to ask for a name and create a real file in the open folder, which
+	// meant it only existed in Chromium, only with a folder open, and asked you to decide what a
+	// note was called before you had written it. A new document is now a scratch one: named for
+	// you, on the sheet at once, and on a list of its own above the shelf.
+	//
+	// This is the ONE kind of document the workspace holds the text of. Everything else in the
+	// pane can afford to remember only where its document came from, because it can always read
+	// it back; there is nowhere to read this one back from, so a list that dropped it on the way
+	// to another row would be quietly destroying work.
+
+	/** `Ephemeral 3` — the lowest number not already taken, so closing one frees its name. */
+	function nextEphemeralName() {
+		const taken = new Set(editor.ephemeral.map((d) => d.name));
+		let n = 1;
+		while (taken.has(`Ephemeral ${n}`)) n += 1;
+		return `Ephemeral ${n}`;
+	}
+
+	/**
+	 * The sheet holds an ephemeral document and is about to stop. Its words go back to its row
+	 * BEFORE anything replaces them — this is the only place they exist.
+	 */
+	function stashEphemeral() {
+		if (editor.openIn !== 'ephemeral') return;
+		const at = editor.ephemeral.findIndex((d) => d.id === editor.openPath);
+		if (at >= 0) editor.ephemeral[at].text = text;
+	}
+
+	function newEphemeral() {
+		stashEphemeral();
+		const doc = { id: `eph-${ephemeralSeq++}`, name: nextEphemeralName(), text: '' };
+		editor.ephemeral = [...editor.ephemeral, doc];
+		putEphemeralOnSheet(doc);
+		// The workspace stays open on a wide window, and on a phone it covers the sheet it just
+		// filled — the same rule every other way of opening a document keeps.
+		if (editor.narrow) editor.folderShown = false;
+	}
+	let ephemeralSeq = 1;
+
+	function openEphemeral(doc: Ephemeral) {
+		if (editor.openIn === 'ephemeral' && editor.openPath === doc.id) return;
+		stashEphemeral();
+		putEphemeralOnSheet(doc);
+		if (editor.narrow) editor.folderShown = false;
+	}
+
+	/**
+	 * Through `write`, like every other way of putting something on the sheet, so switching to a
+	 * scratch note is undoable exactly as opening a file is.
+	 */
+	function putEphemeralOnSheet(doc: Ephemeral) {
+		if (!ta) return;
+		ta.focus();
+		ta.setSelectionRange(0, ta.value.length);
+		write(doc.text);
+		editor.filename = doc.name;
+		editor.openHandle = null;
+		editor.openPath = doc.id;
+		editor.openIn = 'ephemeral';
+		ta.setSelectionRange(0, 0);
+		trackCaret();
+	}
+
+	// The scratch list is the ONE list in this pane whose order is yours. The tree is alphabetical
+	// because a folder is, and the shelf is by recency because that is what it means; these are
+	// notes you made, and the order you want them in is not a fact about anything else.
+	let dragEph = $state('');
+	let dropEphOn = $state('');
+
+	function onEphDragStart(event: DragEvent, id: string) {
+		dragEph = id;
+		event.dataTransfer?.setData('text/plain', id);
+		if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+	}
+
+	function onEphDragOver(event: DragEvent, id: string) {
+		if (!dragEph || dragEph === id) return;
+		event.preventDefault();
+		if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+		dropEphOn = id;
+	}
+
+	/** Dropped ON a row means "take the place of this one", which is what a list of six needs. */
+	function onEphDrop(event: DragEvent, id: string) {
+		event.preventDefault();
+		const from = editor.ephemeral.findIndex((d) => d.id === dragEph);
+		const to = editor.ephemeral.findIndex((d) => d.id === id);
+		dragEph = '';
+		dropEphOn = '';
+		if (from < 0 || to < 0 || from === to) return;
+		const next = [...editor.ephemeral];
+		next.splice(to, 0, ...next.splice(from, 1));
+		editor.ephemeral = next;
+	}
+
+	/** Take a scratch note off the list. Its words go with it — there is nowhere else they are. */
+	function closeEphemeral(doc: Ephemeral) {
+		editor.ephemeral = editor.ephemeral.filter((d) => d.id !== doc.id);
+		if (editor.openIn === 'ephemeral' && editor.openPath === doc.id) {
+			editor.openPath = '';
+			editor.openIn = 'tree';
+			editor.filename = '';
+		}
+	}
+
+	// The sheet is the live copy while a scratch note is open, so the row has to follow it. On a
+	// debounce with the same rhythm as the localStorage write below rather than per keystroke —
+	// it is the same cost for the same reason.
+	$effect(() => {
+		text;
+		if (editor.openIn !== 'ephemeral') return;
+		const id = editor.openPath;
+		const t = window.setTimeout(() => {
+			const at = editor.ephemeral.findIndex((d) => d.id === id);
+			if (at >= 0) editor.ephemeral[at].text = text;
+		}, 300);
+		return () => clearTimeout(t);
+	});
+
 	// ── The shelf ─────────────────────────────────────────────────────────────
 	// Documents opened from OUTSIDE the folder. Without it, a file picked with Open had nowhere
 	// to be — the tree cannot list what is not in the folder, so the moment you clicked anything
@@ -851,7 +1015,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		const rest = editor.loose.filter((d) => d.id !== doc.id);
 		editor.loose = [doc, ...rest].slice(0, LOOSE_MAX);
 		editor.openPath = doc.id;
-		editor.openLoose = true;
+		editor.openIn = 'loose';
 	}
 
 	/** The Open key's file. It has no handle — a picked file cannot be saved back to. */
@@ -879,7 +1043,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * with its handle, rather than quietly losing its row.
 	 */
 	function shelveTheOpenOne() {
-		if (!editor.openPath || editor.openLoose || !editor.filename) return;
+		if (!editor.openPath || editor.openIn !== 'tree' || !editor.filename) return;
 		const doc: LooseDoc = {
 			id: editor.openPath,
 			name: editor.filename,
@@ -898,7 +1062,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * folders is inside the pane, where the folder you would be changing is named.
 	 */
 	function openFolder() {
-		if (editor.folder.length) {
+		// A SHELF counts as something to show. Scratch notes and documents from elsewhere live in
+		// this pane too, and after a reload they can outlive the folder entirely — a key that
+		// answered "pick a folder" while two scratch notes sat behind it would be hiding them.
+		if (editor.folder.length || editor.loose.length || editor.ephemeral.length) {
 			editor.folderShown = !editor.folderShown;
 			return;
 		}
@@ -914,7 +1081,16 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	const SKIP_DIR = /^(node_modules|\.git|\.svn|\.hg|\.cache|dist|build|\.next|\.svelte-kit)$/;
 
 	/** Collect the openable documents under a directory handle, depth first, path in hand. */
+	/**
+	 * Every directory the walk went into, by path. A tree row is DERIVED from the file paths (see
+	 * `workRows`), so a folder in the sidebar is a string rather than a thing — and moving a file
+	 * into one needs the actual handle. Collecting them on the way down is the only place they
+	 * all pass through; the alternative is re-walking from the root on every drop.
+	 */
+	let heldDirs = new Map<string, FileSystemDirectoryHandle>();
+
 	async function walk(dir: FileSystemDirectoryHandle, prefix: string, out: FolderEntry[]) {
+		heldDirs.set(prefix, dir);
 		// A folder can be arbitrarily deep and arbitrarily large; a workspace that walked all of
 		// it would hang on a home directory. Stop at a depth and a count that still cover any
 		// notes folder anyone actually keeps.
@@ -944,12 +1120,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			return;
 		}
 		const out: FolderEntry[] = [];
+		heldDirs = new Map();
 		try {
 			await walk(dir, '', out);
 		} catch {
 			/* a folder that went away mid-walk — take what was gathered */
 		}
 		out.sort((a, b) => a.path.localeCompare(b.path));
+		editor.folders = [...heldDirs.keys()].filter(Boolean);
 		// Whatever was open belonged to the LAST folder. Shelved before the new one lands, or its
 		// row would simply vanish with the tree it was in.
 		shelveTheOpenOne();
@@ -957,7 +1135,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.folderName = dir.name;
 		editor.folderShown = true;
 		editor.openPath = '';
-		editor.openLoose = false;
+		editor.openIn = 'tree';
 		// A different folder is a different tree; what was shut in the last one means nothing here.
 		editor.collapsed = [];
 		heldFolder = dir;
@@ -985,32 +1163,21 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	let savedTimer = 0;
 
 	/**
-	 * Make a new document in the open folder, and open it. Needs a directory handle to create
-	 * INTO, so it is offered only where the rest of the writing is — a "new file" that could not
-	 * be written anywhere would just be the Clear key with a longer name.
+	 * The path of a row that has just been renamed, for as long as it says so. Emerald, like the
+	 * Save key: a rename is the one thing in this pane that writes to disk without the sheet
+	 * changing at all, so without a word it is impossible to tell a rename that worked from one
+	 * the browser refused.
 	 */
-	async function newFile(name: string) {
-		const base = name.trim();
-		editor.naming = false;
-		if (!base || !heldFolder) return;
-		// A name, not a path: creating into another directory is a different verb, and a text
-		// field in a sidebar is the wrong place to offer one.
-		if (/[/\\]/.test(base)) return;
-		const file = OPENABLE.test(base) ? base : `${base}.md`;
-		let handle: FileSystemFileHandle;
-		try {
-			handle = await heldFolder.getFileHandle(file, { create: true });
-		} catch {
-			return;
-		}
-		const entry: FolderEntry = { name: file, path: file, handle, parent: heldFolder };
-		// Only add it if the walk did not already know it — `create: true` on an existing name
-		// hands back the existing file rather than failing, and opening that is the right thing.
-		if (!editor.folder.some((e) => e.path === entry.path)) {
-			editor.folder = [...editor.folder, entry].sort((a, b) => a.path.localeCompare(b.path));
-		}
-		await openEntry(entry);
-	}
+	let justRenamed = $state('');
+	let renamedTimer = 0;
+	/**
+	 * And the path of a row that has just MOVED. Same argument, different colour: a move is a
+	 * write you can see (the row is somewhere else now) but only if you were watching the part of
+	 * the list it landed in. Cobalt rather than emerald — the accent this manual uses for "here",
+	 * because that is what the answer is: here is where it went.
+	 */
+	let justMoved = $state('');
+	let movedTimer = 0;
 
 	/** Rename an entry on disk, and follow it if it is the one on the sheet. */
 	async function rename(entry: FolderEntry, to: string) {
@@ -1033,6 +1200,97 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			editor.openPath = entry.path;
 			editor.filename = name;
 		}
+		justRenamed = entry.path;
+		clearTimeout(renamedTimer);
+		renamedTimer = window.setTimeout(() => (justRenamed = ''), 1700);
+	}
+
+	// ── Moving a document ─────────────────────────────────────────────────────
+	// Drag a row onto a folder and the file MOVES ON DISK — `handle.move(dir, name)`, the same
+	// call rename uses with a directory in front of it. Chromium only, like every other write.
+	//
+	// Dropping is the only gesture here that changes something outside this app without a key
+	// having been pressed, so it is deliberately narrow: only a document can be dragged, only a
+	// folder row or the head can take it, and a name already in the destination cancels the whole
+	// thing. `move` OVERWRITES silently — the platform will not warn you that the README you
+	// dropped has just replaced the README that was there.
+
+	/** The path being dragged, and the folder path under the pointer. Both '' for none. */
+	let dragging = $state('');
+	let dropInto = $state<string | null>(null);
+
+	/** The directory a tree path lives in — '' is the root. */
+	const dirAt = (path: string) => heldDirs.get(path);
+
+	async function moveTo(entry: FolderEntry, destPath: string) {
+		const dest = dirAt(destPath);
+		const from = entry.path.includes('/') ? entry.path.slice(0, entry.path.lastIndexOf('/')) : '';
+		if (!dest || !entry.handle || from === destPath) return;
+		// A name already taken at the destination. `move` would overwrite it without a word, so
+		// this is the one place the app checks BEFORE acting rather than reporting afterwards.
+		try {
+			await dest.getFileHandle(entry.name);
+			return;
+		} catch {
+			/* nothing there by that name, which is what we wanted */
+		}
+		try {
+			await entry.handle.move(dest, entry.name);
+		} catch {
+			return;
+		}
+		const was = entry.path;
+		entry.path = destPath ? `${destPath}/${entry.name}` : entry.name;
+		entry.parent = dest;
+		editor.folder = [...editor.folder].sort((a, b) => a.path.localeCompare(b.path));
+		// The document on the sheet follows its own file, exactly as it does through a rename.
+		if (editor.openIn === 'tree' && editor.openPath === was) editor.openPath = entry.path;
+		justMoved = entry.path;
+		clearTimeout(movedTimer);
+		movedTimer = window.setTimeout(() => (justMoved = ''), 1700);
+	}
+
+	/** Can this row be dragged at all? The same gate every other write in here keeps. */
+	const canMove = (entry: FolderEntry) => editor.canWrite && !!entry.handle && heldDirs.size > 0;
+
+	function onDragStart(event: DragEvent, entry: FolderEntry) {
+		if (!canMove(entry)) return event.preventDefault();
+		dragging = entry.path;
+		event.dataTransfer?.setData('text/plain', entry.path);
+		if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+	}
+
+	function onDragOver(event: DragEvent, destPath: string) {
+		console.log('[DBG] dragover', JSON.stringify({ dragging, destPath }));
+		if (!dragging) return;
+		const from = dragging.includes('/') ? dragging.slice(0, dragging.lastIndexOf('/')) : '';
+		// A folder will not take what it already holds. Without this every row lights up as a
+		// target for the file directly above it, which reads as an offer to do nothing.
+		if (from === destPath) return;
+		event.preventDefault();
+		if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+		dropInto = destPath;
+	}
+
+	/**
+	 * `dragleave` BUBBLES, and a row is made of a twisty, a name and a tally — so crossing one
+	 * fires leave after leave from its own children and the highlight strobed off and on. The
+	 * check is where the pointer went NEXT: still inside this row means it never left.
+	 */
+	function onDragLeave(event: DragEvent, destPath: string) {
+		const to = event.relatedTarget as Node | null;
+		const row = event.currentTarget as HTMLElement;
+		if (to && row.contains(to)) return;
+		if (dropInto === destPath) dropInto = null;
+	}
+
+	async function onDrop(event: DragEvent, destPath: string) {
+		event.preventDefault();
+		const path = event.dataTransfer?.getData('text/plain') || dragging;
+		dragging = '';
+		dropInto = null;
+		const entry = editor.folder.find((e) => e.path === path);
+		if (entry) await moveTo(entry, destPath);
 	}
 
 	/** Delete an entry from disk. Two presses, like Clear — see `doomed`. */
@@ -1054,7 +1312,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.folder = editor.folder.filter((e) => e.path !== entry.path);
 		// The sheet keeps what it is showing — the words are still yours even though the file is
 		// gone — but it is no longer that file, so it stops claiming to be.
-		if (editor.openPath === entry.path && !editor.openLoose) {
+		if (editor.openPath === entry.path && editor.openIn === 'tree') {
 			editor.openPath = '';
 			editor.filename = '';
 			editor.openHandle = null;
@@ -1121,15 +1379,23 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 
 	const workRows = $derived.by(() => {
 		const root: Branch = { dirs: new Map(), files: [] };
-		for (const entry of editor.folder) {
-			const parts = entry.path.split('/');
+		/** Walk to a path, making the branches on the way. */
+		const branchAt = (path: string) => {
 			let branch = root;
-			for (const seg of parts.slice(0, -1)) {
+			for (const seg of path.split('/')) {
 				let next = branch.dirs.get(seg);
 				if (!next) branch.dirs.set(seg, (next = { dirs: new Map(), files: [] }));
 				branch = next;
 			}
-			branch.files.push(entry);
+			return branch;
+		};
+		// The DIRECTORIES first, so a folder with nothing readable in it still gets a row. It used
+		// to be derived from the file paths alone, which meant an empty folder was invisible —
+		// and an empty folder you cannot see is one you cannot drag anything into.
+		for (const path of editor.folders) branchAt(path);
+		for (const entry of editor.folder) {
+			const at = entry.path.lastIndexOf('/');
+			(at < 0 ? root : branchAt(entry.path.slice(0, at))).files.push(entry);
 		}
 		// Folders first, then documents, each alphabetical — the order every file manager uses,
 		// and the one that keeps a folder's own contents together instead of interleaved with the
@@ -1171,19 +1437,23 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	let fileMenuAt = $state({ x: 0, y: 0 });
 	/** The TREE entry the open menu belongs to — null when the menu belongs to a shelf row. */
 	const fileMenuEntry = $derived(
-		editor.fileMenu && !editor.fileMenu.loose
+		editor.fileMenu?.list === 'tree'
 			? (editor.folder.find((e) => e.path === editor.fileMenu?.path) ?? null)
 			: null
 	);
-	/** The SHELF row the open menu belongs to, on the same terms. */
-	const looseMenuDoc = $derived(
-		editor.fileMenu?.loose
-			? (editor.loose.find((d) => d.id === editor.fileMenu?.path) ?? null)
-			: null
-	);
+	/** The SHELF row the open menu belongs to, from whichever shelf it is on. */
+	const shelfMenuRow = $derived.by(() => {
+		const at = editor.fileMenu;
+		if (!at || at.list === 'tree') return null;
+		const doc =
+			at.list === 'loose'
+				? editor.loose.find((d) => d.id === at.path)
+				: editor.ephemeral.find((d) => d.id === at.path);
+		return doc ? { name: doc.name, list: at.list, id: doc.id } : null;
+	});
 
-	/** Where a menu stands, given the event that asked for it. Shared by both rows. */
-	function placeMenu(event: MouseEvent, path: string, loose: boolean) {
+	/** Where a menu stands, given the event that asked for it. Shared by all three lists. */
+	function placeMenu(event: MouseEvent, path: string, list: 'tree' | 'loose' | 'ephemeral') {
 		event.preventDefault();
 		editor.renaming = '';
 		editor.doomed = '';
@@ -1194,7 +1464,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		const x = event.clientX > 0 ? event.clientX : row.left + 12;
 		const y = event.clientY > 0 ? event.clientY : row.bottom;
 		fileMenuAt = { x, y };
-		editor.fileMenu = { path, x, y, loose };
+		editor.fileMenu = { path, x, y, list };
 	}
 
 	function openFileMenu(event: MouseEvent, entry: FolderEntry) {
@@ -1202,24 +1472,45 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// ours holding two keys that cannot do what they say — the rule this app already keeps
 		// for the picker and for Save.
 		if (!editor.canWrite || !entry.handle) return;
-		placeMenu(event, entry.path, false);
+		placeMenu(event, entry.path, 'tree');
 	}
 
 	/**
-	 * The shelf's menu, which every browser gets: Close only takes a row off a list this app
-	 * keeps in memory, so unlike Rename and Delete it needs nothing from the file system.
+	 * A shelf's menu, which every browser gets: Close only takes a row off a list this app keeps
+	 * in memory, so unlike Rename and Delete it needs nothing from the file system.
 	 */
-	function openLooseMenu(event: MouseEvent, doc: LooseDoc) {
-		placeMenu(event, doc.id, true);
+	function openShelfMenu(event: MouseEvent, id: string, list: 'loose' | 'ephemeral') {
+		placeMenu(event, id, list);
 	}
 
-	/** Take a row off the shelf. The sheet keeps what it is showing — only the row goes. */
-	function unshelve(doc: LooseDoc) {
-		editor.loose = editor.loose.filter((d) => d.id !== doc.id);
-		if (editor.openLoose && editor.openPath === doc.id) {
-			editor.openPath = '';
-			editor.openLoose = false;
+	/**
+	 * Close a shelf row. On ELSEWHERE the file stays exactly where it is and only the row goes;
+	 * on SCRATCH the row is the only place the words were, so Close is the end of them — which is
+	 * why that one asks twice, like Clear.
+	 */
+	function closeShelfRow(row: { id: string; list: 'loose' | 'ephemeral' }) {
+		if (row.list === 'loose') {
+			const doc = editor.loose.find((d) => d.id === row.id);
+			if (doc) {
+				editor.loose = editor.loose.filter((d) => d.id !== doc.id);
+				if (editor.openIn === 'loose' && editor.openPath === doc.id) {
+					editor.openPath = '';
+					editor.openIn = 'tree';
+				}
+			}
+			return true;
 		}
+		if (editor.doomed !== row.id) {
+			editor.doomed = row.id;
+			clearTimeout(doomTimer);
+			doomTimer = window.setTimeout(() => (editor.doomed = ''), 3000);
+			return false;
+		}
+		clearTimeout(doomTimer);
+		editor.doomed = '';
+		const doc = editor.ephemeral.find((d) => d.id === row.id);
+		if (doc) closeEphemeral(doc);
+		return true;
 	}
 
 	function closeFileMenu(refocus = false) {
@@ -1251,7 +1542,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	// A menu whose row has gone — deleted, or the folder changed underneath it — is a menu aimed
 	// at nothing. It comes down rather than staying open over the row that took its place.
 	$effect(() => {
-		if (editor.fileMenu && !fileMenuEntry && !looseMenuDoc) closeFileMenu();
+		if (editor.fileMenu && !fileMenuEntry && !shelfMenuRow) closeFileMenu();
 	});
 
 	// ── Remembering the folder ────────────────────────────────────────────────
@@ -1318,6 +1609,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	async function openHeldFolder() {
 		if (!heldFolder) return;
 		const out: FolderEntry[] = [];
+		heldDirs = new Map();
 		try {
 			await walk(heldFolder, '', out);
 		} catch {
@@ -1329,6 +1621,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		}
 		out.sort((a, b) => a.path.localeCompare(b.path));
 		editor.folder = out;
+		editor.folders = [...heldDirs.keys()].filter(Boolean);
 		editor.folderPending = false;
 		editor.folderShown = true;
 		editor.collapsed = [];
@@ -1359,7 +1652,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		const file = entry.handle ? await entry.handle.getFile() : entry.file;
 		if (!file) return;
 		editor.openPath = entry.path;
-		editor.openLoose = false;
+		editor.openIn = 'tree';
 		load(file, entry.handle ?? null);
 	}
 
@@ -1380,10 +1673,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			.sort((a, b) => a.path.localeCompare(b.path));
 		shelveTheOpenOne();
 		editor.folder = entries;
+		// A `webkitdirectory` workspace has no handles at all, so nothing in it can be moved —
+		// and no empty folders either: an empty directory leaves no File to be seen in.
+		heldDirs = new Map();
+		editor.folders = [];
 		editor.folderName = root;
 		editor.folderShown = true;
 		editor.openPath = '';
-		editor.openLoose = false;
+		editor.openIn = 'tree';
 		editor.collapsed = [];
 	}
 
@@ -1427,9 +1724,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		}
 		clearTimeout(armTimer);
 		editor.armed = false;
+		// Clear empties the SHEET. A scratch note it was showing keeps its words on its own row —
+		// Clear is not a way of destroying a list you cannot see the rest of.
+		stashEphemeral();
 		editor.filename = '';
 		editor.openPath = '';
-		editor.openLoose = false;
+		editor.openIn = 'tree';
 		editor.openHandle = null;
 		if (!ta) return;
 		ta.focus();
@@ -1451,12 +1751,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 */
 	function readme() {
 		if (!ta) return;
+		stashEphemeral();
 		ta.focus();
 		ta.setSelectionRange(0, ta.value.length);
 		write(STARTER);
 		editor.filename = '';
 		editor.openPath = '';
-		editor.openLoose = false;
+		editor.openIn = 'tree';
 		editor.openHandle = null;
 		ta.setSelectionRange(0, 0);
 		trackCaret();
@@ -1560,6 +1861,57 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	</div>
 {/snippet}
 
+{#snippet shelf(
+	title: string,
+	rows: {
+		id: string;
+		name: string;
+		list: 'loose' | 'ephemeral';
+		open: () => void;
+		menu: (e: MouseEvent) => void;
+	}[]
+)}
+	<div class="te-loose">
+		<div class="te-loose-head">
+			<span class="te-loose-name">{title}</span>
+			<span class="te-work-count">{rows.length}</span>
+		</div>
+		<ul class="te-work-list te-loose-list" aria-label={title}>
+			{#each rows as row (row.id)}
+				<li class="te-work-item">
+					<button
+						type="button"
+						class="te-work-row"
+						class:on={editor.openIn === row.list && editor.openPath === row.id}
+						class:menu={editor.fileMenu?.list === row.list && editor.fileMenu.path === row.id}
+						class:dragging={row.list === 'ephemeral' && dragEph === row.id}
+						class:into={row.list === 'ephemeral' && dropEphOn === row.id}
+						aria-current={editor.openIn === row.list && editor.openPath === row.id
+							? 'true'
+							: undefined}
+						aria-haspopup="menu"
+						draggable={row.list === 'ephemeral'}
+						ondragstart={(e) => row.list === 'ephemeral' && onEphDragStart(e, row.id)}
+						ondragover={(e) => row.list === 'ephemeral' && onEphDragOver(e, row.id)}
+						ondragleave={() => {
+							if (dropEphOn === row.id) dropEphOn = '';
+						}}
+						ondrop={(e) => row.list === 'ephemeral' && onEphDrop(e, row.id)}
+						ondragend={() => {
+							dragEph = '';
+							dropEphOn = '';
+						}}
+						onclick={row.open}
+						oncontextmenu={row.menu}
+					>
+						<span class="te-work-file">{row.name}</span>
+					</button>
+				</li>
+			{/each}
+		</ul>
+	</div>
+{/snippet}
+
 {#snippet docKeys()}
 	<!-- `icon-btn` is the class FloatingKey's stack dresses: it gives these the touch-sized
 	     frosted face the other apps' flyout controls wear.
@@ -1643,16 +1995,27 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				     spent on a word is a row the list could have had — and the ellipsis is answered
 				     rather than accepted: point at a clipped name and the whole of it opens below,
 				     wrapped, on the same sheet the menus are cut from. -->
-				<header class="te-work-head">
+				<!-- The head is the ROOT's drop target. Dragging a document out of a sub-folder has to
+				     have somewhere to land, and the folder's own name is the obvious place: it is the
+				     row that names the directory everything else is inside. -->
+				<header
+					class="te-work-head"
+					role="group"
+					aria-label="Folder {editor.folderName || ''}"
+					class:into={dropInto === ''}
+					ondragover={(e) => onDragOver(e, '')}
+					ondragleave={(e) => onDragLeave(e, '')}
+					ondrop={(e) => onDrop(e, '')}
+				>
 					<h2 class="te-work-name" bind:this={workNameEl}>{editor.folderName || 'Folder'}</h2>
-					{#if editor.canWrite}
-						<button
-							type="button"
-							class="tb te-work-act"
-							onclick={() => (editor.naming = true)}
-							title="Make a new document in this folder">New</button
-						>
-					{/if}
+					<!-- New is offered EVERYWHERE now. It used to need a writable folder to create
+					     into, which made it a Chromium key; a scratch note needs nothing but a sheet. -->
+					<button
+						type="button"
+						class="tb te-work-act"
+						onclick={newEphemeral}
+						title="Make a scratch document">New</button
+					>
 					<button
 						type="button"
 						class="tb te-work-act"
@@ -1678,63 +2041,42 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						<span class="popover te-work-full" aria-hidden="true">{editor.folderName}</span>
 					{/if}
 				</header>
-				{#if editor.naming}
-					<form
-						class="te-work-rename"
-						onsubmit={(e) => {
-							e.preventDefault();
-							newFile(new FormData(e.currentTarget).get('name') as string);
-						}}
-					>
-						<!-- svelte-ignore a11y_autofocus -->
-						<input
-							class="field te-work-field"
-							name="name"
-							placeholder="new-document.md"
-							autofocus
-							aria-label="Name for the new document"
-							onkeydown={(e) => {
-								if (e.key === 'Escape') editor.naming = false;
-							}}
-							onblur={() => (editor.naming = false)}
-						/>
-					</form>
-				{/if}
-				{#if editor.loose.length}
-					<!-- THE SHELF — what you opened from outside this folder, newest first. Above the
-					     tree because it is the short list and the recent one; under a tree of unknown
-					     depth it would be a thing you scroll to find.
-					     Shaded a shade off the sheet, which is the whole of how it says it is a
-					     different kind of list: these rows are not IN the folder named above them,
-					     and a shelf drawn on the same white as the tree would read as its first
-					     four entries. -->
-					<div class="te-loose">
-						<div class="te-loose-head">
-							<span class="te-loose-name">Elsewhere</span>
-							<span class="te-work-count">{editor.loose.length}</span>
-						</div>
-						<ul class="te-work-list te-loose-list" aria-label="Opened from outside this folder">
-							{#each editor.loose as doc (doc.id)}
-								<li class="te-work-item">
-									<button
-										type="button"
-										class="te-work-row"
-										class:on={editor.openLoose && editor.openPath === doc.id}
-										class:menu={editor.fileMenu?.loose && editor.fileMenu.path === doc.id}
-										aria-current={editor.openLoose && editor.openPath === doc.id
-											? 'true'
-											: undefined}
-										aria-haspopup="menu"
-										onclick={() => openLoose(doc)}
-										oncontextmenu={(e) => openLooseMenu(e, doc)}
-									>
-										<span class="te-work-file">{doc.name}</span>
-									</button>
-								</li>
-							{/each}
-						</ul>
-					</div>
-				{/if}
+				<!-- TWO SHELVES above the tree, both drawn by the same snippet below: SCRATCH (what
+				     New makes, which has no file anywhere) and ELSEWHERE (what was opened from
+				     outside this folder). Scratch is on top because it is the list you just added
+				     to; both are shaded off the sheet, which is the whole of how they say they are
+				     not part of the folder named above them. -->
+				<!-- The two shelves share one shaded block. Apart, the gap between them showed the
+				     sheet through — a white band between two grey lists, which reads as the tree
+				     starting and then changing its mind. The block is the shading; the gap inside
+				     it is the same grey, and the one white gap is the one below, which is where
+				     the shelves actually end and the folder begins. -->
+				<div class="te-shelves">
+					{#if editor.ephemeral.length}
+						{@render shelf(
+							'Scratch',
+							editor.ephemeral.map((d) => ({
+								id: d.id,
+								name: d.name,
+								list: 'ephemeral' as const,
+								open: () => openEphemeral(d),
+								menu: (e: MouseEvent) => openShelfMenu(e, d.id, 'ephemeral')
+							}))
+						)}
+					{/if}
+					{#if editor.loose.length}
+						{@render shelf(
+							'Elsewhere',
+							editor.loose.map((d) => ({
+								id: d.id,
+								name: d.name,
+								list: 'loose' as const,
+								open: () => openLoose(d),
+								menu: (e: MouseEvent) => openShelfMenu(e, d.id, 'loose')
+							}))
+						)}
+					{/if}
+				</div>
 				<!-- A TREE, drawn flat: every row carries its own depth as a left inset, which indents
 				     exactly as nested lists would and lets one `each` draw the whole thing. The
 				     ARIA is the flattened kind — `aria-level` on each item says where it sits, since
@@ -1749,11 +2091,15 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 								<button
 									type="button"
 									class="te-work-row te-work-dir"
+									class:into={dropInto === row.path}
 									role="treeitem"
 									aria-level={row.depth + 1}
 									aria-expanded={!row.shut}
 									aria-selected="false"
 									style:padding-left="calc(0.75rem + {row.depth} * 0.8rem)"
+									ondragover={(e) => onDragOver(e, row.path)}
+									ondragleave={(e) => onDragLeave(e, row.path)}
+									ondrop={(e) => onDrop(e, row.path)}
 									onclick={() => toggleDir(row.path)}
 									onkeydown={(e) => {
 										// The arrow keys a tree is expected to answer to. Left shuts an open
@@ -1806,11 +2152,24 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 										class="te-work-row"
 										role="treeitem"
 										aria-level={row.depth + 1}
-										aria-selected={editor.openPath === entry.path}
-										class:on={editor.openPath === entry.path}
-										class:menu={editor.fileMenu?.path === entry.path}
-										aria-current={editor.openPath === entry.path ? 'true' : undefined}
+										aria-selected={editor.openIn === 'tree' && editor.openPath === entry.path}
+										class:on={editor.openIn === 'tree' && editor.openPath === entry.path}
+										class:menu={editor.fileMenu?.list === 'tree' &&
+											editor.fileMenu.path === entry.path}
+										class:dragging={dragging === entry.path}
+										class:saved={justRenamed === entry.path}
+										class:moved={justMoved === entry.path}
+										aria-current={editor.openIn === 'tree' && editor.openPath === entry.path
+											? 'true'
+											: undefined}
 										aria-haspopup={editor.canWrite && entry.handle ? 'menu' : undefined}
+										title={entry.path}
+										draggable={canMove(entry)}
+										ondragstart={(e) => onDragStart(e, entry)}
+										ondragend={() => {
+											dragging = '';
+											dropInto = null;
+										}}
 										style:padding-left="calc(0.75rem + {row.depth} * 0.8rem)"
 										onclick={() => openEntry(entry)}
 										oncontextmenu={(e) => openFileMenu(e, entry)}
@@ -1827,8 +2186,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					     existed that meant the one place to make a first document disappeared exactly
 					     when it was needed. -->
 					<p class="te-work-note">
-						{editor.canWrite
-							? 'Nothing here this editor can open yet. New makes one.'
+						{!editor.folderName
+							? 'No folder open. Change picks one; New makes a scratch document.'
 							: 'Nothing here this editor can open — it takes Markdown and plain text.'}
 					</p>
 				{/if}
@@ -2005,10 +2364,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		</div>
 	{/if}
 
-	{#if editor.fileMenu && looseMenuDoc}
-		<!-- THE SHELF'S menu. One verb, and it acts on the LIST rather than on the disk: Close
-		     takes the row off the shelf and leaves the file exactly where it is. That is why it
-		     is offered in every browser, where Rename and Delete are not. -->
+	{#if editor.fileMenu && shelfMenuRow}
+		<!-- A SHELF's menu. One verb, and on ELSEWHERE it acts on the LIST rather than on the
+		     disk: Close takes the row off and leaves the file where it is, which is why it is
+		     offered in every browser where Rename and Delete are not.
+		     On SCRATCH the same word means something heavier — the row is the only place those
+		     words exist — so it asks twice, exactly as Clear does. -->
 		<button
 			class="popover-scrim"
 			aria-label="Close the document menu"
@@ -2021,7 +2382,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		<div
 			class="popover te-file-menu"
 			role="menu"
-			aria-label={looseMenuDoc.name}
+			aria-label={shelfMenuRow.name}
 			tabindex="-1"
 			bind:this={fileMenuEl}
 			style:left="{fileMenuAt.x}px"
@@ -2033,16 +2394,19 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				}
 			}}
 		>
-			<p class="popover-title">{looseMenuDoc.name}</p>
+			<p class="popover-title">{shelfMenuRow.name}</p>
 			<button
 				type="button"
 				role="menuitem"
 				class="popover-item"
+				class:on={editor.doomed === shelfMenuRow.id}
 				onclick={() => {
-					const doc = looseMenuDoc;
-					closeFileMenu(true);
-					if (doc) unshelve(doc);
-				}}>Close</button
+					const row = shelfMenuRow;
+					if (row && closeShelfRow(row)) closeFileMenu(true);
+				}}
+				>{shelfMenuRow.list === 'ephemeral' && editor.doomed === shelfMenuRow.id
+					? 'Sure?'
+					: 'Close'}</button
 			>
 		</div>
 	{:else if editor.fileMenu && fileMenuEntry}
@@ -2907,31 +3271,49 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   into a grey patch on a near-black sheet.
 	   It never scrolls and never takes more than its rows: `flex: none`, so a long tree below
 	   keeps every pixel the shelf is not using. It is capped at six, so it cannot run away. */
+	/* NO RULE anywhere in here. The shading is the boundary — a shaded block with a line under it
+	   is the same edge drawn twice, and this pane is a sheet of the manual rather than a table.
+	   The block holds both shelves so the space BETWEEN them is its own grey; the only white gap
+	   is the one below it, where the shelves end and the folder begins. */
+	.te-shelves:not(:empty) {
+		flex: none;
+		display: flex;
+		flex-direction: column;
+		/* NO SPACE anywhere on this block — not between the two shelves and not under it. A
+		   shelf's own HEAD is what parts it from whatever is above, and the shading is what parts
+		   the block from the tree; a margin as well is the same boundary drawn a third time. */
+		background: color-mix(in srgb, var(--ink) 4%, var(--surface));
+	}
 	.te-loose {
 		flex: none;
-		background: color-mix(in srgb, var(--ink) 4%, var(--surface));
-		border-bottom: 1px solid var(--te-rule);
 	}
+	/* A shelf's head IS a folder row — it names a list and counts what is in it, which is the
+	   whole of what a folder row does. So it is built to the same measurements: the row's height,
+	   the row's insets, the row's gap. Anything else made the pane read as two lists that had
+	   been set by different hands. */
 	.te-loose-head {
 		display: flex;
 		align-items: center;
-		gap: 0.4rem;
-		/* The same insets the workspace head keeps, so the tally lands in the tallies' column. */
-		padding: 0.5rem 0.75rem 0.35rem;
+		gap: 0.35rem;
+		min-height: 30px;
+		padding: 0.3rem 0.75rem;
 	}
 	/* The manual's running-head voice — the same one a folder row in the tree is set in, because
 	   this is the same kind of thing: a heading over a handful of documents. */
+	/* The same voice a folder row's name is set in, for the same reason: both name a place. */
 	.te-loose-name {
 		flex: 1 1 auto;
 		min-width: 0;
 		font-family: var(--font-mono, monospace);
 		font-size: 0.7rem;
+		line-height: 1.3;
 		letter-spacing: 0.04em;
 		text-transform: uppercase;
 		color: var(--sub);
 	}
+	/* The lists themselves are FLUSH — no padding of their own at either end. Every gap in this
+	   pane is a head's, so a head sets the same distance from what is above it everywhere. */
 	.te-loose-list {
-		padding-bottom: 0.35rem;
 		overflow: visible;
 	}
 	/* Each row is the catalog row the Apps index uses — a hairline under it, the accent on
@@ -2940,10 +3322,19 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	/* No rule under each row. A list of four documents does not need three lines drawn through
 	   it: the rows are already parted by their own leading, and the hover tint and the marked
 	   row are what actually need to be seen. The same argument as the panes beside it. */
+	/* EVERY row in this pane is the same height — a document, a folder, a scratch note. They are
+	   set in different faces and different sizes (a folder name is the running-head voice, a
+	   filename is the mono one), and left to their own type they came out a pixel or two apart,
+	   which reads as a list that has been assembled rather than one that was set.
+	   A flex row with a floor under it, rather than padding alone: padding plus a smaller face is
+	   still a smaller row. */
 	.te-work-row {
-		display: block;
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
 		width: 100%;
-		padding: 0.4rem 0.75rem;
+		min-height: 30px;
+		padding: 0.3rem 0.75rem;
 		text-align: left;
 		background: none;
 		border: 0;
@@ -2966,6 +3357,105 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   stronger mark off the very document you are working in. */
 	.te-work-row.menu:not(.on) {
 		background: color-mix(in srgb, var(--orange) 7%, transparent);
+	}
+	/* ── Dragging a document ───────────────────────────────────────────────────
+	   The row being carried fades; the folder that would take it is OUTLINED rather than filled,
+	   because a fill is what the pane already uses for "this is the one you are looking at" and
+	   a drop target is a question rather than a state. */
+	.te-work-row.dragging {
+		opacity: 0.45;
+	}
+	.te-work-row.into,
+	.te-work-head.into {
+		outline: 1px dashed var(--orange);
+		outline-offset: -2px;
+		background: color-mix(in srgb, var(--orange) 6%, transparent);
+	}
+	/* A row is dragged by the whole of itself, so the cursor has to say so on the part you would
+	   naturally grab. Only where a move is actually possible: `[draggable='true']` is set from
+	   the same gate the drop uses. */
+	.te-work-row[draggable='true'] {
+		cursor: grab;
+	}
+	.te-work-row[draggable='true']:active {
+		cursor: grabbing;
+	}
+	/* ── A rename SAYS so ──────────────────────────────────────────────────────
+	   The one write in this pane that changes nothing you can see: the sheet is unchanged, the
+	   row simply has a different word in it, and a rename the browser refused looks identical to
+	   one that worked. So the row answers, in the emerald the Save key uses for exactly this —
+	   `.done` on a key, a wash on a row. It fades in and back out on its own. */
+	/* The WASH and the WORD are animated, never the row's opacity. Fading the row faded the
+	   filename with it — the cell whited out and the name reappeared at the end, which reads as
+	   the row being replaced rather than as an answer about it. */
+	.te-work-row.saved,
+	.te-work-row.moved {
+		position: relative;
+		animation: te-saved-wash 1.6s ease forwards;
+	}
+	/* MOVED is the same answer in the accent: a move is a write you can see, but only if you
+	   happened to be looking at the part of the list it landed in. */
+	.te-work-row.moved {
+		--te-said: var(--orange);
+	}
+	.te-work-row.saved::after,
+	.te-work-row.moved::after {
+		content: 'Saved';
+		position: absolute;
+		right: 0.75rem;
+		top: 50%;
+		transform: translateY(-50%);
+		font-family: var(--font-mono, monospace);
+		font-size: 0.6rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--te-said, var(--emerald));
+		animation: te-saved-word 1.6s ease forwards;
+	}
+	.te-work-row.moved::after {
+		content: 'Moved';
+	}
+	@keyframes te-saved-wash {
+		0% {
+			background-color: transparent;
+		}
+		15% {
+			background-color: color-mix(in srgb, var(--te-said, var(--emerald)) 16%, transparent);
+		}
+		70% {
+			background-color: color-mix(in srgb, var(--te-said, var(--emerald)) 16%, transparent);
+		}
+		100% {
+			background-color: transparent;
+		}
+	}
+	@keyframes te-saved-word {
+		0% {
+			opacity: 0;
+		}
+		15% {
+			opacity: 1;
+		}
+		70% {
+			opacity: 1;
+		}
+		100% {
+			opacity: 0;
+		}
+	}
+	/* The word is an ANSWER, not an animation. Under reduced motion it simply stands for its
+	   second and a half and goes. */
+	@media (prefers-reduced-motion: reduce) {
+		.te-work-row.saved,
+		.te-work-row.moved,
+		.te-work-row.saved::after,
+		.te-work-row.moved::after {
+			animation: none;
+		}
+		.te-work-row.saved,
+		.te-work-row.moved {
+			background: color-mix(in srgb, var(--te-said, var(--emerald)) 16%, transparent);
+		}
 	}
 	.te-work-rename {
 		padding: 0.25rem 0.5rem;
@@ -2997,18 +3487,20 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		border-radius: 4px;
 		cursor: pointer;
 	}
-	/* Said once, at the foot of the list, rather than by drawing verbs that would not work. */
+	/* Said once, at the foot of the list, rather than by drawing verbs that would not work.
+	   No rule over it either: it is the last thing in the pane and the space above it says so. */
 	.te-work-note {
 		flex: none;
 		margin: 0;
-		padding: 0.6rem 0.75rem;
-		border-top: 1px solid var(--te-rule);
+		padding: 0.8rem 0.75rem 0.6rem;
 		font-size: 0.66rem;
 		line-height: 1.4;
 		color: var(--sub);
 	}
 	.te-work-file {
-		display: block;
+		flex: 1 1 auto;
+		min-width: 0;
+		line-height: 1.3;
 		font-family: var(--font-mono, monospace);
 		font-size: 0.76rem;
 		color: var(--ink);
@@ -3020,11 +3512,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   A folder row is the same row as a document's, told apart by its twisty and by being set in
 	   the header's voice rather than the document's: it NAMES a place, and the pane already sets
 	   the one place-name it has — the folder at the top — the same way. */
-	.te-work-dir {
-		display: flex;
-		align-items: center;
-		gap: 0.35rem;
-	}
+	/* (A folder row needs no layout of its own — the flex, the gap and the height are the ROW's,
+	   which is what keeps a folder the same height as a document.) */
 	.te-work-dirname {
 		flex: 1 1 auto;
 		min-width: 0;
