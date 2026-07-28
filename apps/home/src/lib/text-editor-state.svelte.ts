@@ -126,6 +126,16 @@ export const editor = $state({
 	folder: [] as FolderEntry[],
 	folderName: '',
 	folderShown: false,
+	/**
+	 * Which folders in the workspace TREE are shut, by path. The list stays flat — every other
+	 * thing this app does with a folder works in paths, and a nested structure would move open,
+	 * rename and delete onto a shape none of them needs — so the tree is derived from the paths
+	 * where it is drawn, and this is the only state it keeps.
+	 *
+	 * Shut, not open, is what is recorded: a folder you have never seen should arrive OPEN, so a
+	 * workspace shows its documents the moment it is picked rather than a row you have to press.
+	 */
+	collapsed: [] as string[],
 	/** The handle behind the open document, when there is one — what makes saving possible. */
 	openHandle: null as FileSystemFileHandle | null,
 	/** Briefly true after a save lands, so the key can say so. */
@@ -171,6 +181,16 @@ export const editor = $state({
 	renaming: '',
 	/** The entry armed for deletion, if any. Two presses, like Clear. */
 	doomed: '',
+	/**
+	 * The workspace row whose context menu is open, and where the pointer opened it, in viewport
+	 * coordinates. Rename and Delete used to be two small keys revealed on the row itself, which
+	 * put four buttons in a list of two documents and covered the end of every long filename. They
+	 * are a right-click menu instead: the place every file manager keeps them.
+	 *
+	 * Carried as coordinates for the same reason `headingAt` is — the list SCROLLS, so a popover
+	 * inside it would be clipped by its own scroller. Fixed, at the measured point, it escapes.
+	 */
+	fileMenu: null as { path: string; x: number; y: number } | null,
 	/** Confirmation lamps, owned by the editor's timers, read by the rack's keys. */
 	copied: false,
 	armed: false,
@@ -239,6 +259,14 @@ export type DocKey = {
 	label: () => string;
 	run: () => void;
 	on?: () => boolean;
+	/**
+	 * Is the key ANSWERING — "Saved", "Copied" — rather than offering? A different state from
+	 * `on`, and drawn in a different colour for that reason: `on` is the cobalt accent, which
+	 * every selected and hovered control in this theme wears, and a confirmation in the same ink
+	 * reads as "this is the mode you are in". A key that is answering goes emerald and comes back
+	 * on its own timer. `armed` is deliberately NOT this: "Sure?" is a question, not an answer.
+	 */
+	done?: () => boolean;
 	/** Drawn at all? A key that cannot do what it says should not be on screen. */
 	shown?: () => boolean;
 	folds: () => boolean;
@@ -280,6 +308,7 @@ export const DOC_KEYS: DocKey[] = [
 		title: () => `Save back to ${editor.filename || 'the file'}`,
 		label: () => (editor.saved ? 'Saved' : 'Save'),
 		run: () => editor.cmd?.saveInPlace(),
+		done: () => editor.saved,
 		// Only when there is a real file behind the sheet to save INTO. Otherwise `.md` (the
 		// download) is the way a document leaves, and it is right beside this.
 		shown: () => editor.canWrite && !!editor.openHandle,
@@ -291,6 +320,10 @@ export const DOC_KEYS: DocKey[] = [
 		title: () => 'Copy the whole document',
 		label: () => (editor.copied ? 'Copied' : 'Copy'),
 		run: () => editor.cmd?.copy(),
+		// The same answer Save gives, so it is given the same way. These two sit side by side in
+		// the bar; one of them going emerald and the other staying plain would say the two events
+		// were different kinds of thing.
+		done: () => editor.copied,
 		folds: () => true
 	},
 	{

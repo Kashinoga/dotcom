@@ -31,6 +31,13 @@
 	--card-grain: none;
 	--foil-sparkle: none;
 	--orange: light-dark(#103dff, #607ffd); /* cobalt-600 — the one accent (ink scale below) */
+	/* The SECOND ink, and the only one. Cobalt is what a control wears when it is selected, or
+	   hovered, or otherwise being pointed at — so a key that has just SUCCEEDED at something and
+	   says so in cobalt is the one colour in this manual saying two different things at once.
+	   Emerald is that answer: "it landed", never "it is on". Tuned to the same weights as the
+	   cobalt pair — an ink that carries on paper and on dark stock, over a faint tinted seat. */
+	--emerald: light-dark(#00734a, #3fca92); /* emerald-700 / emerald-400 */
+	--pixel-key-done: light-dark(#dcf5ea, #0f3025); /* the done-key fill, emerald-50 / deep green */
 	--sub: light-dark(rgba(0, 0, 0, 0.4), rgba(242, 242, 242, 0.4)); /* muted = ink at 40% */
 
 	/* Grid line colour over the page field (tile size --grid-size lives in base). */
@@ -234,6 +241,16 @@ html[data-look='pixelite'] .icon-btn:active:not(:disabled) {
 	background: var(--pixel-key-face);
 	box-shadow: var(--pixel-bevel-press);
 }
+/* The disc ANSWERING — see `.tb.done` below for what the emerald means. It matters more here
+ * than on the bar's keys: a disc carries a glyph and no word, so on a phone the colour is the
+ * only thing that can say the save landed. The :hover pair is spelled out for the same reason
+ * it is there — the hover rule above would otherwise out-specify this and turn it cobalt. */
+html[data-look='pixelite'] .icon-btn.done,
+html[data-look='pixelite'] .icon-btn.done:hover {
+	color: var(--emerald);
+	border-color: var(--emerald);
+	background: var(--pixel-key-done);
+}
 
 /* Settings segmented controls (.seg) and the sky picker (.sky-opt) → plastic keys with a
  * mono, uppercase label. Same white/50 face, ink border, bevel and 4px corners; the
@@ -384,6 +401,28 @@ html[data-look='pixelite'] .type-btn.on {
 	color: var(--orange);
 	border-color: var(--orange);
 	background: var(--pixel-key-on); /* cobalt-100 on paper, deep cobalt on dark stock */
+}
+/* `.done` — the key ANSWERING, for the second or two it holds the answer. Same plastic, same
+ * two weights as `.on`, in the emerald ink instead of the cobalt one, so "Saved" cannot be read
+ * as "Save is the selected mode".
+ *
+ * The hover pair is spelled out rather than left to the cascade: the hover rule above carries a
+ * :hover and a :not(), which out-specifies a bare `.tb.on` — cobalt has always beaten it there,
+ * and nobody noticed because both were cobalt. An emerald key would have turned blue under the
+ * pointer, which is exactly the moment somebody is looking at it. */
+html[data-look='pixelite'] .chip.done,
+html[data-look='pixelite'] .tb.done,
+html[data-look='pixelite'] .mini.done,
+html[data-look='pixelite'] .legend-btn.done,
+html[data-look='pixelite'] .type-btn.done,
+html[data-look='pixelite'] .chip.done:hover:not(:disabled),
+html[data-look='pixelite'] .tb.done:hover:not(:disabled),
+html[data-look='pixelite'] .mini.done:hover:not(:disabled),
+html[data-look='pixelite'] .legend-btn.done:hover:not(:disabled),
+html[data-look='pixelite'] .type-btn.done:hover:not(:disabled) {
+	color: var(--emerald);
+	border-color: var(--emerald);
+	background: var(--pixel-key-done);
 }
 html[data-look='pixelite'] .chip:active:not(:disabled),
 html[data-look='pixelite'] .tb:active:not(:disabled),

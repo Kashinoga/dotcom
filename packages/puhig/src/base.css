@@ -659,3 +659,89 @@ html[data-ui='bubble'] .beta {
 		transform: scale(1);
 	}
 }
+
+/* ── The popover ───────────────────────────────────────────────────────────────────────────
+ * ONE surface for everything that opens over the page from a control it belongs to: a row's
+ * context menu, an app's version card, a heading picker. Here rather than in any of them for
+ * the reason .app-badge and .beta are here — a recipe scoped to one Svelte component cannot be
+ * worn by another, and the copies drift. They already had: three popovers, three shadows, three
+ * corner radii and two different hover washes.
+ *
+ * A popover is drawn FIXED, at a point its owner measured, and every one of them has the same
+ * reason: they open out of bars and lists that SCROLL, and a popover parented into a scroller
+ * is clipped by it. What the owner keeps for itself is where it stands and what goes in it.
+ * Whoever renders one deep in a stacking context must portal it to <body> — `position: fixed`
+ * is fixed to the nearest ancestor that made a context, not to the window, and z-index cannot
+ * climb out of one.
+ *
+ * The material is the theme's own: the sheet colour, the sheet's edge, the paper drop. It reads
+ * as a small page of the manual under Pixelite and as a glass card under Aeropalite without
+ * either being spelled out here. */
+.popover-scrim {
+	position: fixed;
+	inset: 0;
+	z-index: 60;
+	padding: 0;
+	background: transparent;
+	border: 0;
+	cursor: default;
+}
+.popover {
+	position: fixed;
+	z-index: 61;
+	padding: 0.25rem;
+	color: var(--ink);
+	background: var(--surface);
+	border: 1px solid var(--card-edge, rgba(0, 0, 0, 0.2));
+	border-radius: 4px;
+	box-shadow: var(--pixel-paper-shadow, 0 12px 34px rgba(0, 0, 0, 0.18));
+}
+/* What the popover is ABOUT, at its head — a filename, an app's name. Every popover that opens
+ * from a list needs one: the pointer has left the row to reach the menu, and without this the
+ * menu asks you to remember which of six similar names you were on. */
+.popover-title {
+	margin: 0;
+	padding: 0.3rem 0.5rem 0.35rem;
+	border-bottom: 1px solid var(--pixel-hairline, rgba(0, 0, 0, 0.15));
+	font-family: var(--font-mono, monospace);
+	font-size: 0.66rem;
+	letter-spacing: 0.04em;
+	color: var(--sub);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+/* A choice. Full width and left-set, because a menu is read down its left edge. */
+.popover-item {
+	display: block;
+	width: 100%;
+	margin-top: 0.15rem;
+	padding: 0.3rem 0.5rem;
+	text-align: left;
+	font-family: var(--font-mono, monospace);
+	font-size: 0.72rem;
+	color: var(--ink);
+	background: none;
+	border: 0;
+	border-radius: 2px;
+	cursor: pointer;
+}
+.popover-item:hover,
+.popover-item:focus-visible {
+	background: color-mix(in srgb, var(--accent, var(--orange)) 8%, transparent);
+	outline: none;
+}
+/* An item ARMED — the second press does it. The accent, at the weight a selected key wears. */
+.popover-item.on {
+	color: var(--orange);
+	background: var(--pixel-key-on, color-mix(in srgb, var(--orange) 12%, transparent));
+}
+/* Prose inside a popover: an explanation, a caveat. Never a choice. */
+.popover-note {
+	margin: 0.45rem 0 0;
+	padding: 0.45rem 0.5rem 0;
+	border-top: 1px solid var(--pixel-hairline, rgba(0, 0, 0, 0.15));
+	font-size: 0.7rem;
+	line-height: 1.45;
+	color: var(--sub);
+}

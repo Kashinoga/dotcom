@@ -1,8 +1,31 @@
 import adapter from '@sveltejs/adapter-cloudflare';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
+import { execSync } from 'node:child_process';
+
+/**
+ * How many commits this project is. It is the last number in an app's version — see
+ * `src/lib/versions.ts` — and it is COUNTED rather than written down, because a number a human
+ * has to remember to bump is a number that is wrong by the second week.
+ *
+ * Zero when it cannot be counted: a shallow CI clone, a tarball with no `.git`, a machine
+ * without git. The store treats 0 as "ask me later" and falls back to its own recorded figure,
+ * so a build in either place still shows a plausible version rather than `v0.8.0`.
+ */
+function commitCount(): number {
+	try {
+		return (
+			Number(execSync('git rev-list --count HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })) || 0
+		);
+	} catch {
+		return 0;
+	}
+}
 
 export default defineConfig({
+	define: {
+		__GIT_COMMITS__: commitCount()
+	},
 	plugins: [
 		sveltekit({
 			compilerOptions: {

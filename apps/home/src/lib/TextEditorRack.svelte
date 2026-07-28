@@ -141,13 +141,20 @@
 		<span class="te-sep" aria-hidden="true"></span>
 		<div class="te-group" role="group" aria-label="The document">
 			{#each DOC_KEYS.filter((k) => k.shown?.() ?? true) as k (k.id)}
-				<button type="button" class="tb" class:on={k.on?.()} onclick={k.run} title={k.title()}>
+				<button
+					type="button"
+					class="tb"
+					class:on={k.on?.()}
+					class:done={k.done?.()}
+					onclick={k.run}
+					title={k.title()}
+				>
 					<span class="te-key-ico" aria-hidden="true">{@html k.svg}</span>
 					<!-- The word goes on a narrow bar and the glyph carries the key — EXCEPT while a
 					     key is saying something back. "Copied" and "Sure?" are state, not a label,
 					     and state that only shows on a wide window is state half the visitors never
 					     see. -->
-					<span class="te-key-word" class:te-say={k.on?.() || editor.copied}>{k.label()}</span>
+					<span class="te-key-word" class:te-say={k.on?.() || k.done?.()}>{k.label()}</span>
 				</button>
 			{/each}
 		</div>

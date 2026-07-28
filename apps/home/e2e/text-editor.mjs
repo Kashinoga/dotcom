@@ -379,9 +379,51 @@ await eq('the second press clears the sheet', value(), '');
 		corner.length === 3 &&
 			/home/i.test(corner[0]) &&
 			/^About/.test(corner[1]) &&
-			corner[2] === 'beta',
+			/is in beta/.test(corner[2]),
 		JSON.stringify(corner)
 	);
+
+	// ── THE BETA TAG ─────────────────────────────────────────────────────────
+	// It was a label with nothing to press. It has something to say now — the version, what the
+	// three numbers mean, and what landed recently — so it is a button that opens a card.
+	{
+		const tag = page.getByRole('button', { name: /is in beta/ });
+		ok(
+			'the tag says which version this is',
+			/v0\.\d+\.\d+/.test(await tag.getAttribute('aria-label')),
+			await tag.getAttribute('aria-label')
+		);
+		ok('and is shut to begin with', (await tag.getAttribute('aria-expanded')) === 'false');
+		await tag.click();
+		await page.waitForTimeout(300);
+		ok('pressing it opens the version card', (await page.locator('.beta-card').count()) === 1);
+		ok(
+			'which carries the whole triple',
+			/^v0\.\d+\.\d+$/.test((await page.locator('.beta-ver').textContent()).trim()),
+			await page.locator('.beta-ver').textContent()
+		);
+		// Every line of the list carries the WHOLE version it landed in. Several features land in
+		// one minor, so a column keyed on the first two numbers is a column of identical `0.8`s.
+		const ats = await page.locator('.beta-at').allTextContents();
+		ok(
+			'and every recent line is dated to a full version',
+			ats.length > 0 && ats.every((a) => /^\d+\.\d+\.\d+$/.test(a.trim())),
+			JSON.stringify(ats)
+		);
+		// The card is a POPOVER — puhig's shared one, the same surface the workspace's row menu
+		// uses. Portalled to <body>, because `position: fixed` inside the panel's header is fixed
+		// to the header rather than to the window and the app painted straight over it.
+		ok(
+			'the card is portalled clear of the panel',
+			await page.evaluate(
+				() => document.querySelector('.beta-card')?.parentElement === document.body
+			)
+		);
+		await page.keyboard.press('Escape');
+		await page.waitForTimeout(250);
+		ok('Escape shuts the card', (await page.locator('.beta-card').count()) === 0);
+		ok('and leaves the editor open behind it', (await page.locator('.te').count()) === 1);
+	}
 }
 
 // ── THE CARET ────────────────────────────────────────────────────────────────
@@ -556,17 +598,54 @@ await reset('first\n\n\nlast');
 	// appears and goes. Picking from it leaves it standing; that is the difference.
 	await page.setInputFiles('.te-picker >> nth=1', folder);
 	await page.waitForTimeout(500);
+	// A TREE, not a path list: sub-folders are rows of their own, folders before documents, and
+	// what is inside one is indented under it rather than spelled out as a path on every line.
+	// The folder's own name is stripped from the paths — it is the heading above the list, and
+	// leaving it on would indent everything by a level to say it again.
 	await eq(
-		'a folder opens as a workspace, listing what it can read in path order',
+		'a folder opens as a workspace tree, folders first',
 		page.$$eval('.te-work-file', (ns) => ns.map((n) => n.textContent).join(',')),
-		'alpha.md,beta.markdown,notes.txt,gamma.md'
+		'sub,gamma.md,alpha.md,beta.markdown,notes.txt'
 	);
 	ok(
 		'and leaves out what it cannot',
 		!(await page.locator('.te-work').textContent()).includes('ignore.png')
 	);
+	ok(
+		'a nested document is indented under its folder',
+		await page.evaluate(() => {
+			const rows = [...document.querySelectorAll('.te-work-row')];
+			const pad = (i) => parseFloat(getComputedStyle(rows[i]).paddingLeft);
+			return pad(1) > pad(0) && pad(2) === pad(0);
+		})
+	);
+	ok(
+		'and the folder says how many documents are under it',
+		(await page.locator('.te-work-tally').textContent()) === '1'
+	);
 
-	await page.locator('.te-work-row').nth(1).click();
+	// Shutting a folder takes its documents off the list and leaves the folder itself.
+	await page.getByRole('treeitem', { name: /^sub/ }).click();
+	await page.waitForTimeout(250);
+	await eq(
+		'shutting a folder hides what is inside it',
+		page.$$eval('.te-work-file', (ns) => ns.map((n) => n.textContent).join(',')),
+		'sub,alpha.md,beta.markdown,notes.txt'
+	);
+	await eq(
+		'and says so',
+		page.getByRole('treeitem', { name: /^sub/ }).getAttribute('aria-expanded'),
+		'false'
+	);
+	await page.getByRole('treeitem', { name: /^sub/ }).click();
+	await page.waitForTimeout(250);
+	ok(
+		'opening it brings them back',
+		(await page.locator('.te-work-file').allTextContents()).join(',') ===
+			'sub,gamma.md,alpha.md,beta.markdown,notes.txt'
+	);
+
+	await page.getByRole('treeitem', { name: 'beta.markdown' }).click();
 	await page.waitForTimeout(700);
 	await eq('picking one opens it', value(), '# Beta\n\nSecond note.');
 	ok('and the workspace STAYS open', (await page.locator('.te-work').count()) === 1);
@@ -609,7 +688,7 @@ await reset('first\n\n\nlast');
 		(await page.locator('.te-work-row.on').count()) === 0
 	);
 	// Put the file back on the sheet — the clearing case below needs a named document.
-	await page.getByRole('button', { name: 'beta.markdown' }).click();
+	await page.getByRole('treeitem', { name: 'beta.markdown' }).click();
 	await page.waitForTimeout(300);
 
 	// Clearing the sheet forgets the name with it — what is on screen is no longer that file.
@@ -666,11 +745,11 @@ await reset('first\n\n\nlast');
 	ok(
 		'a writable folder walks into its sub-folders and skips what it cannot read',
 		(await wp.locator('.te-work-file').allTextContents()).join(',') ===
-			'alpha.md,beta.md,gamma.md,notes.txt',
+			'drafts,gamma.md,alpha.md,beta.md,notes.txt',
 		JSON.stringify(await wp.locator('.te-work-file').allTextContents())
 	);
 
-	await wp.locator('.te-work-row').first().click();
+	await wp.getByRole('treeitem', { name: 'alpha.md' }).click();
 	await wp.waitForTimeout(600);
 	ok(
 		'and a SAVE key appears, which it does not without a handle',
@@ -695,12 +774,25 @@ await reset('first\n\n\nlast');
 		})) === '# Alpha changed'
 	);
 
-	await wp.locator('.te-work-item').first().hover();
-	await wp
-		.getByRole('button', { name: /^Rename/ })
-		.first()
-		.click();
+	// RENAME AND DELETE ARE ON THE ROW'S CONTEXT MENU, not on the row. Playwright's `click` with
+	// button: 'right' fires a real contextmenu event at the row's centre, which is what the
+	// workspace listens for — so this drives the menu the same way a pointer does.
+	ok(
+		'the row draws no verbs of its own',
+		(await wp.locator('.te-work-verbs').count()) === 0 &&
+			(await wp.locator('.te-work-item').last().locator('button').count()) === 1
+	);
+	await wp.getByRole('treeitem', { name: 'alpha.md' }).click({ button: 'right' });
 	await wp.waitForTimeout(200);
+	ok('right-clicking a row opens its menu', (await wp.locator('.te-file-menu').count()) === 1);
+	ok(
+		'and the menu names the document it is about',
+		(await wp.locator('.popover-title').textContent()).trim() === 'alpha.md',
+		JSON.stringify(await wp.locator('.popover-title').textContent())
+	);
+	await wp.locator('.te-file-menu').getByRole('menuitem', { name: 'Rename' }).click();
+	await wp.waitForTimeout(200);
+	ok('choosing Rename takes the menu down', (await wp.locator('.te-file-menu').count()) === 0);
 	await wp.locator('.te-work-field').fill('renamed.md');
 	await wp.locator('.te-work-field').press('Enter');
 	await wp.waitForTimeout(600);
@@ -718,18 +810,23 @@ await reset('first\n\n\nlast');
 		(await wp.locator('.te-lamp').textContent()).trim() === 'renamed.md'
 	);
 
-	// Delete asks twice, like Clear — a list row is an easy thing to hit by accident.
-	const doomed = () =>
-		wp
-			.locator('.te-work-item')
-			.nth(1)
-			.getByRole('button', { name: /Delete|Sure/ });
-	await wp.locator('.te-work-item').nth(1).hover();
+	// Delete asks twice, like Clear — the menu holds the question rather than closing on the
+	// first press, because a menu item is still one press away from a file that is gone.
+	const doomed = () => wp.locator('.te-file-menu').getByRole('menuitem', { name: /Delete|Sure/ });
+	// gamma.md, which is INSIDE drafts — so this also proves the menu reaches a nested row and
+	// that delete calls `removeEntry` on the folder that actually holds it.
+	await wp.getByRole('treeitem', { name: 'gamma.md' }).click({ button: 'right' });
+	await wp.waitForTimeout(200);
+	ok(
+		'the menu names the nested document',
+		(await wp.locator('.popover-title').textContent()).trim() === 'gamma.md'
+	);
 	await doomed().click();
 	await wp.waitForTimeout(250);
 	ok('deleting asks first', (await doomed().textContent()).trim() === 'Sure?');
 	await doomed().click();
 	await wp.waitForTimeout(600);
+	ok('and the menu goes with it', (await wp.locator('.te-file-menu').count()) === 0);
 	ok(
 		'and the second press really removes it',
 		await wp.evaluate(async () => {
@@ -822,6 +919,44 @@ await page.waitForTimeout(300);
 		'and the rail marks where you are',
 		(await page.locator('.te-toc-link.on').textContent()).includes('Two')
 	);
+
+	// ONE CLICK, not two. Focusing a text control scrolls its current selection into view, and
+	// this textarea is not its own scroller — so a focus taken after the row was scrolled to threw
+	// the sheet back to wherever the caret had been left. Every jump landed on the PREVIOUS
+	// heading's position, and the second press, with the caret now in the right place, looked like
+	// it had worked. The order in `goTo` is what holds this.
+	await reset(
+		Array.from(
+			{ length: 16 },
+			(_, i) =>
+				`# Chapter ${i + 1}\n\n` +
+				Array.from({ length: 10 }, (_, j) => `Line ${i + 1}.${j + 1} of filler.`).join('\n\n')
+		).join('\n\n')
+	);
+	await page.waitForTimeout(400);
+	// How far the heading's own row sits from the middle of the sheet, which is where the jump
+	// puts it. Measured off the mirror, because that is what the scroll actually moved.
+	const offMiddle = (n) =>
+		page.evaluate((line) => {
+			const paper = document.querySelector('.te-paper');
+			const row = document.querySelector('.te-mirror').children[line];
+			const p = paper.getBoundingClientRect();
+			const r = row.getBoundingClientRect();
+			return Math.round(r.top + r.height / 2 - (p.top + p.height / 2));
+		}, n);
+	for (const chapter of [9, 2, 13]) {
+		await page.locator('.te-paper').evaluate((el) => (el.scrollTop = 0));
+		await page.waitForTimeout(200);
+		await page.getByRole('button', { name: `Chapter ${chapter}`, exact: true }).click();
+		await page.waitForTimeout(350);
+		// 1 heading line + 10 paragraphs, a blank line between each: 22 lines per chapter.
+		const off = await offMiddle((chapter - 1) * 22);
+		ok(
+			`one click centres Chapter ${chapter} on the sheet`,
+			Math.abs(off) < 30,
+			`${off}px from the middle`
+		);
+	}
 }
 
 // ── THE MEASURE ──────────────────────────────────────────────────────────────

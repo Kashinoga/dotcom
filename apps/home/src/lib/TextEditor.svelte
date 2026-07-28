@@ -165,12 +165,24 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			proofEl?.querySelector(`#${CSS.escape(entry.id)}`)?.scrollIntoView({ block: 'start' });
 			return;
 		}
+		// ORDER MATTERS HERE, and getting it wrong is what made this take two clicks.
+		//
+		// Focusing a text control scrolls its CURRENT selection into view, and the textarea is not
+		// its own scroller — it is the full height of the document, laid over the mirror — so the
+		// browser scrolls `.te-paper` instead. Done after the row was scrolled to, that threw the
+		// sheet straight back to wherever the caret had been left: the first press on a heading
+		// landed on the PREVIOUS heading's position, and the second one, with the caret now in the
+		// right chapter, looked like it had worked.
+		//
+		// So the caret is set first, focus is taken with the scrolling suppressed, and the row is
+		// scrolled to LAST, where nothing can undo it.
+		const at = srcLines.slice(0, entry.line).reduce((n, l) => n + l.length + 1, 0);
+		if (ta) {
+			ta.setSelectionRange(at, at);
+			ta.focus({ preventScroll: true });
+		}
 		const row = mirrorEl?.children[entry.line] as HTMLElement | undefined;
 		row?.scrollIntoView({ block: 'center' });
-		if (!ta) return;
-		const at = srcLines.slice(0, entry.line).reduce((n, l) => n + l.length + 1, 0);
-		ta.focus();
-		ta.setSelectionRange(at, at);
 		trackCaret();
 	}
 
@@ -880,6 +892,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.folderName = dir.name;
 		editor.folderShown = true;
 		editor.openPath = '';
+		// A different folder is a different tree; what was shut in the last one means nothing here.
+		editor.collapsed = [];
 		heldFolder = dir;
 		editor.folderPending = false;
 		rememberFolder(dir);
@@ -982,6 +996,133 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 	let doomTimer = 0;
 
+	// ── The tree ──────────────────────────────────────────────────────────────
+	// The workspace lists a FOLDER, and a folder has folders in it. It used to answer that by
+	// printing the whole relative path under every nested name, which reads as a list of long
+	// strings rather than as a place: four documents in two sub-folders gave you four paths to
+	// compare character by character.
+	//
+	// So the rows are a tree. `editor.folder` is untouched — a flat list of documents, which is
+	// what open, rename and delete all want — and the shape is derived from the paths here, then
+	// flattened straight back into a list of rows with a depth on each. A nested <ul> would
+	// recurse in the markup and indent no better.
+
+	type Branch = { dirs: Map<string, Branch>; files: FolderEntry[] };
+	type WorkRow =
+		| { kind: 'dir'; name: string; path: string; depth: number; count: number; shut: boolean }
+		| { kind: 'file'; entry: FolderEntry; depth: number };
+
+	function countIn(branch: Branch): number {
+		let n = branch.files.length;
+		for (const child of branch.dirs.values()) n += countIn(child);
+		return n;
+	}
+
+	const workRows = $derived.by(() => {
+		const root: Branch = { dirs: new Map(), files: [] };
+		for (const entry of editor.folder) {
+			const parts = entry.path.split('/');
+			let branch = root;
+			for (const seg of parts.slice(0, -1)) {
+				let next = branch.dirs.get(seg);
+				if (!next) branch.dirs.set(seg, (next = { dirs: new Map(), files: [] }));
+				branch = next;
+			}
+			branch.files.push(entry);
+		}
+		// Folders first, then documents, each alphabetical — the order every file manager uses,
+		// and the one that keeps a folder's own contents together instead of interleaved with the
+		// documents beside it. The files need no sorting: `editor.folder` is already in path
+		// order, so within one branch they arrive alphabetical.
+		const rows: WorkRow[] = [];
+		const lay = (branch: Branch, prefix: string, depth: number) => {
+			for (const name of [...branch.dirs.keys()].sort((a, b) => a.localeCompare(b))) {
+				const path = prefix ? `${prefix}/${name}` : name;
+				const child = branch.dirs.get(name)!;
+				const shut = editor.collapsed.includes(path);
+				rows.push({ kind: 'dir', name, path, depth, shut, count: countIn(child) });
+				if (!shut) lay(child, path, depth + 1);
+			}
+			for (const entry of branch.files) rows.push({ kind: 'file', entry, depth });
+		};
+		lay(root, '', 0);
+		return rows;
+	});
+
+	function toggleDir(path: string) {
+		editor.collapsed = editor.collapsed.includes(path)
+			? editor.collapsed.filter((p) => p !== path)
+			: [...editor.collapsed, path];
+	}
+
+	// ── The row's context menu ────────────────────────────────────────────────
+	// Rename and Delete were keys ON the row, held back until it was hovered. Two problems with
+	// that: they sat over the end of the name, so any filename long enough to need reading was
+	// the one they covered; and a list of documents drew twice as many buttons as documents.
+	// A right-click menu is where a file manager keeps both verbs, costs the row nothing, and
+	// leaves the name the whole width it has.
+	//
+	// It is NOT announced anywhere, and that is deliberate: the foot of the list carried a line
+	// saying to try it, and a line telling somebody who writes Markdown in a folder of their own
+	// that a file list has a context menu is a line explaining a doorknob. The pane says the one
+	// thing that cannot be guessed — that this browser will not write at all — and nothing else.
+	let fileMenuEl: HTMLDivElement | null = $state(null);
+	let fileMenuAt = $state({ x: 0, y: 0 });
+	/** The entry the open menu belongs to, or null — looked up so a deleted row takes it down. */
+	const fileMenuEntry = $derived(
+		editor.fileMenu ? (editor.folder.find((e) => e.path === editor.fileMenu?.path) ?? null) : null
+	);
+
+	function openFileMenu(event: MouseEvent, entry: FolderEntry) {
+		// No menu where neither verb would work. The browser's own menu is better than one of
+		// ours holding two keys that cannot do what they say — the rule this app already keeps
+		// for the picker and for Save.
+		if (!editor.canWrite || !entry.handle) return;
+		event.preventDefault();
+		editor.renaming = '';
+		editor.doomed = '';
+		// The KEYBOARD opens this menu too — Shift+F10, or the menu key — and then there is no
+		// pointer behind the event. Chromium sends (0, 0) for those; fall back to the row's own
+		// box so the menu opens on the row rather than in the corner of the window.
+		const row = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		const x = event.clientX > 0 ? event.clientX : row.left + 12;
+		const y = event.clientY > 0 ? event.clientY : row.bottom;
+		fileMenuAt = { x, y };
+		editor.fileMenu = { path: entry.path, x, y };
+	}
+
+	function closeFileMenu(refocus = false) {
+		editor.fileMenu = null;
+		editor.doomed = '';
+		clearTimeout(doomTimer);
+		if (refocus) ta?.focus();
+	}
+
+	$effect(() => {
+		const at = editor.fileMenu;
+		const el = fileMenuEl;
+		if (!at || !el) return;
+		// A pointer can be a few pixels off the bottom of the window with a whole menu still to
+		// draw, so the menu is MEASURED and pulled back inside rather than given a guessed height:
+		// the items are set in the theme's own type, and a hard number would be wrong under another
+		// theme, another zoom, or a longer filename.
+		const box = el.getBoundingClientRect();
+		fileMenuAt = {
+			x: Math.max(8, Math.min(at.x, window.innerWidth - box.width - 8)),
+			y: Math.max(8, Math.min(at.y, window.innerHeight - box.height - 8))
+		};
+		// A menu the pointer opened should still be a menu the keyboard can walk. Focusing the
+		// first item is also what closes the loop on Shift+F10: the event that opens it leaves
+		// focus on the row, and nothing else would move it in.
+		if (!el.contains(document.activeElement)) el.querySelector('button')?.focus();
+	});
+
+	// A menu whose row has gone — deleted, or the folder changed underneath it — is a menu aimed
+	// at nothing. It comes down rather than staying open over the row that took its place.
+	$effect(() => {
+		if (editor.fileMenu && !fileMenuEntry) closeFileMenu();
+	});
+
 	// ── Remembering the folder ────────────────────────────────────────────────
 	// A directory HANDLE can be stored — it is a structured-cloneable object, so IndexedDB will
 	// take one — and re-used on the next visit. A `webkitdirectory` File cannot: it is a snapshot
@@ -1059,6 +1200,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.folder = out;
 		editor.folderPending = false;
 		editor.folderShown = true;
+		editor.collapsed = [];
 	}
 
 	/** The one thing a remembered folder needs: a click, so the browser will re-ask. */
@@ -1091,15 +1233,24 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 
 	function tookFolder(event: Event) {
 		const picked = [...((event.currentTarget as HTMLInputElement).files ?? [])];
+		// The folder's own name is the first segment of every entry's relative path — and it is
+		// only ever the first segment, so it comes OFF the paths as well as out of them. Left on,
+		// it would be a tree with one root node holding everything, indenting every document by a
+		// level to repeat what the heading above the list already says.
+		const root = picked[0]?.webkitRelativePath?.split('/')[0] ?? '';
 		const entries = picked
 			.filter((f) => OPENABLE.test(f.name))
-			.map((f) => ({ name: f.name, path: f.webkitRelativePath || f.name, file: f }))
+			.map((f) => {
+				const full = f.webkitRelativePath || f.name;
+				const path = root && full.startsWith(`${root}/`) ? full.slice(root.length + 1) : full;
+				return { name: f.name, path, file: f };
+			})
 			.sort((a, b) => a.path.localeCompare(b.path));
 		editor.folder = entries;
-		// The folder's own name is the first segment of any entry's relative path.
-		editor.folderName = entries[0]?.path.split('/')[0] ?? '';
+		editor.folderName = root;
 		editor.folderShown = true;
 		editor.openPath = '';
+		editor.collapsed = [];
 	}
 
 	/** The document leaves as a real file. The name is the first heading, or the date. */
@@ -1285,6 +1436,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			type="button"
 			class="icon-btn"
 			class:on={k.on?.()}
+			class:done={k.done?.()}
 			title={k.title()}
 			aria-label={k.label()}
 			onclick={() => {
@@ -1399,73 +1551,91 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						/>
 					</form>
 				{/if}
-				<ul class="te-work-list">
-					{#each editor.folder as entry (entry.path)}
-						<li class="te-work-item">
-							{#if editor.renaming === entry.path}
-								<!-- Renaming happens IN the row, not in a dialog. The row is where the name
-								     is, and a prompt() would stop the page to ask about one word. -->
-								<form
-									class="te-work-rename"
-									onsubmit={(e) => {
-										e.preventDefault();
-										rename(entry, new FormData(e.currentTarget).get('name') as string);
-									}}
-								>
-									<!-- svelte-ignore a11y_autofocus -->
-									<input
-										class="field te-work-field"
-										name="name"
-										value={entry.name}
-										autofocus
-										aria-label="New name for {entry.name}"
-										onkeydown={(e) => {
-											if (e.key === 'Escape') editor.renaming = '';
-										}}
-										onblur={() => (editor.renaming = '')}
-									/>
-								</form>
-							{:else}
+				<!-- A TREE, drawn flat: every row carries its own depth as a left inset, which indents
+				     exactly as nested lists would and lets one `each` draw the whole thing. The
+				     ARIA is the flattened kind — `aria-level` on each item says where it sits, since
+				     the DOM nesting no longer does. -->
+				<ul class="te-work-list" role="tree" aria-label="Documents">
+					{#each workRows as row (row.kind === 'dir' ? `d:${row.path}` : `f:${row.entry.path}`)}
+						{#if row.kind === 'dir'}
+							<li class="te-work-item" role="none">
+								<!-- A folder is a row you can shut. It carries how many documents are under
+								     it — closed, that number is the only thing left saying what is in
+								     there, and open it still answers "is this the big one?". -->
 								<button
 									type="button"
-									class="te-work-row"
-									class:on={editor.openPath === entry.path}
-									aria-current={editor.openPath === entry.path ? 'true' : undefined}
-									onclick={() => openEntry(entry)}
+									class="te-work-row te-work-dir"
+									role="treeitem"
+									aria-level={row.depth + 1}
+									aria-expanded={!row.shut}
+									aria-selected="false"
+									style:padding-left="calc(0.75rem + {row.depth} * 0.8rem)"
+									onclick={() => toggleDir(row.path)}
+									onkeydown={(e) => {
+										// The arrow keys a tree is expected to answer to. Left shuts an open
+										// folder, right opens a shut one — the rest of the tree's keyboard is
+										// Tab, which already walks the rows in the order they are drawn.
+										if (e.key === 'ArrowLeft' && !row.shut) toggleDir(row.path);
+										else if (e.key === 'ArrowRight' && row.shut) toggleDir(row.path);
+										else return;
+										e.preventDefault();
+									}}
 								>
-									<span class="te-work-file">{entry.name}</span>
-									{#if entry.path !== entry.name}
-										<span class="te-work-path">{entry.path}</span>
-									{/if}
+									<span class="te-work-twist" class:shut={row.shut} aria-hidden="true"></span>
+									<span class="te-work-file te-work-dirname">{row.name}</span>
+									<span class="te-work-tally">{row.count}</span>
 								</button>
-								{#if editor.canWrite && entry.handle}
-									<!-- The two verbs the browser will actually carry out, and only where it
-									     will. They are held back until the row is hovered or focused so the
-									     list reads as a list; Delete asks twice, like Clear. -->
-									<span class="te-work-verbs">
-										<button
-											type="button"
-											class="te-work-verb"
-											title="Rename {entry.name}"
-											onclick={() => {
-												editor.doomed = '';
-												editor.renaming = entry.path;
-											}}>Rename</button
-										>
-										<button
-											type="button"
-											class="te-work-verb"
-											class:on={editor.doomed === entry.path}
-											title={editor.doomed === entry.path
-												? `Press again to delete ${entry.name}`
-												: `Delete ${entry.name}`}
-											onclick={() => remove(entry)}
-											>{editor.doomed === entry.path ? 'Sure?' : 'Delete'}</button
-										>
-									</span>
+							</li>
+						{:else}
+							{@const entry = row.entry}
+							<li class="te-work-item" role="none">
+								{#if editor.renaming === entry.path}
+									<!-- Renaming happens IN the row, not in a dialog. The row is where the name
+								     is, and a prompt() would stop the page to ask about one word. -->
+									<form
+										class="te-work-rename"
+										style:padding-left="calc(0.5rem + {row.depth} * 0.8rem)"
+										onsubmit={(e) => {
+											e.preventDefault();
+											rename(entry, new FormData(e.currentTarget).get('name') as string);
+										}}
+									>
+										<!-- svelte-ignore a11y_autofocus -->
+										<input
+											class="field te-work-field"
+											name="name"
+											value={entry.name}
+											autofocus
+											aria-label="New name for {entry.name}"
+											onkeydown={(e) => {
+												if (e.key === 'Escape') editor.renaming = '';
+											}}
+											onblur={() => (editor.renaming = '')}
+										/>
+									</form>
+								{:else}
+									<!-- The row is one key with one job: open this document. Rename and Delete
+									     are on its context menu, where a file manager keeps them. The path
+									     is gone from under the name — the tree is where it is now. -->
+									<button
+										type="button"
+										class="te-work-row"
+										role="treeitem"
+										aria-level={row.depth + 1}
+										aria-selected={editor.openPath === entry.path}
+										class:on={editor.openPath === entry.path}
+										class:menu={editor.fileMenu?.path === entry.path}
+										aria-current={editor.openPath === entry.path ? 'true' : undefined}
+										aria-haspopup={editor.canWrite && entry.handle ? 'menu' : undefined}
+										style:padding-left="calc(0.75rem + {row.depth} * 0.8rem)"
+										onclick={() => openEntry(entry)}
+										oncontextmenu={(e) => openFileMenu(e, entry)}
+									>
+										<span class="te-work-file">{entry.name}</span>
+									</button>
 								{/if}
-							{/if}
-						</li>
+							</li>
+						{/if}
 					{/each}
 				</ul>
 				{#if !editor.folder.length}
@@ -1616,12 +1786,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		     clipped by its own scroller; and on a phone that strip is not drawn at all, while the
 		     flyout's grid still needs the same menu. Fixed, at the key's measured rect. -->
 		<button
-			class="te-scrim"
+			class="popover-scrim"
 			aria-label="Close the heading menu"
 			onclick={() => (editor.headingAt = null)}
 		></button>
 		<div
-			class="te-heads-menu"
+			class="popover te-heads-menu"
 			role="menu"
 			aria-label="Heading level"
 			style:left="{editor.headingAt.x}px"
@@ -1631,7 +1801,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				<button
 					type="button"
 					role="menuitem"
-					class="te-heads-item"
+					class="popover-item te-heads-item"
 					style:font-size="{1.15 - (level - 1) * 0.08}rem"
 					onclick={() => {
 						editor.cmd?.heading(level);
@@ -1642,11 +1812,70 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			<button
 				type="button"
 				role="menuitem"
-				class="te-heads-item te-heads-none"
+				class="popover-item te-heads-item te-heads-none"
 				onclick={() => {
 					editor.cmd?.heading(0);
 					editor.headingAt = null;
 				}}>No heading</button
+			>
+		</div>
+	{/if}
+
+	{#if editor.fileMenu && fileMenuEntry}
+		<!-- THE ROW'S MENU. Rendered here rather than inside the row it belongs to, because the
+		     list is a scroller and a popover inside it would be clipped by it. Fixed, at the
+		     measured point, nudged back inside the window by the effect above.
+		     Delete still asks twice, exactly as Clear does — a menu is a deliberate act, but the
+		     item under the pointer when it opens is decided by where the pointer already was. -->
+		<button
+			class="popover-scrim"
+			aria-label="Close the document menu"
+			onclick={() => closeFileMenu()}
+			oncontextmenu={(e) => {
+				e.preventDefault();
+				closeFileMenu();
+			}}
+		></button>
+		<div
+			class="popover te-file-menu"
+			role="menu"
+			aria-label={fileMenuEntry.name}
+			tabindex="-1"
+			bind:this={fileMenuEl}
+			style:left="{fileMenuAt.x}px"
+			style:top="{fileMenuAt.y}px"
+			onkeydown={(e) => {
+				// Escape is spoken for further up — it is how the panel itself closes — so this one
+				// is STOPPED here. Otherwise one press took the menu down and the whole app with it.
+				if (e.key === 'Escape') {
+					e.stopPropagation();
+					closeFileMenu(true);
+				}
+			}}
+		>
+			<p class="popover-title">{fileMenuEntry.name}</p>
+			<button
+				type="button"
+				role="menuitem"
+				class="popover-item"
+				onclick={() => {
+					const path = fileMenuEntry.path;
+					closeFileMenu();
+					editor.renaming = path;
+				}}>Rename</button
+			>
+			<button
+				type="button"
+				role="menuitem"
+				class="popover-item te-file-del"
+				class:on={editor.doomed === fileMenuEntry.path}
+				onclick={() => {
+					const armed = editor.doomed === fileMenuEntry.path;
+					remove(fileMenuEntry);
+					// The first press only arms it, and the menu stays up holding the question. The
+					// second one has done the deleting by the time this runs, so the menu goes.
+					if (armed) closeFileMenu(true);
+				}}>{editor.doomed === fileMenuEntry.path ? 'Sure?' : 'Delete'}</button
 			>
 		</div>
 	{/if}
@@ -2128,7 +2357,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   counter already in scope rather than minting another, which is what "start this chapter's
 	   sections at zero" actually means. */
 	.te-proof :global(h1) {
-		counter-set: te-sec 0;
+		counter-set: te-sec 0 te-listing 0;
 		margin: 0 0 1.2rem;
 		padding-bottom: 0.5rem;
 		border-bottom: 1px solid var(--te-rule);
@@ -2144,6 +2373,22 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		font-weight: 400;
 		line-height: 1.25;
 		counter-increment: te-sec;
+	}
+	/* A LISTING is numbered inside the heading it sits under, not down the whole document. The
+	   count ran straight through before, so the third code block on a sheet was "Listing 03"
+	   however many sections back the first one was — a running total of fences rather than a
+	   caption you could use to point at one ("the second listing in this section").
+	   Every level resets it, not just the chapter: a heading of any depth starts a new run of
+	   prose, and the number means "the nth listing in this run".
+	   `counter-SET` again, for the reason spelled out on the h1 above — a `counter-reset` here
+	   would mint a NEW counter scoped to the heading, which the <pre> SIBLINGS are not inside,
+	   so they would go on reading the outer one and nothing would change. */
+	.te-proof :global(h2),
+	.te-proof :global(h3),
+	.te-proof :global(h4),
+	.te-proof :global(h5),
+	.te-proof :global(h6) {
+		counter-set: te-listing 0;
 	}
 	/* The section numeral. Inline rather than hanging in a margin: the proof pane is half a
 	   window wide in SPLIT and a hanging numeral would be the first thing off the edge. */
@@ -2332,13 +2577,23 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		display: flex;
 		align-items: baseline;
 		gap: 0.4rem;
-		padding: 0.6rem 0.75rem 0.2rem;
+		/* No bottom inset: the keys' row below brings its own, and two stacked paddings put the
+		   name further from its keys than the keys are from the list. */
+		padding: 0.6rem 0.6rem 0 0.75rem;
 	}
+	/* The folder's own keys — New, Change, Hide — sit at the RIGHT, under the tally rather than
+	   under the folder name. They act on the pane, not on the list, so they belong at the end of
+	   the head where the panel's own controls are, and left-set they read as the first row of
+	   the list underneath them.
+	   The inset is even on the three sides it touches: the same 0.6rem above, right and below,
+	   so the cluster sits in a square corner rather than in a corner that is tighter on one
+	   side. (The head above keeps its own top padding; this row's top is the gap between them.) */
 	.te-work-acts {
 		flex: none;
 		display: flex;
+		justify-content: flex-end;
 		gap: 0.3rem;
-		padding: 0 0.75rem 0.5rem;
+		padding: 0.6rem 0.6rem 0.6rem 0.75rem;
 	}
 	.te-work-name {
 		margin: 0;
@@ -2408,47 +2663,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-work-row.on .te-work-file {
 		color: var(--orange);
 	}
-	/* A row and its verbs share the item, the verbs held back until the row is reached for — a
-	   list of documents should read as a list, not as a list of buttons. */
-	.te-work-item {
-		position: relative;
-	}
-	.te-work-verbs {
-		position: absolute;
-		right: 0.4rem;
-		top: 50%;
-		transform: translateY(-50%);
-		display: flex;
-		gap: 0.25rem;
-		opacity: 0;
-		pointer-events: none;
-		transition: opacity 0.12s ease;
-	}
-	.te-work-item:hover .te-work-verbs,
-	.te-work-item:focus-within .te-work-verbs {
-		opacity: 1;
-		pointer-events: auto;
-	}
-	.te-work-verb {
-		font-family: var(--font-mono, monospace);
-		font-size: 0.6rem;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		padding: 0.2rem 0.35rem;
-		color: var(--ink);
-		background: var(--surface);
-		border: 1px solid var(--te-rule);
-		border-radius: 3px;
-		cursor: pointer;
-	}
-	.te-work-verb:hover {
-		color: var(--orange);
-		border-color: var(--orange);
-	}
-	.te-work-verb.on {
-		color: var(--orange);
-		border-color: var(--orange);
-		background: var(--pixel-key-on, transparent);
+	/* The row whose menu is open is marked the way the hovered one is: the pointer has left the
+	   row to reach the menu, so nothing else would say which document the menu is about. */
+	/* `:not(.on)` because this rule comes after the open row's and would otherwise take the
+	   stronger mark off the very document you are working in. */
+	.te-work-row.menu:not(.on) {
+		background: color-mix(in srgb, var(--orange) 7%, transparent);
 	}
 	.te-work-rename {
 		padding: 0.25rem 0.5rem;
@@ -2499,14 +2719,51 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.te-work-path {
-		display: block;
-		margin-top: 0.1rem;
-		font-size: 0.66rem;
+	/* ── The tree's own rows ───────────────────────────────────────────────────
+	   A folder row is the same row as a document's, told apart by its twisty and by being set in
+	   the header's voice rather than the document's: it NAMES a place, and the pane already sets
+	   the one place-name it has — the folder at the top — the same way. */
+	.te-work-dir {
+		display: flex;
+		align-items: center;
+		gap: 0.35rem;
+	}
+	.te-work-dirname {
+		flex: 1 1 auto;
+		min-width: 0;
+		font-size: 0.7rem;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
 		color: var(--sub);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+	}
+	.te-work-dir:hover .te-work-dirname {
+		color: var(--ink);
+	}
+	/* Drawn rather than set in a character: ▸ and ▾ are different weights and different widths in
+	   every font this theme might fall back to, so the row jumped sideways as it opened. A border
+	   triangle is the same triangle turned. */
+	.te-work-twist {
+		flex: none;
+		width: 0;
+		height: 0;
+		border-left: 4px solid currentColor;
+		border-top: 3.5px solid transparent;
+		border-bottom: 3.5px solid transparent;
+		color: var(--sub);
+		transform: rotate(90deg);
+		transition: transform 0.12s ease;
+	}
+	.te-work-twist.shut {
+		transform: none;
+	}
+	/* How many documents are under a shut folder. Set in the pixel voice, like the count in the
+	   header, because it is the same fact about a smaller thing. */
+	.te-work-tally {
+		flex: none;
+		font-family: var(--font-pixel, var(--font-mono, monospace));
+		font-size: 0.8rem;
+		line-height: 1;
+		color: var(--sub);
 	}
 
 	/* THE FLOATING KEY sits clear of the running foot rather than on it. $lib/FloatingKey pins
@@ -2610,45 +2867,18 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 
 	/* ── The heading menu ──────────────────────────────────────────────────────
-	   Six levels, set in their own sizes so the list shows what it is offering rather than
-	   naming it — the manual's own trick, and the reason a menu beats six keys here. */
-	.te-scrim {
-		position: fixed;
-		inset: 0;
-		z-index: 30;
-		border: 0;
-		padding: 0;
-		background: transparent;
-		cursor: default;
-	}
+	   The shared popover (puhig's .popover / .popover-item — see the note there) with one thing
+	   added: six levels, each SET in its own size, so the list shows what it is offering rather
+	   than naming it. That is the manual's own trick, and the reason a menu beats six keys. */
 	.te-heads-menu {
-		position: fixed;
-		z-index: 31;
 		min-width: 11rem;
-		padding: 0.25rem;
-		background: var(--surface);
-		border: 1px solid var(--te-rule);
-		border-radius: 3px;
-		box-shadow: var(--pixel-paper-shadow, 0 10px 30px rgba(0, 0, 0, 0.18));
 	}
 	.te-heads-item {
 		display: flex;
 		align-items: baseline;
 		gap: 0.5rem;
-		width: 100%;
-		padding: 0.3rem 0.5rem;
-		text-align: left;
+		/* The one place a popover item is not in the mono voice: these ARE headings. */
 		font-family: var(--font-motto, Georgia, serif);
-		color: var(--ink);
-		background: none;
-		border: 0;
-		border-radius: 2px;
-		cursor: pointer;
-	}
-	.te-heads-item:hover,
-	.te-heads-item:focus-visible {
-		background: color-mix(in srgb, var(--orange) 8%, transparent);
-		outline: none;
 	}
 	.te-heads-mark {
 		margin-left: auto;
@@ -2662,6 +2892,16 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
 		color: var(--sub);
+	}
+
+	/* ── The workspace row's menu ──────────────────────────────────────────────
+	   The shared popover again, with a width and nothing else. Its head (the filename), its
+	   items and the armed state of Delete are all puhig's .popover-title / .popover-item /
+	   .popover-item.on — the same parts the Beta card and the heading menu are built from, so
+	   the three cannot drift into being three different apps. */
+	.te-file-menu {
+		min-width: 9rem;
+		max-width: 15rem;
 	}
 
 	/* ── The phone's flyout ────────────────────────────────────────────────────

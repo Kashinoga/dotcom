@@ -30,6 +30,10 @@
 	/* Foil sparkle — sparse white specks (noise thresholded to alpha). */
 	--foil-sparkle: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='s'><feTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='1' stitchTiles='stitch'/><feColorMatrix type='matrix' values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 30 -26'/></filter><rect width='120' height='120' filter='url(%23s)'/></svg>");
 	--orange: #f06030; /* TODO(aeropalite): Aeropalite's accent — the one signature colour */
+	/* The "it landed" ink — what a control wears while it is ANSWERING (Saved), as opposed to
+	   while it is on or hovered, which is the accent's job. Defined here so a `.done` control is
+	   never left reading an undefined custom property; Pixelite tunes its own pair. */
+	--emerald: light-dark(#00734a, #3fca92);
 	--sub: light-dark(#717171, #9a9a9a); /* TODO(aeropalite): Aeropalite's subtext */
 
 	/* Grid line colour over the page field (tile size --grid-size lives in base). */

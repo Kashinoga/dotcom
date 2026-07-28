@@ -21,6 +21,7 @@
 	// The editor's keys, rendered in the dense BAR rather than in the body — see the TEXT branch
 	// in the head-row below, and the note at the top of $lib/text-editor-state.
 	import TextEditorRack from '$lib/TextEditorRack.svelte';
+	import BetaTag from '$lib/BetaTag.svelte';
 	// The editor's own scroll state. The dense bar frosts when content goes under it, and this is
 	// the only way the bar can know: `surfScrolled` watches `.surface-body`, which in the editor
 	// never scrolls — its sheet and its proof scroll inside it instead.
@@ -2664,15 +2665,13 @@
 														>{@html INFO_SVG}</button
 													>
 													<!-- The editor says it is in beta, at the far end of the bar past Home.
-													     A SPAN, not a button: the Park Ranger's tag is a <button> because it sits
-													     AMONG that bar's controls and had to reset the UA face to match them, but
-													     this one is a label with nothing to press — and a button that does nothing
-													     is a promise to a keyboard and a screen reader the app cannot keep. -->
-													<span
-														class="beta"
-														style:--accent={accent[v.code]}
-														title="This app is in beta — expect it to change">Beta</span
-													>
+													     It was a SPAN — a label with nothing to press, on the argument that a
+													     button which does nothing is a promise to a keyboard and a screen reader
+													     the app cannot keep. It has something to say now — which version this is,
+													     what the three numbers mean, and what has just landed — so it is a button,
+													     and the promise is kept. $lib/BetaTag owns the tag and its card; the
+													     versions live in $lib/versions, keyed by the register’s own code. -->
+													<BetaTag code={v.code} title={port.title} accent={accent[v.code]} />
 												{/if}
 											</div>
 										{/if}
@@ -3524,16 +3523,9 @@
 		align-items: center;
 		gap: 0.5rem;
 	}
-	/* A Beta tag among those actions matches the CONTROLS it sits beside rather than shrinking to
-	   its own type. `align-self: stretch` rather than a height, so it follows whatever the row is
-	   — 28px of Pixelite's control line, 42px of Aeropalite's disc — instead of picking one and
-	   being wrong in the other theme. It was 19.6px against a 28px Home, measured. */
-	.head-actions .beta {
-		align-self: stretch;
-		display: inline-flex;
-		align-items: center;
-		flex: none;
-	}
+	/* (The Beta tag's own sizing among these actions moved with it into $lib/BetaTag, which is
+	   where the element is now. It still has to match the CONTROLS it stands beside rather than
+	   shrink to its own type — see the note there.) */
 	/* The unit disc speaks its unit in type, not a glyph — same 42px disc as its kin. */
 	.unit-btn {
 		font-size: 0.9rem;
