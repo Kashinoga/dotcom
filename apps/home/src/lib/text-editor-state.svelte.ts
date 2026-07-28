@@ -28,10 +28,24 @@ import {
 	LIST_UL_SVG,
 	LIST_OL_SVG,
 	RULE_SVG,
-	LINK_SVG
+	LINK_SVG,
+	DOC_TEXT_SVG,
+	FOLDER_OPEN_SVG
 } from '$lib/icons';
 
 export type Mode = 'write' | 'split' | 'proof';
+
+/** One readable document inside an opened folder. */
+export type FolderEntry = { name: string; path: string; file: File };
+
+/**
+ * What counts as openable. Deliberately narrow: this is a Markdown editor, and handing it a
+ * binary would put mojibake on the sheet rather than an error. The extension list is the gate
+ * for a FOLDER (where the picker cannot filter for us); a single file also offers these to the
+ * native picker, which is a hint rather than a rule — the picker can always be overridden, so
+ * the same check runs on what comes back.
+ */
+export const OPENABLE = /\.(md|markdown|mdown|mkd|txt|text)$/i;
 
 /** What the rack can ask the editor to do. Registered by the editor while it is mounted. */
 export type Commands = {
@@ -44,6 +58,9 @@ export type Commands = {
 	link(): void;
 	copy(): void;
 	download(): void;
+	/** Put a document on the sheet, replacing what is there. Undoable — see `load` in the editor. */
+	openFile(): void;
+	openFolder(): void;
 	/** Two-step: the first call arms, the second clears. See `armed`. */
 	clear(): void;
 };
@@ -61,6 +78,20 @@ export const editor = $state({
 	 * — so it is a setting rather than a rule.
 	 */
 	measured: true,
+	/**
+	 * The name of the document on the sheet, once one has been OPENED. Empty for the scratch
+	 * sheet you get by default — which is most of the time, and is why the running foot only
+	 * names a file when there is one to name.
+	 */
+	filename: '',
+	/**
+	 * A folder's readable documents, when one has been opened, and whether the index is showing.
+	 * The File objects are kept unread: a directory can be large, and there is no reason to pull
+	 * every file into memory to list their names.
+	 */
+	folder: [] as FolderEntry[],
+	folderName: '',
+	folderShown: false,
 	/** Confirmation lamps, owned by the editor's timers, read by the rack's keys. */
 	copied: false,
 	armed: false,
@@ -124,6 +155,30 @@ export type DocKey = {
 	on?: () => boolean;
 	folds: () => boolean;
 };
+
+/**
+ * The keys that bring a document IN. They lead the bar, at the far left, because that is where a
+ * document starts — before there is anything to mark up or anything to do with it.
+ */
+export const OPEN_KEYS: DocKey[] = [
+	{
+		id: 'open',
+		svg: DOC_TEXT_SVG,
+		title: () => 'Open a Markdown or text file',
+		label: () => 'Open',
+		run: () => editor.cmd?.openFile(),
+		folds: () => true
+	},
+	{
+		id: 'folder',
+		svg: FOLDER_OPEN_SVG,
+		title: () => 'Open a folder and pick from what is in it',
+		label: () => 'Folder',
+		run: () => editor.cmd?.openFolder(),
+		on: () => editor.folderShown,
+		folds: () => true
+	}
+];
 
 export const DOC_KEYS: DocKey[] = [
 	{

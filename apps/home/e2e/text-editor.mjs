@@ -81,12 +81,55 @@ const value = () => ta.inputValue();
 	ok('the bar carries no title', (await page.locator('.head-title').count()) === 0);
 	ok('the bar carries the rack instead', await page.locator('.head-row .te-rack').isVisible());
 	ok('and offers the way out', await page.locator('.head-actions .icon-btn').isVisible());
-	// Every key the app has is in that one bar row, and nothing is left in the body.
+	// Every key the app has is in that one bar row, and nothing is left in the body. Counted by
+	// CLASS rather than by container: the keys live in two clusters now — the scrolling strip and
+	// the fixed right-hand tail beside Home — and `.tb` is what they share. Home is `.icon-btn`,
+	// so it is not among them.
 	ok(
 		'every key is in the bar',
-		(await page.locator('.head-row .te-rack button').count()) === 17,
-		`${await page.locator('.head-row .te-rack button').count()}`
+		(await page.locator('.head-row .tb').count()) === 19,
+		`${await page.locator('.head-row .tb').count()}`
 	);
+	// The document keys sit at the RIGHT END, parted from Home by a rule: they act on the file
+	// rather than on the text, and they must not be able to scroll out of reach with the strip.
+	{
+		const geo = await page.evaluate(() => {
+			const left = (s) =>
+				[...document.querySelectorAll(s)].map((e) => e.getBoundingClientRect().left);
+			const seps = left('.te-tail .te-sep');
+			return {
+				lead: left('.te-lead .tb'),
+				leadSep: left('.te-lead .te-sep')[0],
+				marks: left('.te-rack .te-mark-key'),
+				view: left('.te-tail [aria-label="View"] .tb'),
+				doc: left('.te-tail [aria-label="The document"] .tb'),
+				lastSep: seps[seps.length - 1],
+				home: left('.head-actions .icon-btn')[0]
+			};
+		});
+		// Left to right, the bar tells the order of the work: bring a document in, mark it up,
+		// choose how to look at it, then take it away.
+		ok(
+			'the file keys lead the bar, with a rule on their right',
+			Math.max(...geo.lead) < geo.leadSep && geo.leadSep < Math.min(...geo.marks),
+			JSON.stringify(geo)
+		);
+		ok(
+			'the marks come next, in the only part that scrolls',
+			Math.max(...geo.marks) < Math.min(...geo.view),
+			JSON.stringify(geo)
+		);
+		ok(
+			'then the view keys, then the document keys',
+			Math.max(...geo.view) < Math.min(...geo.doc),
+			JSON.stringify(geo)
+		);
+		ok(
+			'with a rule between the document keys and Home',
+			Math.max(...geo.doc) < geo.lastSep && geo.lastSep < geo.home,
+			JSON.stringify(geo)
+		);
+	}
 	ok('and none are left in the body', (await page.locator('.te button').count()) === 0);
 	// The row must not have wrapped: the body reserves a fixed one-row height, so a second row
 	// would sit on top of the document's first lines.
@@ -392,6 +435,75 @@ await reset('first\n\n\nlast');
 	);
 }
 
+// ── OPENING ──────────────────────────────────────────────────────────────────
+// A file, and a folder of them. `webkitdirectory` is a prefixed de-facto standard rather than a
+// specified one, so what the picker LOOKS like is the platform's business — but what it hands
+// back, and what the editor does with it, is ours and is testable.
+{
+	const dir = await import('node:fs');
+	const os = await import('node:os');
+	const path = await import('node:path');
+	const folder = dir.mkdtempSync(path.join(os.tmpdir(), 'te-e2e-'));
+	dir.writeFileSync(path.join(folder, 'alpha.md'), '# Alpha\n\nFirst note.');
+	dir.writeFileSync(path.join(folder, 'beta.markdown'), '# Beta\n\nSecond note.');
+	dir.writeFileSync(path.join(folder, 'notes.txt'), 'plain text note');
+	// Not openable — a Markdown editor handed a binary would put mojibake on the sheet.
+	dir.writeFileSync(path.join(folder, 'ignore.png'), 'not text at all');
+	dir.mkdirSync(path.join(folder, 'sub'));
+	dir.writeFileSync(path.join(folder, 'sub', 'gamma.md'), '# Gamma\n\nNested.');
+
+	await reset('the sheet as it was');
+	await page.setInputFiles('.te-picker >> nth=0', path.join(folder, 'alpha.md'));
+	await page.waitForTimeout(400);
+	await eq('opening a file puts it on the sheet', value(), '# Alpha\n\nFirst note.');
+	ok(
+		'and the running foot names it',
+		(await page.locator('.te-lamp').textContent()).trim() === 'alpha.md'
+	);
+
+	// The reason opening does not have to ask first: it goes through the same `write` every other
+	// edit does, so the document it replaced is one Cmd-Z away.
+	await ta.focus();
+	await key('ControlOrMeta+z');
+	await page.waitForTimeout(250);
+	await eq('and opening the wrong one is undoable', value(), 'the sheet as it was');
+
+	await page.setInputFiles('.te-picker >> nth=1', folder);
+	await page.waitForTimeout(500);
+	await eq(
+		'a folder lists what it can open, in path order',
+		page.$$eval('.te-index-file', (ns) => ns.map((n) => n.textContent).join(',')),
+		'alpha.md,beta.markdown,notes.txt,gamma.md'
+	);
+	ok(
+		'and leaves out what it cannot',
+		!(await page.locator('.te-index').textContent()).includes('ignore.png')
+	);
+
+	await page.locator('.te-index-row').nth(1).click();
+	await page.waitForTimeout(700); // past the save debounce, or the lamp still says "Setting…"
+	await eq('picking one opens it', value(), '# Beta\n\nSecond note.');
+	ok('and shuts the index', (await page.locator('.te-index').count()) === 0);
+	ok(
+		'the foot names the picked one',
+		(await page.locator('.te-lamp').textContent()).trim() === 'beta.markdown',
+		JSON.stringify((await page.locator('.te-lamp').textContent()).trim())
+	);
+
+	// Clearing the sheet forgets the name with it — what is on screen is no longer that file.
+	const clearKey = page.getByRole('button', { name: /Clear|Sure/ });
+	await clearKey.click();
+	await clearKey.click();
+	await page.waitForTimeout(700); // …the same debounce again
+	ok(
+		'clearing forgets the filename',
+		(await page.locator('.te-lamp').textContent()).trim() === '',
+		JSON.stringify((await page.locator('.te-lamp').textContent()).trim())
+	);
+
+	dir.rmSync(folder, { recursive: true, force: true });
+}
+
 // ── THE MEASURE ──────────────────────────────────────────────────────────────
 // Held to a reading measure by default, in WRITE and in PROOF alike. A line set to the width of a
 // wide window runs to about 160 characters, and the eye loses the return to the left edge long
@@ -588,10 +700,12 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	// Seventeen keys will not sit in a 390px bar without becoming a strip you swipe to reach
 	// anything. The bar keeps the VIEW keys; the rest go to the shared floating key at the
 	// bottom-left, where every other app on the site puts its phone controls.
+	// Counted by class: the strip is EMPTY on a phone (the marks are in the flyout), and the two
+	// view keys live in the fixed tail beside Home.
 	ok(
 		'the phone bar keeps only the view keys',
-		(await p.locator('.head-row .te-rack button').count()) === 2,
-		`${await p.locator('.head-row .te-rack button').count()}`
+		(await p.locator('.head-row .tb').count()) === 2,
+		`${await p.locator('.head-row .tb').count()}`
 	);
 	ok('and a floating key holds the rest', (await p.locator('.fkey').count()) === 1);
 	// The flyout is PARKED rather than unmounted when shut (FloatingKey keeps it in the DOM and
@@ -604,13 +718,17 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	await p.waitForTimeout(350);
 	ok('it opens', (await shown()) === 1);
 	ok('the marks are a grid', (await p.locator('.te-fly-mark').count()) === 10);
-	ok('with the document keys as a stack', (await p.locator('.fkey-stack .icon-btn').count()) === 4);
-	// 14 of the 17 — the majority, which is the point of the exercise.
+	ok(
+		'with the document keys as a stack',
+		(await p.locator('.fkey-stack .icon-btn').count()) === 6,
+		`${await p.locator('.fkey-stack .icon-btn').count()} discs`
+	);
+	// 16 of the 19 — the majority, which is the point of the exercise.
 	ok(
 		'so the majority of the keys are in the flyout',
 		(await p.locator('.te-fly-mark').count()) +
 			(await p.locator('.fkey-stack .icon-btn').count()) ===
-			14
+			16
 	);
 
 	// A MARK leaves the flyout standing, so a run of them costs one open rather than one each.

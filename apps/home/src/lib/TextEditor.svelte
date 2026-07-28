@@ -1,7 +1,14 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { renderMarkdown, tally, lineMarks } from '$lib/markdown';
-	import { editor, shownMode, MARKS, DOC_KEYS } from '$lib/text-editor-state.svelte';
+	import {
+		editor,
+		shownMode,
+		MARKS,
+		DOC_KEYS,
+		OPEN_KEYS,
+		OPENABLE
+	} from '$lib/text-editor-state.svelte';
 	import FloatingKey from '$lib/FloatingKey.svelte';
 	import { NIB_SVG, RULE_SVG } from '$lib/icons';
 
@@ -123,8 +130,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	// Written on a trailing debounce: a keystroke is cheap, a localStorage write is a synchronous
 	// main-thread hop, and doing one per character is how a text field starts dropping frames on
 	// a long document.
-	let savedAt = $state(0);
 	let saveTimer = 0;
+	// Nothing has CHANGED at mount — the document was either just loaded from storage or is the
+	// starter, and in both cases it is already what is on disk. Writing it back would be a
+	// pointless round trip, and it would flash the lamp on every single page load.
+	let settled = false;
 	// True from the first keystroke until the debounce lands — what the foot's lamp reads.
 	let dirty = $state(false);
 
@@ -179,7 +189,17 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// page, and every one of these needs the live textarea and its undo stack — see the note in
 		// $lib/text-editor-state. Cleared on the way out so a key pressed after a navigation cannot reach
 		// through a stale closure into a textarea that no longer exists.
-		editor.cmd = { surround, prefix, block, link, copy, download, clear: clearSheet };
+		editor.cmd = {
+			surround,
+			prefix,
+			block,
+			link,
+			copy,
+			download,
+			clear: clearSheet,
+			openFile,
+			openFolder
+		};
 
 		return () => {
 			mq.removeEventListener('change', onMq);
@@ -199,12 +219,17 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	$effect(() => {
 		const body = text; // read it so the effect tracks the document
 		if (typeof localStorage === 'undefined') return;
+		if (!settled) {
+			// The first run is the mount. `onMount` has already put the stored document (or the
+			// starter) into `text` by now, so there is nothing to save and nothing to report.
+			settled = true;
+			return;
+		}
 		dirty = true;
 		clearTimeout(saveTimer);
 		saveTimer = window.setTimeout(() => {
 			try {
 				localStorage.setItem(STORE, body);
-				savedAt = Date.now();
 				dirty = false;
 			} catch {
 				// Same as above — the sheet is still on screen, it just won't survive a reload.
@@ -655,8 +680,84 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		copyTimer = window.setTimeout(() => (editor.copied = false), 1400);
 	}
 
+	// ── Opening ───────────────────────────────────────────────────────────────
+	// Two hidden inputs, because the two pickers are genuinely different things. A single file is
+	// `accept`; a folder is `webkitdirectory`, which is a prefixed de-facto standard rather than a
+	// specified one — every current browser implements it, but WHAT the picker looks like, and
+	// whether it will even offer a directory, is the platform's call. That is why the folder is a
+	// separate key rather than an option inside the first: a picker that sometimes cannot do what
+	// the label says is worse than two labels.
+	//
+	// The File System Access API (`showDirectoryPicker`) would give a nicer folder experience and
+	// the ability to save back — and it is Chromium-only, so it is deliberately NOT used. One code
+	// path that works everywhere beats a good one that works in one browser and a fallback nobody
+	// tests.
+	let fileInput: HTMLInputElement | undefined = $state();
+	let folderInput: HTMLInputElement | undefined = $state();
+
+	/**
+	 * Put a document on the sheet. It goes through `write`, like every other edit, so opening the
+	 * wrong file is UNDOABLE — Cmd-Z brings back what was there. That is the whole reason opening
+	 * does not have to ask first.
+	 */
+	async function load(file: File) {
+		let body: string;
+		try {
+			body = await file.text();
+		} catch {
+			// A file that vanished between picking and reading, or one the browser will not hand
+			// over. Nothing to put on the sheet, and nothing worth interrupting the writer for.
+			return;
+		}
+		if (!ta) return;
+		ta.focus();
+		ta.setSelectionRange(0, ta.value.length);
+		write(body.replace(/\r\n?/g, '\n'));
+		editor.filename = file.name;
+		editor.folderShown = false;
+		ta.setSelectionRange(0, 0);
+		trackCaret();
+	}
+
+	function openFile() {
+		fileInput?.click();
+	}
+
+	function openFolder() {
+		// Re-opening the same folder should re-read it, so the value is cleared first — an input
+		// that is handed the same directory twice fires no change event otherwise.
+		if (folderInput) folderInput.value = '';
+		folderInput?.click();
+	}
+
+	function tookFolder(event: Event) {
+		const picked = [...((event.currentTarget as HTMLInputElement).files ?? [])];
+		const entries = picked
+			.filter((f) => OPENABLE.test(f.name))
+			.map((f) => ({ name: f.name, path: f.webkitRelativePath || f.name, file: f }))
+			.sort((a, b) => a.path.localeCompare(b.path));
+		editor.folder = entries;
+		// The folder's own name is the first segment of any entry's relative path.
+		editor.folderName = entries[0]?.path.split('/')[0] ?? '';
+		editor.folderShown = true;
+	}
+
 	/** The document leaves as a real file. The name is the first heading, or the date. */
+	/** Hand a body to the browser as a download under a given name. */
+	function save(body: string, name: string) {
+		const url = URL.createObjectURL(new Blob([body], { type: 'text/markdown;charset=utf-8' }));
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = name;
+		a.click();
+		URL.revokeObjectURL(url);
+	}
+
 	function download() {
+		// An OPENED document keeps the name it came in under. Guessing one from the first heading
+		// is for a sheet that never had one — and a file that went out under a different name
+		// from the one it arrived as would be a small betrayal.
+		if (editor.filename) return save(text, editor.filename);
 		const heading = text.match(/^ {0,3}#{1,6}[ \t]+(.+?)[ \t]*#*$/m)?.[1] ?? 'text-editor';
 		const name =
 			heading
@@ -664,12 +765,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				.replace(/[^a-z0-9]+/g, '-')
 				.replace(/^-+|-+$/g, '')
 				.slice(0, 48) || 'text-editor';
-		const url = URL.createObjectURL(new Blob([text], { type: 'text/markdown;charset=utf-8' }));
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = `${name}.md`;
-		a.click();
-		URL.revokeObjectURL(url);
+		save(text, `${name}.md`);
 	}
 
 	// Clearing the sheet is the one irreversible thing in here, so the key asks. It asks by
@@ -686,6 +782,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		}
 		clearTimeout(armTimer);
 		editor.armed = false;
+		editor.filename = '';
 		if (!ta) return;
 		ta.focus();
 		ta.setSelectionRange(0, text.length);
@@ -790,7 +887,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	     here lands nearest the thumb. Copy, then the download, then Clear — the bar's own
 	     left-to-right — and the measure last, furthest away, because it is the one you set once
 	     and forget. -->
-	{#each DOC_KEYS as k (k.id)}
+	{#each [...DOC_KEYS, ...OPEN_KEYS] as k (k.id)}
 		<button
 			type="button"
 			class="icon-btn"
@@ -922,6 +1019,76 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		{/if}
 	</div>
 
+	<!-- The two pickers. Hidden rather than styled: a file input cannot be made to look like
+	     anything in this manual, and the keys that stand in for it already do. -->
+	<input
+		class="te-picker"
+		type="file"
+		bind:this={fileInput}
+		accept=".md,.markdown,.mdown,.mkd,.txt,.text,text/markdown,text/plain"
+		aria-hidden="true"
+		tabindex="-1"
+		onchange={(e) => {
+			const f = e.currentTarget.files?.[0];
+			if (f) load(f);
+			e.currentTarget.value = '';
+		}}
+	/>
+	<!-- `webkitdirectory` is a prefixed de-facto standard rather than a specified one. Every
+	     current browser implements it; what the picker LOOKS like, and how willingly it offers a
+	     directory, is the platform's own business. Svelte does not know the attribute, hence the
+	     spread. -->
+	<input
+		class="te-picker"
+		type="file"
+		bind:this={folderInput}
+		aria-hidden="true"
+		tabindex="-1"
+		{...{ webkitdirectory: true, directory: true }}
+		onchange={tookFolder}
+	/>
+
+	{#if editor.folderShown}
+		<!-- THE FOLDER'S INDEX, set the way the manual sets one: a ruled list of what is in it,
+		     in path order, each row a door. It is a sheet over the desk rather than a pane beside
+		     it — you are choosing a document, not reading two. -->
+		<div
+			class="te-index"
+			role="dialog"
+			aria-label="Documents in {editor.folderName || 'the folder'}"
+		>
+			<header class="te-index-head">
+				<h2 class="te-index-name">{editor.folderName || 'Folder'}</h2>
+				<span class="te-index-count"
+					>{editor.folder.length}
+					{editor.folder.length === 1 ? 'document' : 'documents'}</span
+				>
+				<button
+					type="button"
+					class="tb te-index-close"
+					onclick={() => (editor.folderShown = false)}
+					title="Close the index">Close</button
+				>
+			</header>
+			{#if editor.folder.length}
+				<ul class="te-index-list">
+					{#each editor.folder as entry (entry.path)}
+						<li>
+							<button type="button" class="te-index-row" onclick={() => load(entry.file)}>
+								<span class="te-index-file">{entry.name}</span>
+								<span class="te-index-path">{entry.path}</span>
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{:else}
+				<p class="te-index-empty">
+					Nothing in there this editor can open — it takes Markdown and plain text.
+				</p>
+			{/if}
+		</div>
+	{/if}
+
 	{#if editor.narrow}
 		<!-- THE PHONE'S CONTROLS, in the shared floating key ($lib/FloatingKey — the shape the
 		     Emoji Viewer started, the docs shell, the Park Ranger, the board and the Star Map all
@@ -965,8 +1132,16 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				<dd>{count.minutes ? `${pad(count.minutes)} min` : '—'}</dd>
 			</div>
 		</dl>
+		<!-- The lamp speaks only while a write is pending, and is silent the rest of the time.
+		     It used to sign off with "Set in type", which read as a wordmark rather than as
+		     status — a phrase the foot wore permanently, saying the same thing whatever the app
+		     was doing, which is the opposite of what a status line is for.
+		     There was a third state under it, "Held in this browser", and it went with the same
+		     cut: the save effect runs on mount, so that line was only ever on screen for the
+		     400ms before the first write landed. A message nobody can finish reading is a flash,
+		     not a message. -->
 		<p class="te-lamp" class:te-lamp-dirty={dirty} role="status">
-			{dirty ? 'Setting…' : savedAt ? 'Set in type' : 'Held in this browser'}
+			{#if dirty}Setting…{:else if editor.filename}{editor.filename}{/if}
 		</p>
 	</div>
 </div>
@@ -1515,6 +1690,113 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-proof :global(table),
 	.te-proof :global(pre) {
 		max-width: 100%;
+	}
+
+	/* The pickers themselves are never seen — the keys stand in for them. Not `display: none`:
+	   a hidden input is still clicked programmatically, and some engines decline to open a
+	   picker for a box with no layout at all. */
+	.te-picker {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	/* ── The folder's index ────────────────────────────────────────────────────
+	   A sheet laid over the desk, holding the manual's own kind of list: a ruled row per
+	   document, its name in the mono voice over its path in the muted one. It sits over rather
+	   than beside, because picking a document is not something you do WHILE reading one. */
+	.te-index {
+		position: absolute;
+		z-index: 4;
+		top: calc(var(--bar-h, 60px) + 0.75rem);
+		left: 50%;
+		transform: translateX(-50%);
+		width: min(34rem, calc(100% - 2rem));
+		max-height: min(60vh, 32rem);
+		display: flex;
+		flex-direction: column;
+		background: var(--surface);
+		border: 1px solid var(--te-rule);
+		border-radius: 2px;
+		box-shadow: var(--pixel-paper-shadow, 0 10px 30px rgba(0, 0, 0, 0.18));
+	}
+	.te-index-head {
+		flex: none;
+		display: flex;
+		align-items: baseline;
+		gap: 0.6rem;
+		padding: 0.85rem 1rem;
+		border-bottom: 1px solid var(--te-rule);
+	}
+	.te-index-name {
+		margin: 0;
+		font-family: var(--font-mono, monospace);
+		font-size: 0.8rem;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--ink);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.te-index-count {
+		flex: none;
+		font-family: var(--font-mono, monospace);
+		font-size: 0.68rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--sub);
+	}
+	.te-index-close {
+		margin-left: auto;
+		flex: none;
+	}
+	.te-index-list {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		overflow-y: auto;
+	}
+	/* Each row is the catalog row the Apps index uses — a hairline under it, the accent on
+	   hover, nothing floating. */
+	.te-index-row {
+		display: block;
+		width: 100%;
+		padding: 0.7rem 1rem;
+		text-align: left;
+		background: none;
+		border: 0;
+		border-bottom: 1px solid var(--te-rule);
+		cursor: pointer;
+	}
+	.te-index-row:hover,
+	.te-index-row:focus-visible {
+		background: color-mix(in srgb, var(--orange) 7%, transparent);
+		outline: none;
+	}
+	.te-index-file {
+		display: block;
+		font-family: var(--font-mono, monospace);
+		font-size: 0.82rem;
+		color: var(--ink);
+	}
+	.te-index-path {
+		display: block;
+		margin-top: 0.15rem;
+		font-size: 0.72rem;
+		color: var(--sub);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.te-index-empty {
+		margin: 0;
+		padding: 1.1rem 1rem;
+		font-size: 0.9rem;
+		color: var(--sub);
 	}
 
 	/* ── The phone's flyout ────────────────────────────────────────────────────

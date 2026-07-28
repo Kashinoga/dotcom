@@ -1,5 +1,12 @@
 <script lang="ts">
-	import { editor, shownMode, MARKS, DOC_KEYS, type Mode } from '$lib/text-editor-state.svelte';
+	import {
+		editor,
+		shownMode,
+		MARKS,
+		DOC_KEYS,
+		OPEN_KEYS,
+		type Mode
+	} from '$lib/text-editor-state.svelte';
 
 	// THE RACK — Text Editor's keys, rendered INSIDE the panel's dense bar.
 	//
@@ -35,7 +42,60 @@
 	const shown = $derived(shownMode());
 </script>
 
+{#if !editor.narrow}
+	<!-- THE FILE KEYS lead the bar, at the far left, with a rule on their right. A document has
+	     to arrive before there is anything to mark up or anything to do with it, and reading the
+	     bar left to right now tells that order: bring one in, choose how to look at it, mark it
+	     up, then take it away. Pinned outside the scrolling strip for the same reason the
+	     document keys are — a file verb that can scroll out of reach is a file verb you cannot
+	     find. -->
+	<div class="te-lead">
+		<div class="te-group" role="group" aria-label="Open">
+			{#each OPEN_KEYS as k (k.id)}
+				<button type="button" class="tb" class:on={k.on?.()} onclick={k.run} title={k.title()}>
+					<span class="te-key-ico" aria-hidden="true">{@html k.svg}</span>
+					<span class="te-key-word">{k.label()}</span>
+				</button>
+			{/each}
+		</div>
+		<span class="te-sep" aria-hidden="true"></span>
+	</div>
+{/if}
 <div class="te-rack" role="toolbar" aria-label="Text Editor">
+	{#if shown !== 'proof' && !editor.narrow}
+		<!-- The marks are only offered when there is a sheet to put them on. In PROOF there is
+		     nothing to mark up, and ten dead keys would say otherwise. On a phone they are in the
+		     flyout instead. They are the ONLY thing in the scrolling strip now: everything else
+		     acts on the document or on the view, and those belong in the fixed clusters at the
+		     ends where they cannot scroll away. -->
+		<div class="te-group" role="group" aria-label="Marks">
+			{#each MARKS as mark (mark.title)}
+				<button
+					type="button"
+					class="tb te-mark-key"
+					title={mark.title}
+					aria-label={mark.title}
+					onclick={mark.run}
+				>
+					{#if mark.svg}
+						<span class="te-key-ico" aria-hidden="true">{@html mark.svg}</span>
+					{:else}
+						{mark.label}
+					{/if}
+				</button>
+			{/each}
+		</div>
+	{/if}
+</div>
+
+<!-- THE RIGHT-HAND END: the view keys, then the document keys, then a rule and Home. Both
+     clusters sit OUTSIDE the scrolling strip — a key that changes what you are looking at, or
+     acts on the whole file, must not be able to scroll out of reach. A rule parts the document
+     keys from Home, which is the page's rather than the app's.
+     The tail itself is always drawn: on a phone the document keys go to the flyout, but the view
+     keys stay, because switching between the sheet and the proof is the one thing a phone still
+     has to do from the bar. -->
+<div class="te-tail">
 	<div class="te-group" role="group" aria-label="View">
 		{#each MODES as m (m.id)}
 			<!-- SPLIT simply is not offered on a narrow window; see shownMode. -->
@@ -65,31 +125,6 @@
 			>
 		{/if}
 	</div>
-
-	{#if shown !== 'proof' && !editor.narrow}
-		<!-- The marks are only offered when there is a sheet to put them on. In PROOF there is
-		     nothing to mark up, and ten dead keys would say otherwise. On a phone they are in the
-		     flyout instead. -->
-		<span class="te-sep" aria-hidden="true"></span>
-		<div class="te-group" role="group" aria-label="Marks">
-			{#each MARKS as mark (mark.title)}
-				<button
-					type="button"
-					class="tb te-mark-key"
-					title={mark.title}
-					aria-label={mark.title}
-					onclick={mark.run}
-				>
-					{#if mark.svg}
-						<span class="te-key-ico" aria-hidden="true">{@html mark.svg}</span>
-					{:else}
-						{mark.label}
-					{/if}
-				</button>
-			{/each}
-		</div>
-	{/if}
-
 	{#if !editor.narrow}
 		<span class="te-sep" aria-hidden="true"></span>
 		<div class="te-group" role="group" aria-label="The document">
@@ -104,6 +139,7 @@
 				</button>
 			{/each}
 		</div>
+		<span class="te-sep" aria-hidden="true"></span>
 	{/if}
 </div>
 
@@ -154,6 +190,17 @@
 		align-items: center;
 		gap: 0.4rem;
 		flex: none;
+	}
+	/* The right-hand cluster. Outside .te-rack on purpose: the strip scrolls, and a key that acts
+	   on the whole document must not be able to scroll out of reach. flex:none so it keeps its
+	   width while the strip beside it gives ground. */
+	.te-lead,
+	.te-tail {
+		flex: none;
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		padding-block: 2px;
 	}
 	/* A hairline between the groups — the manual's own way of parting a row of keys, and the
 	   thing that makes a long strip readable as three clusters instead of sixteen buttons. */
