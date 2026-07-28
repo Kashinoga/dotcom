@@ -624,6 +624,93 @@ await reset('first\n\n\nlast');
 		(await page.locator('.te-work-tally').textContent()) === '1'
 	);
 
+	// ── THE HEAD IS ONE ROW ──────────────────────────────────────────────────
+	// Name, keys, tally. The name had the row to itself for a while, because sharing it with
+	// three keys ellipsised any long name after a few characters; it shares again, and the
+	// ellipsis is answered by a reveal rather than accepted.
+	{
+		// By CENTRE, not by top edge: a word, three plastic keys and a figure are different
+		// heights, so a shared row shows as a shared middle.
+		const mids = await page.evaluate(() =>
+			[...document.querySelectorAll('.te-work-head > *')]
+				.filter((e) => !e.classList.contains('te-work-full'))
+				.map((e) => {
+					const r = e.getBoundingClientRect();
+					return Math.round(r.top + r.height / 2);
+				})
+		);
+		ok(
+			'the name, the keys and the tally share one row',
+			Math.max(...mids) - Math.min(...mids) <= 2,
+			JSON.stringify(mids)
+		);
+		ok('with no second row left behind', (await page.locator('.te-work-acts').count()) === 0);
+		// The tally comes LAST, past the keys, because it heads a column: every folder row in the
+		// tree carries the same figure at the same right edge.
+		const edges = await page.evaluate(() => {
+			const r = (s) => Math.round(document.querySelector(s).getBoundingClientRect().right);
+			return { head: r('.te-work-count'), row: r('.te-work-tally') };
+		});
+		ok(
+			'and the folder tally lines up with the row tallies',
+			Math.abs(edges.head - edges.row) <= 1,
+			JSON.stringify(edges)
+		);
+
+		// The folder is a mkdtemp name — always long enough to be clipped in a 15rem head, which
+		// is what makes this deterministic rather than a case that depends on the machine.
+		ok(
+			'a name too long for the row is clipped',
+			await page.evaluate(() => {
+				const el = document.querySelector('.te-work-name');
+				return el.scrollWidth > el.clientWidth + 1;
+			})
+		);
+		ok('so a reveal is drawn for it', (await page.locator('.te-work-full').count()) === 1);
+		await eq(
+			'shut until it is asked for',
+			page.locator('.te-work-full').evaluate((e) => getComputedStyle(e).opacity),
+			'0'
+		);
+		await page.locator('.te-work-name').hover();
+		await page.waitForTimeout(250);
+		await eq(
+			'pointing at the name opens it',
+			page.locator('.te-work-full').evaluate((e) => getComputedStyle(e).opacity),
+			'1'
+		);
+		ok(
+			'showing the whole name',
+			(await page.locator('.te-work-full').textContent()).trim() === path.basename(folder),
+			await page.locator('.te-work-full').textContent()
+		);
+		{
+			// It hangs BELOW the row on purpose: over the name it would land under the pointer that
+			// opened it, take its own hover away, and flicker.
+			const head = await page.locator('.te-work-head').boundingBox();
+			const full = await page.locator('.te-work-full').boundingBox();
+			const pane = await page.locator('.te-work').boundingBox();
+			ok(
+				'below the row rather than over it',
+				full.y >= head.y + head.height - 6,
+				JSON.stringify({ head, full })
+			);
+			ok(
+				'and inside the pane, wrapped rather than run off it',
+				full.x >= pane.x && full.x + full.width <= pane.x + pane.width,
+				JSON.stringify({ pane, full })
+			);
+		}
+		// Pointing at a KEY must not explain the folder.
+		await page.locator('.te-work-act').last().hover();
+		await page.waitForTimeout(250);
+		await eq(
+			'pointing at a key does not open it',
+			page.locator('.te-work-full').evaluate((e) => getComputedStyle(e).opacity),
+			'0'
+		);
+	}
+
 	// Shutting a folder takes its documents off the list and leaves the folder itself.
 	await page.getByRole('treeitem', { name: /^sub/ }).click();
 	await page.waitForTimeout(250);

@@ -996,6 +996,41 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 	let doomTimer = 0;
 
+	// ── The folder's name, when it does not fit ───────────────────────────────
+	// The head is one row — name, tally, three keys — so a long folder name is clipped to a few
+	// characters. CSS can ellipsise it but cannot tell you that it did, and a reveal that repeats
+	// a name already legible in full is a flicker with no information in it. So it is measured.
+	//
+	// Measured in an effect rather than once: the width the name has depends on the tally beside
+	// it (five documents and five hundred are different widths) and on whether New is drawn at
+	// all, and the text itself changes with the folder. The ResizeObserver covers the case the
+	// effect cannot see — the pane is a fixed column on a wide window but a full-width sheet on a
+	// phone, so a rotation changes the room without changing a thing this component reads.
+	let workNameEl: HTMLElement | null = $state(null);
+	let nameClipped = $state(false);
+
+	function measureName() {
+		const el = workNameEl;
+		// +1 for the sub-pixel: a name that exactly fits reports a scrollWidth a fraction over its
+		// clientWidth often enough to flash a reveal that shows the same characters back.
+		nameClipped = !!el && el.scrollWidth > el.clientWidth + 1;
+	}
+
+	$effect(() => {
+		editor.folderName;
+		editor.folder.length;
+		editor.canWrite;
+		measureName();
+		const el = workNameEl;
+		if (!el || typeof ResizeObserver === 'undefined') return;
+		const ro = new ResizeObserver(measureName);
+		ro.observe(el);
+		// The mono face arrives after first paint, and it is wider than the fallback — a name
+		// measured before it lands is measured against the wrong letters.
+		document.fonts?.ready.then(measureName).catch(() => {});
+		return () => ro.disconnect();
+	});
+
 	// ── The tree ──────────────────────────────────────────────────────────────
 	// The workspace lists a FOLDER, and a folder has folders in it. It used to answer that by
 	// printing the whole relative path under every nested name, which reads as a list of long
@@ -1500,14 +1535,15 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			     Set as the manual sets a list — a ruled row per document, the name in the mono
 			     voice over its path in the muted one, the open one marked. -->
 			<aside class="te-work" aria-label="Workspace: {editor.folderName || 'folder'}">
-				<!-- The folder's name gets the row to itself. It shared one with three keys, which
-				     left a path of any length ellipsised after a few characters — and the name is
-				     the one thing in this pane you cannot work out from anything else. -->
+				<!-- ONE ROW: the folder's name, its tally, and the three keys that act on the pane.
+				     The name had the row to itself for a while, because sharing it with three keys
+				     ellipsised any long name after a few characters and the name is the one thing
+				     in here you cannot work out from anything else. It shares again — a whole row
+				     spent on a word is a row the list could have had — and the ellipsis is answered
+				     rather than accepted: point at a clipped name and the whole of it opens below,
+				     wrapped, on the same sheet the menus are cut from. -->
 				<header class="te-work-head">
-					<h2 class="te-work-name" title={editor.folderName}>{editor.folderName || 'Folder'}</h2>
-					<span class="te-work-count">{editor.folder.length}</span>
-				</header>
-				<div class="te-work-acts">
+					<h2 class="te-work-name" bind:this={workNameEl}>{editor.folderName || 'Folder'}</h2>
 					{#if editor.canWrite}
 						<button
 							type="button"
@@ -1528,7 +1564,19 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						onclick={() => (editor.folderShown = false)}
 						title="Hide the workspace">Hide</button
 					>
-				</div>
+					<!-- The folder's own tally comes LAST, past the keys, because it is one of a
+					     column: every folder row in the tree below carries the same figure at the
+					     same right edge, and this one is the head of that column rather than a
+					     footnote to the name. -->
+					<span class="te-work-count">{editor.folder.length}</span>
+					{#if nameClipped}
+						<!-- Drawn only when the name is ACTUALLY clipped — a reveal that repeats a name
+						     you can already read in full is a flicker with no information in it. It
+						     hangs BELOW the row rather than over it, so it never lands under the
+						     pointer that opened it and cannot take its own hover away. -->
+						<span class="popover te-work-full" aria-hidden="true">{editor.folderName}</span>
+					{/if}
+				</header>
 				{#if editor.naming}
 					<form
 						class="te-work-rename"
@@ -2572,31 +2620,29 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		/* No rule down its edge either: it is a sheet on the same gutter as the panes beside it. */
 		background: var(--surface);
 	}
+	/* THE HEAD IS ONE ROW: the name, its tally, then New / Change / Hide at the right. The keys
+	   act on the PANE rather than on the list, so they belong at the end of the head where a
+	   panel keeps its own controls.
+	   `align-items: center`, not baseline: three plastic keys and a word have no baseline worth
+	   sharing, and on a baseline the keys hung a pixel low against the name.
+	   `position: relative` is the anchor for the name's reveal below. */
 	.te-work-head {
+		position: relative;
 		flex: none;
 		display: flex;
-		align-items: baseline;
+		align-items: center;
 		gap: 0.4rem;
-		/* No bottom inset: the keys' row below brings its own, and two stacked paddings put the
-		   name further from its keys than the keys are from the list. */
-		padding: 0.6rem 0.6rem 0 0.75rem;
+		/* The side insets are the LIST'S, not the head's own: the tally at the end of this row
+		   has to land on the same right edge as every folder tally under it, and the name has to
+		   start where the top-level rows start. Even top and bottom. */
+		padding: 0.6rem 0.75rem;
 	}
-	/* The folder's own keys — New, Change, Hide — sit at the RIGHT, under the tally rather than
-	   under the folder name. They act on the pane, not on the list, so they belong at the end of
-	   the head where the panel's own controls are, and left-set they read as the first row of
-	   the list underneath them.
-	   The inset is even on the three sides it touches: the same 0.6rem above, right and below,
-	   so the cluster sits in a square corner rather than in a corner that is tighter on one
-	   side. (The head above keeps its own top padding; this row's top is the gap between them.) */
-	.te-work-acts {
-		flex: none;
-		display: flex;
-		justify-content: flex-end;
-		gap: 0.3rem;
-		padding: 0.6rem 0.6rem 0.6rem 0.75rem;
-	}
+	/* The name takes what the keys leave, and no less than nothing: `min-width: 0` is what makes
+	   a flex child agree to be narrower than its own text, and without it the name would push the
+	   keys off the pane instead of ellipsising. */
 	.te-work-name {
 		margin: 0;
+		flex: 1 1 auto;
 		min-width: 0;
 		font-family: var(--font-mono, monospace);
 		font-size: 0.72rem;
@@ -2607,6 +2653,47 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	/* THE REVEAL. The shared popover surface — the recipe leaves placement to whoever opens one,
+	   and this one is placed by its own head rather than measured into the viewport: it belongs
+	   to a fixed column, it never needs to be wider than that column, and an absolute box inside
+	   the pane cannot be clipped by it.
+	   It hangs below the row, which is the whole reason it works: over the name it would land
+	   under the pointer, take the hover it was opened by, and flicker. `pointer-events: none`
+	   in case the pointer arrives from below anyway. */
+	.te-work-full {
+		position: absolute;
+		z-index: 6;
+		top: calc(100% - 0.25rem);
+		left: 0.75rem;
+		right: 0.75rem;
+		padding: 0.35rem 0.5rem;
+		font-family: var(--font-mono, monospace);
+		font-size: 0.72rem;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--ink);
+		/* Wrapped, and broken mid-word if it has to be: a folder name can be one long token with
+		   no space in it, and the point of this box is that the WHOLE name is readable. */
+		white-space: normal;
+		overflow-wrap: anywhere;
+		line-height: 1.35;
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.1s ease;
+	}
+	/* Opened by the NAME under the pointer — pointing at Hide should not explain the folder — and
+	   by keyboard FOCUS anywhere in the head, which is the only way somebody who is not using a
+	   pointer can ask. The heading itself is not focusable and must not be made so: a tabbable
+	   <h2> is a stop on the tab order that does nothing, and the full name is in the DOM and in
+	   the pane's own aria-label already, so a screen reader was never the one being clipped.
+	   `:has(:focus-visible)` rather than `:focus-within`, and the difference is visible: a MOUSE
+	   click on Change focuses it, and with :focus-within the reveal opened on the click and sat
+	   there until focus moved on — an explanation nobody asked for, over the list. */
+	.te-work-name:hover ~ .te-work-full,
+	.te-work-head:has(:focus-visible) .te-work-full {
+		opacity: 1;
 	}
 	.te-work-count {
 		flex: none;
@@ -2627,9 +2714,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		border: 1px solid var(--line-edge, rgba(0, 0, 0, 0.2));
 		border-radius: 3px;
 		cursor: pointer;
-	}
-	.te-work-name {
-		flex: 1 1 auto;
 	}
 	.te-work-list {
 		margin: 0;
