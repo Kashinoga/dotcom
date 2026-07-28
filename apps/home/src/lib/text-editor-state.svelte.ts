@@ -56,6 +56,30 @@ export type FolderEntry = {
 };
 
 /**
+ * A document on the sheet that did NOT come out of the open folder — one picked with Open, or
+ * one left over from a folder that has since been changed. The workspace keeps a short shelf of
+ * them above the tree, because otherwise a file you opened by hand has nowhere to be: the tree
+ * cannot list it (it is not in the folder), so the moment you clicked anything else it was gone
+ * from the screen with no way back to it but the picker.
+ *
+ * `file` or `handle`, the same pair a FolderEntry carries and for the same reason — a handle is
+ * what makes saving possible and a picked File never has one. It re-reads from disk when it is
+ * opened again: this is a shelf of WHERE documents came from, not a drawer of their contents.
+ * There is one sheet in this editor and these are not buffers.
+ */
+export type LooseDoc = {
+	/**
+	 * Its identity, which is not its name: two folders both holding a README are the ordinary
+	 * case, and a shelf keyed on names would show one row for them and open the wrong one. It is
+	 * the old path where there was one, and name + size + mtime for a picked file.
+	 */
+	id: string;
+	name: string;
+	file?: File;
+	handle?: FileSystemFileHandle;
+};
+
+/**
  * What counts as openable. Deliberately narrow: this is a Markdown editor, and handing it a
  * binary would put mojibake on the sheet rather than an error. The extension list is the gate
  * for a FOLDER (where the picker cannot filter for us); a single file also offers these to the
@@ -143,6 +167,18 @@ export const editor = $state({
 	/** The path of the entry currently on the sheet, so the workspace can mark it. */
 	openPath: '',
 	/**
+	 * THE SHELF — documents opened from outside the folder, newest first. Ephemeral on purpose:
+	 * it is capped, the oldest falls off, and nothing about it is remembered across a reload.
+	 * A folder is where your work lives; this is only what you reached for while you were in it.
+	 */
+	loose: [] as LooseDoc[],
+	/**
+	 * Does `openPath` name a row on the SHELF rather than one in the tree? Two flags rather than
+	 * one clever path prefix: a folder is free to hold a file called `loose:anything`, and a
+	 * marker that a real filename could forge is a marker that will mark the wrong row one day.
+	 */
+	openLoose: false,
+	/**
 	 * Can this browser reach the real file system for WRITING — save in place, rename, delete?
 	 *
 	 * Detected on `showDirectoryPicker`, and on nothing else, because everything else lies.
@@ -190,7 +226,7 @@ export const editor = $state({
 	 * Carried as coordinates for the same reason `headingAt` is — the list SCROLLS, so a popover
 	 * inside it would be clipped by its own scroller. Fixed, at the measured point, it escapes.
 	 */
-	fileMenu: null as { path: string; x: number; y: number } | null,
+	fileMenu: null as { path: string; x: number; y: number; loose: boolean } | null,
 	/** Confirmation lamps, owned by the editor's timers, read by the rack's keys. */
 	copied: false,
 	armed: false,

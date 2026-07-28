@@ -67,6 +67,11 @@ export const RELEASES: Record<string, AppRelease> = {
 		minor: 8,
 		commits: 306,
 		recent: [
+			{
+				at: '0.8.309',
+				what: 'A shelf above the tree for documents opened from outside the folder'
+			},
+			{ at: '0.8.308', what: 'The workspace names itself and its keys on one row' },
 			{ at: '0.8.307', what: 'Rename and Delete moved onto a document’s right-click menu' },
 			{ at: '0.8.307', what: 'The workspace browses folders as a tree you can shut' },
 			{ at: '0.8.307', what: 'Code listings are numbered inside the heading they sit under' },

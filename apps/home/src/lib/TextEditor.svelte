@@ -10,7 +10,8 @@
 		OPENABLE,
 		HEADING_LEVELS,
 		openHeadings,
-		type FolderEntry
+		type FolderEntry,
+		type LooseDoc
 	} from '$lib/text-editor-state.svelte';
 	import FloatingKey from '$lib/FloatingKey.svelte';
 	import { NIB_SVG, RULE_SVG } from '$lib/icons';
@@ -829,6 +830,67 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		fileInput?.click();
 	}
 
+	// ── The shelf ─────────────────────────────────────────────────────────────
+	// Documents opened from OUTSIDE the folder. Without it, a file picked with Open had nowhere
+	// to be — the tree cannot list what is not in the folder, so the moment you clicked anything
+	// else it was off the screen with no way back but the picker. It sits above the tree because
+	// it is the shorter, more recent list, and because a shelf under a tree of unknown depth is a
+	// shelf you have to scroll to.
+	//
+	// Ephemeral, and it says so by behaving that way: capped, oldest off the end, nothing kept
+	// across a reload. A folder is where the work lives; this is what you reached for while you
+	// were in it.
+	const LOOSE_MAX = 6;
+
+	/** Identity for a picked file — NOT its name; two folders both holding a README is normal. */
+	const looseId = (file: File) => `${file.name}\u0000${file.size}\u0000${file.lastModified}`;
+
+	function shelve(doc: LooseDoc) {
+		// Re-opening something already on the shelf moves it to the front rather than doubling it:
+		// the list is in the order you last reached for them.
+		const rest = editor.loose.filter((d) => d.id !== doc.id);
+		editor.loose = [doc, ...rest].slice(0, LOOSE_MAX);
+		editor.openPath = doc.id;
+		editor.openLoose = true;
+	}
+
+	/** The Open key's file. It has no handle — a picked file cannot be saved back to. */
+	async function openLooseFile(file: File) {
+		shelve({ id: looseId(file), name: file.name, file });
+		await load(file);
+	}
+
+	/** A row on the shelf, opened again. It re-reads from disk; the shelf holds no text. */
+	async function openLoose(doc: LooseDoc) {
+		const file = doc.handle ? await doc.handle.getFile().catch(() => null) : doc.file;
+		if (!file) {
+			// Moved, deleted, or a permission that has lapsed. The row is the only thing that was
+			// ever ours, so the row goes.
+			editor.loose = editor.loose.filter((d) => d.id !== doc.id);
+			return;
+		}
+		shelve(doc);
+		await load(file, doc.handle ?? null);
+	}
+
+	/**
+	 * A folder is being opened while a document from the LAST one is on the sheet. It is about to
+	 * stop being in the folder, which is exactly what the shelf is for — so it is put there,
+	 * with its handle, rather than quietly losing its row.
+	 */
+	function shelveTheOpenOne() {
+		if (!editor.openPath || editor.openLoose || !editor.filename) return;
+		const doc: LooseDoc = {
+			id: editor.openPath,
+			name: editor.filename,
+			handle: editor.openHandle ?? undefined
+		};
+		const rest = editor.loose.filter((d) => d.id !== doc.id);
+		editor.loose = [doc, ...rest].slice(0, LOOSE_MAX);
+		// It is not marked as open after this: `openPath` is cleared by the folder that is
+		// arriving, and the sheet still holds it but the workspace no longer claims to.
+	}
+
 	/**
 	 * With no workspace open, this picks a folder. With one open it TOGGLES the pane — the same
 	 * key, because once a folder is loaded "Folder" is a place you go rather than a thing you
@@ -888,10 +950,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			/* a folder that went away mid-walk — take what was gathered */
 		}
 		out.sort((a, b) => a.path.localeCompare(b.path));
+		// Whatever was open belonged to the LAST folder. Shelved before the new one lands, or its
+		// row would simply vanish with the tree it was in.
+		shelveTheOpenOne();
 		editor.folder = out;
 		editor.folderName = dir.name;
 		editor.folderShown = true;
 		editor.openPath = '';
+		editor.openLoose = false;
 		// A different folder is a different tree; what was shut in the last one means nothing here.
 		editor.collapsed = [];
 		heldFolder = dir;
@@ -988,7 +1054,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.folder = editor.folder.filter((e) => e.path !== entry.path);
 		// The sheet keeps what it is showing — the words are still yours even though the file is
 		// gone — but it is no longer that file, so it stops claiming to be.
-		if (editor.openPath === entry.path) {
+		if (editor.openPath === entry.path && !editor.openLoose) {
 			editor.openPath = '';
 			editor.filename = '';
 			editor.openHandle = null;
@@ -1103,16 +1169,21 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	// thing that cannot be guessed — that this browser will not write at all — and nothing else.
 	let fileMenuEl: HTMLDivElement | null = $state(null);
 	let fileMenuAt = $state({ x: 0, y: 0 });
-	/** The entry the open menu belongs to, or null — looked up so a deleted row takes it down. */
+	/** The TREE entry the open menu belongs to — null when the menu belongs to a shelf row. */
 	const fileMenuEntry = $derived(
-		editor.fileMenu ? (editor.folder.find((e) => e.path === editor.fileMenu?.path) ?? null) : null
+		editor.fileMenu && !editor.fileMenu.loose
+			? (editor.folder.find((e) => e.path === editor.fileMenu?.path) ?? null)
+			: null
+	);
+	/** The SHELF row the open menu belongs to, on the same terms. */
+	const looseMenuDoc = $derived(
+		editor.fileMenu?.loose
+			? (editor.loose.find((d) => d.id === editor.fileMenu?.path) ?? null)
+			: null
 	);
 
-	function openFileMenu(event: MouseEvent, entry: FolderEntry) {
-		// No menu where neither verb would work. The browser's own menu is better than one of
-		// ours holding two keys that cannot do what they say — the rule this app already keeps
-		// for the picker and for Save.
-		if (!editor.canWrite || !entry.handle) return;
+	/** Where a menu stands, given the event that asked for it. Shared by both rows. */
+	function placeMenu(event: MouseEvent, path: string, loose: boolean) {
 		event.preventDefault();
 		editor.renaming = '';
 		editor.doomed = '';
@@ -1123,7 +1194,32 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		const x = event.clientX > 0 ? event.clientX : row.left + 12;
 		const y = event.clientY > 0 ? event.clientY : row.bottom;
 		fileMenuAt = { x, y };
-		editor.fileMenu = { path: entry.path, x, y };
+		editor.fileMenu = { path, x, y, loose };
+	}
+
+	function openFileMenu(event: MouseEvent, entry: FolderEntry) {
+		// No menu where neither verb would work. The browser's own menu is better than one of
+		// ours holding two keys that cannot do what they say — the rule this app already keeps
+		// for the picker and for Save.
+		if (!editor.canWrite || !entry.handle) return;
+		placeMenu(event, entry.path, false);
+	}
+
+	/**
+	 * The shelf's menu, which every browser gets: Close only takes a row off a list this app
+	 * keeps in memory, so unlike Rename and Delete it needs nothing from the file system.
+	 */
+	function openLooseMenu(event: MouseEvent, doc: LooseDoc) {
+		placeMenu(event, doc.id, true);
+	}
+
+	/** Take a row off the shelf. The sheet keeps what it is showing — only the row goes. */
+	function unshelve(doc: LooseDoc) {
+		editor.loose = editor.loose.filter((d) => d.id !== doc.id);
+		if (editor.openLoose && editor.openPath === doc.id) {
+			editor.openPath = '';
+			editor.openLoose = false;
+		}
 	}
 
 	function closeFileMenu(refocus = false) {
@@ -1155,7 +1251,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	// A menu whose row has gone — deleted, or the folder changed underneath it — is a menu aimed
 	// at nothing. It comes down rather than staying open over the row that took its place.
 	$effect(() => {
-		if (editor.fileMenu && !fileMenuEntry) closeFileMenu();
+		if (editor.fileMenu && !fileMenuEntry && !looseMenuDoc) closeFileMenu();
 	});
 
 	// ── Remembering the folder ────────────────────────────────────────────────
@@ -1263,6 +1359,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		const file = entry.handle ? await entry.handle.getFile() : entry.file;
 		if (!file) return;
 		editor.openPath = entry.path;
+		editor.openLoose = false;
 		load(file, entry.handle ?? null);
 	}
 
@@ -1281,10 +1378,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				return { name: f.name, path, file: f };
 			})
 			.sort((a, b) => a.path.localeCompare(b.path));
+		shelveTheOpenOne();
 		editor.folder = entries;
 		editor.folderName = root;
 		editor.folderShown = true;
 		editor.openPath = '';
+		editor.openLoose = false;
 		editor.collapsed = [];
 	}
 
@@ -1330,6 +1429,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.armed = false;
 		editor.filename = '';
 		editor.openPath = '';
+		editor.openLoose = false;
 		editor.openHandle = null;
 		if (!ta) return;
 		ta.focus();
@@ -1356,6 +1456,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		write(STARTER);
 		editor.filename = '';
 		editor.openPath = '';
+		editor.openLoose = false;
 		editor.openHandle = null;
 		ta.setSelectionRange(0, 0);
 		trackCaret();
@@ -1598,6 +1699,41 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 							onblur={() => (editor.naming = false)}
 						/>
 					</form>
+				{/if}
+				{#if editor.loose.length}
+					<!-- THE SHELF — what you opened from outside this folder, newest first. Above the
+					     tree because it is the short list and the recent one; under a tree of unknown
+					     depth it would be a thing you scroll to find.
+					     Shaded a shade off the sheet, which is the whole of how it says it is a
+					     different kind of list: these rows are not IN the folder named above them,
+					     and a shelf drawn on the same white as the tree would read as its first
+					     four entries. -->
+					<div class="te-loose">
+						<div class="te-loose-head">
+							<span class="te-loose-name">Elsewhere</span>
+							<span class="te-work-count">{editor.loose.length}</span>
+						</div>
+						<ul class="te-work-list te-loose-list" aria-label="Opened from outside this folder">
+							{#each editor.loose as doc (doc.id)}
+								<li class="te-work-item">
+									<button
+										type="button"
+										class="te-work-row"
+										class:on={editor.openLoose && editor.openPath === doc.id}
+										class:menu={editor.fileMenu?.loose && editor.fileMenu.path === doc.id}
+										aria-current={editor.openLoose && editor.openPath === doc.id
+											? 'true'
+											: undefined}
+										aria-haspopup="menu"
+										onclick={() => openLoose(doc)}
+										oncontextmenu={(e) => openLooseMenu(e, doc)}
+									>
+										<span class="te-work-file">{doc.name}</span>
+									</button>
+								</li>
+							{/each}
+						</ul>
+					</div>
 				{/if}
 				<!-- A TREE, drawn flat: every row carries its own depth as a left inset, which indents
 				     exactly as nested lists would and lets one `each` draw the whole thing. The
@@ -1869,7 +2005,47 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		</div>
 	{/if}
 
-	{#if editor.fileMenu && fileMenuEntry}
+	{#if editor.fileMenu && looseMenuDoc}
+		<!-- THE SHELF'S menu. One verb, and it acts on the LIST rather than on the disk: Close
+		     takes the row off the shelf and leaves the file exactly where it is. That is why it
+		     is offered in every browser, where Rename and Delete are not. -->
+		<button
+			class="popover-scrim"
+			aria-label="Close the document menu"
+			onclick={() => closeFileMenu()}
+			oncontextmenu={(e) => {
+				e.preventDefault();
+				closeFileMenu();
+			}}
+		></button>
+		<div
+			class="popover te-file-menu"
+			role="menu"
+			aria-label={looseMenuDoc.name}
+			tabindex="-1"
+			bind:this={fileMenuEl}
+			style:left="{fileMenuAt.x}px"
+			style:top="{fileMenuAt.y}px"
+			onkeydown={(e) => {
+				if (e.key === 'Escape') {
+					e.stopPropagation();
+					closeFileMenu(true);
+				}
+			}}
+		>
+			<p class="popover-title">{looseMenuDoc.name}</p>
+			<button
+				type="button"
+				role="menuitem"
+				class="popover-item"
+				onclick={() => {
+					const doc = looseMenuDoc;
+					closeFileMenu(true);
+					if (doc) unshelve(doc);
+				}}>Close</button
+			>
+		</div>
+	{:else if editor.fileMenu && fileMenuEntry}
 		<!-- THE ROW'S MENU. Rendered here rather than inside the row it belongs to, because the
 		     list is a scroller and a popover inside it would be clipped by it. Fixed, at the
 		     measured point, nudged back inside the window by the effect above.
@@ -1939,7 +2115,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		tabindex="-1"
 		onchange={(e) => {
 			const f = e.currentTarget.files?.[0];
-			if (f) load(f);
+			// Onto the SHELF, not just onto the sheet: a file picked by hand is not in the folder,
+			// so the tree cannot show it and something has to.
+			if (f) openLooseFile(f);
 			e.currentTarget.value = '';
 		}}
 	/>
@@ -2720,6 +2898,41 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		padding: 0;
 		list-style: none;
 		overflow-y: auto;
+	}
+	/* ── The shelf ─────────────────────────────────────────────────────────────
+	   What was opened from outside the folder. A SHADE off the sheet and ruled off underneath —
+	   that shading is the whole of how it says it is a different kind of list, and it has to be
+	   slight: these are still documents in the same pane, not a warning.
+	   Mixed off --ink rather than given a colour, so it darkens on dark stock instead of turning
+	   into a grey patch on a near-black sheet.
+	   It never scrolls and never takes more than its rows: `flex: none`, so a long tree below
+	   keeps every pixel the shelf is not using. It is capped at six, so it cannot run away. */
+	.te-loose {
+		flex: none;
+		background: color-mix(in srgb, var(--ink) 4%, var(--surface));
+		border-bottom: 1px solid var(--te-rule);
+	}
+	.te-loose-head {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		/* The same insets the workspace head keeps, so the tally lands in the tallies' column. */
+		padding: 0.5rem 0.75rem 0.35rem;
+	}
+	/* The manual's running-head voice — the same one a folder row in the tree is set in, because
+	   this is the same kind of thing: a heading over a handful of documents. */
+	.te-loose-name {
+		flex: 1 1 auto;
+		min-width: 0;
+		font-family: var(--font-mono, monospace);
+		font-size: 0.7rem;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		color: var(--sub);
+	}
+	.te-loose-list {
+		padding-bottom: 0.35rem;
+		overflow: visible;
 	}
 	/* Each row is the catalog row the Apps index uses — a hairline under it, the accent on
 	   hover, nothing floating. The OPEN one is marked, because a workspace whose list does not

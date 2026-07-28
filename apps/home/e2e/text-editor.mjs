@@ -598,13 +598,16 @@ await reset('first\n\n\nlast');
 	// appears and goes. Picking from it leaves it standing; that is the difference.
 	await page.setInputFiles('.te-picker >> nth=1', folder);
 	await page.waitForTimeout(500);
+	// The tree's own rows. There is a SECOND list in this pane now — the shelf above it — and both
+	// draw `.te-work-file`, so every claim about the tree has to say which list it means.
+	const TREE = '.te-work-list:not(.te-loose-list)';
 	// A TREE, not a path list: sub-folders are rows of their own, folders before documents, and
 	// what is inside one is indented under it rather than spelled out as a path on every line.
 	// The folder's own name is stripped from the paths — it is the heading above the list, and
 	// leaving it on would indent everything by a level to say it again.
 	await eq(
 		'a folder opens as a workspace tree, folders first',
-		page.$$eval('.te-work-file', (ns) => ns.map((n) => n.textContent).join(',')),
+		page.$$eval(`${TREE} .te-work-file`, (ns) => ns.map((n) => n.textContent).join(',')),
 		'sub,gamma.md,alpha.md,beta.markdown,notes.txt'
 	);
 	ok(
@@ -613,11 +616,11 @@ await reset('first\n\n\nlast');
 	);
 	ok(
 		'a nested document is indented under its folder',
-		await page.evaluate(() => {
-			const rows = [...document.querySelectorAll('.te-work-row')];
+		await page.evaluate((sel) => {
+			const rows = [...document.querySelectorAll(`${sel} .te-work-row`)];
 			const pad = (i) => parseFloat(getComputedStyle(rows[i]).paddingLeft);
 			return pad(1) > pad(0) && pad(2) === pad(0);
-		})
+		}, TREE)
 	);
 	ok(
 		'and the folder says how many documents are under it',
@@ -711,12 +714,103 @@ await reset('first\n\n\nlast');
 		);
 	}
 
+	// ── THE SHELF ────────────────────────────────────────────────────────────
+	// Documents opened from OUTSIDE the folder. Without it a file picked with Open had nowhere to
+	// be: the tree cannot list what is not in the folder, so the moment you clicked anything else
+	// it was off the screen with no way back but the picker.
+	//
+	// Anything the Open key picks goes here, folder or not — a single picked File carries no
+	// relationship to the workspace at all (no handle to compare, and webkitRelativePath is empty
+	// for a one-file pick), so claiming to know it was already in the tree would be a guess.
+	{
+		const TREE = '.te-work-list:not(.te-loose-list)';
+		const outside = dir.mkdtempSync(path.join(os.tmpdir(), 'te-out-'));
+		dir.writeFileSync(path.join(outside, 'elsewhere.md'), '# From elsewhere');
+
+		// The suite opened alpha.md by HAND near the top, long before the folder existed. It is
+		// still on the shelf and still one click away, which is the whole point of the thing.
+		await eq(
+			'a file opened by hand is still on the shelf, several acts later',
+			page
+				.locator('.te-loose .te-work-file')
+				.allTextContents()
+				.then((t) => t.join(',')),
+			'alpha.md'
+		);
+		await page.setInputFiles('.te-picker >> nth=0', path.join(outside, 'elsewhere.md'));
+		await page.waitForTimeout(700);
+		await eq(
+			'a second one goes to the FRONT — the order is the order you reached for them',
+			page
+				.locator('.te-loose .te-work-file')
+				.allTextContents()
+				.then((t) => t.join(',')),
+			'elsewhere.md,alpha.md'
+		);
+		ok(
+			'marked as the one on the sheet',
+			(await page.locator('.te-loose .te-work-row.on').count()) === 1
+		);
+		ok('and the tree marks nothing', (await page.locator(`${TREE} .te-work-row.on`).count()) === 0);
+		// Above the tree, and a shade off the sheet — that shading is the whole of how it says it
+		// is a different kind of list.
+		{
+			const geo = await page.evaluate(() => ({
+				shelf: document.querySelector('.te-loose').getBoundingClientRect().bottom,
+				tree: document.querySelector('.te-work-list:not(.te-loose-list)').getBoundingClientRect()
+					.top,
+				shelfBg: getComputedStyle(document.querySelector('.te-loose')).backgroundColor,
+				paneBg: getComputedStyle(document.querySelector('.te-work')).backgroundColor
+			}));
+			ok('it stands above the tree', geo.shelf <= geo.tree + 1, JSON.stringify(geo));
+			ok('shaded off the pane it sits in', geo.shelfBg !== geo.paneBg, JSON.stringify(geo));
+		}
+		// Opening a tree row leaves the shelf standing — it is a shelf, not a mode.
+		await page.getByRole('treeitem', { name: 'beta.markdown' }).click();
+		await page.waitForTimeout(700);
+		ok('a tree row leaves the shelf standing', (await page.locator('.te-loose').count()) === 1);
+		ok(
+			'and takes the mark off it',
+			(await page.locator('.te-loose .te-work-row.on').count()) === 0
+		);
+		ok('marking the tree instead', (await page.locator(`${TREE} .te-work-row.on`).count()) === 1);
+		// A shelf row opens again by re-READING — the shelf holds where a document came from, not
+		// its text. There is one sheet in this editor and these are not buffers.
+		await page.locator('.te-loose .te-work-row').first().click();
+		await page.waitForTimeout(700);
+		await eq('a shelf row opens again', value(), '# From elsewhere');
+		// Its menu holds ONE verb, and that verb acts on the list rather than on the disk — which
+		// is why it is offered in every browser where Rename and Delete are not.
+		await page.locator('.te-loose .te-work-row').first().click({ button: 'right' });
+		await page.waitForTimeout(300);
+		await eq(
+			'a shelf row offers Close, and nothing that touches the disk',
+			page
+				.locator('.te-file-menu [role=menuitem]')
+				.allTextContents()
+				.then((t) => t.join(',').trim()),
+			'Close'
+		);
+		await page.locator('.te-file-menu [role=menuitem]').click();
+		await page.waitForTimeout(500);
+		await eq(
+			'Close takes that row off and leaves the rest',
+			page
+				.locator('.te-loose .te-work-file')
+				.allTextContents()
+				.then((t) => t.join(',')),
+			'alpha.md'
+		);
+		await eq('and leaves the words on the sheet', value(), '# From elsewhere');
+		dir.rmSync(outside, { recursive: true, force: true });
+	}
+
 	// Shutting a folder takes its documents off the list and leaves the folder itself.
 	await page.getByRole('treeitem', { name: /^sub/ }).click();
 	await page.waitForTimeout(250);
 	await eq(
 		'shutting a folder hides what is inside it',
-		page.$$eval('.te-work-file', (ns) => ns.map((n) => n.textContent).join(',')),
+		page.$$eval(`${TREE} .te-work-file`, (ns) => ns.map((n) => n.textContent).join(',')),
 		'sub,alpha.md,beta.markdown,notes.txt'
 	);
 	await eq(
@@ -728,7 +822,7 @@ await reset('first\n\n\nlast');
 	await page.waitForTimeout(250);
 	ok(
 		'opening it brings them back',
-		(await page.locator('.te-work-file').allTextContents()).join(',') ===
+		(await page.locator(`${TREE} .te-work-file`).allTextContents()).join(',') ===
 			'sub,gamma.md,alpha.md,beta.markdown,notes.txt'
 	);
 
