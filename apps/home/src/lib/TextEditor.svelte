@@ -108,6 +108,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	let caretLine = $state(-1);
 	/** Is the phone's controls flyout disclosed? See the FloatingKey at the foot of the markup. */
 	let keyOpen = $state(false);
+	/** The running foot's measured height — the floating key sits clear above it. */
+	let footHeight = $state(0);
 
 	let ta: HTMLTextAreaElement | undefined = $state();
 	let paperEl: HTMLDivElement | undefined = $state();
@@ -180,6 +182,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// See `canWrite` in the state module: this one function, and nothing else, says whether the
 		// real file system is reachable for writing.
 		editor.canWrite = typeof window.showDirectoryPicker === 'function';
+		// The folder from last time. Never pops a permission dialog on load — see recallFolder.
+		recallFolder();
 
 		const fine = window.matchMedia('(pointer: fine)');
 		finePointer = fine.matches;
@@ -799,6 +803,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.folderName = dir.name;
 		editor.folderShown = true;
 		editor.openPath = '';
+		heldFolder = dir;
+		editor.folderPending = false;
+		rememberFolder(dir);
 	}
 
 	/** Write the sheet back to the file it came from. */
@@ -869,6 +876,93 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		}
 	}
 	let doomTimer = 0;
+
+	// ── Remembering the folder ────────────────────────────────────────────────
+	// A directory HANDLE can be stored — it is a structured-cloneable object, so IndexedDB will
+	// take one — and re-used on the next visit. A `webkitdirectory` File cannot: it is a snapshot
+	// with nothing behind it. So this only helps where the File System Access API does, which is
+	// the same place everything else about writing only helps.
+	//
+	// The permission does NOT survive with it. On the next visit the handle is remembered but its
+	// grant has lapsed to 'prompt', and a browser will only re-ask during a user gesture — so the
+	// workspace comes back as a NAMED, unopened folder with one key to reconnect it, rather than
+	// popping a permission dialog at somebody who has just loaded a page.
+	const HANDLE_DB = 'ksh:text-editor';
+
+	function handleStore(mode: IDBTransactionMode): Promise<IDBObjectStore | null> {
+		return new Promise((resolve) => {
+			if (typeof indexedDB === 'undefined') return resolve(null);
+			const req = indexedDB.open(HANDLE_DB, 1);
+			req.onupgradeneeded = () => req.result.createObjectStore('handles');
+			req.onsuccess = () => {
+				try {
+					resolve(req.result.transaction('handles', mode).objectStore('handles'));
+				} catch {
+					resolve(null);
+				}
+			};
+			req.onerror = () => resolve(null);
+		});
+	}
+
+	async function rememberFolder(dir: FileSystemDirectoryHandle | null) {
+		const store = await handleStore('readwrite');
+		if (!store) return;
+		try {
+			if (dir) store.put(dir, 'folder');
+			else store.delete('folder');
+		} catch {
+			/* private mode, or a browser that will not clone a handle — forgetting is survivable */
+		}
+	}
+
+	/** The folder from last time, if the browser kept it and still lets us read it. */
+	async function recallFolder() {
+		if (!editor.canWrite) return;
+		const store = await handleStore('readonly');
+		if (!store) return;
+		const dir: FileSystemDirectoryHandle | null = await new Promise((resolve) => {
+			const req = store.get('folder');
+			req.onsuccess = () => resolve(req.result ?? null);
+			req.onerror = () => resolve(null);
+		});
+		if (!dir) return;
+		editor.folderName = dir.name;
+		heldFolder = dir;
+		// Granted already (same session, or a browser that persisted the grant) — open it outright.
+		// Otherwise leave it named and shut, for `reconnect` to ask about on a real click.
+		const state = await dir.queryPermission?.({ mode: 'readwrite' });
+		if (state === 'granted') await openHeldFolder();
+		else editor.folderPending = true;
+	}
+
+	let heldFolder: FileSystemDirectoryHandle | null = null;
+
+	async function openHeldFolder() {
+		if (!heldFolder) return;
+		const out: FolderEntry[] = [];
+		try {
+			await walk(heldFolder, '', out);
+		} catch {
+			// The folder moved, or was deleted, or the grant went away between the check and here.
+			editor.folderPending = false;
+			editor.folderName = '';
+			await rememberFolder(null);
+			return;
+		}
+		out.sort((a, b) => a.path.localeCompare(b.path));
+		editor.folder = out;
+		editor.folderPending = false;
+		editor.folderShown = true;
+	}
+
+	/** The one thing a remembered folder needs: a click, so the browser will re-ask. */
+	async function reconnect() {
+		if (!heldFolder) return;
+		const state = await heldFolder.requestPermission?.({ mode: 'readwrite' });
+		if (state !== 'granted') return;
+		await openHeldFolder();
+	}
 
 	function pickFolder() {
 		if (editor.canWrite) return pickWritableFolder();
@@ -1080,12 +1174,37 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
      the running foot under both. -->
 <div
 	class="te"
+	style:--te-foot-h="{footHeight}px"
 	class:te-write={shown === 'write'}
 	class:te-proof-only={shown === 'proof'}
 	class:te-measured={editor.measured}
 >
 	<div class="te-desk">
-		{#if editor.folderShown && editor.folder.length}
+		{#if editor.folderPending}
+			<!-- A folder REMEMBERED from last time, whose permission has lapsed. It is named and
+			     shut, and one click reconnects it: a browser will only re-ask during a gesture,
+			     so the alternative would be a permission dialog thrown at somebody who has just
+			     loaded a page. -->
+			<aside class="te-work te-work-shut" aria-label="Remembered folder">
+				<header class="te-work-head">
+					<h2 class="te-work-name" title={editor.folderName}>{editor.folderName}</h2>
+					<button
+						type="button"
+						class="tb te-work-act"
+						onclick={() => {
+							editor.folderPending = false;
+							editor.folderName = '';
+							rememberFolder(null);
+						}}
+						title="Forget this folder">Forget</button
+					>
+				</header>
+				<p class="te-work-note">
+					Opened here last time. Browsers ask again after a reload — one press reconnects it.
+				</p>
+				<button type="button" class="tb te-work-reconnect" onclick={reconnect}>Reconnect</button>
+			</aside>
+		{:else if editor.folderShown && editor.folder.length}
 			<!-- THE WORKSPACE — the opened folder, kept alongside the document the way an editor
 			     keeps one, rather than a picker that appears and goes. It is a column of the desk
 			     on a wide window and a sheet over it on a phone, and picking from it does not
@@ -1335,7 +1454,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 
 	<!-- THE RUNNING FOOT — the tally, set in the pixel face, the way a manual foots a page. The
 	     lamp at the end says whether what is on screen has reached storage yet. -->
-	<div class="te-foot">
+	<div class="te-foot" bind:clientHeight={footHeight}>
 		<dl class="te-tally">
 			<div class="te-count">
 				<dt>Lines</dt>
@@ -1407,11 +1526,20 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   One row of panes on a wide window, one pane on a narrow one. min-height:0 on both the row
 	   and the panes is what lets the scrollers inside actually scroll instead of growing the
 	   whole column — the flexbox trap this layout would otherwise fall into. */
+	/* THE DESK IS THE GUTTER, and the panes are sheets laid on it. Each pane used to be parted
+	   from the next by a hairline — a line drawn between two things that are the same white,
+	   which is the least the manual's own language can do. Densette's page has always been paper
+	   on a grey field; borrowing that here means the SPACE does the parting, and the panes read
+	   as separate sheets rather than as one surface someone has ruled. */
 	.te-desk {
 		flex: 1 1 auto;
 		display: flex;
 		min-height: 0;
-		gap: 0;
+		/* Real space, not a hairline in disguise. A 1px gap is just the border again with a
+		   different name; this is wide enough that the gutter reads as ground between two
+		   sheets. */
+		gap: clamp(0.5rem, 1.1vw, 1rem);
+		background: var(--page);
 	}
 	.te-pane {
 		flex: 1 1 50%;
@@ -1420,9 +1548,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		min-width: 0;
 		min-height: 0;
 	}
-	.te-pane + .te-pane {
-		border-left: 1px solid var(--te-rule);
-	}
+	/* (The hairline between panes is gone — see .te-desk. The gutter behind them is the parting.) */
 	.te-write .te-sheet,
 	.te-proof-only .te-proof-pane {
 		flex-basis: 100%;
@@ -1935,7 +2061,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
-		border-right: 1px solid var(--te-rule);
+		/* No rule down its edge either: it is a sheet on the same gutter as the panes beside it. */
 		background: var(--surface);
 		padding-top: var(--bar-h, 60px);
 	}
@@ -2068,6 +2194,24 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		font-size: 0.76rem;
 		color: var(--ink);
 	}
+	/* The remembered-but-shut state: named, explained, one key. */
+	.te-work-shut .te-work-note {
+		border-top: 0;
+	}
+	.te-work-reconnect {
+		align-self: flex-start;
+		margin: 0 0.75rem 0.75rem;
+		height: 26px;
+		padding: 0 0.6rem;
+		font: inherit;
+		font-size: 0.68rem;
+		font-weight: 600;
+		color: var(--ink);
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		border: 1px solid var(--line-edge, rgba(0, 0, 0, 0.2));
+		border-radius: 4px;
+		cursor: pointer;
+	}
 	/* Said once, at the foot of the list, rather than by drawing verbs that would not work. */
 	.te-work-note {
 		flex: none;
@@ -2095,6 +2239,19 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	/* THE FLOATING KEY sits clear of the running foot rather than on it. $lib/FloatingKey pins
+	   itself 1.25rem off the bottom, which is right in an app whose content runs to the edge —
+	   this one ends in a fixed foot, and the key was landing on the tally. Overridden with
+	   :global() because the class belongs to that component; the offset is the foot's MEASURED
+	   height, so it follows the foot when it wraps to two lines on a narrow screen.
+	   The class is DOUBLED for weight. FloatingKey styles its own key as `.fkey.svelte-hash`, which
+	   is (0,2,0); a bare `:global(.fkey)` is (0,1,0) and loses, and `:global(.te .fkey)` merely
+	   ties and would be decided by whichever component's stylesheet happened to be injected last.
+	   `.fkey.fkey` is (0,3,0) and settles it. */
+	:global(.te .fkey.fkey) {
+		bottom: calc(var(--te-foot-h, 0px) + 1.25rem);
 	}
 
 	/* ── The phone's flyout ────────────────────────────────────────────────────
@@ -2219,13 +2376,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			z-index: 5;
 			inset: var(--bar-h, 60px) 0 0 0;
 			width: auto;
-			border-right: 0;
 			padding-top: 0;
 		}
-		/* …and the whole foot starts clear of the floating key, which is fixed at the bottom-left
-		   and was sitting on top of the first count. */
+		/* EQUAL ON EVERY SIDE. It used to carry a 4.5rem left inset so the floating key would not
+		   sit on the first count — which fixed the collision by making the foot lopsided: 72px of
+		   padding on the left against 12px on the right, measured. The key moves up above the
+		   foot instead (see the .fkey override), so the foot can simply be evenly framed. */
 		.te-foot {
-			padding-left: 4.5rem;
+			padding: 0.75rem;
 		}
 	}
 </style>

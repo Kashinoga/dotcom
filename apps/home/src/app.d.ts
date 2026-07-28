@@ -60,6 +60,15 @@ declare global {
 			id?: string;
 		}) => Promise<FileSystemDirectoryHandle>;
 	}
+	/** The permission pair, on the handle base — how a remembered folder is re-asked for. */
+	interface FileSystemHandle {
+		queryPermission?: (options?: {
+			mode?: 'read' | 'readwrite';
+		}) => Promise<'granted' | 'denied' | 'prompt'>;
+		requestPermission?: (options?: {
+			mode?: 'read' | 'readwrite';
+		}) => Promise<'granted' | 'denied' | 'prompt'>;
+	}
 	interface FileSystemFileHandle {
 		/** Rename, or move to another directory. Chromium only, at the time of writing. */
 		move(name: string): Promise<void>;

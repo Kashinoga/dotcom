@@ -208,7 +208,11 @@
 		flex: none;
 		width: 1px;
 		align-self: stretch;
-		margin-inline: 0.25rem;
+		/* NO margin of its own. A rule with margins sat 10.4px from the key before it and 12px
+		   from the one after — two different gaps, neither of them the 6.4px the keys keep
+		   between themselves. The flex gap alone puts it on the same rhythm as everything else,
+		   so a separator reads as one step in the row rather than a wider pause. */
+		margin-inline: 0;
 		background: var(--pixel-hairline, var(--line-edge, rgba(0, 0, 0, 0.2)));
 	}
 
@@ -280,13 +284,18 @@
 	/* On a touch screen the keys take the 40px touch line the rest of the site's phone controls
 	   keep, rather than the 28px print line. Still under the bar's own 44px reserve, so the row
 	   height does not change. */
+	/* On a touch screen the bar's keys keep the 28px control line the rest of its chrome uses —
+	   they do NOT take the 40px touch size. That size belongs to the FLYOUT now, which is where
+	   a phone's controls actually are; the bar is down to two view keys beside a 28px Home and a
+	   Beta tag, and a 40px key among them was both oversized and the odd one out. Three different
+	   heights in a 42px bar, measured. */
 	@media (pointer: coarse) {
 		.tb {
-			height: 40px;
-			padding: 0 0.75rem;
+			height: 28px;
+			padding: 0 0.6rem;
 		}
 		.te-mark-key {
-			width: 40px;
+			width: 28px;
 		}
 	}
 </style>

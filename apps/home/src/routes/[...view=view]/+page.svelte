@@ -2441,6 +2441,7 @@
 									class:head-collapsed={surfHeadCollapsed}
 									class:csb-on={surfHeadCollapsed}
 									class:bar={BAR_HEADER.includes(v.code)}
+									class:te-bar={v.code === 'TEXT'}
 									class:orbit={ranger.deployment === 'orbit'}
 									class:court={v.code === 'AITA'}
 									class:scrolled={surfScrolled || (v.code === 'TEXT' && textEditor.scrolled)}
@@ -2641,6 +2642,18 @@
 													aria-label="Close and go home"
 													title="Home">{@html HOME_SVG}</button
 												>
+												{#if v.code === 'TEXT'}
+													<!-- The editor says it is in beta, at the far end of the bar past Home.
+													     A SPAN, not a button: the Park Ranger's tag is a <button> because it sits
+													     AMONG that bar's controls and had to reset the UA face to match them, but
+													     this one is a label with nothing to press — and a button that does nothing
+													     is a promise to a keyboard and a screen reader the app cannot keep. -->
+													<span
+														class="beta"
+														style:--accent={accent[v.code]}
+														title="This app is in beta — expect it to change">Beta</span
+													>
+												{/if}
 											</div>
 										{/if}
 									</div>
@@ -3357,6 +3370,22 @@
 	.surface-head.bar .head-row {
 		gap: 0.5rem;
 	}
+	/* THE EDITOR'S BAR IS EVENLY INSET, and on one rhythm. Its vertical inset is a consequence
+	   of the pinned Pixelite bar height and the 28px control line — (42 − 28) / 2 = 7px — so the
+	   horizontal is set to match rather than left at the 11.2px it inherited, which framed the
+	   row differently side to side than top to bottom.
+	   The row's gap comes down to the 0.4rem the keys keep between themselves inside a group, so
+	   the space either side of a separator is the same step as the space between two keys. At
+	   0.5rem the clusters sat a beat wider apart than their own contents. */
+	.surface-head.bar.te-bar {
+		/* 6px, not 7: the bar wears a 1px transparent border (the pill's geometry, kept even while
+		   flat), so the inset a control actually gets is the border plus the padding. Vertically
+		   that comes to 1 + 6 = 7px; the horizontal padding matches at 6 so both read as 7. */
+		padding-inline: 6px;
+	}
+	.surface-head.bar.te-bar .head-row {
+		gap: 0.4rem;
+	}
 	.surface-head.bar .head-title {
 		font-size: clamp(1.15rem, 1.5vw, 1.5rem);
 		/* NOT E-ATFC's 1.05, and the difference matters here: that title is a plain .dest, but
@@ -3472,6 +3501,16 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+	}
+	/* A Beta tag among those actions matches the CONTROLS it sits beside rather than shrinking to
+	   its own type. `align-self: stretch` rather than a height, so it follows whatever the row is
+	   — 28px of Pixelite's control line, 42px of Aeropalite's disc — instead of picking one and
+	   being wrong in the other theme. It was 19.6px against a 28px Home, measured. */
+	.head-actions .beta {
+		align-self: stretch;
+		display: inline-flex;
+		align-items: center;
+		flex: none;
 	}
 	/* The unit disc speaks its unit in type, not a glyph — same 42px disc as its kin. */
 	.unit-btn {

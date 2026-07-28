@@ -137,6 +137,13 @@ export const editor = $state({
 	 * key, and this file already keeps that rule for the folder picker.
 	 */
 	canWrite: false,
+	/**
+	 * A folder was remembered from a previous visit, but the browser's permission for it has
+	 * lapsed and can only be re-asked during a click. The workspace shows it NAMED and shut, with
+	 * one key to reconnect — rather than throwing a permission dialog at somebody who has only
+	 * just loaded the page.
+	 */
+	folderPending: false,
 	/** Which entry is being renamed, if any — the workspace swaps its row for a field. */
 	renaming: '',
 	/** The entry armed for deletion, if any. Two presses, like Clear. */
