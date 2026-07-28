@@ -80,6 +80,19 @@
 				>
 			{/if}
 		{/each}
+		<!-- The measure sits with the VIEW keys, not the marks: it changes how the document is laid
+		     out rather than what it says, and it applies to the proof as much as to the sheet — so
+		     it stays offered in PROOF, where the marks are not. -->
+		<button
+			type="button"
+			class="tb"
+			class:on={editor.measured}
+			aria-pressed={editor.measured}
+			title={editor.measured
+				? 'Let the text run the full width'
+				: 'Hold the text to a reading measure'}
+			onclick={() => (editor.measured = !editor.measured)}>Measure</button
+		>
 	</div>
 
 	{#if shown !== 'proof'}

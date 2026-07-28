@@ -133,6 +133,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			const heldMode = localStorage.getItem(`${STORE}:mode`);
 			if (heldMode === 'write' || heldMode === 'split' || heldMode === 'proof')
 				editor.mode = heldMode;
+			// Only an explicit '0' turns the measure off — an absent key is a first visit, and the
+			// measure is what a first visit should get.
+			editor.measured = localStorage.getItem(`${STORE}:measure`) !== '0';
 		} catch {
 			// Private mode, a storage quota, a browser with storage switched off. The editor works
 			// perfectly well without persistence; it just forgets. Nothing to tell the visitor.
@@ -206,9 +209,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	});
 
 	$effect(() => {
+		editor.mode;
+		editor.measured;
 		if (typeof localStorage === 'undefined') return;
 		try {
 			localStorage.setItem(`${STORE}:mode`, editor.mode);
+			localStorage.setItem(`${STORE}:measure`, editor.measured ? '1' : '0');
 		} catch {
 			/* nothing to do */
 		}
@@ -730,6 +736,16 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		tick().then(reportScrolled);
 	});
 
+	// Holding the text to a measure RE-WRAPS it, which moves every row — so the caret and the
+	// selection band, both of which are drawn at measured positions, have to be taken again.
+	$effect(() => {
+		editor.measured;
+		tick().then(() => {
+			measureCaret();
+			measureSelection();
+		});
+	});
+
 	/** Four figures in the pixel face, the way a manual sets a count. */
 	const pad = (n: number) => String(n).padStart(4, '0');
 </script>
@@ -738,7 +754,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
      $lib/TextEditorRack, and reach back into this component through the command table published
      in $lib/text-editor-state. What is left in the body is the work itself: the sheet, the proof, and
      the running foot under both. -->
-<div class="te" class:te-write={shown === 'write'} class:te-proof-only={shown === 'proof'}>
+<div
+	class="te"
+	class:te-write={shown === 'write'}
+	class:te-proof-only={shown === 'proof'}
+	class:te-measured={editor.measured}
+>
 	<div class="te-desk">
 		{#if shown !== 'proof'}
 			<!-- THE SHEET. The scroller is .te-paper; inside it the mirror sets the height and the
@@ -892,6 +913,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		   between two integer stacks. The phone override below keeps the same rule. */
 		--te-row: 26px;
 		--te-pad: 1.5rem;
+		/* The sheet's measure, in the mono face: ~82 columns once the gutter and the right pad
+		   come out of it. The proof's is narrower because prose sets wider per pixel — 34rem of
+		   IBM Plex is about 68 characters, which is the same reading comfort. */
+		--te-measure: 52rem;
+		--te-proof-measure: 34rem;
 	}
 
 	/* ── The desk ──────────────────────────────────────────────────────────────
@@ -934,6 +960,18 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		   as --bar-h; the fallback is the one-row bar the stylesheet assumes elsewhere.) */
 		padding-top: var(--bar-h, 60px);
 		background: var(--surface);
+	}
+	/* THE COLUMN. Everything that has to move together when the measure changes lives on this one
+	   box: the text, the mirror that rules it, the caret and the selection (both positioned
+	   against it), and the margin rule.
+	   The rule is drawn HERE rather than on the paper, and that is what the measure needed. As a
+	   background on the scroller it was pinned to the scroller's left edge, so holding the text to
+	   a measure and centring it would have left the rule stranded at the far left, ruling nothing.
+	   On the stack it is the column's own margin, wherever the column sits. */
+	.te-stack {
+		position: relative;
+		min-height: 100%;
+		margin-inline: auto;
 		background-image: linear-gradient(
 			to right,
 			transparent calc(var(--te-pad) + var(--te-margin) - 0.75rem),
@@ -944,9 +982,19 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			transparent calc(var(--te-pad) + var(--te-margin) - 0.75rem + 1px)
 		);
 	}
-	.te-stack {
-		position: relative;
-		min-height: 100%;
+	/* ── The measure ───────────────────────────────────────────────────────────
+	   Held, the sheet's column caps at --te-measure and the proof's at its own, narrower one:
+	   the sheet is monospace and the proof is prose, and the same pixel width is a different
+	   number of characters in each. ~82 columns of the mono face, ~68 of the body face.
+	   The cap goes on .te-stack, NOT on the textarea or the mirror separately — they take their
+	   width from it, so they cannot end up with different measures, which is the one way this
+	   could break the wrap they have to agree on. */
+	.te-measured .te-stack {
+		max-width: var(--te-measure);
+	}
+	.te-measured .te-proof > :global(*) {
+		max-width: var(--te-proof-measure);
+		margin-inline: auto;
 	}
 
 	/* ── The scrollbar, held clear of the bar ──────────────────────────────────
@@ -1203,11 +1251,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		font-size: 1rem;
 		line-height: 1.65;
 	}
-	/* Held to a reading measure and hugging the left, the way the docs sheets are — a proof set
-	   to the full width of a wide window is not a proof of anything anyone will read. */
-	.te-proof > :global(*) {
-		max-width: 34rem;
-	}
+	/* (The proof's reading measure is not unconditional any more — see .te-measured above. Off,
+	   the proof runs the full width of its pane, which is what a wide table wants.) */
 	.te-blank {
 		color: var(--sub);
 		font-style: italic;

@@ -36,6 +36,9 @@ await page.addInitScript(() => {
 	try {
 		localStorage.removeItem('ksh:text-editor:v1');
 		localStorage.removeItem('ksh:text-editor:v1:mode');
+		// The measure is a stored setting too, and the case asserting it is ON BY DEFAULT would
+		// read a previous run's leftover rather than the default it means to test.
+		localStorage.removeItem('ksh:text-editor:v1:measure');
 	} catch {
 		/* storage off — the editor copes, and so does this */
 	}
@@ -81,7 +84,7 @@ const value = () => ta.inputValue();
 	// Every key the app has is in that one bar row, and nothing is left in the body.
 	ok(
 		'every key is in the bar',
-		(await page.locator('.head-row .te-rack button').count()) === 16,
+		(await page.locator('.head-row .te-rack button').count()) === 17,
 		`${await page.locator('.head-row .te-rack button').count()}`
 	);
 	ok('and none are left in the body', (await page.locator('.te button').count()) === 0);
@@ -389,6 +392,76 @@ await reset('first\n\n\nlast');
 	);
 }
 
+// ── THE MEASURE ──────────────────────────────────────────────────────────────
+// Held to a reading measure by default, in WRITE and in PROOF alike. A line set to the width of a
+// wide window runs to about 160 characters, and the eye loses the return to the left edge long
+// before that; the full width stays available for a wide table or a listing.
+{
+	await page.getByRole('button', { name: 'Write' }).click();
+	await page.waitForTimeout(250);
+	const key = page.getByRole('button', { name: /Measure|reading measure|full width/ });
+
+	const width = () =>
+		page.evaluate(() => {
+			const st = document.querySelector('.te-stack').getBoundingClientRect();
+			const pa = document.querySelector('.te-paper').getBoundingClientRect();
+			return {
+				stack: Math.round(st.width),
+				pane: Math.round(pa.width),
+				left: Math.round(st.left - pa.left)
+			};
+		});
+
+	ok('the measure is held by default', (await page.locator('.te.te-measured').count()) === 1);
+	const held = await width();
+	ok(
+		'so the column is narrower than the pane it sits in',
+		held.stack < held.pane - 40,
+		JSON.stringify(held)
+	);
+	// Centred, not hugging one edge: the margin rule and the marks travel with the column, which
+	// is why the rule is drawn on the stack rather than on the scroller behind it.
+	ok(
+		'and is centred in it',
+		Math.abs(held.left - (held.pane - held.stack) / 2) < 12,
+		JSON.stringify(held)
+	);
+
+	await key.click();
+	await page.waitForTimeout(250);
+	const full = await width();
+	ok(
+		'turning it off lets the text run the full width',
+		full.stack > held.stack + 40,
+		JSON.stringify(full)
+	);
+
+	await key.click();
+	await page.waitForTimeout(250);
+	ok('and it comes back', (await width()).stack === held.stack);
+
+	// It survives a reload — a setting that forgets is a preference nobody sets twice.
+	await page.reload({ waitUntil: 'networkidle' });
+	await page.waitForSelector('.te-type');
+	ok('the setting is remembered', (await page.locator('.te.te-measured').count()) === 1);
+
+	// PROOF takes its own, narrower measure: the same pixel width is fewer characters in the
+	// body face than in the mono one.
+	await page.getByRole('button', { name: 'Proof' }).click();
+	await page.waitForTimeout(300);
+	const proof = await page.evaluate(() => {
+		const el = document.querySelector('.te-proof > *');
+		const pane = document.querySelector('.te-proof').getBoundingClientRect();
+		return { block: Math.round(el.getBoundingClientRect().width), pane: Math.round(pane.width) };
+	});
+	ok('the proof is held to a measure too', proof.block < proof.pane - 40, JSON.stringify(proof));
+	// The measure key stays offered in PROOF, where the mark keys are not — it changes the layout
+	// rather than the text.
+	ok('and the measure key is still offered there', (await key.count()) === 1);
+	await page.getByRole('button', { name: 'Write' }).click();
+	await page.waitForTimeout(250);
+}
+
 // ── THE SELECTION BAND ───────────────────────────────────────────────────────
 // It had the caret's fault exactly: the native band is the FONT's box, not the line's — 22px in
 // WebKit, 23px in Firefox, against a 26px row — so it sat two pixels inside the row and stopped
@@ -574,57 +647,74 @@ await browser.close();
 			await p.evaluate(() => document.fonts.ready);
 			await p.locator('.te-type').fill(STRESS);
 			await p.waitForTimeout(150);
+			// BOTH measure states, and in WRITE — the cap only bites when the pane is the whole
+			// window, and holding the text to a measure re-wraps it, which is precisely the kind of
+			// change that could put the mirror and the textarea on different line breaks.
+			for (const held of [true, false]) {
+				await p.evaluate(async (want) => {
+					const key = (label) =>
+						[...document.querySelectorAll('.te-rack button')].find(
+							(b) => b.textContent.trim() === label
+						);
+					if (!document.querySelector('.te').classList.contains('te-write')) key('Write').click();
+					await new Promise((r) => setTimeout(r, 150));
+					if (document.querySelector('.te').classList.contains('te-measured') !== want)
+						key('Measure').click();
+					await new Promise((r) => setTimeout(r, 200));
+				}, held);
 
-			const r = await p.evaluate(() => {
-				const ta = document.querySelector('.te-type');
-				const cs = getComputedStyle(ta);
-				const row = parseFloat(cs.lineHeight);
-				const content = ta.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-				const probe = document.createElement('textarea');
-				for (const k of [
-					'fontFamily',
-					'fontSize',
-					'fontWeight',
-					'lineHeight',
-					'letterSpacing',
-					'whiteSpace',
-					'overflowWrap',
-					'wordBreak',
-					'tabSize',
-					'textTransform',
-					'fontKerning',
-					'fontVariantLigatures',
-					'textRendering',
-					'wordSpacing'
-				])
-					probe.style[k] = cs[k];
-				probe.style.cssText += `;box-sizing:content-box;width:${content}px;padding:0;border:0;height:0;position:absolute;left:-9999px;top:0;overflow:auto;resize:none;`;
-				document.body.appendChild(probe);
+				const r = await p.evaluate(() => {
+					const ta = document.querySelector('.te-type');
+					const cs = getComputedStyle(ta);
+					const row = parseFloat(cs.lineHeight);
+					const content = ta.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+					const probe = document.createElement('textarea');
+					for (const k of [
+						'fontFamily',
+						'fontSize',
+						'fontWeight',
+						'lineHeight',
+						'letterSpacing',
+						'whiteSpace',
+						'overflowWrap',
+						'wordBreak',
+						'tabSize',
+						'textTransform',
+						'fontKerning',
+						'fontVariantLigatures',
+						'textRendering',
+						'wordSpacing'
+					])
+						probe.style[k] = cs[k];
+					probe.style.cssText += `;box-sizing:content-box;width:${content}px;padding:0;border:0;height:0;position:absolute;left:-9999px;top:0;overflow:auto;resize:none;`;
+					document.body.appendChild(probe);
 
-				const lines = ta.value.split('\n');
-				const mlines = [...document.querySelectorAll('.te-mline')];
-				const bad = [];
-				let prev = 0;
-				for (let n = 1; n <= lines.length; n++) {
-					probe.value = lines.slice(0, n).join('\n');
-					const h = probe.scrollHeight;
-					const taRows = Math.round((h - prev) / row);
-					prev = h;
-					const miRows = Math.round(mlines[n - 1].getBoundingClientRect().height / row);
-					if (taRows !== miRows) bad.push({ n, textarea: taRows, mirror: miRows });
-				}
-				probe.remove();
-				// The row must be a WHOLE number of pixels. On a fractional row the mirror's block
-				// stack and the textarea's internal row stepping round to device pixels
-				// independently, and the disagreement accumulates down the document.
-				return { row, bad, integerRow: Number.isInteger(row) };
-			});
-			ok(
-				`${name} @${width}: every line wraps the same in the mirror as in the textarea`,
-				r.bad.length === 0,
-				JSON.stringify(r.bad)
-			);
-			ok(`${name} @${width}: the row is a whole number of pixels`, r.integerRow, `${r.row}px`);
+					const lines = ta.value.split('\n');
+					const mlines = [...document.querySelectorAll('.te-mline')];
+					const bad = [];
+					let prev = 0;
+					for (let n = 1; n <= lines.length; n++) {
+						probe.value = lines.slice(0, n).join('\n');
+						const h = probe.scrollHeight;
+						const taRows = Math.round((h - prev) / row);
+						prev = h;
+						const miRows = Math.round(mlines[n - 1].getBoundingClientRect().height / row);
+						if (taRows !== miRows) bad.push({ n, textarea: taRows, mirror: miRows });
+					}
+					probe.remove();
+					// The row must be a WHOLE number of pixels. On a fractional row the mirror's block
+					// stack and the textarea's internal row stepping round to device pixels
+					// independently, and the disagreement accumulates down the document.
+					return { row, bad, integerRow: Number.isInteger(row) };
+				});
+				ok(
+					`${name} @${width} ${held ? 'measured' : 'full width'}: every line wraps the same in the mirror as in the textarea`,
+					r.bad.length === 0,
+					JSON.stringify(r.bad)
+				);
+				if (held)
+					ok(`${name} @${width}: the row is a whole number of pixels`, r.integerRow, `${r.row}px`);
+			}
 			await c.close();
 		}
 		await b.close();

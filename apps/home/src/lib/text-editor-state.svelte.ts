@@ -39,6 +39,14 @@ export const editor = $state({
 	mode: 'split' as Mode,
 	/** Set by the editor from a media query — the rack reads it to hide SPLIT. */
 	narrow: false,
+	/**
+	 * Is the text held to a reading MEASURE, or does it run the full width of the pane? On by
+	 * default: a line of prose set to the width of a 1440px window runs to around 160 characters,
+	 * and the eye starts losing its place on the return to the left edge somewhere around 90. The
+	 * full width is still worth having — for a wide table, or a listing that would otherwise wrap
+	 * — so it is a setting rather than a rule.
+	 */
+	measured: true,
 	/** Confirmation lamps, owned by the editor's timers, read by the rack's keys. */
 	copied: false,
 	armed: false,
