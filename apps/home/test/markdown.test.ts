@@ -9,7 +9,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderMarkdown, tally, lineMarks } from '../src/lib/markdown.ts';
+import { renderMarkdown, tally, lineMarks, outline } from '../src/lib/markdown.ts';
 
 const md = renderMarkdown;
 
@@ -291,4 +291,46 @@ test('the margin goes quiet inside a fence', () => {
 test('the margin marks a heading before its text is typed', () => {
 	// The margin follows the caret, not the parse: "## " is an H2 the moment it is typed.
 	assert.deepEqual(lineMarks('## '), ['H2']);
+});
+
+// ── The outline ───────────────────────────────────────────────────────────────
+// It lives in the engine so that "what counts as a heading" is answered ONCE. A contents rail
+// that re-derived it would start disagreeing with the page it indexes the first time a rule
+// changed — a `#` in a fenced block, or a row of dashes under a paragraph.
+
+test('the outline reports every heading with the line it is on', () => {
+	assert.deepEqual(outline('# One\n\ntext\n\n## Alpha'), [
+		{ line: 0, level: 1, text: 'One', id: 'one' },
+		{ line: 4, level: 2, text: 'Alpha', id: 'alpha' }
+	]);
+});
+
+test('and skips what only looks like one inside a fence', () => {
+	assert.deepEqual(outline('```\n# not a heading\n```'), []);
+	assert.equal(outline('# real\n\n```\n# fake\n```\n\n## also real').length, 2);
+});
+
+test('a setext heading is reported on its TEXT line, not its underline', () => {
+	// The line a reader means when they pick it out of a list.
+	assert.deepEqual(outline('Chapter\n======='), [
+		{ line: 0, level: 1, text: 'Chapter', id: 'chapter' }
+	]);
+	assert.deepEqual(outline('Section\n-------'), [
+		{ line: 0, level: 2, text: 'Section', id: 'section' }
+	]);
+});
+
+test('the outline strips inline markup from the text but keeps the anchor', () => {
+	// A list wants words, not tags — and the id has to match what renderMarkdown emits, or the
+	// proof cannot be jumped to.
+	const [h] = outline('## A **bold** word');
+	assert.equal(h.text, 'A bold word');
+	assert.match(renderMarkdown('## A **bold** word'), new RegExp(`id="${h.id}"`));
+});
+
+test('ids match the rendered headings, so the rail can jump to them', () => {
+	const src = '# One\n\n## Two Words\n\n### Third';
+	for (const h of outline(src)) {
+		assert.match(renderMarkdown(src), new RegExp(`id="${h.id}"`), h.text);
+	}
 });

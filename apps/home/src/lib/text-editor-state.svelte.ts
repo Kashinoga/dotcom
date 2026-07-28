@@ -82,6 +82,11 @@ export type Commands = {
 	openFolder(): void;
 	/** Make a new document in the open folder. Needs a writable handle, so Chromium only. */
 	newFile(): void;
+	/**
+	 * Put the app's own manual page back on the sheet — what a first visit opens with. Undoable,
+	 * like opening a file, so the key does not have to ask.
+	 */
+	readme(): void;
 	/** Write the sheet back to the file it came from. Only when `canWrite` and a handle is open. */
 	saveInPlace(): void;
 	/** Two-step: the first call arms, the second clears. See `armed`. */
@@ -158,6 +163,8 @@ export const editor = $state({
 	 * scroller. Fixed, positioned from the key's measured rect, it escapes.
 	 */
 	headingAt: null as { x: number; y: number } | null,
+	/** Is the contents rail showing? On by default: it is the one column that costs nothing. */
+	contentsShown: true,
 	/** True while the workspace is asking what to call a new document. */
 	naming: false,
 	/** Which entry is being renamed, if any — the workspace swaps its row for a field. */

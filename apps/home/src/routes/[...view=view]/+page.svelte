@@ -47,7 +47,11 @@
 		MAXIMIZE_SVG,
 		MINIMIZE_SVG,
 		PLAY_SVG,
-		PAUSE_SVG
+		PAUSE_SVG,
+		// The Text Editor's About key, next to Home in its bar — see the TEXT branch of the dense
+		// header. It belongs to the bar rather than to the editor's own rack because Home does too:
+		// the two are the panel's chrome, not the document's controls.
+		INFO_SVG
 	} from '$lib/icons';
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
@@ -2645,6 +2649,20 @@
 													title="Home">{@html HOME_SVG}</button
 												>
 												{#if v.code === 'TEXT'}
+													<!-- ABOUT — the manual page the editor opens with, put back on the sheet.
+													     It reads as chrome rather than as a mark, which is why it stands with
+													     Home here instead of in the rack: the rack's keys all act on the
+													     document you are writing, and this one replaces it.
+													     Undoable (it goes through the editor's own write path), so unlike
+													     Clear it does not have to ask — hence a plain key, not a two-step. -->
+													<button
+														type="button"
+														class="icon-btn"
+														onclick={() => textEditor.cmd?.readme()}
+														aria-label="About Text Editor — put the manual page on the sheet"
+														title="About — the manual page (replaces the sheet; ⌘Z undoes it)"
+														>{@html INFO_SVG}</button
+													>
 													<!-- The editor says it is in beta, at the far end of the bar past Home.
 													     A SPAN, not a button: the Park Ranger's tag is a <button> because it sits
 													     AMONG that bar's controls and had to reset the UA face to match them, but

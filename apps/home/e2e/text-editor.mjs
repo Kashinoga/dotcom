@@ -80,7 +80,12 @@ const value = () => ta.inputValue();
 	// favicon already say where you are, and a dense bar has one row to give.
 	ok('the bar carries no title', (await page.locator('.head-title').count()) === 0);
 	ok('the bar carries the rack instead', await page.locator('.head-row .te-rack').isVisible());
-	ok('and offers the way out', await page.locator('.head-actions .icon-btn').isVisible());
+	// The corner holds two keys now — Home and About — so this asks for Home by name rather than
+	// for "the icon button", which stopped being one element the moment About arrived.
+	ok(
+		'and offers the way out',
+		await page.getByRole('button', { name: 'Close and go home' }).isVisible()
+	);
 	// Every key the app has is in that one bar row, and nothing is left in the body. Counted by
 	// CLASS rather than by container: the keys live in two clusters now — the scrolling strip and
 	// the fixed right-hand tail beside Home — and `.tb` is what they share. Home is `.icon-btn`,
@@ -130,7 +135,10 @@ const value = () => ta.inputValue();
 			JSON.stringify(geo)
 		);
 	}
-	ok('and none are left in the body', (await page.locator('.te button').count()) === 0);
+	// No KEYS in the body — counted by the key class, not by "any button". The contents rail's
+	// links and the workspace's rows are buttons too, and they belong there; what must not be in
+	// the body is a second copy of the bar's controls.
+	ok('and none are left in the body', (await page.locator('.te .tb').count()) === 0);
 	// The row must not have wrapped: the body reserves a fixed one-row height, so a second row
 	// would sit on top of the document's first lines.
 	{
@@ -318,6 +326,63 @@ await eq(
 );
 await clear.click();
 await eq('the second press clears the sheet', value(), '');
+
+// ── The About key ────────────────────────────────────────────────────────────
+// It puts the app's own manual page back on the sheet — the document a first visit opens with,
+// and the only documentation this app has. It stands with Home in the bar's right-hand corner
+// rather than in the rack, because it is the panel's chrome: every key in the rack acts on the
+// document, and this one replaces it.
+{
+	const about = page.getByRole('button', { name: /^About Text Editor/ });
+	ok('the bar offers an About key', (await about.count()) === 1);
+
+	// Typed, not filled: this case is about the UNDO stack, and `reset` sets the value outright.
+	await ta.click();
+	await selectAll();
+	await page.keyboard.type('scribble');
+	await about.click();
+	const doc = await value();
+	ok(
+		'it opens with the manual page',
+		doc.startsWith('# Text Editor\n'),
+		JSON.stringify(doc.slice(0, 20))
+	);
+	ok(
+		'and the whole of it, not just the title',
+		doc.includes('## The marks') && doc.includes('```js')
+	);
+	await eq(
+		'the caret is put at the top, so it reads from the start',
+		ta.evaluate((el) => el.selectionStart),
+		0
+	);
+	ok(
+		'the proof sets it',
+		(await page.locator('.te-proof h1').first().innerText()) === 'Text Editor'
+	);
+
+	// The whole reason it does not have to ask the way Clear does.
+	await ta.click();
+	await key('ControlOrMeta+z');
+	await eq('one undo brings back what was on the sheet', value(), 'scribble');
+
+	await about.click();
+
+	// Order in the corner: out, then about, then the tag. Read left to right, the door comes first.
+	const corner = await page.evaluate(() =>
+		[...document.querySelectorAll('.surface-head .head-actions > *')].map(
+			(el) => el.getAttribute('aria-label') ?? el.className.split(' ')[0]
+		)
+	);
+	ok(
+		'it sits to the right of Home, before the beta tag',
+		corner.length === 3 &&
+			/home/i.test(corner[0]) &&
+			/^About/.test(corner[1]) &&
+			corner[2] === 'beta',
+		JSON.stringify(corner)
+	);
+}
 
 // ── THE CARET ────────────────────────────────────────────────────────────────
 // The editor draws its own. A textarea's native caret is sized by the FONT — the full ascent and
@@ -529,6 +594,24 @@ await reset('first\n\n\nlast');
 		(await page.locator('.te-work-row.on').count()) === 1
 	);
 
+	// The About key forgets the file too, and for the same reason: the manual page is not the
+	// document that was open, and a name left behind would point Save at a file it would overwrite.
+	const aboutKey = page.getByRole('button', { name: /^About Text Editor/ });
+	await aboutKey.click();
+	await page.waitForTimeout(700);
+	ok(
+		'About forgets the filename',
+		(await page.locator('.te-lamp').textContent()).trim() === '',
+		JSON.stringify((await page.locator('.te-lamp').textContent()).trim())
+	);
+	ok(
+		'and unmarks the workspace row with it',
+		(await page.locator('.te-work-row.on').count()) === 0
+	);
+	// Put the file back on the sheet — the clearing case below needs a named document.
+	await page.getByRole('button', { name: 'beta.markdown' }).click();
+	await page.waitForTimeout(300);
+
 	// Clearing the sheet forgets the name with it — what is on screen is no longer that file.
 	const clearKey = page.getByRole('button', { name: /Clear|Sure/ });
 	await clearKey.click();
@@ -694,6 +777,51 @@ await reset('first\n\n\nlast');
 		);
 		await ro.close();
 	}
+}
+
+// ── THE CONTENTS RAIL ────────────────────────────────────────────────────────
+// A fourth column indexing the SOURCE rather than the proof, so it is there in WRITE where there
+// is no proof to read — and carrying the same section numbers the proof prints, so the two never
+// disagree about what section 02 is.
+await reset(
+	'# Chapter One\n\n## Alpha\n\n## Beta\n\n# Chapter Two\n\n## Gamma\n\n### Deeper\n\n## Delta'
+);
+await page.waitForTimeout(300);
+{
+	await eq(
+		'the rail lists every heading',
+		page.$$eval('.te-toc-link', (ls) => ls.length),
+		7
+	);
+	// The numbers restart under each first-level heading, exactly as the proof does.
+	await eq(
+		'and numbers sections within their chapter',
+		page.$$eval('.te-toc-num', (ns) => ns.map((n) => n.textContent).join(',')),
+		'01,02,01,02'
+	);
+	// Headings inside a fence are not headings — the engine owns that rule and the rail asks it.
+	await reset('# Real\n\n```\n# Fake\n```');
+	await page.waitForTimeout(300);
+	await eq(
+		'a hash inside a fence is not indexed',
+		page.$$eval('.te-toc-link', (ls) => ls.map((l) => l.textContent.trim()).join(',')),
+		'Real'
+	);
+
+	// Clicking one puts the caret on it — in an editor, "go to" means "start typing here".
+	await reset('# One\n\nbody\n\n## Two\n\nbody');
+	await page.waitForTimeout(300);
+	await page.locator('.te-toc-link').nth(1).click();
+	await page.waitForTimeout(300);
+	await eq(
+		'clicking one takes the caret to that heading',
+		page.$eval('.te-type', (t) => t.value.slice(t.selectionStart, t.selectionStart + 6)),
+		'## Two'
+	);
+	ok(
+		'and the rail marks where you are',
+		(await page.locator('.te-toc-link.on').textContent()).includes('Two')
+	);
 }
 
 // ── THE MEASURE ──────────────────────────────────────────────────────────────

@@ -506,3 +506,76 @@ export function lineMarks(src: string): string[] {
 	}
 	return marks;
 }
+
+// ── The outline ───────────────────────────────────────────────────────────────
+
+export type OutlineEntry = {
+	/** Which SOURCE line the heading is on — the line the editor scrolls to. */
+	line: number;
+	level: number;
+	text: string;
+	/** The anchor `renderMarkdown` gives the same heading, so the proof can be jumped to. */
+	id: string;
+};
+
+/**
+ * Every heading in a document, in order, with the source line it sits on.
+ *
+ * It lives here rather than in the editor because the editor would have to re-derive rules this
+ * module already owns: that a `#` inside a fenced block is not a heading, and that a row of `=`
+ * or `-` under a paragraph IS one. Two implementations of "what counts as a heading" is how a
+ * table of contents starts disagreeing with the page it indexes.
+ *
+ * A setext heading is reported on the line its TEXT is on, not its underline — that is the line
+ * a reader means when they pick it out of a list.
+ */
+export function outline(src: string): OutlineEntry[] {
+	const lines = src.split(/\r\n?/g).join('\n').split('\n');
+	const out: OutlineEntry[] = [];
+	let inFence = false;
+	let fenceMark = '';
+
+	for (let i = 0; i < lines.length; i++) {
+		const line = lines[i];
+		const fence = line.match(RE_FENCE);
+		if (fence) {
+			if (!inFence) {
+				inFence = true;
+				fenceMark = fence[1][0];
+			} else if (fence[1][0] === fenceMark) {
+				inFence = false;
+			}
+			continue;
+		}
+		if (inFence) continue;
+
+		const atx = line.match(RE_HEADING);
+		if (atx) {
+			const text = inline(escapeHtml(atx[2]));
+			out.push({ line: i, level: atx[1].length, text: plain(text), id: slug(text) });
+			continue;
+		}
+		// A setext underline retitles the line above it — the same rule the block parser keeps.
+		const next = lines[i + 1];
+		if (next !== undefined && RE_SETEXT.test(next) && !isBlank(line) && !startsBlock(line)) {
+			const text = inline(escapeHtml(line));
+			out.push({
+				line: i,
+				level: next.trim()[0] === '=' ? 1 : 2,
+				text: plain(text),
+				id: slug(text)
+			});
+			i++; // the underline is part of the heading, not a line of its own
+		}
+	}
+	return out;
+}
+
+/** Heading text with its inline markup rendered away — a list wants words, not tags. */
+function plain(html: string): string {
+	return html
+		.replace(/<[^>]*>/g, '')
+		.replace(/&lt;/g, '<')
+		.replace(/&amp;/g, '&')
+		.replace(/&quot;/g, '"');
+}

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { renderMarkdown, tally, lineMarks } from '$lib/markdown';
+	import { renderMarkdown, tally, lineMarks, outline } from '$lib/markdown';
 	import {
 		editor,
 		shownMode,
@@ -126,6 +126,54 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	const proof = $derived(renderMarkdown(text));
 	const count = $derived(tally(text));
 
+	/**
+	 * The document's headings, for the rail on the right — numbered the way the proof numbers
+	 * them, so the two agree: a first-level heading opens a chapter and the section count starts
+	 * again beneath it.
+	 */
+	const contents = $derived.by(() => {
+		let chapter = 0;
+		let section = 0;
+		return outline(text).map((h) => {
+			if (h.level === 1) {
+				chapter += 1;
+				section = 0;
+			} else if (h.level === 2) {
+				section += 1;
+			}
+			return { ...h, num: h.level === 2 ? String(section).padStart(2, '0') : '' };
+		});
+	});
+
+	/** The heading the caret is under — what the rail marks. */
+	const hereHeading = $derived.by(() => {
+		let at = -1;
+		contents.forEach((h, i) => {
+			if (h.line <= caretLine) at = i;
+		});
+		return at;
+	});
+
+	/**
+	 * Jump to a heading. In WRITE or SPLIT that means the SHEET — the mirror already has a block
+	 * per source line, so the line to scroll to is simply there — and it puts the caret on the
+	 * heading, because in an editor "go to" means "start typing here". In PROOF there is no
+	 * sheet, so it scrolls the rendered heading by its anchor instead.
+	 */
+	function goTo(entry: { line: number; id: string }) {
+		if (shown === 'proof') {
+			proofEl?.querySelector(`#${CSS.escape(entry.id)}`)?.scrollIntoView({ block: 'start' });
+			return;
+		}
+		const row = mirrorEl?.children[entry.line] as HTMLElement | undefined;
+		row?.scrollIntoView({ block: 'center' });
+		if (!ta) return;
+		const at = srcLines.slice(0, entry.line).reduce((n, l) => n + l.length + 1, 0);
+		ta.focus();
+		ta.setSelectionRange(at, at);
+		trackCaret();
+	}
+
 	// Which panes are on. The rule (SPLIT is not offered on a narrow window) lives in
 	// $lib/text-editor-state, because the rack in the bar has to apply the same one to decide whether to
 	// draw the SPLIT key at all.
@@ -212,6 +260,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			openFolder,
 			saveInPlace,
 			heading,
+			readme,
 			newFile: () => (editor.naming = true)
 		};
 
@@ -1102,6 +1151,30 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		write('');
 	}
 
+	/**
+	 * Put the manual page back on the sheet — the document the editor opens with on a first visit,
+	 * which is also the only documentation this app has. That is deliberate: the page describes the
+	 * marks by wearing them, so the way to read it is to open it in the thing it describes.
+	 *
+	 * It goes through `write` like every other edit, so it is UNDOABLE: pressing this by mistake
+	 * costs one Cmd-Z, which is why it does not ask first the way Clear does.
+	 *
+	 * The name, the handle and the workspace's marked row all come OFF. What is on the sheet is no
+	 * longer the file that was open, and leaving the name behind would leave Save pointed at a file
+	 * it would overwrite with the manual.
+	 */
+	function readme() {
+		if (!ta) return;
+		ta.focus();
+		ta.setSelectionRange(0, ta.value.length);
+		write(STARTER);
+		editor.filename = '';
+		editor.openPath = '';
+		editor.openHandle = null;
+		ta.setSelectionRange(0, 0);
+		trackCaret();
+	}
+
 	// ── Scroll ────────────────────────────────────────────────────────────────
 	// In SPLIT the proof follows the sheet, proportionally. Proportional rather than line-mapped
 	// on purpose: a line map needs the rendered height of every block, which means measuring the
@@ -1275,9 +1348,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			     Set as the manual sets a list — a ruled row per document, the name in the mono
 			     voice over its path in the muted one, the open one marked. -->
 			<aside class="te-work" aria-label="Workspace: {editor.folderName || 'folder'}">
+				<!-- The folder's name gets the row to itself. It shared one with three keys, which
+				     left a path of any length ellipsised after a few characters — and the name is
+				     the one thing in this pane you cannot work out from anything else. -->
 				<header class="te-work-head">
 					<h2 class="te-work-name" title={editor.folderName}>{editor.folderName || 'Folder'}</h2>
 					<span class="te-work-count">{editor.folder.length}</span>
+				</header>
+				<div class="te-work-acts">
 					{#if editor.canWrite}
 						<button
 							type="button"
@@ -1298,7 +1376,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						onclick={() => (editor.folderShown = false)}
 						title="Hide the workspace">Hide</button
 					>
-				</header>
+				</div>
 				{#if editor.naming}
 					<form
 						class="te-work-rename"
@@ -1501,6 +1579,34 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					{/if}
 				</div>
 			</div>
+		{/if}
+		{#if editor.contentsShown && !editor.narrow}
+			<!-- THE CONTENTS, a fourth column at the right — the docs shell's own right rail, in an
+			     editor. It indexes the SOURCE rather than the proof, so it is there in WRITE where
+			     there is no proof to read, and it carries the same section numbers the proof
+			     prints so the two never disagree about what section 03 is. -->
+			<nav class="te-toc" aria-label="Contents">
+				<p class="te-toc-head">Contents</p>
+				{#if contents.length}
+					<ul class="te-toc-list">
+						{#each contents as entry, i (entry.line)}
+							<li>
+								<button
+									type="button"
+									class="te-toc-link lvl-{entry.level}"
+									class:on={i === hereHeading}
+									aria-current={i === hereHeading ? 'true' : undefined}
+									onclick={() => goTo(entry)}
+								>
+									{#if entry.num}<span class="te-toc-num">{entry.num}</span>{/if}{entry.text}
+								</button>
+							</li>
+						{/each}
+					</ul>
+				{:else}
+					<p class="te-toc-empty">No headings yet.</p>
+				{/if}
+			</nav>
 		{/if}
 	</div>
 
@@ -2011,7 +2117,18 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		font-style: italic;
 	}
 
+	/* A first-level heading OPENS A CHAPTER, so the section count starts again under it. Without
+	   this the numbers ran 01, 02, 03… straight down the sheet however many chapters they
+	   crossed, which is a running count of h2s rather than a numbering of sections.
+	   `counter-SET`, not `counter-reset`, and the difference is the whole fix. `counter-reset` on
+	   a sibling creates a NEW nested instance, and when the parent has already reset the same
+	   counter the two do not compose the way you would expect: tested four ways side by side, a
+	   parent reset plus a sibling reset numbers 1, 2, 3, 4 straight through, while the same
+	   markup with `counter-set` on the heading gives 1, 2 / 1, 2. `counter-set` assigns the
+	   counter already in scope rather than minting another, which is what "start this chapter's
+	   sections at zero" actually means. */
 	.te-proof :global(h1) {
+		counter-set: te-sec 0;
 		margin: 0 0 1.2rem;
 		padding-bottom: 0.5rem;
 		border-bottom: 1px solid var(--te-rule);
@@ -2215,7 +2332,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		display: flex;
 		align-items: baseline;
 		gap: 0.4rem;
-		padding: 0.6rem 0.75rem 0.4rem;
+		padding: 0.6rem 0.75rem 0.2rem;
+	}
+	.te-work-acts {
+		flex: none;
+		display: flex;
+		gap: 0.3rem;
+		padding: 0 0.75rem 0.5rem;
 	}
 	.te-work-name {
 		margin: 0;
@@ -2250,8 +2373,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		border-radius: 3px;
 		cursor: pointer;
 	}
-	.te-work-act:first-of-type {
-		margin-left: auto;
+	.te-work-name {
+		flex: 1 1 auto;
 	}
 	.te-work-list {
 		margin: 0;
@@ -2397,6 +2520,93 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   `.fkey.fkey` is (0,3,0) and settles it. */
 	:global(.te .fkey.fkey) {
 		bottom: calc(var(--te-foot-h, 0px) + 1.25rem);
+	}
+
+	/* ── The contents rail ─────────────────────────────────────────────────────
+	   The docs shell's right rail, in an editor: a column of the document's own headings, stepped
+	   by level, the one under the caret marked. Same width and material as the workspace on the
+	   other side, so the desk reads as a spread with the writing in the middle. */
+	.te-toc {
+		flex: none;
+		width: 13rem;
+		display: flex;
+		flex-direction: column;
+		min-height: 0;
+		overflow-y: auto;
+		border-radius: 4px;
+		background: var(--surface);
+		padding: 0.6rem 0 0.75rem;
+	}
+	.te-toc-head {
+		flex: none;
+		margin: 0 0 0.35rem;
+		padding: 0 0.75rem;
+		font-family: var(--font-mono, monospace);
+		font-size: 0.66rem;
+		font-weight: 700;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+		color: var(--sub);
+	}
+	.te-toc-list {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.te-toc-link {
+		display: flex;
+		align-items: baseline;
+		gap: 0.4rem;
+		width: 100%;
+		padding: 0.25rem 0.75rem;
+		text-align: left;
+		font-family: var(--font-body, system-ui, sans-serif);
+		font-size: 0.78rem;
+		line-height: 1.35;
+		color: color-mix(in srgb, var(--ink) 80%, transparent);
+		background: none;
+		border: 0;
+		cursor: pointer;
+	}
+	.te-toc-link:hover,
+	.te-toc-link:focus-visible {
+		color: var(--orange);
+		outline: none;
+	}
+	/* The heading the caret is under. A rail that does not say where you are is a list of links. */
+	.te-toc-link.on {
+		color: var(--orange);
+		background: color-mix(in srgb, var(--orange) 8%, transparent);
+	}
+	/* Levels step in. Only the first three earn a step — past that a rail indents further than it
+	   informs, and h4–h6 are the mono running-head voice in the proof anyway. */
+	.te-toc-link.lvl-1 {
+		font-weight: 600;
+		color: var(--ink);
+	}
+	.te-toc-link.lvl-2 {
+		padding-left: 1.4rem;
+	}
+	.te-toc-link.lvl-3,
+	.te-toc-link.lvl-4,
+	.te-toc-link.lvl-5,
+	.te-toc-link.lvl-6 {
+		padding-left: 2.1rem;
+		font-size: 0.72rem;
+		color: var(--sub);
+	}
+	.te-toc-num {
+		flex: none;
+		font-family: var(--font-pixel, var(--font-mono, monospace));
+		font-size: 0.9rem;
+		line-height: 1;
+		color: var(--orange);
+	}
+	.te-toc-empty {
+		margin: 0;
+		padding: 0 0.75rem;
+		font-size: 0.72rem;
+		color: var(--sub);
 	}
 
 	/* ── The heading menu ──────────────────────────────────────────────────────
