@@ -85,13 +85,21 @@ export const editor = $state({
 	 */
 	filename: '',
 	/**
-	 * A folder's readable documents, when one has been opened, and whether the index is showing.
-	 * The File objects are kept unread: a directory can be large, and there is no reason to pull
-	 * every file into memory to list their names.
+	 * THE WORKSPACE — a folder opened alongside the document, the way an editor keeps one. Its
+	 * readable files, the folder's own name, whether the pane is showing, and which entry is on
+	 * the sheet. The File objects are kept UNREAD: a directory can be large, and there is no
+	 * reason to pull every file into memory to list their names.
+	 *
+	 * It lasts the session and no longer, and that is the platform's rule rather than a choice.
+	 * A `<input webkitdirectory>` hands over File objects, not a handle that can be stored and
+	 * re-read after a reload; only the File System Access API can do that, and only in Chromium.
+	 * So the pane comes back empty on a reload and the folder has to be picked again.
 	 */
 	folder: [] as FolderEntry[],
 	folderName: '',
 	folderShown: false,
+	/** The path of the entry currently on the sheet, so the workspace can mark it. */
+	openPath: '',
 	/** Confirmation lamps, owned by the editor's timers, read by the rack's keys. */
 	copied: false,
 	armed: false,
@@ -172,7 +180,12 @@ export const OPEN_KEYS: DocKey[] = [
 	{
 		id: 'folder',
 		svg: FOLDER_OPEN_SVG,
-		title: () => 'Open a folder and pick from what is in it',
+		title: () =>
+			editor.folder.length
+				? editor.folderShown
+					? 'Hide the workspace'
+					: 'Show the workspace'
+				: 'Open a folder as a workspace',
 		label: () => 'Folder',
 		run: () => editor.cmd?.openFolder(),
 		on: () => editor.folderShown,

@@ -714,7 +714,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		ta.setSelectionRange(0, ta.value.length);
 		write(body.replace(/\r\n?/g, '\n'));
 		editor.filename = file.name;
-		editor.folderShown = false;
+		// The workspace STAYS OPEN when you pick from it — that is what makes it a workspace
+		// rather than a picker. It closes on a phone, where it covers the sheet it just filled.
+		if (editor.narrow) editor.folderShown = false;
 		ta.setSelectionRange(0, 0);
 		trackCaret();
 	}
@@ -723,11 +725,31 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		fileInput?.click();
 	}
 
+	/**
+	 * With no workspace open, this picks a folder. With one open it TOGGLES the pane — the same
+	 * key, because once a folder is loaded "Folder" is a place you go rather than a thing you
+	 * choose, and a second key to show a pane that is already loaded is a key too many. Changing
+	 * folders is inside the pane, where the folder you would be changing is named.
+	 */
 	function openFolder() {
+		if (editor.folder.length) {
+			editor.folderShown = !editor.folderShown;
+			return;
+		}
+		pickFolder();
+	}
+
+	function pickFolder() {
 		// Re-opening the same folder should re-read it, so the value is cleared first — an input
-		// that is handed the same directory twice fires no change event otherwise.
+		// handed the same directory twice fires no change event otherwise.
 		if (folderInput) folderInput.value = '';
 		folderInput?.click();
+	}
+
+	/** Put an entry on the sheet and mark it as the one the workspace is showing. */
+	function openEntry(entry: { path: string; file: File }) {
+		editor.openPath = entry.path;
+		load(entry.file);
 	}
 
 	function tookFolder(event: Event) {
@@ -740,6 +762,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// The folder's own name is the first segment of any entry's relative path.
 		editor.folderName = entries[0]?.path.split('/')[0] ?? '';
 		editor.folderShown = true;
+		editor.openPath = '';
 	}
 
 	/** The document leaves as a real file. The name is the first heading, or the date. */
@@ -783,6 +806,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		clearTimeout(armTimer);
 		editor.armed = false;
 		editor.filename = '';
+		editor.openPath = '';
 		if (!ta) return;
 		ta.focus();
 		ta.setSelectionRange(0, text.length);
@@ -922,6 +946,50 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	class:te-measured={editor.measured}
 >
 	<div class="te-desk">
+		{#if editor.folderShown && editor.folder.length}
+			<!-- THE WORKSPACE — the opened folder, kept alongside the document the way an editor
+			     keeps one, rather than a picker that appears and goes. It is a column of the desk
+			     on a wide window and a sheet over it on a phone, and picking from it does not
+			     close it: that is the difference between a workspace and a dialog.
+			     Set as the manual sets a list — a ruled row per document, the name in the mono
+			     voice over its path in the muted one, the open one marked. -->
+			<aside class="te-work" aria-label="Workspace: {editor.folderName || 'folder'}">
+				<header class="te-work-head">
+					<h2 class="te-work-name" title={editor.folderName}>{editor.folderName || 'Folder'}</h2>
+					<span class="te-work-count">{editor.folder.length}</span>
+					<button
+						type="button"
+						class="tb te-work-act"
+						onclick={pickFolder}
+						title="Open a different folder">Change</button
+					>
+					<button
+						type="button"
+						class="tb te-work-act"
+						onclick={() => (editor.folderShown = false)}
+						title="Hide the workspace">Hide</button
+					>
+				</header>
+				<ul class="te-work-list">
+					{#each editor.folder as entry (entry.path)}
+						<li>
+							<button
+								type="button"
+								class="te-work-row"
+								class:on={editor.openPath === entry.path}
+								aria-current={editor.openPath === entry.path ? 'true' : undefined}
+								onclick={() => openEntry(entry)}
+							>
+								<span class="te-work-file">{entry.name}</span>
+								{#if entry.path !== entry.name}
+									<span class="te-work-path">{entry.path}</span>
+								{/if}
+							</button>
+						</li>
+					{/each}
+				</ul>
+			</aside>
+		{/if}
 		{#if shown !== 'proof'}
 			<!-- THE SHEET. The scroller is .te-paper; inside it the mirror sets the height and the
 			     textarea lies over it at exactly the same metrics. See the file head for why. -->
@@ -1047,47 +1115,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		{...{ webkitdirectory: true, directory: true }}
 		onchange={tookFolder}
 	/>
-
-	{#if editor.folderShown}
-		<!-- THE FOLDER'S INDEX, set the way the manual sets one: a ruled list of what is in it,
-		     in path order, each row a door. It is a sheet over the desk rather than a pane beside
-		     it — you are choosing a document, not reading two. -->
-		<div
-			class="te-index"
-			role="dialog"
-			aria-label="Documents in {editor.folderName || 'the folder'}"
-		>
-			<header class="te-index-head">
-				<h2 class="te-index-name">{editor.folderName || 'Folder'}</h2>
-				<span class="te-index-count"
-					>{editor.folder.length}
-					{editor.folder.length === 1 ? 'document' : 'documents'}</span
-				>
-				<button
-					type="button"
-					class="tb te-index-close"
-					onclick={() => (editor.folderShown = false)}
-					title="Close the index">Close</button
-				>
-			</header>
-			{#if editor.folder.length}
-				<ul class="te-index-list">
-					{#each editor.folder as entry (entry.path)}
-						<li>
-							<button type="button" class="te-index-row" onclick={() => load(entry.file)}>
-								<span class="te-index-file">{entry.name}</span>
-								<span class="te-index-path">{entry.path}</span>
-							</button>
-						</li>
-					{/each}
-				</ul>
-			{:else}
-				<p class="te-index-empty">
-					Nothing in there this editor can open — it takes Markdown and plain text.
-				</p>
-			{/if}
-		</div>
-	{/if}
 
 	{#if editor.narrow}
 		<!-- THE PHONE'S CONTROLS, in the shared floating key ($lib/FloatingKey — the shape the
@@ -1703,37 +1730,33 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		pointer-events: none;
 	}
 
-	/* ── The folder's index ────────────────────────────────────────────────────
-	   A sheet laid over the desk, holding the manual's own kind of list: a ruled row per
-	   document, its name in the mono voice over its path in the muted one. It sits over rather
-	   than beside, because picking a document is not something you do WHILE reading one. */
-	.te-index {
-		position: absolute;
-		z-index: 4;
-		top: calc(var(--bar-h, 60px) + 0.75rem);
-		left: 50%;
-		transform: translateX(-50%);
-		width: min(34rem, calc(100% - 2rem));
-		max-height: min(60vh, 32rem);
+	/* ── The workspace ─────────────────────────────────────────────────────────
+	   A column of the desk, to the left of the panes: the folder is a place you are working IN,
+	   so it sits beside the work rather than over it. Fixed width — a file list that grew and
+	   shrank with the window would move the sheet every time you resized it. */
+	.te-work {
+		flex: none;
+		width: 15rem;
 		display: flex;
 		flex-direction: column;
+		min-height: 0;
+		border-right: 1px solid var(--te-rule);
 		background: var(--surface);
-		border: 1px solid var(--te-rule);
-		border-radius: 2px;
-		box-shadow: var(--pixel-paper-shadow, 0 10px 30px rgba(0, 0, 0, 0.18));
+		padding-top: var(--bar-h, 60px);
 	}
-	.te-index-head {
+	.te-work-head {
 		flex: none;
 		display: flex;
 		align-items: baseline;
-		gap: 0.6rem;
-		padding: 0.85rem 1rem;
+		gap: 0.4rem;
+		padding: 0.7rem 0.75rem;
 		border-bottom: 1px solid var(--te-rule);
 	}
-	.te-index-name {
+	.te-work-name {
 		margin: 0;
+		min-width: 0;
 		font-family: var(--font-mono, monospace);
-		font-size: 0.8rem;
+		font-size: 0.72rem;
 		font-weight: 700;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
@@ -1742,61 +1765,76 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.te-index-count {
+	.te-work-count {
 		flex: none;
-		font-family: var(--font-mono, monospace);
-		font-size: 0.68rem;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
+		font-family: var(--font-pixel, var(--font-mono, monospace));
+		font-size: 0.9rem;
+		line-height: 1;
 		color: var(--sub);
 	}
-	.te-index-close {
-		margin-left: auto;
+	.te-work-act {
 		flex: none;
+		height: 22px;
+		padding: 0 0.4rem;
+		font: inherit;
+		font-size: 0.62rem;
+		line-height: 1;
+		color: var(--ink);
+		background: color-mix(in srgb, var(--ink) 5%, transparent);
+		border: 1px solid var(--line-edge, rgba(0, 0, 0, 0.2));
+		border-radius: 3px;
+		cursor: pointer;
 	}
-	.te-index-list {
+	.te-work-act:first-of-type {
+		margin-left: auto;
+	}
+	.te-work-list {
 		margin: 0;
 		padding: 0;
 		list-style: none;
 		overflow-y: auto;
 	}
 	/* Each row is the catalog row the Apps index uses — a hairline under it, the accent on
-	   hover, nothing floating. */
-	.te-index-row {
+	   hover, nothing floating. The OPEN one is marked, because a workspace whose list does not
+	   say which file you are looking at is a list rather than a workspace. */
+	.te-work-row {
 		display: block;
 		width: 100%;
-		padding: 0.7rem 1rem;
+		padding: 0.5rem 0.75rem;
 		text-align: left;
 		background: none;
 		border: 0;
 		border-bottom: 1px solid var(--te-rule);
 		cursor: pointer;
 	}
-	.te-index-row:hover,
-	.te-index-row:focus-visible {
+	.te-work-row:hover,
+	.te-work-row:focus-visible {
 		background: color-mix(in srgb, var(--orange) 7%, transparent);
 		outline: none;
 	}
-	.te-index-file {
+	.te-work-row.on {
+		background: var(--pixel-key-on, color-mix(in srgb, var(--orange) 12%, transparent));
+	}
+	.te-work-row.on .te-work-file {
+		color: var(--orange);
+	}
+	.te-work-file {
 		display: block;
 		font-family: var(--font-mono, monospace);
-		font-size: 0.82rem;
+		font-size: 0.76rem;
 		color: var(--ink);
-	}
-	.te-index-path {
-		display: block;
-		margin-top: 0.15rem;
-		font-size: 0.72rem;
-		color: var(--sub);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.te-index-empty {
-		margin: 0;
-		padding: 1.1rem 1rem;
-		font-size: 0.9rem;
+	.te-work-path {
+		display: block;
+		margin-top: 0.1rem;
+		font-size: 0.66rem;
 		color: var(--sub);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	/* ── The phone's flyout ────────────────────────────────────────────────────
@@ -1913,6 +1951,16 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		/* The foot's lamp drops below the tally rather than squeezing it. */
 		.te-lamp {
 			margin-left: 0;
+		}
+		/* The workspace cannot be a column on a phone — there is only room for one. It becomes a
+		   sheet over the desk instead, and closes when you pick from it (see `load`). */
+		.te-work {
+			position: absolute;
+			z-index: 5;
+			inset: var(--bar-h, 60px) 0 0 0;
+			width: auto;
+			border-right: 0;
+			padding-top: 0;
 		}
 		/* …and the whole foot starts clear of the floating key, which is fixed at the bottom-left
 		   and was sitting on top of the first count. */

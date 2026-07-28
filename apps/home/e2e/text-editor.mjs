@@ -468,38 +468,60 @@ await reset('first\n\n\nlast');
 	await page.waitForTimeout(250);
 	await eq('and opening the wrong one is undoable', value(), 'the sheet as it was');
 
+	// ── THE WORKSPACE ────────────────────────────────────────────────────────
+	// A folder opened ALONGSIDE the document, the way an editor keeps one — not a picker that
+	// appears and goes. Picking from it leaves it standing; that is the difference.
 	await page.setInputFiles('.te-picker >> nth=1', folder);
 	await page.waitForTimeout(500);
 	await eq(
-		'a folder lists what it can open, in path order',
-		page.$$eval('.te-index-file', (ns) => ns.map((n) => n.textContent).join(',')),
+		'a folder opens as a workspace, listing what it can read in path order',
+		page.$$eval('.te-work-file', (ns) => ns.map((n) => n.textContent).join(',')),
 		'alpha.md,beta.markdown,notes.txt,gamma.md'
 	);
 	ok(
 		'and leaves out what it cannot',
-		!(await page.locator('.te-index').textContent()).includes('ignore.png')
+		!(await page.locator('.te-work').textContent()).includes('ignore.png')
 	);
 
-	await page.locator('.te-index-row').nth(1).click();
-	await page.waitForTimeout(700); // past the save debounce, or the lamp still says "Setting…"
+	await page.locator('.te-work-row').nth(1).click();
+	await page.waitForTimeout(700);
 	await eq('picking one opens it', value(), '# Beta\n\nSecond note.');
-	ok('and shuts the index', (await page.locator('.te-index').count()) === 0);
+	ok('and the workspace STAYS open', (await page.locator('.te-work').count()) === 1);
+	ok(
+		'with the open document marked in the list',
+		(await page.locator('.te-work-row.on .te-work-file').textContent()) === 'beta.markdown'
+	);
 	ok(
 		'the foot names the picked one',
 		(await page.locator('.te-lamp').textContent()).trim() === 'beta.markdown',
 		JSON.stringify((await page.locator('.te-lamp').textContent()).trim())
 	);
 
+	// With a workspace loaded the Folder key TOGGLES the pane rather than re-picking: once a
+	// folder is open, "Folder" is a place you go rather than a thing you choose.
+	const folderKey = page.getByRole('button', { name: 'Folder' });
+	await folderKey.click();
+	await page.waitForTimeout(300);
+	ok('the Folder key hides the workspace', (await page.locator('.te-work').count()) === 0);
+	await folderKey.click();
+	await page.waitForTimeout(300);
+	ok('and shows it again', (await page.locator('.te-work').count()) === 1);
+	ok(
+		'without forgetting which document is open',
+		(await page.locator('.te-work-row.on').count()) === 1
+	);
+
 	// Clearing the sheet forgets the name with it — what is on screen is no longer that file.
 	const clearKey = page.getByRole('button', { name: /Clear|Sure/ });
 	await clearKey.click();
 	await clearKey.click();
-	await page.waitForTimeout(700); // …the same debounce again
+	await page.waitForTimeout(700);
 	ok(
 		'clearing forgets the filename',
 		(await page.locator('.te-lamp').textContent()).trim() === '',
 		JSON.stringify((await page.locator('.te-lamp').textContent()).trim())
 	);
+	ok('and unmarks the workspace row', (await page.locator('.te-work-row.on').count()) === 0);
 
 	dir.rmSync(folder, { recursive: true, force: true });
 }
