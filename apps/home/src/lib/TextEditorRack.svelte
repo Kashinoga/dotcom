@@ -2,6 +2,7 @@
 	import {
 		editor,
 		shownMode,
+		openHeadings,
 		MARKS,
 		DOC_KEYS,
 		OPEN_KEYS,
@@ -69,6 +70,17 @@
 		     acts on the document or on the view, and those belong in the fixed clusters at the
 		     ends where they cannot scroll away. -->
 		<div class="te-group" role="group" aria-label="Marks">
+			<!-- ONE key for six levels. Two of them in the bar was an arbitrary place to stop — the
+			     engine has always set H1 through H6 — and six keys would spend a third of the strip
+			     on a single mark. -->
+			<button
+				type="button"
+				class="tb te-mark-key te-heads"
+				title="Heading level"
+				aria-label="Heading level"
+				aria-expanded={!!editor.headingAt}
+				onclick={openHeadings}>H<span class="te-caret-down" aria-hidden="true"></span></button
+			>
 			{#each MARKS as mark (mark.title)}
 				<button
 					type="button"

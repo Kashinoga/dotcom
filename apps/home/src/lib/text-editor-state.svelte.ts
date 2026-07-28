@@ -68,6 +68,8 @@ export const OPENABLE = /\.(md|markdown|mdown|mkd|txt|text)$/i;
 export type Commands = {
 	/** Wrap the selection in a pair of marks, or unwrap it if it already wears them. */
 	surround(open: string, close?: string): void;
+	/** Set every touched line to a heading LEVEL, 1–6. Zero takes the heading off. */
+	heading(level: number): void;
 	/** Put a mark at the head of every line the selection touches, or take it off. */
 	prefix(mark: string): void;
 	/** Drop a block in on its own lines. */
@@ -78,6 +80,8 @@ export type Commands = {
 	/** Put a document on the sheet, replacing what is there. Undoable — see `load` in the editor. */
 	openFile(): void;
 	openFolder(): void;
+	/** Make a new document in the open folder. Needs a writable handle, so Chromium only. */
+	newFile(): void;
 	/** Write the sheet back to the file it came from. Only when `canWrite` and a handle is open. */
 	saveInPlace(): void;
 	/** Two-step: the first call arms, the second clears. See `armed`. */
@@ -144,6 +148,18 @@ export const editor = $state({
 	 * just loaded the page.
 	 */
 	folderPending: false,
+	/**
+	 * Where the heading menu should stand, in viewport coordinates, or null when it is shut. Six
+	 * levels will not fit the bar as six keys, and two of them (which is what the rack had) is an
+	 * arbitrary place to stop — so one key opens the set.
+	 *
+	 * The coordinates are carried rather than the menu being anchored in the DOM, because the
+	 * marks live in a strip that SCROLLS: a popover inside it would be clipped by its own
+	 * scroller. Fixed, positioned from the key's measured rect, it escapes.
+	 */
+	headingAt: null as { x: number; y: number } | null,
+	/** True while the workspace is asking what to call a new document. */
+	naming: false,
 	/** Which entry is being renamed, if any — the workspace swaps its row for a field. */
 	renaming: '',
 	/** The entry armed for deletion, if any. Two presses, like Clear. */
@@ -183,9 +199,16 @@ export function shownMode(): Mode {
  *  which no icon set distinguishes — a word. */
 export type MarkKey = { label?: string; svg?: string; title: string; run: () => void };
 
+/** The six levels, behind one key. See `headingAt`. */
+export const HEADING_LEVELS = [1, 2, 3, 4, 5, 6];
+
+/** Open the heading menu under whatever key was pressed. */
+export function openHeadings(event: MouseEvent) {
+	const key = (event.currentTarget as HTMLElement).getBoundingClientRect();
+	editor.headingAt = editor.headingAt ? null : { x: key.left, y: key.bottom + 4 };
+}
+
 export const MARKS: MarkKey[] = [
-	{ label: 'H1', title: 'Heading, first level', run: () => editor.cmd?.prefix('# ') },
-	{ label: 'H2', title: 'Heading, second level', run: () => editor.cmd?.prefix('## ') },
 	{ svg: BOLD_SVG, title: 'Bold (⌘B)', run: () => editor.cmd?.surround('**') },
 	{ svg: ITALIC_SVG, title: 'Italic (⌘I)', run: () => editor.cmd?.surround('*') },
 	{ svg: CODE_SVG, title: 'Code (⌘E)', run: () => editor.cmd?.surround('`') },

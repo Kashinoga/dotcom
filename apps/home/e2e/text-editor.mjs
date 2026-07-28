@@ -87,7 +87,7 @@ const value = () => ta.inputValue();
 	// so it is not among them.
 	ok(
 		'every key is in the bar',
-		(await page.locator('.head-row .tb').count()) === 19,
+		(await page.locator('.head-row .tb').count()) === 18,
 		`${await page.locator('.head-row .tb').count()}`
 	);
 	// The document keys sit at the RIGHT END, parted from Home by a rule: they act on the file
@@ -155,13 +155,31 @@ await press('Italic (⌘I)');
 await ta.type('mid');
 await eq('a key with nothing selected leaves the caret between its marks', value(), '*mid*');
 
+// The six levels live behind one key now: two of them in the bar was an arbitrary place to stop.
+const setHeading = async (level) => {
+	await page.getByRole('button', { name: 'Heading level' }).first().click();
+	await page.waitForTimeout(150);
+	await page
+		.getByRole('menuitem', { name: `Heading ${level}`, exact: false })
+		.first()
+		.click();
+	await page.waitForTimeout(200);
+};
 await reset('a title');
-await press('Heading, first level');
-await eq('H1 marks the line', value(), '# a title');
-await press('Heading, second level');
-await eq('H2 replaces H1 rather than nesting inside it', value(), '## a title');
-await press('Heading, second level');
-await eq('H2 again takes it off', value(), 'a title');
+await setHeading(1);
+await eq('the menu sets a first-level heading', value(), '# a title');
+await setHeading(3);
+await eq('and a level REPLACES the one there rather than nesting', value(), '### a title');
+await setHeading(6);
+await eq('all six levels are offered', value(), '###### a title');
+await setHeading(6);
+await eq('asking for the level a line already has takes it off', value(), 'a title');
+await setHeading(2);
+await page.getByRole('button', { name: 'Heading level' }).first().click();
+await page.waitForTimeout(150);
+await page.getByRole('menuitem', { name: 'No heading' }).click();
+await page.waitForTimeout(200);
+await eq('and No heading strips it outright', value(), 'a title');
 
 await reset('the docs');
 await selectAll();
@@ -891,18 +909,18 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	await p.locator('.fkey').click();
 	await p.waitForTimeout(350);
 	ok('it opens', (await shown()) === 1);
-	ok('the marks are a grid', (await p.locator('.te-fly-mark').count()) === 10);
+	ok('the marks are a grid', (await p.locator('.te-fly-mark').count()) === 9);
 	ok(
 		'with the document keys as a stack',
 		(await p.locator('.fkey-stack .icon-btn').count()) === 6,
 		`${await p.locator('.fkey-stack .icon-btn').count()} discs`
 	);
-	// 16 of the 19 — the majority, which is the point of the exercise.
+	// 15 of the 18 — the majority, which is the point of the exercise.
 	ok(
 		'so the majority of the keys are in the flyout',
 		(await p.locator('.te-fly-mark').count()) +
 			(await p.locator('.fkey-stack .icon-btn').count()) ===
-			16
+			15
 	);
 
 	// A MARK leaves the flyout standing, so a run of them costs one open rather than one each.

@@ -8,6 +8,8 @@
 		DOC_KEYS,
 		OPEN_KEYS,
 		OPENABLE,
+		HEADING_LEVELS,
+		openHeadings,
 		type FolderEntry
 	} from '$lib/text-editor-state.svelte';
 	import FloatingKey from '$lib/FloatingKey.svelte';
@@ -208,7 +210,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			clear: clearSheet,
 			openFile,
 			openFolder,
-			saveInPlace
+			saveInPlace,
+			heading,
+			newFile: () => (editor.naming = true)
 		};
 
 		return () => {
@@ -563,6 +567,30 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 
 	const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+	/**
+	 * Set every line the selection touches to a heading LEVEL — or to none, at level 0. It is its
+	 * own verb rather than six calls to `prefix` because the levels are EXCLUSIVE: asking for an
+	 * H3 on an H1 line is a change of level, not a second heading, so whatever is there comes off
+	 * first. Pressing the level a line already has takes it off, the way the two keys did.
+	 */
+	function heading(level: number) {
+		if (!ta) return;
+		const { selectionStart: s, selectionEnd: e } = ta;
+		const from = text.lastIndexOf('\n', s - 1) + 1;
+		const toNewline = text.indexOf('\n', e);
+		const to = toNewline === -1 ? text.length : toNewline;
+		const chosen = text.slice(from, to).split('\n');
+		const ATX = /^ {0,3}(#{1,6})[ \t]+/;
+		const already = chosen.every((l) => l.match(ATX)?.[1].length === level);
+		const mark = level && !already ? '#'.repeat(level) + ' ' : '';
+		const next = chosen.map((l) => mark + l.replace(ATX, '')).join('\n');
+		ta.selectionStart = from;
+		ta.selectionEnd = to;
+		const shift = next.length - (to - from);
+		const head = chosen[0].match(ATX)?.[0].length ?? 0;
+		write(next, Math.max(from, s + (mark.length - head)), e + shift);
+	}
+
 	/** Drop a block in on its own lines, with blank lines around it if there aren't any. */
 	function block(body: string) {
 		if (!ta) return;
@@ -826,6 +854,34 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		savedTimer = window.setTimeout(() => (editor.saved = false), 1400);
 	}
 	let savedTimer = 0;
+
+	/**
+	 * Make a new document in the open folder, and open it. Needs a directory handle to create
+	 * INTO, so it is offered only where the rest of the writing is — a "new file" that could not
+	 * be written anywhere would just be the Clear key with a longer name.
+	 */
+	async function newFile(name: string) {
+		const base = name.trim();
+		editor.naming = false;
+		if (!base || !heldFolder) return;
+		// A name, not a path: creating into another directory is a different verb, and a text
+		// field in a sidebar is the wrong place to offer one.
+		if (/[/\\]/.test(base)) return;
+		const file = OPENABLE.test(base) ? base : `${base}.md`;
+		let handle: FileSystemFileHandle;
+		try {
+			handle = await heldFolder.getFileHandle(file, { create: true });
+		} catch {
+			return;
+		}
+		const entry: FolderEntry = { name: file, path: file, handle, parent: heldFolder };
+		// Only add it if the walk did not already know it — `create: true` on an existing name
+		// hands back the existing file rather than failing, and opening that is the right thing.
+		if (!editor.folder.some((e) => e.path === entry.path)) {
+			editor.folder = [...editor.folder, entry].sort((a, b) => a.path.localeCompare(b.path));
+		}
+		await openEntry(entry);
+	}
 
 	/** Rename an entry on disk, and follow it if it is the one on the sheet. */
 	async function rename(entry: FolderEntry, to: string) {
@@ -1119,6 +1175,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	<!-- The marks, as a grid rather than a column. They keep the flyout open — see the note at
 	     the call. -->
 	<div class="te-fly-marks" role="group" aria-label="Marks">
+		<button
+			type="button"
+			class="te-fly-mark"
+			title="Heading level"
+			aria-label="Heading level"
+			onclick={openHeadings}>H▾</button
+		>
 		{#each MARKS as mark (mark.title)}
 			<button
 				type="button"
@@ -1204,7 +1267,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				</p>
 				<button type="button" class="tb te-work-reconnect" onclick={reconnect}>Reconnect</button>
 			</aside>
-		{:else if editor.folderShown && editor.folder.length}
+		{:else if editor.folderShown}
 			<!-- THE WORKSPACE — the opened folder, kept alongside the document the way an editor
 			     keeps one, rather than a picker that appears and goes. It is a column of the desk
 			     on a wide window and a sheet over it on a phone, and picking from it does not
@@ -1215,6 +1278,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				<header class="te-work-head">
 					<h2 class="te-work-name" title={editor.folderName}>{editor.folderName || 'Folder'}</h2>
 					<span class="te-work-count">{editor.folder.length}</span>
+					{#if editor.canWrite}
+						<button
+							type="button"
+							class="tb te-work-act"
+							onclick={() => (editor.naming = true)}
+							title="Make a new document in this folder">New</button
+						>
+					{/if}
 					<button
 						type="button"
 						class="tb te-work-act"
@@ -1228,6 +1299,28 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						title="Hide the workspace">Hide</button
 					>
 				</header>
+				{#if editor.naming}
+					<form
+						class="te-work-rename"
+						onsubmit={(e) => {
+							e.preventDefault();
+							newFile(new FormData(e.currentTarget).get('name') as string);
+						}}
+					>
+						<!-- svelte-ignore a11y_autofocus -->
+						<input
+							class="field te-work-field"
+							name="name"
+							placeholder="new-document.md"
+							autofocus
+							aria-label="Name for the new document"
+							onkeydown={(e) => {
+								if (e.key === 'Escape') editor.naming = false;
+							}}
+							onblur={() => (editor.naming = false)}
+						/>
+					</form>
+				{/if}
 				<ul class="te-work-list">
 					{#each editor.folder as entry (entry.path)}
 						<li class="te-work-item">
@@ -1297,6 +1390,16 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						</li>
 					{/each}
 				</ul>
+				{#if !editor.folder.length}
+					<!-- An EMPTY folder still gets its sidebar. It used to be hidden — and once New
+					     existed that meant the one place to make a first document disappeared exactly
+					     when it was needed. -->
+					<p class="te-work-note">
+						{editor.canWrite
+							? 'Nothing here this editor can open yet. New makes one.'
+							: 'Nothing here this editor can open — it takes Markdown and plain text.'}
+					</p>
+				{/if}
 				{#if !editor.canWrite}
 					<p class="te-work-note">
 						Read-only — this browser cannot write to a folder. Chrome and Edge can.
@@ -1400,6 +1503,47 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			</div>
 		{/if}
 	</div>
+
+	{#if editor.headingAt}
+		<!-- THE HEADING MENU. Rendered here rather than beside the key that opens it, for two
+		     reasons: the marks live in a strip that SCROLLS, and a popover inside it would be
+		     clipped by its own scroller; and on a phone that strip is not drawn at all, while the
+		     flyout's grid still needs the same menu. Fixed, at the key's measured rect. -->
+		<button
+			class="te-scrim"
+			aria-label="Close the heading menu"
+			onclick={() => (editor.headingAt = null)}
+		></button>
+		<div
+			class="te-heads-menu"
+			role="menu"
+			aria-label="Heading level"
+			style:left="{editor.headingAt.x}px"
+			style:top="{editor.headingAt.y}px"
+		>
+			{#each HEADING_LEVELS as level (level)}
+				<button
+					type="button"
+					role="menuitem"
+					class="te-heads-item"
+					style:font-size="{1.15 - (level - 1) * 0.08}rem"
+					onclick={() => {
+						editor.cmd?.heading(level);
+						editor.headingAt = null;
+					}}>Heading {level}<span class="te-heads-mark">{'#'.repeat(level)}</span></button
+				>
+			{/each}
+			<button
+				type="button"
+				role="menuitem"
+				class="te-heads-item te-heads-none"
+				onclick={() => {
+					editor.cmd?.heading(0);
+					editor.headingAt = null;
+				}}>No heading</button
+			>
+		</div>
+	{/if}
 
 	<!-- The two pickers. Hidden rather than styled: a file input cannot be made to look like
 	     anything in this manual, and the keys that stand in for it already do. -->
@@ -1518,6 +1662,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		/* The sheet's measure, in the mono face: ~82 columns once the gutter and the right pad
 		   come out of it. The proof's is narrower because prose sets wider per pixel — 34rem of
 		   IBM Plex is about 68 characters, which is the same reading comfort. */
+		/* The band of gutter round and between the columns. */
+		--te-gutter: 0.4rem;
 		--te-measure: 52rem;
 		--te-proof-measure: 34rem;
 	}
@@ -1535,13 +1681,23 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		flex: 1 1 auto;
 		display: flex;
 		min-height: 0;
-		/* Real space, not a hairline in disguise. A 1px gap is just the border again with a
-		   different name; this is wide enough that the gutter reads as ground between two
-		   sheets. */
-		gap: clamp(0.5rem, 1.1vw, 1rem);
+		/* Real space, not a hairline in disguise — but a thin band of it. A 1px gap is just the
+		   border again under another name, and a wide one turns two panes into two documents.
+		   The same measure goes round the OUTSIDE as between: each column is framed by the gutter
+		   on all four sides rather than sitting flush to the panel at the top and bottom and
+		   apart only in the middle, which read as two different ideas about the same space. One
+		   token, so they cannot drift. */
+		gap: var(--te-gutter);
+		padding: var(--te-gutter);
 		background: var(--page);
 	}
+	/* The columns take the keys' own corner — 4px, the manual's plastic radius. Square sheets on a
+	   grey field read as a table with the rules rubbed out; the same soft corner every control in
+	   the bar wears makes them objects laid on it. `overflow: hidden` so the scrollers inside
+	   cannot paint into the corners they are supposed to be rounding. */
 	.te-pane {
+		border-radius: 4px;
+		overflow: hidden;
 		flex: 1 1 50%;
 		display: flex;
 		flex-direction: column;
@@ -1562,12 +1718,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		flex: 1 1 auto;
 		min-height: 0;
 		overflow: auto;
-		/* THE BAR'S HEIGHT, as padding rather than as a gap above. The scroller starts at the very
-		   top of the panel — underneath the bar — and this pushes the first line clear of it. So
-		   the document begins below the keys and then travels UNDER them as it scrolls, which is
-		   what gives the bar's frost something to frost. (The page publishes the measured height
-		   as --bar-h; the fallback is the one-row bar the stylesheet assumes elsewhere.) */
-		padding-top: var(--bar-h, 60px);
 		background: var(--surface);
 	}
 	/* THE COLUMN. Everything that has to move together when the measure changes lives on this one
@@ -1606,13 +1756,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		margin-inline: auto;
 	}
 
-	/* ── The scrollbar, held clear of the bar ──────────────────────────────────
-	   The scroller runs UNDER the bar so the frost has something to frost, which means its
-	   scrollbar would run up behind the bar too — a thumb travelling into the glass and out of
-	   reach. The docs shell already solved this and the recipe is copied from it wholesale
-	   (DocsShell, .docs-scroll): the track takes a top MARGIN of the bar's height, so the
-	   scrollport still starts at the top of the panel while the bar the thumb runs in starts
-	   below the keys.
+	/* ── The scrollbar ─────────────────────────────────────────────────────────
+	   The columns sit below the bar now, so the track needs no margin to dodge it — it simply
+	   runs the height of its own column. (It carried one while the scrollers ran under the bar.)
 	   Styling any ::-webkit-scrollbar part opts out of the platform's overlay bars, so the whole
 	   set has to be stated — a slim transparent gutter, the thumb an ink wash on the key radius.
 	   LITERALS in the thumb's colours: custom properties and color-mix() do not resolve inside
@@ -1625,7 +1771,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-paper::-webkit-scrollbar-track,
 	.te-proof::-webkit-scrollbar-track {
 		background: transparent;
-		margin-top: var(--bar-h, 60px);
 	}
 	.te-paper::-webkit-scrollbar-thumb,
 	.te-proof::-webkit-scrollbar-thumb {
@@ -1852,8 +1997,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		flex: 1 1 auto;
 		min-height: 0;
 		overflow: auto;
-		/* The proof runs under the bar on the same terms as the sheet — see .te-paper. */
-		padding: calc(var(--bar-h, 60px) + var(--te-pad)) clamp(1.25rem, 3vw, 2.5rem) 40vh;
+		padding: var(--te-pad) clamp(1.25rem, 3vw, 2.5rem) 40vh;
 		counter-reset: te-sec te-listing;
 		color: var(--ink);
 		font-family: var(--font-body, system-ui, sans-serif);
@@ -2056,6 +2200,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   so it sits beside the work rather than over it. Fixed width — a file list that grew and
 	   shrank with the window would move the sheet every time you resized it. */
 	.te-work {
+		border-radius: 4px;
+		overflow: hidden;
 		flex: none;
 		width: 15rem;
 		display: flex;
@@ -2063,15 +2209,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		min-height: 0;
 		/* No rule down its edge either: it is a sheet on the same gutter as the panes beside it. */
 		background: var(--surface);
-		padding-top: var(--bar-h, 60px);
 	}
 	.te-work-head {
 		flex: none;
 		display: flex;
 		align-items: baseline;
 		gap: 0.4rem;
-		padding: 0.7rem 0.75rem;
-		border-bottom: 1px solid var(--te-rule);
+		padding: 0.6rem 0.75rem 0.4rem;
 	}
 	.te-work-name {
 		margin: 0;
@@ -2118,14 +2262,16 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	/* Each row is the catalog row the Apps index uses — a hairline under it, the accent on
 	   hover, nothing floating. The OPEN one is marked, because a workspace whose list does not
 	   say which file you are looking at is a list rather than a workspace. */
+	/* No rule under each row. A list of four documents does not need three lines drawn through
+	   it: the rows are already parted by their own leading, and the hover tint and the marked
+	   row are what actually need to be seen. The same argument as the panes beside it. */
 	.te-work-row {
 		display: block;
 		width: 100%;
-		padding: 0.5rem 0.75rem;
+		padding: 0.4rem 0.75rem;
 		text-align: left;
 		background: none;
 		border: 0;
-		border-bottom: 1px solid var(--te-rule);
 		cursor: pointer;
 	}
 	.te-work-row:hover,
@@ -2182,8 +2328,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		background: var(--pixel-key-on, transparent);
 	}
 	.te-work-rename {
-		padding: 0.35rem 0.5rem;
-		border-bottom: 1px solid var(--te-rule);
+		padding: 0.25rem 0.5rem;
 	}
 	.te-work-field {
 		width: 100%;
@@ -2252,6 +2397,61 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   `.fkey.fkey` is (0,3,0) and settles it. */
 	:global(.te .fkey.fkey) {
 		bottom: calc(var(--te-foot-h, 0px) + 1.25rem);
+	}
+
+	/* ── The heading menu ──────────────────────────────────────────────────────
+	   Six levels, set in their own sizes so the list shows what it is offering rather than
+	   naming it — the manual's own trick, and the reason a menu beats six keys here. */
+	.te-scrim {
+		position: fixed;
+		inset: 0;
+		z-index: 30;
+		border: 0;
+		padding: 0;
+		background: transparent;
+		cursor: default;
+	}
+	.te-heads-menu {
+		position: fixed;
+		z-index: 31;
+		min-width: 11rem;
+		padding: 0.25rem;
+		background: var(--surface);
+		border: 1px solid var(--te-rule);
+		border-radius: 3px;
+		box-shadow: var(--pixel-paper-shadow, 0 10px 30px rgba(0, 0, 0, 0.18));
+	}
+	.te-heads-item {
+		display: flex;
+		align-items: baseline;
+		gap: 0.5rem;
+		width: 100%;
+		padding: 0.3rem 0.5rem;
+		text-align: left;
+		font-family: var(--font-motto, Georgia, serif);
+		color: var(--ink);
+		background: none;
+		border: 0;
+		border-radius: 2px;
+		cursor: pointer;
+	}
+	.te-heads-item:hover,
+	.te-heads-item:focus-visible {
+		background: color-mix(in srgb, var(--orange) 8%, transparent);
+		outline: none;
+	}
+	.te-heads-mark {
+		margin-left: auto;
+		font-family: var(--font-mono, monospace);
+		font-size: 0.68rem;
+		color: var(--sub);
+	}
+	.te-heads-none {
+		font-family: var(--font-mono, monospace);
+		font-size: 0.7rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--sub);
 	}
 
 	/* ── The phone's flyout ────────────────────────────────────────────────────

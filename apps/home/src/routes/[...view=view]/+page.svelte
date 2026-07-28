@@ -919,7 +919,9 @@
 	const EXPAND_KEY = 'ksh-panel-expanded';
 	let panelExpanded = $state(false);
 	// The dense bar's measured height, published to the surface as --bar-h so the body below can
-	// reserve exactly it. See the bind on .surface-head, and .surface-body.editor.
+	// reserve exactly it. OFFSET height, not client: the bar wears a 1px border either side (the
+	// pill's geometry, kept even while flat) and clientHeight leaves both out, which left the
+	// editor's top gutter 2px shy of the three that frame it. See .surface-body.editor.
 	let barHeight = $state(0);
 	// Has the ranger EVER gone up this visit? The space scene mounts on the first orbit and
 	// then stays — a mounted-once layer just turns its opacity, so later deployments can't
@@ -2445,7 +2447,7 @@
 									class:orbit={ranger.deployment === 'orbit'}
 									class:court={v.code === 'AITA'}
 									class:scrolled={surfScrolled || (v.code === 'TEXT' && textEditor.scrolled)}
-									bind:clientHeight={barHeight}
+									bind:offsetHeight={barHeight}
 								>
 									<div class="head-row csb-fold">
 										{#if BAR_HEADER.includes(v.code)}
@@ -3432,14 +3434,16 @@
 	.surface-head.bar + .surface-body.editor {
 		padding-inline: 0;
 		padding-bottom: 0;
-		/* NO top reserve — the document runs UNDER the bar, which is the whole point of the bar
-		   being frosted. Reserving the bar's height here pushed the panes below it, so nothing
-		   ever passed beneath the glass and the frost had nothing to frost: a hard edge with the
-		   text stopping neatly under it, which is exactly what the docs superbar is designed not
-		   to look like. The room the first line needs is padding on the SCROLLERS instead (see
-		   --bar-h in $lib/TextEditor), so the text starts below the bar and then travels under
-		   it. The measured height is still published for them to read. */
-		padding-top: 0;
+		/* The bar's MEASURED height, reserved. This went back and forth and the reasoning is worth
+		   keeping: with no reserve the columns ran under the bar and the frost had something to
+		   frost, which is what a superbar is for — but it also meant the gutter that frames every
+		   column was invisible along the top, hidden behind the glass, so three of the four sides
+		   were framed and the fourth only appeared to be.
+		   Reserving it puts the whole desk below the bar, so all four sides of every column are
+		   framed alike. The trade is that nothing passes beneath the glass any more: the frost
+		   now sits over the gutter rather than over moving text. Even framing was the ask; the
+		   frost is what was given up for it. */
+		padding-top: var(--bar-h, calc(44px + 2 * var(--bar-inset)));
 	}
 	/* The header's control row: Back at the left, a panel's own action (Weather's search) at the
 	   right. It replaces the bare Back button, so the gap below it is the one Back used to set.
