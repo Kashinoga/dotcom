@@ -259,7 +259,18 @@ export const DOC_KEYS: DocKey[] = [
 	{
 		id: 'download',
 		svg: DOWNLOAD_SVG,
-		title: () => 'Download it as a .md file',
+		// The one place the app could otherwise be ambiguous about what it just did. Without the
+		// File System Access API a download is the ONLY way out, and it writes a new file to the
+		// Downloads folder rather than to the one you opened — press it twice and you have
+		// `notes (1).md`. Somebody who pressed Cmd-S in Safari and saw no complaint could
+		// reasonably believe they had saved. The tooltip says otherwise, in each of the three
+		// states it can be in.
+		title: () =>
+			!editor.canWrite
+				? 'Download a copy — this browser cannot save in place'
+				: editor.openHandle
+					? 'Download a copy — Save writes to the file itself'
+					: 'Download it as a .md file',
 		label: () => '.md',
 		run: () => editor.cmd?.download(),
 		folds: () => true

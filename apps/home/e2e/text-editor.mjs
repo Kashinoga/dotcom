@@ -575,6 +575,12 @@ await reset('first\n\n\nlast');
 		'and a SAVE key appears, which it does not without a handle',
 		(await wp.getByRole('button', { name: /^Save/ }).count()) === 1
 	);
+	ok(
+		'with the download reworded to point at it',
+		(await wp.getByRole('button', { name: '.md', exact: true }).getAttribute('title')) ===
+			'Download a copy — Save writes to the file itself',
+		JSON.stringify(await wp.getByRole('button', { name: '.md', exact: true }).getAttribute('title'))
+	);
 
 	await wp.locator('.te-type').fill('# Alpha changed');
 	await wp.waitForTimeout(200);
@@ -657,6 +663,17 @@ await reset('first\n\n\nlast');
 			(await rp.evaluate(() => typeof window.showDirectoryPicker)) === 'undefined'
 		);
 		ok('so no SAVE key is drawn', (await rp.getByRole('button', { name: /^Save/ }).count()) === 0);
+		// …and the one way out says what it actually does. A download writes a NEW file to the
+		// Downloads folder; somebody who pressed it here and saw no complaint could reasonably
+		// believe they had saved over the one they opened.
+		ok(
+			'and the download says it is a copy, not a save',
+			(await rp.getByRole('button', { name: '.md', exact: true }).getAttribute('title')) ===
+				'Download a copy — this browser cannot save in place',
+			JSON.stringify(
+				await rp.getByRole('button', { name: '.md', exact: true }).getAttribute('title')
+			)
+		);
 		await ro.close();
 	}
 }
