@@ -65,18 +65,20 @@ export const RELEASES: Record<string, AppRelease> = {
 	TEXT: {
 		major: 0,
 		minor: 8,
-		commits: 306,
+		commits: 313,
 		recent: [
+			{ at: '0.8.313', what: 'Save files a scratch note in the folder; the shelf is remembered' },
+			{ at: '0.8.312', what: 'New makes a scratch note; drag a document onto a folder to move it' },
 			{
-				at: '0.8.309',
+				at: '0.8.311',
 				what: 'A shelf above the tree for documents opened from outside the folder'
 			},
-			{ at: '0.8.308', what: 'The workspace names itself and its keys on one row' },
-			{ at: '0.8.307', what: 'Rename and Delete moved onto a document’s right-click menu' },
-			{ at: '0.8.307', what: 'The workspace browses folders as a tree you can shut' },
-			{ at: '0.8.307', what: 'Code listings are numbered inside the heading they sit under' },
+			{ at: '0.8.310', what: 'The workspace names itself and its keys on one row' },
+			{ at: '0.8.309', what: 'Rename and Delete moved onto a document’s right-click menu' },
+			{ at: '0.8.309', what: 'The workspace browses folders as a tree you can shut' },
+			{ at: '0.8.309', what: 'Code blocks are numbered inside the heading they sit under' },
 			{ at: '0.8.306', what: 'A contents rail, built from the source so it is there in Write' },
-			{ at: '0.8.305', what: 'Six heading levels behind one key, and a New file key' },
+			{ at: '0.8.305', what: 'Six heading levels behind one key in the bar' },
 			{ at: '0.7.304', what: 'The editor remembers the folder you opened last time' },
 			{ at: '0.7.302', what: 'Rename, delete and save in place, where the browser allows it' },
 			{ at: '0.6.301', what: 'A workspace: a folder kept open beside the document' }
