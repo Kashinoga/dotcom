@@ -272,8 +272,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// See `canWrite` in the state module: this one function, and nothing else, says whether the
 		// real file system is reachable for writing.
 		editor.canWrite = typeof window.showDirectoryPicker === 'function';
-		// The folder from last time. Never pops a permission dialog on load — see recallFolder.
+		// The folder from last time, and the shelf that outlived it. Neither pops a permission
+		// dialog on load — see recallFolder and recallLoose; both re-ask on a click instead.
 		recallFolder();
+		recallLoose();
 
 		const fine = window.matchMedia('(pointer: fine)');
 		finePointer = fine.matches;
@@ -351,6 +353,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		} catch {
 			/* nothing to do */
 		}
+	});
+
+	// The shelf, written whenever it changes. Reading `.length` and the ids is what subscribes it
+	// — the handles themselves are not reactive and never change in place.
+	$effect(() => {
+		editor.loose.map((d) => d.id).join();
+		rememberLoose();
 	});
 
 	// The scratch list, written whenever it changes. Not debounced: the list changes when a note
@@ -870,8 +879,42 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		trackCaret();
 	}
 
-	function openFile() {
-		fileInput?.click();
+	/**
+	 * A file, by hand. Where the browser has `showOpenFilePicker` it is used, and everywhere else
+	 * the hidden `<input type=file>` stands in — exactly the arrangement the FOLDER key already
+	 * keeps, and for the two things a handle buys that a File cannot: the document can be saved
+	 * back to, and its row on the shelf can be REMEMBERED. A File is a snapshot with nothing
+	 * behind it; there is no way to re-read one after a reload, so a shelf built on them empties
+	 * itself every visit.
+	 */
+	async function openFile() {
+		const pick = window.showOpenFilePicker;
+		if (!pick) return fileInput?.click();
+		let handle: FileSystemFileHandle;
+		try {
+			[handle] = await pick({
+				types: [
+					{
+						description: 'Markdown and plain text',
+						accept: {
+							'text/markdown': ['.md', '.markdown', '.mdown', '.mkd'],
+							'text/plain': ['.txt', '.text']
+						}
+					}
+				]
+			});
+		} catch {
+			// Cancelled. Not an error, and not worth a word.
+			return;
+		}
+		let file: File;
+		try {
+			file = await handle.getFile();
+		} catch {
+			return;
+		}
+		shelve({ id: `h:${handle.name}`, name: handle.name, handle });
+		await load(file, handle);
 	}
 
 	// ── Scratch ───────────────────────────────────────────────────────────────
@@ -970,6 +1013,17 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.ephemeral = next;
 	}
 
+	/**
+	 * A-Z, for when the order you dragged them into has stopped meaning anything. `numeric` so
+	 * `Ephemeral 10` follows `Ephemeral 9` rather than `Ephemeral 1` — these names END in a
+	 * figure, and a plain string sort would file them the way a filing cabinet files 1, 10, 2.
+	 */
+	function sortEphemeral() {
+		editor.ephemeral = [...editor.ephemeral].sort((a, b) =>
+			a.name.localeCompare(b.name, undefined, { numeric: true })
+		);
+	}
+
 	/** Take a scratch note off the list. Its words go with it — there is nowhere else they are. */
 	function closeEphemeral(doc: Ephemeral) {
 		editor.ephemeral = editor.ephemeral.filter((d) => d.id !== doc.id);
@@ -1026,7 +1080,16 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 
 	/** A row on the shelf, opened again. It re-reads from disk; the shelf holds no text. */
 	async function openLoose(doc: LooseDoc) {
-		const file = doc.handle ? await doc.handle.getFile().catch(() => null) : doc.file;
+		let file = doc.handle ? await doc.handle.getFile().catch(() => null) : (doc.file ?? null);
+		// A remembered row comes back with its grant lapsed. This click is a user gesture, which
+		// is the only moment a browser will re-ask — so it asks here rather than at mount, where
+		// it would be a permission dialog thrown at somebody who has just loaded a page.
+		if (!file && doc.handle) {
+			const state = await doc.handle
+				.requestPermission?.({ mode: 'readwrite' })
+				.catch(() => 'denied');
+			if (state === 'granted') file = await doc.handle.getFile().catch(() => null);
+		}
 		if (!file) {
 			// Moved, deleted, or a permission that has lapsed. The row is the only thing that was
 			// ever ours, so the row goes.
@@ -1134,17 +1197,78 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.folder = out;
 		editor.folderName = dir.name;
 		editor.folderShown = true;
-		editor.openPath = '';
-		editor.openIn = 'tree';
+		// Only a document from the OLD TREE stops being the open one — it has just been shelved by
+		// the line above. A scratch note or a shelf row belongs to no folder at all, and clearing
+		// the mark on one because a folder changed underneath it took the Save key away from a
+		// note that was still on the sheet.
+		if (editor.openIn === 'tree') editor.openPath = '';
 		// A different folder is a different tree; what was shut in the last one means nothing here.
 		editor.collapsed = [];
 		heldFolder = dir;
+		editor.folderWritable = true;
 		editor.folderPending = false;
 		rememberFolder(dir);
 	}
 
+	/**
+	 * A SCRATCH note becomes a real file. This is the one way a document is created on disk now
+	 * that New makes a note instead of a file — and it is the right way round: you write the
+	 * thing first and decide it is worth keeping second, rather than naming an empty file before
+	 * there is anything in it.
+	 *
+	 * It stops being scratch the moment it lands. The row leaves the shelf, the tree gains it,
+	 * and the sheet is holding a real file with a handle behind it — so the next press of Save is
+	 * an ordinary save in place.
+	 */
+	async function fileScratchNote() {
+		const doc = editor.ephemeral.find((d) => d.id === editor.openPath);
+		if (!doc || !heldFolder) return;
+		const name = await freeName(heldFolder, doc.name, '.md');
+		let handle: FileSystemFileHandle;
+		try {
+			handle = await heldFolder.getFileHandle(name, { create: true });
+			const w = await handle.createWritable();
+			await w.write(text);
+			await w.close();
+		} catch {
+			return;
+		}
+		const entry: FolderEntry = { name, path: name, handle, parent: heldFolder };
+		if (!editor.folder.some((e) => e.path === entry.path)) {
+			editor.folder = [...editor.folder, entry].sort((a, b) => a.path.localeCompare(b.path));
+		}
+		editor.ephemeral = editor.ephemeral.filter((d) => d.id !== doc.id);
+		editor.openPath = entry.path;
+		editor.openIn = 'tree';
+		editor.openHandle = handle;
+		editor.filename = name;
+		saySaved();
+		justRenamed = entry.path;
+		clearTimeout(renamedTimer);
+		renamedTimer = window.setTimeout(() => (justRenamed = ''), 1700);
+	}
+
+	/**
+	 * `Ephemeral 1.md`, or the first numbered variant that is free. `getFileHandle(create: true)`
+	 * hands back an EXISTING file of that name rather than failing, so filing a second note over
+	 * a first one would be silent — the same trap `move` sets, answered the same way.
+	 */
+	async function freeName(dir: FileSystemDirectoryHandle, base: string, ext: string) {
+		for (let n = 1; n < 100; n += 1) {
+			const name = n === 1 ? `${base}${ext}` : `${base} ${n}${ext}`;
+			try {
+				await dir.getFileHandle(name);
+			} catch {
+				return name;
+			}
+		}
+		return `${base} ${Date.now()}${ext}`;
+	}
+
 	/** Write the sheet back to the file it came from. */
 	async function saveInPlace() {
+		// A scratch note has no file to be written BACK to; it is written OUT for the first time.
+		if (editor.openIn === 'ephemeral') return fileScratchNote();
 		const handle = editor.openHandle;
 		if (!handle) return;
 		try {
@@ -1156,6 +1280,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			// than claim a save that did not happen.
 			return;
 		}
+		saySaved();
+	}
+
+	/** The Save key's own confirmation — emerald, for a second and a bit. */
+	function saySaved() {
 		editor.saved = true;
 		clearTimeout(savedTimer);
 		savedTimer = window.setTimeout(() => (editor.saved = false), 1400);
@@ -1573,6 +1702,50 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		});
 	}
 
+	/**
+	 * THE SHELF, remembered. Only the rows with a HANDLE behind them: a File from the fallback
+	 * input is a snapshot with nothing to re-read, so those rows are the session's and go with
+	 * it. IndexedDB rather than localStorage because a handle is a structured-cloneable OBJECT —
+	 * `JSON.stringify` would turn it into `{}` and hand back a row that opens nothing.
+	 *
+	 * The PERMISSION does not survive with them, exactly as it does not for the folder. A row
+	 * that comes back with a lapsed grant re-asks on the click that opens it, which is a user
+	 * gesture and therefore the one moment a browser will allow the question.
+	 */
+	async function rememberLoose() {
+		const store = await handleStore('readwrite');
+		if (!store) return;
+		const keep = editor.loose
+			.filter((d) => d.handle)
+			.map((d) => ({ id: d.id, name: d.name, handle: d.handle }));
+		try {
+			if (keep.length) store.put(keep, 'loose');
+			else store.delete('loose');
+		} catch {
+			/* private mode, or a browser that will not clone a handle — forgetting is survivable */
+		}
+	}
+
+	/** The shelf from last time, minus anything the browser will no longer hand over. */
+	async function recallLoose() {
+		if (!editor.canWrite) return;
+		const store = await handleStore('readonly');
+		if (!store) return;
+		const kept: LooseDoc[] | null = await new Promise((resolve) => {
+			const req = store.get('loose');
+			req.onsuccess = () => resolve(req.result ?? null);
+			req.onerror = () => resolve(null);
+		});
+		if (!kept?.length) return;
+		// Merged rather than assigned: this runs after the mount, and anything opened in the
+		// meantime is newer than anything remembered.
+		const have = new Set(editor.loose.map((d) => d.id));
+		editor.loose = [...editor.loose, ...kept.filter((d) => d.handle && !have.has(d.id))].slice(
+			0,
+			LOOSE_MAX
+		);
+	}
+
 	async function rememberFolder(dir: FileSystemDirectoryHandle | null) {
 		const store = await handleStore('readwrite');
 		if (!store) return;
@@ -1622,6 +1795,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		out.sort((a, b) => a.path.localeCompare(b.path));
 		editor.folder = out;
 		editor.folders = [...heldDirs.keys()].filter(Boolean);
+		editor.folderWritable = true;
 		editor.folderPending = false;
 		editor.folderShown = true;
 		editor.collapsed = [];
@@ -1677,10 +1851,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// and no empty folders either: an empty directory leaves no File to be seen in.
 		heldDirs = new Map();
 		editor.folders = [];
+		editor.folderWritable = false;
 		editor.folderName = root;
 		editor.folderShown = true;
-		editor.openPath = '';
-		editor.openIn = 'tree';
+		if (editor.openIn === 'tree') editor.openPath = '';
 		editor.collapsed = [];
 	}
 
@@ -1869,11 +2043,25 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		list: 'loose' | 'ephemeral';
 		open: () => void;
 		menu: (e: MouseEvent) => void;
-	}[]
+		/** Present where a row can be dismissed from the row itself. False while it asks. */
+		close?: () => boolean;
+	}[],
+	sort?: () => void
 )}
 	<div class="te-loose">
 		<div class="te-loose-head">
 			<span class="te-loose-name">{title}</span>
+			{#if sort}
+				<!-- A-Z. Only on the list whose order is the visitor's: sorting ELSEWHERE would
+				     contradict what that shelf means, which is the order you reached for them. -->
+				<button
+					type="button"
+					class="te-loose-sort"
+					title="Sort these A to Z"
+					aria-label="Sort {title} A to Z"
+					onclick={sort}>A–Z</button
+				>
+			{/if}
 			<span class="te-work-count">{rows.length}</span>
 		</div>
 		<ul class="te-work-list te-loose-list" aria-label={title}>
@@ -1906,6 +2094,23 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					>
 						<span class="te-work-file">{row.name}</span>
 					</button>
+					{#if row.close}
+						<!-- The × is a SIBLING of the row, not a child: a button inside a button is not markup
+						     a browser will keep. It asks twice, like everything else in this app that cannot be
+						     undone — a scratch note's words are nowhere but this row. -->
+						<button
+							type="button"
+							class="te-eph-close"
+							class:on={editor.doomed === row.id}
+							title={editor.doomed === row.id
+								? `Press again to close ${row.name} — its words go with it`
+								: `Close ${row.name}`}
+							aria-label={editor.doomed === row.id
+								? `Press again to close ${row.name}`
+								: `Close ${row.name}`}
+							onclick={row.close}>×</button
+						>
+					{/if}
 				</li>
 			{/each}
 		</ul>
@@ -2060,8 +2265,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 								name: d.name,
 								list: 'ephemeral' as const,
 								open: () => openEphemeral(d),
-								menu: (e: MouseEvent) => openShelfMenu(e, d.id, 'ephemeral')
-							}))
+								menu: (e: MouseEvent) => openShelfMenu(e, d.id, 'ephemeral'),
+								close: () => closeShelfRow({ id: d.id, list: 'ephemeral' })
+							})),
+							sortEphemeral
 						)}
 					{/if}
 					{#if editor.loose.length}
@@ -3030,13 +3237,17 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		border: 1px solid var(--te-rule);
 		border-radius: 3px;
 	}
-	/* A fenced block is a LISTING, and is numbered as one. The tag rides the top-right corner
-	   in the pixel face, off the page field rather than the slab, so it reads as a caption on
-	   the block and not as the block's first line. */
+	/* A fenced block is a BLOCK, and is numbered as one — inside the heading it sits under, see
+	   the counter note above. The tag rides the top-right corner in the pixel face, off the page
+	   field rather than the slab, so it reads as a caption on the block rather than as its first
+	   line. */
+	/* The eyebrow rides the top-right corner, so the block has to keep a whole line clear under
+	   it — at 1.1rem the first line of code sat under the tag rather than below it, and the two
+	   read as one crowded row. */
 	.te-proof :global(pre) {
 		position: relative;
 		margin: 0 0 1.4rem;
-		padding: 1.1rem 1rem 0.9rem;
+		padding: 1.7rem 1rem 0.9rem;
 		overflow-x: auto;
 		background: var(--page);
 		border: 1px solid var(--te-rule);
@@ -3044,7 +3255,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		counter-increment: te-listing;
 	}
 	.te-proof :global(pre::before) {
-		content: 'Listing ' counter(te-listing, decimal-leading-zero);
+		content: 'Block ' counter(te-listing, decimal-leading-zero);
 		position: absolute;
 		top: 0.15rem;
 		right: 0.55rem;
@@ -3168,16 +3379,20 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   `align-items: center`, not baseline: three plastic keys and a word have no baseline worth
 	   sharing, and on a baseline the keys hung a pixel low against the name.
 	   `position: relative` is the anchor for the name's reveal below. */
+	/* The head is a ROW, on the same 30px as everything else in this pane and as the contents
+	   rail's head on the other side of the desk. The keys inside it are 22px, so the inset is
+	   what is left over rather than a round number picked on its own — a head that stood taller
+	   than its list started the desk on two different grids.
+	   The side insets are the LIST'S: the tally at the end has to land on the same right edge as
+	   every folder tally under it, and the name has to start where the top-level rows start. */
 	.te-work-head {
 		position: relative;
 		flex: none;
 		display: flex;
 		align-items: center;
 		gap: 0.4rem;
-		/* The side insets are the LIST'S, not the head's own: the tally at the end of this row
-		   has to land on the same right edge as every folder tally under it, and the name has to
-		   start where the top-level rows start. Even top and bottom. */
-		padding: 0.6rem 0.75rem;
+		min-height: 30px;
+		padding: 0.25rem 0.75rem;
 	}
 	/* The name takes what the keys leave, and no less than nothing: `min-width: 0` is what makes
 	   a flex child agree to be narrower than its own text, and without it the name would push the
@@ -3300,6 +3515,68 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 	/* The manual's running-head voice — the same one a folder row in the tree is set in, because
 	   this is the same kind of thing: a heading over a handful of documents. */
+	/* A-Z on the Scratch head. Set as small as the tally beside it and in the same muted ink: it
+	   is a key, but it is a key about the LIST rather than about a document, and the documents are
+	   what this pane is for. */
+	.te-loose-sort {
+		flex: none;
+		padding: 0 0.25rem;
+		font-family: var(--font-mono, monospace);
+		font-size: 0.6rem;
+		letter-spacing: 0.04em;
+		color: var(--sub);
+		background: none;
+		border: 0;
+		border-radius: 2px;
+		cursor: pointer;
+	}
+	.te-loose-sort:hover,
+	.te-loose-sort:focus-visible {
+		color: var(--orange);
+		outline: none;
+	}
+	/* The × on a scratch row. Held back until the row is reached for, the way the tree's verbs
+	   once were — but there is only one of it and it is a glyph rather than a word, so it costs
+	   the name nothing. Armed, it takes the accent: the second press is the end of those words. */
+	.te-work-item {
+		position: relative;
+	}
+	.te-eph-close {
+		position: absolute;
+		right: 0.5rem;
+		top: 50%;
+		transform: translateY(-50%);
+		width: 18px;
+		height: 18px;
+		display: grid;
+		place-items: center;
+		font-family: var(--font-mono, monospace);
+		font-size: 0.85rem;
+		line-height: 1;
+		color: var(--sub);
+		background: none;
+		border: 0;
+		border-radius: 3px;
+		cursor: pointer;
+		opacity: 0;
+		transition: opacity 0.12s ease;
+	}
+	.te-work-item:hover .te-eph-close,
+	.te-work-item:focus-within .te-eph-close,
+	.te-eph-close.on {
+		opacity: 1;
+	}
+	.te-eph-close:hover,
+	.te-eph-close:focus-visible {
+		color: var(--orange);
+		background: color-mix(in srgb, var(--orange) 10%, transparent);
+		outline: none;
+	}
+	.te-eph-close.on {
+		color: var(--orange);
+		background: var(--pixel-key-on, color-mix(in srgb, var(--orange) 14%, transparent));
+	}
+
 	/* The same voice a folder row's name is set in, for the same reason: both name a place. */
 	.te-loose-name {
 		flex: 1 1 auto;
@@ -3371,15 +3648,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		outline-offset: -2px;
 		background: color-mix(in srgb, var(--orange) 6%, transparent);
 	}
-	/* A row is dragged by the whole of itself, so the cursor has to say so on the part you would
-	   naturally grab. Only where a move is actually possible: `[draggable='true']` is set from
-	   the same gate the drop uses. */
-	.te-work-row[draggable='true'] {
-		cursor: grab;
-	}
-	.te-work-row[draggable='true']:active {
-		cursor: grabbing;
-	}
+	/* NO grab cursor, even though these rows drag. A row's first job is to OPEN the document, and
+	   a hand telling you to pick it up is an offer to do the rarer thing — the pointer says
+	   "this is a control", which is the true and more useful of the two. Dragging still works;
+	   it just does not advertise itself over the clicking. */
 	/* ── A rename SAYS so ──────────────────────────────────────────────────────
 	   The one write in this pane that changes nothing you can see: the sheet is unchanged, the
 	   row simply has a different word in it, and a rename the browser refused looks identical to
@@ -3578,12 +3850,19 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		overflow-y: auto;
 		border-radius: 4px;
 		background: var(--surface);
-		padding: 0.6rem 0 0.75rem;
+		/* No top inset — the head is a row and brings its own. */
+		padding: 0 0 0.75rem;
 	}
+	/* The same row as the workspace's head across the desk: 30px, the same insets, the label
+	   centred in it rather than sitting on a margin. The two rails frame the writing, and they
+	   only read as a frame if they start on the same line. */
 	.te-toc-head {
 		flex: none;
-		margin: 0 0 0.35rem;
-		padding: 0 0.75rem;
+		display: flex;
+		align-items: center;
+		min-height: 30px;
+		margin: 0;
+		padding: 0.25rem 0.75rem;
 		font-family: var(--font-mono, monospace);
 		font-size: 0.66rem;
 		font-weight: 700;

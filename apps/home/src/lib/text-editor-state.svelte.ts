@@ -172,6 +172,13 @@ export const editor = $state({
 	folders: [] as string[],
 	folderName: '',
 	/**
+	 * Is the open folder one this browser can WRITE into — a real directory handle rather than a
+	 * `webkitdirectory` snapshot? `canWrite` says the browser has the API at all; this says there
+	 * is somewhere to use it. Save on a scratch note reads it, because a key offering to file a
+	 * note in a folder that cannot take one is a key that lies.
+	 */
+	folderWritable: false,
+	/**
 	 * The pane is OPEN by default. It is not only a folder listing any more — it holds the scratch
 	 * notes and the New key that makes them, so a workspace that started shut hid the one control
 	 * in it that does not need a folder at all. On a phone it is a sheet OVER the document rather
@@ -380,13 +387,22 @@ export const DOC_KEYS: DocKey[] = [
 	{
 		id: 'save',
 		svg: SAVE_SVG,
-		title: () => `Save back to ${editor.filename || 'the file'}`,
+		title: () =>
+			editor.openIn === 'ephemeral'
+				? `File this note in ${editor.folderName || 'the folder'} as ${editor.filename}.md`
+				: `Save back to ${editor.filename || 'the file'}`,
 		label: () => (editor.saved ? 'Saved' : 'Save'),
 		run: () => editor.cmd?.saveInPlace(),
 		done: () => editor.saved,
-		// Only when there is a real file behind the sheet to save INTO. Otherwise `.md` (the
-		// download) is the way a document leaves, and it is right beside this.
-		shown: () => editor.canWrite && !!editor.openHandle,
+		/**
+		 * Only when there is somewhere for it to go. Two ways there can be: a real file behind the
+		 * sheet, or a SCRATCH note and a writable folder open to file it into — which is the one
+		 * way a document is created on disk now that New makes a scratch note instead. Otherwise
+		 * `.md` (the download) is how a document leaves, and it stands right beside this.
+		 */
+		shown: () =>
+			editor.canWrite &&
+			(!!editor.openHandle || (editor.openIn === 'ephemeral' && editor.folderWritable)),
 		folds: () => true
 	},
 	{

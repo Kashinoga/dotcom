@@ -922,6 +922,9 @@ await reset('first\n\n\nlast');
 			await f.write('# Gamma');
 			await f.close();
 			window.showDirectoryPicker = async () => root;
+			// The single-file picker is a HANDLE picker where the browser has one — same stub, same
+			// reason: what it hands back is what makes a hand-picked file savable and rememberable.
+			window.showOpenFilePicker = async () => [await root.getFileHandle('notes.txt')];
 		};
 	});
 	await wp.goto(`${B}/apps/text-editor`, { waitUntil: 'networkidle' });
@@ -1026,6 +1029,60 @@ await reset('first\n\n\nlast');
 		})
 	);
 
+	// ── A HAND-PICKED FILE IS A REAL FILE ────────────────────────────────────
+	// The Open key used to go through a hidden <input type=file>, which hands over a File — a
+	// snapshot with nothing behind it. Where the browser has `showOpenFilePicker` it is used
+	// instead, exactly as the Folder key already chose between two pickers, and the handle it
+	// returns is what makes the document savable and its shelf row rememberable.
+	{
+		await wp.getByRole('button', { name: 'Open', exact: true }).click();
+		await wp.waitForTimeout(700);
+		await eq(
+			'a hand-picked file lands on the shelf',
+			wp.locator('.te-loose').last().locator('.te-work-file').textContent(),
+			'notes.txt'
+		);
+		ok(
+			'and can be saved back to, which a picked File never could',
+			(await wp.getByRole('button', { name: /^Save/ }).count()) === 1
+		);
+		await wp.locator('.te-type').fill('picked and edited');
+		await wp.waitForTimeout(300);
+		await wp.getByRole('button', { name: /^Save/ }).click();
+		await wp.waitForTimeout(600);
+		ok(
+			'and Save writes to the file itself',
+			await wp.evaluate(async () => {
+				const root = await navigator.storage.getDirectory();
+				const f = await (await root.getFileHandle('notes.txt')).getFile();
+				return (await f.text()) === 'picked and edited';
+			})
+		);
+		// The shelf is kept in IndexedDB — a handle is a structured-cloneable OBJECT, so
+		// JSON.stringify would hand back a row that opens nothing.
+		ok(
+			'the shelf is remembered, handles and all',
+			await wp.evaluate(
+				() =>
+					new Promise((resolve) => {
+						const req = indexedDB.open('ksh:text-editor', 1);
+						req.onsuccess = () => {
+							const get = req.result
+								.transaction('handles', 'readonly')
+								.objectStore('handles')
+								.get('loose');
+							get.onsuccess = () =>
+								resolve(
+									Array.isArray(get.result) && get.result.some((d) => d.name === 'notes.txt')
+								);
+							get.onerror = () => resolve(false);
+						};
+						req.onerror = () => resolve(false);
+					})
+			)
+		);
+	}
+
 	// ── NEW MAKES A SCRATCH DOCUMENT ─────────────────────────────────────────
 	// It used to ask for a name and create a real file in the folder, which meant it only worked
 	// in Chromium, only with a folder open, and asked you to decide what a note was called before
@@ -1037,8 +1094,8 @@ await reset('first\n\n\nlast');
 		await wp.waitForTimeout(400);
 		ok('New asks for no name', (await wp.locator('.te-work-field').count()) === 0);
 		ok(
-			'and puts a scratch document on a shelf of its own',
-			(await wp.locator('.te-loose-name').allTextContents()).join(',') === 'Scratch',
+			'and puts a scratch document on a shelf of its own, above Elsewhere',
+			(await wp.locator('.te-loose-name').allTextContents()).join(',') === 'Scratch,Elsewhere',
 			JSON.stringify(await wp.locator('.te-loose-name').allTextContents())
 		);
 		ok(
@@ -1121,7 +1178,44 @@ await reset('first\n\n\nlast');
 
 		ok(
 			'and the second press takes it, and the empty shelf with it',
-			(await wp.locator('.te-loose').count()) === 0
+			(await wp.locator('.te-loose-name').allTextContents()).join(',') === 'Elsewhere'
+		);
+	}
+
+	// ── A SCRATCH NOTE BECOMES A FILE ────────────────────────────────────────
+	// The one way a document is created on disk now that New makes a note rather than a file —
+	// and the right way round: you write the thing first and decide it is worth keeping second.
+	{
+		await wp.getByRole('button', { name: 'New', exact: true }).click();
+		await wp.waitForTimeout(400);
+		await wp.locator('.te-type').fill('# worth keeping');
+		await wp.waitForTimeout(400);
+		ok(
+			'a scratch note offers Save once a writable folder is open',
+			(await wp.getByRole('button', { name: /^Save/ }).count()) === 1
+		);
+		await eq(
+			'and says where it would go',
+			wp.getByRole('button', { name: /^Save/ }).getAttribute('title'),
+			'File this note in the folder as Ephemeral 1.md'
+		);
+		await wp.getByRole('button', { name: /^Save/ }).click();
+		await wp.waitForTimeout(700);
+		ok(
+			'Save files it in the folder',
+			await wp.evaluate(async () => {
+				const root = await navigator.storage.getDirectory();
+				const f = await (await root.getFileHandle('Ephemeral 1.md')).getFile();
+				return (await f.text()) === '# worth keeping';
+			})
+		);
+		ok(
+			'it leaves the scratch shelf',
+			(await wp.locator('.te-loose-name', { hasText: 'Scratch' }).count()) === 0
+		);
+		ok(
+			'and the sheet is holding a real file now',
+			(await wp.locator('.te-lamp').textContent()).trim() === 'Ephemeral 1.md'
 		);
 	}
 

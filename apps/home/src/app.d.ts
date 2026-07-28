@@ -48,10 +48,15 @@ declare global {
 	 * it — it is not a settled standard, which is also why the Text Editor gates every use of it
 	 * behind a runtime check rather than assuming it (see `canWrite` in $lib/text-editor-state).
 	 *
-	 * Only the two pieces this app actually calls are declared. `showDirectoryPicker` is the one
+	 * Only the pieces this app actually calls are declared. `showDirectoryPicker` is the one
 	 * honest detect for "can this browser reach the real file system": the handle interfaces below
 	 * it exist in every current engine, but in Safari and Firefox they only ever reach the
 	 * sandboxed Origin Private File System, which is no use for editing a folder of notes.
+	 *
+	 * `showOpenFilePicker` is the single-file twin, and it is optional in the same way — where it
+	 * is missing the editor falls back to a hidden `<input type=file>`. What it buys is a HANDLE
+	 * rather than a File: a document that can be saved back to, and a shelf row that can be
+	 * remembered across a reload.
 	 */
 	interface Window {
 		showDirectoryPicker?: (options?: {
@@ -59,6 +64,10 @@ declare global {
 			startIn?: string;
 			id?: string;
 		}) => Promise<FileSystemDirectoryHandle>;
+		showOpenFilePicker?: (options?: {
+			multiple?: boolean;
+			types?: { description?: string; accept: Record<string, string[]> }[];
+		}) => Promise<FileSystemFileHandle[]>;
 	}
 	/** The permission pair, on the handle base — how a remembered folder is re-asked for. */
 	interface FileSystemHandle {
