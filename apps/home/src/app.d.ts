@@ -42,6 +42,29 @@ declare global {
 		}
 		// interface Platform {}
 	}
+
+	/**
+	 * The FILE SYSTEM ACCESS API, declared here because TypeScript's DOM library does not carry
+	 * it — it is not a settled standard, which is also why the Text Editor gates every use of it
+	 * behind a runtime check rather than assuming it (see `canWrite` in $lib/text-editor-state).
+	 *
+	 * Only the two pieces this app actually calls are declared. `showDirectoryPicker` is the one
+	 * honest detect for "can this browser reach the real file system": the handle interfaces below
+	 * it exist in every current engine, but in Safari and Firefox they only ever reach the
+	 * sandboxed Origin Private File System, which is no use for editing a folder of notes.
+	 */
+	interface Window {
+		showDirectoryPicker?: (options?: {
+			mode?: 'read' | 'readwrite';
+			startIn?: string;
+			id?: string;
+		}) => Promise<FileSystemDirectoryHandle>;
+	}
+	interface FileSystemFileHandle {
+		/** Rename, or move to another directory. Chromium only, at the time of writing. */
+		move(name: string): Promise<void>;
+		move(directory: FileSystemDirectoryHandle, name?: string): Promise<void>;
+	}
 }
 
 export {};

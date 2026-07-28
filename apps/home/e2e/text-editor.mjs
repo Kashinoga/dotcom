@@ -526,6 +526,141 @@ await reset('first\n\n\nlast');
 	dir.rmSync(folder, { recursive: true, force: true });
 }
 
+// ── WRITING TO DISK, WHERE THE BROWSER ALLOWS IT ─────────────────────────────
+// Rename, delete and save-in-place need the File System Access API, which is Chromium-only.
+// The picker itself is native and cannot be driven — so it is STUBBED with a real directory
+// handle from the Origin Private File System. That is not a mock: OPFS hands back genuine
+// FileSystemDirectoryHandle and FileSystemFileHandle objects with the same `entries`,
+// `createWritable`, `move` and `removeEntry`, so the walk, the save, the rename and the delete
+// all run for real. Only the folder they run against is sandboxed.
+//
+// Every claim below is checked by READING BACK from that filesystem afterwards, not by trusting
+// what the list says. A rename that updated the sidebar and not the disk would pass otherwise.
+{
+	const w = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+	const wp = await w.newPage();
+	await wp.addInitScript(() => {
+		window.__seed = async () => {
+			const root = await navigator.storage.getDirectory();
+			for (const n of ['alpha.md', 'beta.md', 'notes.txt', 'skip.png']) {
+				const h = await root.getFileHandle(n, { create: true });
+				const f = await h.createWritable();
+				await f.write('# ' + n);
+				await f.close();
+			}
+			const sub = await root.getDirectoryHandle('drafts', { create: true });
+			const g = await sub.getFileHandle('gamma.md', { create: true });
+			const f = await g.createWritable();
+			await f.write('# Gamma');
+			await f.close();
+			window.showDirectoryPicker = async () => root;
+		};
+	});
+	await wp.goto(`${B}/apps/text-editor`, { waitUntil: 'networkidle' });
+	await wp.evaluate(() => window.__seed());
+	await wp.waitForTimeout(300);
+	await wp.getByRole('button', { name: 'Folder' }).click();
+	await wp.waitForTimeout(700);
+
+	ok(
+		'a writable folder walks into its sub-folders and skips what it cannot read',
+		(await wp.locator('.te-work-file').allTextContents()).join(',') ===
+			'alpha.md,beta.md,gamma.md,notes.txt',
+		JSON.stringify(await wp.locator('.te-work-file').allTextContents())
+	);
+
+	await wp.locator('.te-work-row').first().click();
+	await wp.waitForTimeout(600);
+	ok(
+		'and a SAVE key appears, which it does not without a handle',
+		(await wp.getByRole('button', { name: /^Save/ }).count()) === 1
+	);
+
+	await wp.locator('.te-type').fill('# Alpha changed');
+	await wp.waitForTimeout(200);
+	await wp.getByRole('button', { name: /^Save/ }).click();
+	await wp.waitForTimeout(500);
+	ok(
+		'saving writes the sheet back to the file itself',
+		(await wp.evaluate(async () => {
+			const root = await navigator.storage.getDirectory();
+			return (await (await root.getFileHandle('alpha.md')).getFile()).text();
+		})) === '# Alpha changed'
+	);
+
+	await wp.locator('.te-work-item').first().hover();
+	await wp
+		.getByRole('button', { name: /^Rename/ })
+		.first()
+		.click();
+	await wp.waitForTimeout(200);
+	await wp.locator('.te-work-field').fill('renamed.md');
+	await wp.locator('.te-work-field').press('Enter');
+	await wp.waitForTimeout(600);
+	ok(
+		'renaming renames it on disk',
+		await wp.evaluate(async () => {
+			const root = await navigator.storage.getDirectory();
+			const names = [];
+			for await (const [n] of root.entries()) names.push(n);
+			return names.includes('renamed.md') && !names.includes('alpha.md');
+		})
+	);
+	ok(
+		'and the open document follows its own name',
+		(await wp.locator('.te-lamp').textContent()).trim() === 'renamed.md'
+	);
+
+	// Delete asks twice, like Clear — a list row is an easy thing to hit by accident.
+	const doomed = () =>
+		wp
+			.locator('.te-work-item')
+			.nth(1)
+			.getByRole('button', { name: /Delete|Sure/ });
+	await wp.locator('.te-work-item').nth(1).hover();
+	await doomed().click();
+	await wp.waitForTimeout(250);
+	ok('deleting asks first', (await doomed().textContent()).trim() === 'Sure?');
+	await doomed().click();
+	await wp.waitForTimeout(600);
+	ok(
+		'and the second press really removes it',
+		await wp.evaluate(async () => {
+			const root = await navigator.storage.getDirectory();
+			const sub = await root.getDirectoryHandle('drafts');
+			const names = [];
+			for await (const [n] of sub.entries()) names.push(n);
+			return names.length === 0;
+		})
+	);
+	await w.close();
+}
+
+// ── AND WHERE IT DOES NOT ────────────────────────────────────────────────────
+// The rule this app already keeps for the folder picker: a key that cannot do what its label
+// says should not be drawn. In a browser with no File System Access API the write keys are
+// ABSENT, not disabled, and the workspace says once why.
+{
+	const { webkit: wk } = await import('playwright');
+	let ro;
+	try {
+		ro = await wk.launch();
+	} catch {
+		ok('a read-only browser draws no write keys', false, 'webkit not installed');
+	}
+	if (ro) {
+		const rp = await (await ro.newContext({ viewport: { width: 1400, height: 900 } })).newPage();
+		await rp.goto(`${B}/apps/text-editor`, { waitUntil: 'networkidle' });
+		await rp.waitForTimeout(400);
+		ok(
+			'a browser without the API is detected as read-only',
+			(await rp.evaluate(() => typeof window.showDirectoryPicker)) === 'undefined'
+		);
+		ok('so no SAVE key is drawn', (await rp.getByRole('button', { name: /^Save/ }).count()) === 0);
+		await ro.close();
+	}
+}
+
 // ── THE MEASURE ──────────────────────────────────────────────────────────────
 // Held to a reading measure by default, in WRITE and in PROOF alike. A line set to the width of a
 // wide window runs to about 160 characters, and the eye loses the return to the left edge long

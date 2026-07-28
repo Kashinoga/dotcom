@@ -7,7 +7,8 @@
 		MARKS,
 		DOC_KEYS,
 		OPEN_KEYS,
-		OPENABLE
+		OPENABLE,
+		type FolderEntry
 	} from '$lib/text-editor-state.svelte';
 	import FloatingKey from '$lib/FloatingKey.svelte';
 	import { NIB_SVG, RULE_SVG } from '$lib/icons';
@@ -176,6 +177,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		};
 		document.addEventListener('selectionchange', onSelectionChange);
 
+		// See `canWrite` in the state module: this one function, and nothing else, says whether the
+		// real file system is reachable for writing.
+		editor.canWrite = typeof window.showDirectoryPicker === 'function';
+
 		const fine = window.matchMedia('(pointer: fine)');
 		finePointer = fine.matches;
 		const onFine = (e: MediaQueryListEvent) => {
@@ -198,7 +203,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			download,
 			clear: clearSheet,
 			openFile,
-			openFolder
+			openFolder,
+			saveInPlace
 		};
 
 		return () => {
@@ -583,6 +589,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			if (k === 'i') return stop(event, () => surround('*'));
 			if (k === 'k') return stop(event, link);
 			if (k === 'e') return stop(event, () => surround('`'));
+			// ⌘S saves back to the open file where that is possible. Where it is not, the browser's
+			// own Save-page dialog is not what anyone pressing ⌘S in an editor wants either, so it
+			// is swallowed and the download takes its place.
+			if (k === 's') return stop(event, () => (editor.openHandle ? saveInPlace() : download()));
 		}
 
 		// TAB indents, and that is a deliberate trade. Tab is the keyboard's way OUT of a control,
@@ -700,7 +710,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * wrong file is UNDOABLE — Cmd-Z brings back what was there. That is the whole reason opening
 	 * does not have to ask first.
 	 */
-	async function load(file: File) {
+	async function load(file: File, handle: FileSystemFileHandle | null = null) {
 		let body: string;
 		try {
 			body = await file.text();
@@ -714,6 +724,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		ta.setSelectionRange(0, ta.value.length);
 		write(body.replace(/\r\n?/g, '\n'));
 		editor.filename = file.name;
+		editor.openHandle = handle;
 		// The workspace STAYS OPEN when you pick from it — that is what makes it a workspace
 		// rather than a picker. It closes on a phone, where it covers the sheet it just filled.
 		if (editor.narrow) editor.folderShown = false;
@@ -739,17 +750,144 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		pickFolder();
 	}
 
+	// ── Writing, where the browser allows it ──────────────────────────────────
+	// Everything below needs a live handle, which only `showDirectoryPicker` yields and only
+	// Chromium implements. See `canWrite` in $lib/text-editor-state for why the detect is on that
+	// one function and not on the handle classes, which exist everywhere and reach nothing.
+
+	/** Folders not worth walking into. A workspace is for documents, not for a dependency tree. */
+	const SKIP_DIR = /^(node_modules|\.git|\.svn|\.hg|\.cache|dist|build|\.next|\.svelte-kit)$/;
+
+	/** Collect the openable documents under a directory handle, depth first, path in hand. */
+	async function walk(dir: FileSystemDirectoryHandle, prefix: string, out: FolderEntry[]) {
+		// A folder can be arbitrarily deep and arbitrarily large; a workspace that walked all of
+		// it would hang on a home directory. Stop at a depth and a count that still cover any
+		// notes folder anyone actually keeps.
+		if (out.length > 500 || prefix.split('/').length > 6) return;
+		for await (const [name, entry] of dir.entries()) {
+			const path = prefix ? `${prefix}/${name}` : name;
+			if (entry.kind === 'directory') {
+				if (!SKIP_DIR.test(name) && !name.startsWith('.')) {
+					await walk(entry as FileSystemDirectoryHandle, path, out);
+				}
+			} else if (OPENABLE.test(name)) {
+				out.push({ name, path, handle: entry as FileSystemFileHandle, parent: dir });
+			}
+		}
+	}
+
+	/** The Chromium path: a real directory, with permission to write it. */
+	async function pickWritableFolder() {
+		const pick = window.showDirectoryPicker;
+		if (!pick) return;
+		let dir: FileSystemDirectoryHandle;
+		try {
+			dir = await pick({ mode: 'readwrite' });
+		} catch {
+			// The visitor cancelled the picker, or declined permission. Neither is an error worth
+			// saying anything about.
+			return;
+		}
+		const out: FolderEntry[] = [];
+		try {
+			await walk(dir, '', out);
+		} catch {
+			/* a folder that went away mid-walk — take what was gathered */
+		}
+		out.sort((a, b) => a.path.localeCompare(b.path));
+		editor.folder = out;
+		editor.folderName = dir.name;
+		editor.folderShown = true;
+		editor.openPath = '';
+	}
+
+	/** Write the sheet back to the file it came from. */
+	async function saveInPlace() {
+		const handle = editor.openHandle;
+		if (!handle) return;
+		try {
+			const w = await handle.createWritable();
+			await w.write(text);
+			await w.close();
+		} catch {
+			// Permission withdrawn, or the file went away. Nothing was written; say nothing rather
+			// than claim a save that did not happen.
+			return;
+		}
+		editor.saved = true;
+		clearTimeout(savedTimer);
+		savedTimer = window.setTimeout(() => (editor.saved = false), 1400);
+	}
+	let savedTimer = 0;
+
+	/** Rename an entry on disk, and follow it if it is the one on the sheet. */
+	async function rename(entry: FolderEntry, to: string) {
+		const name = to.trim();
+		editor.renaming = '';
+		if (!name || name === entry.name || !entry.handle) return;
+		// A name is a NAME, not a path — a rename that could write into another directory is a
+		// move, and a text field in a list is the wrong place to offer one.
+		if (/[/\\]/.test(name)) return;
+		try {
+			await entry.handle.move(name);
+		} catch {
+			return;
+		}
+		const was = entry.path;
+		entry.name = name;
+		entry.path = was.includes('/') ? `${was.slice(0, was.lastIndexOf('/'))}/${name}` : name;
+		editor.folder = [...editor.folder].sort((a, b) => a.path.localeCompare(b.path));
+		if (editor.openPath === was) {
+			editor.openPath = entry.path;
+			editor.filename = name;
+		}
+	}
+
+	/** Delete an entry from disk. Two presses, like Clear — see `doomed`. */
+	async function remove(entry: FolderEntry) {
+		if (editor.doomed !== entry.path) {
+			editor.doomed = entry.path;
+			clearTimeout(doomTimer);
+			doomTimer = window.setTimeout(() => (editor.doomed = ''), 3000);
+			return;
+		}
+		clearTimeout(doomTimer);
+		editor.doomed = '';
+		if (!entry.parent) return;
+		try {
+			await entry.parent.removeEntry(entry.name);
+		} catch {
+			return;
+		}
+		editor.folder = editor.folder.filter((e) => e.path !== entry.path);
+		// The sheet keeps what it is showing — the words are still yours even though the file is
+		// gone — but it is no longer that file, so it stops claiming to be.
+		if (editor.openPath === entry.path) {
+			editor.openPath = '';
+			editor.filename = '';
+			editor.openHandle = null;
+		}
+	}
+	let doomTimer = 0;
+
 	function pickFolder() {
+		if (editor.canWrite) return pickWritableFolder();
 		// Re-opening the same folder should re-read it, so the value is cleared first — an input
 		// handed the same directory twice fires no change event otherwise.
 		if (folderInput) folderInput.value = '';
 		folderInput?.click();
 	}
 
-	/** Put an entry on the sheet and mark it as the one the workspace is showing. */
-	function openEntry(entry: { path: string; file: File }) {
+	/**
+	 * Put an entry on the sheet and mark it as the one the workspace is showing. An entry arrives
+	 * either as a read-only File (every browser) or as a live handle (Chromium) — the handle is
+	 * what later makes saving, renaming and deleting possible, so it is carried through.
+	 */
+	async function openEntry(entry: FolderEntry) {
+		const file = entry.handle ? await entry.handle.getFile() : entry.file;
+		if (!file) return;
 		editor.openPath = entry.path;
-		load(entry.file);
+		load(file, entry.handle ?? null);
 	}
 
 	function tookFolder(event: Event) {
@@ -807,6 +945,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.armed = false;
 		editor.filename = '';
 		editor.openPath = '';
+		editor.openHandle = null;
 		if (!ta) return;
 		ta.focus();
 		ta.setSelectionRange(0, text.length);
@@ -911,7 +1050,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	     here lands nearest the thumb. Copy, then the download, then Clear — the bar's own
 	     left-to-right — and the measure last, furthest away, because it is the one you set once
 	     and forget. -->
-	{#each [...DOC_KEYS, ...OPEN_KEYS] as k (k.id)}
+	{#each [...DOC_KEYS, ...OPEN_KEYS].filter((k) => k.shown?.() ?? true) as k (k.id)}
 		<button
 			type="button"
 			class="icon-btn"
@@ -972,22 +1111,78 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				</header>
 				<ul class="te-work-list">
 					{#each editor.folder as entry (entry.path)}
-						<li>
-							<button
-								type="button"
-								class="te-work-row"
-								class:on={editor.openPath === entry.path}
-								aria-current={editor.openPath === entry.path ? 'true' : undefined}
-								onclick={() => openEntry(entry)}
-							>
-								<span class="te-work-file">{entry.name}</span>
-								{#if entry.path !== entry.name}
-									<span class="te-work-path">{entry.path}</span>
+						<li class="te-work-item">
+							{#if editor.renaming === entry.path}
+								<!-- Renaming happens IN the row, not in a dialog. The row is where the name
+								     is, and a prompt() would stop the page to ask about one word. -->
+								<form
+									class="te-work-rename"
+									onsubmit={(e) => {
+										e.preventDefault();
+										rename(entry, new FormData(e.currentTarget).get('name') as string);
+									}}
+								>
+									<!-- svelte-ignore a11y_autofocus -->
+									<input
+										class="field te-work-field"
+										name="name"
+										value={entry.name}
+										autofocus
+										aria-label="New name for {entry.name}"
+										onkeydown={(e) => {
+											if (e.key === 'Escape') editor.renaming = '';
+										}}
+										onblur={() => (editor.renaming = '')}
+									/>
+								</form>
+							{:else}
+								<button
+									type="button"
+									class="te-work-row"
+									class:on={editor.openPath === entry.path}
+									aria-current={editor.openPath === entry.path ? 'true' : undefined}
+									onclick={() => openEntry(entry)}
+								>
+									<span class="te-work-file">{entry.name}</span>
+									{#if entry.path !== entry.name}
+										<span class="te-work-path">{entry.path}</span>
+									{/if}
+								</button>
+								{#if editor.canWrite && entry.handle}
+									<!-- The two verbs the browser will actually carry out, and only where it
+									     will. They are held back until the row is hovered or focused so the
+									     list reads as a list; Delete asks twice, like Clear. -->
+									<span class="te-work-verbs">
+										<button
+											type="button"
+											class="te-work-verb"
+											title="Rename {entry.name}"
+											onclick={() => {
+												editor.doomed = '';
+												editor.renaming = entry.path;
+											}}>Rename</button
+										>
+										<button
+											type="button"
+											class="te-work-verb"
+											class:on={editor.doomed === entry.path}
+											title={editor.doomed === entry.path
+												? `Press again to delete ${entry.name}`
+												: `Delete ${entry.name}`}
+											onclick={() => remove(entry)}
+											>{editor.doomed === entry.path ? 'Sure?' : 'Delete'}</button
+										>
+									</span>
 								{/if}
-							</button>
+							{/if}
 						</li>
 					{/each}
 				</ul>
+				{#if !editor.canWrite}
+					<p class="te-work-note">
+						Read-only — this browser cannot write to a folder. Chrome and Edge can.
+					</p>
+				{/if}
 			</aside>
 		{/if}
 		{#if shown !== 'proof'}
@@ -1817,6 +2012,71 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 	.te-work-row.on .te-work-file {
 		color: var(--orange);
+	}
+	/* A row and its verbs share the item, the verbs held back until the row is reached for — a
+	   list of documents should read as a list, not as a list of buttons. */
+	.te-work-item {
+		position: relative;
+	}
+	.te-work-verbs {
+		position: absolute;
+		right: 0.4rem;
+		top: 50%;
+		transform: translateY(-50%);
+		display: flex;
+		gap: 0.25rem;
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.12s ease;
+	}
+	.te-work-item:hover .te-work-verbs,
+	.te-work-item:focus-within .te-work-verbs {
+		opacity: 1;
+		pointer-events: auto;
+	}
+	.te-work-verb {
+		font-family: var(--font-mono, monospace);
+		font-size: 0.6rem;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		padding: 0.2rem 0.35rem;
+		color: var(--ink);
+		background: var(--surface);
+		border: 1px solid var(--te-rule);
+		border-radius: 3px;
+		cursor: pointer;
+	}
+	.te-work-verb:hover {
+		color: var(--orange);
+		border-color: var(--orange);
+	}
+	.te-work-verb.on {
+		color: var(--orange);
+		border-color: var(--orange);
+		background: var(--pixel-key-on, transparent);
+	}
+	.te-work-rename {
+		padding: 0.35rem 0.5rem;
+		border-bottom: 1px solid var(--te-rule);
+	}
+	.te-work-field {
+		width: 100%;
+		box-sizing: border-box;
+		height: 26px;
+		padding: 0 0.4rem;
+		font-family: var(--font-mono, monospace);
+		font-size: 0.76rem;
+		color: var(--ink);
+	}
+	/* Said once, at the foot of the list, rather than by drawing verbs that would not work. */
+	.te-work-note {
+		flex: none;
+		margin: 0;
+		padding: 0.6rem 0.75rem;
+		border-top: 1px solid var(--te-rule);
+		font-size: 0.66rem;
+		line-height: 1.4;
+		color: var(--sub);
 	}
 	.te-work-file {
 		display: block;

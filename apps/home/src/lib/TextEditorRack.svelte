@@ -128,7 +128,7 @@
 	{#if !editor.narrow}
 		<span class="te-sep" aria-hidden="true"></span>
 		<div class="te-group" role="group" aria-label="The document">
-			{#each DOC_KEYS as k (k.id)}
+			{#each DOC_KEYS.filter((k) => k.shown?.() ?? true) as k (k.id)}
 				<button type="button" class="tb" class:on={k.on?.()} onclick={k.run} title={k.title()}>
 					<span class="te-key-ico" aria-hidden="true">{@html k.svg}</span>
 					<!-- The word goes on a narrow bar and the glyph carries the key — EXCEPT while a

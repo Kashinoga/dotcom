@@ -20,6 +20,7 @@
 import {
 	COPY_SVG,
 	DOWNLOAD_SVG,
+	SAVE_SVG,
 	TRASH_SVG,
 	BOLD_SVG,
 	ITALIC_SVG,
@@ -35,8 +36,24 @@ import {
 
 export type Mode = 'write' | 'split' | 'proof';
 
-/** One readable document inside an opened folder. */
-export type FolderEntry = { name: string; path: string; file: File };
+/**
+ * One readable document inside an opened folder. It arrives one of two ways, and which one
+ * decides what the workspace can do with it:
+ *
+ *   `file`   — a read-only snapshot from `<input webkitdirectory>`. Every browser. Open only.
+ *   `handle` — a live handle from `showDirectoryPicker`. Chromium only. Open, save in place,
+ *              rename, delete.
+ *
+ * `parent` comes with the handle because deleting is the DIRECTORY's verb, not the file's:
+ * `removeEntry` is called on the folder that contains it.
+ */
+export type FolderEntry = {
+	name: string;
+	path: string;
+	file?: File;
+	handle?: FileSystemFileHandle;
+	parent?: FileSystemDirectoryHandle;
+};
 
 /**
  * What counts as openable. Deliberately narrow: this is a Markdown editor, and handing it a
@@ -61,6 +78,8 @@ export type Commands = {
 	/** Put a document on the sheet, replacing what is there. Undoable — see `load` in the editor. */
 	openFile(): void;
 	openFolder(): void;
+	/** Write the sheet back to the file it came from. Only when `canWrite` and a handle is open. */
+	saveInPlace(): void;
 	/** Two-step: the first call arms, the second clears. See `armed`. */
 	clear(): void;
 };
@@ -98,8 +117,30 @@ export const editor = $state({
 	folder: [] as FolderEntry[],
 	folderName: '',
 	folderShown: false,
+	/** The handle behind the open document, when there is one — what makes saving possible. */
+	openHandle: null as FileSystemFileHandle | null,
+	/** Briefly true after a save lands, so the key can say so. */
+	saved: false,
 	/** The path of the entry currently on the sheet, so the workspace can mark it. */
 	openPath: '',
+	/**
+	 * Can this browser reach the real file system for WRITING — save in place, rename, delete?
+	 *
+	 * Detected on `showDirectoryPicker`, and on nothing else, because everything else lies.
+	 * `FileSystemDirectoryHandle`, `removeEntry`, `move` and `createWritable` are all present in
+	 * Safari and Firefox — measured, not assumed — but only ever reach the Origin Private File
+	 * System, a sandboxed area the visitor cannot see in a file manager. A detect on those would
+	 * pass everywhere and then fail on the only folder anyone cares about.
+	 *
+	 * Where this is false the workspace is READ-ONLY and the keys that would write are not drawn
+	 * at all. Not drawn, not disabled: a key that cannot do what its label says is worse than no
+	 * key, and this file already keeps that rule for the folder picker.
+	 */
+	canWrite: false,
+	/** Which entry is being renamed, if any — the workspace swaps its row for a field. */
+	renaming: '',
+	/** The entry armed for deletion, if any. Two presses, like Clear. */
+	doomed: '',
 	/** Confirmation lamps, owned by the editor's timers, read by the rack's keys. */
 	copied: false,
 	armed: false,
@@ -161,6 +202,8 @@ export type DocKey = {
 	label: () => string;
 	run: () => void;
 	on?: () => boolean;
+	/** Drawn at all? A key that cannot do what it says should not be on screen. */
+	shown?: () => boolean;
 	folds: () => boolean;
 };
 
@@ -194,6 +237,17 @@ export const OPEN_KEYS: DocKey[] = [
 ];
 
 export const DOC_KEYS: DocKey[] = [
+	{
+		id: 'save',
+		svg: SAVE_SVG,
+		title: () => `Save back to ${editor.filename || 'the file'}`,
+		label: () => (editor.saved ? 'Saved' : 'Save'),
+		run: () => editor.cmd?.saveInPlace(),
+		// Only when there is a real file behind the sheet to save INTO. Otherwise `.md` (the
+		// download) is the way a document leaves, and it is right beside this.
+		shown: () => editor.canWrite && !!editor.openHandle,
+		folds: () => true
+	},
 	{
 		id: 'copy',
 		svg: COPY_SVG,
