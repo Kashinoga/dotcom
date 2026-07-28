@@ -8,28 +8,41 @@
  *
  * ── The scheme ────────────────────────────────────────────────────────────────
  *
- *     v0.8.306
- *      │ │ └── COMMITS. Counted, not chosen — see `commits` below.
- *      │ └──── FEATURES. One whole feature, finished, is one bump. The workspace was a bump;
- *      │       giving the workspace a tree was not — that is the same feature, better.
- *      └────── COLLECTIONS. Bumped when enough features have landed that the app is a
- *              different proposition from the one the last collection described.
+ *     v0.8.1.314
+ *      │ │ │ └── COMMITS. Counted, not chosen — see `commits` below.
+ *      │ │ └──── FIXES. One bump per thing that was BROKEN and now is not. A feature resets it
+ *      │ │       to zero, which is what makes it readable: it counts the repairs to the app as
+ *      │ │       it currently stands, not the repairs of all time.
+ *      │ └────── FEATURES. One whole feature, finished, is one bump. The workspace was a bump;
+ *      │         giving the workspace a tree was not — that is the same feature, better.
+ *      └──────── COLLECTIONS. Bumped when enough features have landed that the app is a
+ *                different proposition from the one the last collection described.
+ *
+ * The FIXES position was added late, and it earns its place by separating two things the third
+ * position used to run together. A version that moves only because commits happened cannot say
+ * whether the app got bigger or merely got better, and "the proof follows the workspace now" is
+ * not a feature — the workspace was already there and was already meant to do this. A fix is the
+ * app catching up with what it already claimed, and it deserves a number that says so.
+ *
+ * Entries recorded before it existed carry a `0` in that position. That is not a backfill: no
+ * fix had been counted at the time, so zero is what was true.
  *
  * The major NEVER reaches 1 while an app is in beta — 1.0 is the claim that the thing is
  * finished, and a beta tag is the claim that it is not. Both cannot be true, so the guard at the
  * foot of this file throws on a build that tries.
  */
 
-/** One thing the app learned to do, and the version it learned it in. */
+/** One thing that landed — a feature or a repair — and the version it landed in. */
 export type Feature = {
 	/**
-	 * The WHOLE version it landed in — `0.8.307`, not `0.8`. Written out rather than counted,
+	 * The WHOLE version it landed in — `0.8.0.307`, not `0.8`. Written out rather than counted,
 	 * because a commit count can only ever be counted for HEAD: the number for something that
 	 * landed forty commits ago is history, and history is data.
 	 *
-	 * It has to be the whole triple. Several features land in one minor, so a list keyed on the
-	 * first two numbers is a column of identical `0.8`s that says nothing about which came
-	 * first — which is the one thing a list of recent work is for.
+	 * All four positions. Several features land in one minor, so a list keyed on the first two
+	 * numbers is a column of identical `0.8`s that says nothing about which came first — which is
+	 * the one thing a list of recent work is for. The fix position earns its place on the same
+	 * argument: without it, two lines a repair apart are indistinguishable.
 	 */
 	at: string;
 	/** What it does, in one line, from the visitor's side rather than the code's. */
@@ -39,6 +52,12 @@ export type Feature = {
 export type AppRelease = {
 	major: number;
 	minor: number;
+	/**
+	 * Repairs since the last feature landed. Set back to 0 by the next `minor` bump — by hand,
+	 * because this file is the record and a number that reset itself would be a number nobody
+	 * had to think about.
+	 */
+	fixes: number;
 	/**
 	 * The repo's commit count, injected at BUILD time (see `vite.config.ts`) so it can never
 	 * drift from the truth by being forgotten. This number is the fallback for the builds where
@@ -65,32 +84,40 @@ export const RELEASES: Record<string, AppRelease> = {
 	TEXT: {
 		major: 0,
 		minor: 8,
-		commits: 313,
+		fixes: 1,
+		commits: 314,
 		recent: [
-			{ at: '0.8.313', what: 'Save files a scratch note in the folder; the shelf is remembered' },
-			{ at: '0.8.312', what: 'New makes a scratch note; drag a document onto a folder to move it' },
+			{ at: '0.8.1.314', what: 'Proof follows the workspace: pick a document there and it is set' },
 			{
-				at: '0.8.311',
+				at: '0.8.0.313',
+				what: 'Save files a scratch note in the folder; the shelf is remembered'
+			},
+			{
+				at: '0.8.0.312',
+				what: 'New makes a scratch note; drag a document onto a folder to move it'
+			},
+			{
+				at: '0.8.0.311',
 				what: 'A shelf above the tree for documents opened from outside the folder'
 			},
-			{ at: '0.8.310', what: 'The workspace names itself and its keys on one row' },
-			{ at: '0.8.309', what: 'Rename and Delete moved onto a document’s right-click menu' },
-			{ at: '0.8.309', what: 'The workspace browses folders as a tree you can shut' },
-			{ at: '0.8.309', what: 'Code blocks are numbered inside the heading they sit under' },
-			{ at: '0.8.306', what: 'A contents rail, built from the source so it is there in Write' },
-			{ at: '0.8.305', what: 'Six heading levels behind one key in the bar' },
-			{ at: '0.7.304', what: 'The editor remembers the folder you opened last time' },
-			{ at: '0.7.302', what: 'Rename, delete and save in place, where the browser allows it' },
-			{ at: '0.6.301', what: 'A workspace: a folder kept open beside the document' }
+			{ at: '0.8.0.310', what: 'The workspace names itself and its keys on one row' },
+			{ at: '0.8.0.309', what: 'Rename and Delete moved onto a document’s right-click menu' },
+			{ at: '0.8.0.309', what: 'The workspace browses folders as a tree you can shut' },
+			{ at: '0.8.0.309', what: 'Code blocks are numbered inside the heading they sit under' },
+			{ at: '0.8.0.306', what: 'A contents rail, built from the source so it is there in Write' },
+			{ at: '0.8.0.305', what: 'Six heading levels behind one key in the bar' },
+			{ at: '0.7.0.304', what: 'The editor remembers the folder you opened last time' },
+			{ at: '0.7.0.302', what: 'Rename, delete and save in place, where the browser allows it' },
+			{ at: '0.6.0.301', what: 'A workspace: a folder kept open beside the document' }
 		]
 	}
 };
 
-/** `v0.8.306` — the whole triple, which is the only form this is ever shown in. */
+/** `v0.8.1.314` — all four positions, which is the only form this is ever shown in. */
 export function versionOf(code: string): string {
 	const r = RELEASES[code];
 	if (!r) return '';
-	return `v${r.major}.${r.minor}.${countedCommits || r.commits}`;
+	return `v${r.major}.${r.minor}.${r.fixes}.${countedCommits || r.commits}`;
 }
 
 // A beta that has reached 1.0 is not a beta. Thrown at import, like the register's own guards,

@@ -2668,7 +2668,7 @@
 													     It was a SPAN — a label with nothing to press, on the argument that a
 													     button which does nothing is a promise to a keyboard and a screen reader
 													     the app cannot keep. It has something to say now — which version this is,
-													     what the three numbers mean, and what has just landed — so it is a button,
+													     what the four numbers mean, and what has just landed — so it is a button,
 													     and the promise is kept. $lib/BetaTag owns the tag and its card; the
 													     versions live in $lib/versions, keyed by the register’s own code. -->
 													<BetaTag code={v.code} title={port.title} accent={accent[v.code]} />

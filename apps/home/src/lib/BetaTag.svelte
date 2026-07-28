@@ -111,10 +111,10 @@
 			<span class="beta-name">{title}</span>
 			<span class="beta-ver">{version}</span>
 		</header>
-		<!-- What the three numbers mean, said once. A version nobody can read is a serial number.
-		     One run of text with real spaces in it rather than three spans held apart by a flex
+		<!-- What the four numbers mean, said once. A version nobody can read is a serial number.
+		     One run of text with real spaces in it rather than four spans held apart by a flex
 		     gap: a gap is not a space, and a screen reader read the legend as one word. -->
-		<p class="beta-scheme">collections · features · commits</p>
+		<p class="beta-scheme">collections · features · fixes · commits</p>
 		<h3 class="beta-sub">Recently</h3>
 		<ul class="beta-list">
 			{#each release.recent.slice(0, 5) as feature (feature.what)}
@@ -183,15 +183,16 @@
 		line-height: 1;
 		color: var(--orange);
 	}
-	/* The legend sits directly under the number and is spaced to read AGAINST it — three words
-	   in the order of the three figures. It is not aligned to them character by character: the
+	/* The legend sits directly under the number and is spaced to read AGAINST it — one word per
+	   figure, in the figures' own order. It is not aligned to them character by character: the
 	   figures are proportional to their own values and any alignment would be a lie by the
-	   second release. */
+	   second release. A fourth word is why the letter-spacing came off — at four words the line
+	   wrapped inside `collections`, and a legend that breaks mid-word explains nothing. */
 	.beta-scheme {
 		margin: 0.2rem 0 0;
 		font-family: var(--font-mono, monospace);
 		font-size: 0.6rem;
-		letter-spacing: 0.05em;
+		letter-spacing: 0.02em;
 		text-transform: uppercase;
 		color: var(--sub);
 	}
@@ -219,14 +220,14 @@
 		gap: 0.9rem;
 		align-items: baseline;
 	}
-	/* The version each line landed in, in its own column. Wide enough for the WHOLE triple —
-	   `0.8.307`, not `0.8`: several features land in one minor, and a column of identical `0.8`s
-	   says nothing about which came first, which is the one thing this list is for. The gap to
-	   the text is the item's, and it is generous — these are two different kinds of thing and a
-	   tight gap read them as one wrapped sentence. */
+	/* The version each line landed in, in its own column. Wide enough for ALL FOUR positions —
+	   `0.8.1.314`, not `0.8`: several features land in one minor, and a column of identical
+	   `0.8`s says nothing about which came first, which is the one thing this list is for. The
+	   gap to the text is the item's, and it is generous — these are two different kinds of thing
+	   and a tight gap read them as one wrapped sentence. */
 	.beta-at {
 		flex: none;
-		width: 3.6rem;
+		width: 4.6rem;
 		font-family: var(--font-pixel, var(--font-mono, monospace));
 		font-size: 0.8rem;
 		line-height: 1.3;

@@ -392,12 +392,12 @@ await eq('the second press clears the sheet', value(), '');
 
 	// ── THE BETA TAG ─────────────────────────────────────────────────────────
 	// It was a label with nothing to press. It has something to say now — the version, what the
-	// three numbers mean, and what landed recently — so it is a button that opens a card.
+	// four numbers mean, and what landed recently — so it is a button that opens a card.
 	{
 		const tag = page.getByRole('button', { name: /is in beta/ });
 		ok(
 			'the tag says which version this is',
-			/v0\.\d+\.\d+/.test(await tag.getAttribute('aria-label')),
+			/v0\.\d+\.\d+\.\d+/.test(await tag.getAttribute('aria-label')),
 			await tag.getAttribute('aria-label')
 		);
 		ok('and is shut to begin with', (await tag.getAttribute('aria-expanded')) === 'false');
@@ -405,18 +405,32 @@ await eq('the second press clears the sheet', value(), '');
 		await page.waitForTimeout(300);
 		ok('pressing it opens the version card', (await page.locator('.beta-card').count()) === 1);
 		ok(
-			'which carries the whole triple',
-			/^v0\.\d+\.\d+$/.test((await page.locator('.beta-ver').textContent()).trim()),
+			'which carries all four positions',
+			/^v0\.\d+\.\d+\.\d+$/.test((await page.locator('.beta-ver').textContent()).trim()),
 			await page.locator('.beta-ver').textContent()
+		);
+		// The legend is what makes the number readable, and it has to name every position it
+		// explains — a fourth figure with three words under it is worse than no legend at all.
+		const scheme = (await page.locator('.beta-scheme').textContent()).trim();
+		ok(
+			'and a legend naming each of the four in order',
+			scheme === 'collections · features · fixes · commits',
+			JSON.stringify(scheme)
 		);
 		// Every line of the list carries the WHOLE version it landed in. Several features land in
 		// one minor, so a column keyed on the first two numbers is a column of identical `0.8`s.
 		const ats = await page.locator('.beta-at').allTextContents();
 		ok(
 			'and every recent line is dated to a full version',
-			ats.length > 0 && ats.every((a) => /^\d+\.\d+\.\d+$/.test(a.trim())),
+			ats.length > 0 && ats.every((a) => /^\d+\.\d+\.\d+\.\d+$/.test(a.trim())),
 			JSON.stringify(ats)
 		);
+		// The column has to hold the whole version on ONE line: the list is read down the
+		// figures, and a version that wraps takes its line's text with it.
+		const wrapped = await page.evaluate(() =>
+			[...document.querySelectorAll('.beta-at')].some((el) => el.scrollWidth > el.clientWidth + 1)
+		);
+		ok('the version column is wide enough for the fourth figure', !wrapped);
 		// The card is a POPOVER — puhig's shared one, the same surface the workspace's row menu
 		// uses. Portalled to <body>, because `position: fixed` inside the panel's header is fixed
 		// to the header rather than to the window and the app painted straight over it.
@@ -1739,6 +1753,68 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	ok('having cleared the sheet', (await p.locator('.te-type').inputValue()) === '');
 
 	await phone.close();
+}
+
+// ── PROOF FOLLOWS THE WORKSPACE TOO ──────────────────────────────────────────
+// The workspace is drawn in all three modes, so a row picked in PROOF has to change what the
+// proof sets — and it did not. Everything that replaces the sheet went through the textarea, and
+// the textarea is NOT MOUNTED in proof (`{#if shown !== 'proof'}`), so `load`, About and Clear
+// all gave up at their `if (!ta)` guard. Picking a document marked its row and left the previous
+// document set; Clear was worse, taking the name off a sheet it then failed to empty.
+//
+// Nothing here can be checked from the sheet, because in this mode there is no sheet — every
+// assertion reads the PROOF, which is the only thing the visitor can see.
+{
+	const rows = page.locator('ul[aria-label="Scratch"] .te-work-row');
+	const proofText = () => page.locator('.te-proof').innerText();
+
+	// Two scratch notes, so there is something to pick BETWEEN. New needs no folder, which is why
+	// this case is here rather than in the OPFS one.
+	await press('New');
+	await reset('# alpha\n\nthe first note');
+	await press('New');
+	await reset('# bravo\n\nthe second note');
+	// The open note's words go back to its row on a debounce — this is the one document the pane
+	// holds the text of, so a case that raced it would be picking an empty note.
+	await page.waitForTimeout(600);
+
+	await page.getByRole('button', { name: 'Proof' }).click();
+	await page.waitForTimeout(250);
+	ok('proof opens on the document that was open', (await proofText()).includes('bravo'));
+	ok('and the sheet is not mounted at all', (await page.locator('.te-type').count()) === 0);
+
+	await rows.filter({ hasText: 'Ephemeral 1' }).first().click();
+	await page.waitForTimeout(250);
+	const picked = await proofText();
+	ok(
+		'picking a row in PROOF sets the document picked',
+		picked.includes('alpha') && !picked.includes('bravo'),
+		JSON.stringify(picked.slice(0, 60))
+	);
+
+	await page.getByRole('button', { name: /^About Text Editor/ }).click();
+	await page.waitForTimeout(250);
+	ok('About puts the manual on it in PROOF', (await proofText()).includes('The marks'));
+
+	const clearKey = page.getByRole('button', { name: /Clear|Sure/ });
+	await clearKey.click();
+	await clearKey.click();
+	await page.waitForTimeout(250);
+	ok(
+		'and Clear empties it rather than only taking the name off',
+		(await proofText()).trim() === 'Nothing set yet.',
+		JSON.stringify(await proofText())
+	);
+
+	// Back to WRITE: the textarea is built fresh and filled from `text`, so the two cannot come
+	// back disagreeing. This is also why the proof-mode path costs no undo — the stack it would
+	// have preserved was destroyed on the way in.
+	await page.getByRole('button', { name: 'Write' }).click();
+	await page.waitForSelector('.te-type');
+	await eq('the sheet comes back holding what the proof showed', value(), '');
+	await rows.filter({ hasText: 'Ephemeral 1' }).first().click();
+	await page.waitForTimeout(250);
+	ok('and a note picked in proof kept its words', (await value()).includes('alpha'));
 }
 
 await browser.close();

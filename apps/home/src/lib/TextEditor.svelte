@@ -851,6 +851,36 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	let folderInput: HTMLInputElement | undefined = $state();
 
 	/**
+	 * Replace EVERYTHING on the sheet — the one gesture behind opening a document, putting the
+	 * manual back, and clearing. Every caller then sets the name, the handle and the marked row.
+	 *
+	 * Through the textarea where there is one, because `write` is what keeps the browser's undo
+	 * stack and that is what makes opening the wrong file cost one Cmd-Z instead of the words.
+	 *
+	 * In PROOF there is NO textarea — the sheet is not mounted in that mode — and every one of
+	 * these used to give up at the `if (!ta)` guard. The workspace is drawn in all three modes, so
+	 * picking a document in PROOF marked the row and left the old document set: the pane followed
+	 * the file in Write and Split and nowhere else. Clear was worse, taking the name off a sheet it
+	 * then failed to empty.
+	 *
+	 * Straight onto `text` in that case, and nothing is lost by it: the textarea is DESTROYED on
+	 * the way into proof and built again on the way out, so its undo stack is already empty before
+	 * this runs — there is no history here to preserve. `bind:value` fills the new one from `text`,
+	 * so the two cannot come back disagreeing.
+	 */
+	function putOnSheet(body: string) {
+		if (!ta) {
+			text = body;
+			return;
+		}
+		ta.focus();
+		ta.setSelectionRange(0, ta.value.length);
+		write(body);
+		ta.setSelectionRange(0, 0);
+		trackCaret();
+	}
+
+	/**
 	 * Put a document on the sheet. It goes through `write`, like every other edit, so opening the
 	 * wrong file is UNDOABLE — Cmd-Z brings back what was there. That is the whole reason opening
 	 * does not have to ask first.
@@ -866,17 +896,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			// over. Nothing to put on the sheet, and nothing worth interrupting the writer for.
 			return;
 		}
-		if (!ta) return;
-		ta.focus();
-		ta.setSelectionRange(0, ta.value.length);
-		write(body.replace(/\r\n?/g, '\n'));
+		putOnSheet(body.replace(/\r\n?/g, '\n'));
 		editor.filename = file.name;
 		editor.openHandle = handle;
 		// The workspace STAYS OPEN when you pick from it — that is what makes it a workspace
 		// rather than a picker. It closes on a phone, where it covers the sheet it just filled.
 		if (editor.narrow) editor.folderShown = false;
-		ta.setSelectionRange(0, 0);
-		trackCaret();
 	}
 
 	/**
@@ -969,16 +994,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * scratch note is undoable exactly as opening a file is.
 	 */
 	function putEphemeralOnSheet(doc: Ephemeral) {
-		if (!ta) return;
-		ta.focus();
-		ta.setSelectionRange(0, ta.value.length);
-		write(doc.text);
+		putOnSheet(doc.text);
 		editor.filename = doc.name;
 		editor.openHandle = null;
 		editor.openPath = doc.id;
 		editor.openIn = 'ephemeral';
-		ta.setSelectionRange(0, 0);
-		trackCaret();
 	}
 
 	// The scratch list is the ONE list in this pane whose order is yours. The tree is alphabetical
@@ -1905,10 +1925,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.openPath = '';
 		editor.openIn = 'tree';
 		editor.openHandle = null;
-		if (!ta) return;
-		ta.focus();
-		ta.setSelectionRange(0, text.length);
-		write('');
+		putOnSheet('');
 	}
 
 	/**
@@ -1924,17 +1941,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * it would overwrite with the manual.
 	 */
 	function readme() {
-		if (!ta) return;
 		stashEphemeral();
-		ta.focus();
-		ta.setSelectionRange(0, ta.value.length);
-		write(STARTER);
+		putOnSheet(STARTER);
 		editor.filename = '';
 		editor.openPath = '';
 		editor.openIn = 'tree';
 		editor.openHandle = null;
-		ta.setSelectionRange(0, 0);
-		trackCaret();
 	}
 
 	// ── Scroll ────────────────────────────────────────────────────────────────
