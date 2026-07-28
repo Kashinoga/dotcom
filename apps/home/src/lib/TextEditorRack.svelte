@@ -1,61 +1,30 @@
 <script lang="ts">
-	import { editor, shownMode, type Mode } from '$lib/text-editor-state.svelte';
-	import {
-		COPY_SVG,
-		DOWNLOAD_SVG,
-		TRASH_SVG,
-		BOLD_SVG,
-		ITALIC_SVG,
-		CODE_SVG,
-		QUOTE_SVG,
-		LIST_UL_SVG,
-		LIST_OL_SVG,
-		RULE_SVG,
-		LINK_SVG
-	} from '$lib/icons';
+	import { editor, shownMode, MARKS, DOC_KEYS, type Mode } from '$lib/text-editor-state.svelte';
 
 	// THE RACK — Text Editor's keys, rendered INSIDE the panel's dense bar.
 	//
 	// It is its own component for one reason: the bar is drawn by the catch-all page and the
 	// editor is drawn in the body below it, so the keys cannot be markup inside the editor and
-	// still land in the bar. What crosses between them is $lib/text-editor-state — the mode, the two
-	// confirmation lamps, and the table of verbs the editor registers while it is mounted.
+	// still land in the bar. What crosses between them is $lib/text-editor-state — the mode, the
+	// two confirmation lamps, the key tables, and the verbs the editor registers while it is
+	// mounted.
+	//
+	// ON A PHONE IT KEEPS ALMOST NOTHING. Seventeen keys in a bar 390px wide is a strip you swipe
+	// to reach anything, and the bar is the wrong end of a phone for a control anyway — it is the
+	// furthest point from the thumbs, and the on-screen keyboard is at the other. So the narrow
+	// bar holds the VIEW keys and nothing else, and the rest go to a flyout at the bottom-left
+	// (see $lib/FloatingKey, rendered by the editor). The tables are shared so the two shapes
+	// cannot drift apart about what the app offers.
 	//
 	// ONE ROW, ALWAYS, and that is a constraint rather than a preference. The bar is positioned
-	// absolutely over the scroller and the body reserves its height with a fixed calc
-	// (`.surface-head.bar + .surface-body`, padding-top: 44px + insets). A rack that wrapped to a
-	// second row would slide straight under that reserve and sit on top of the first lines of the
-	// document. So the strip SCROLLS sideways instead: on any window wide enough it never moves,
-	// and on a phone it is swiped. The bar keeps the one-row promise `dense` chrome makes, and
-	// nothing about the page's layout arithmetic has to change.
+	// absolutely over the scroller and the body reserves its height. A rack that wrapped to a
+	// second row would slide straight under that reserve and sit on the first lines of the
+	// document. On a wide window the strip never needs to move; it can still scroll sideways if
+	// the window is narrow enough to crowd it before the flyout takes over.
 	//
 	// The keys wear the shared .tb class, so each theme dresses them — under Pixelite they come
 	// out as the manual's plastic keys with no rule of ours. What is set below is only the
 	// geometry the theme has no opinion about.
-
-	// The mark keys. A table rather than ten copies of the same markup.
-	//
-	// Each key carries EITHER a glyph from the shared icon set or a word — never a typographic
-	// stand-in for a glyph. The rack used to spell every mark by hand ("B", "I", "<>", "❝", "*",
-	// "1.", "—") and it read as seven different optical weights sitting in a row with three real
-	// icons; the marks are $lib/icons now, so the whole strip is drawn in one hand.
-	//
-	// H1 and H2 keep their WORDS, and that is the considered exception rather than the leftover.
-	// No icon set distinguishes heading LEVELS — reicon's nearest glyph is a single hashtag — so
-	// the pair would have to be the same picture twice, which says less than two letters do. Every
-	// editor worth copying labels these in type for the same reason.
-	const MARKS: { label?: string; svg?: string; title: string; run: () => void }[] = [
-		{ label: 'H1', title: 'Heading, first level', run: () => editor.cmd?.prefix('# ') },
-		{ label: 'H2', title: 'Heading, second level', run: () => editor.cmd?.prefix('## ') },
-		{ svg: BOLD_SVG, title: 'Bold (⌘B)', run: () => editor.cmd?.surround('**') },
-		{ svg: ITALIC_SVG, title: 'Italic (⌘I)', run: () => editor.cmd?.surround('*') },
-		{ svg: CODE_SVG, title: 'Code (⌘E)', run: () => editor.cmd?.surround('`') },
-		{ svg: QUOTE_SVG, title: 'Quotation', run: () => editor.cmd?.prefix('> ') },
-		{ svg: LIST_UL_SVG, title: 'Bulleted list', run: () => editor.cmd?.prefix('- ') },
-		{ svg: LIST_OL_SVG, title: 'Numbered list', run: () => editor.cmd?.prefix('1. ') },
-		{ svg: RULE_SVG, title: 'Rule', run: () => editor.cmd?.block('---') },
-		{ svg: LINK_SVG, title: 'Link (⌘K)', run: () => editor.cmd?.link() }
-	];
 
 	const MODES: { id: Mode; label: string }[] = [
 		{ id: 'write', label: 'Write' },
@@ -82,22 +51,25 @@
 		{/each}
 		<!-- The measure sits with the VIEW keys, not the marks: it changes how the document is laid
 		     out rather than what it says, and it applies to the proof as much as to the sheet — so
-		     it stays offered in PROOF, where the marks are not. -->
-		<button
-			type="button"
-			class="tb"
-			class:on={editor.measured}
-			aria-pressed={editor.measured}
-			title={editor.measured
-				? 'Let the text run the full width'
-				: 'Hold the text to a reading measure'}
-			onclick={() => (editor.measured = !editor.measured)}>Measure</button
-		>
+		     it stays offered in PROOF, where the marks are not. On a phone it is in the flyout. -->
+		{#if !editor.narrow}
+			<button
+				type="button"
+				class="tb"
+				class:on={editor.measured}
+				aria-pressed={editor.measured}
+				title={editor.measured
+					? 'Let the text run the full width'
+					: 'Hold the text to a reading measure'}
+				onclick={() => (editor.measured = !editor.measured)}>Measure</button
+			>
+		{/if}
 	</div>
 
-	{#if shown !== 'proof'}
+	{#if shown !== 'proof' && !editor.narrow}
 		<!-- The marks are only offered when there is a sheet to put them on. In PROOF there is
-		     nothing to mark up, and ten dead keys would say otherwise. -->
+		     nothing to mark up, and ten dead keys would say otherwise. On a phone they are in the
+		     flyout instead. -->
 		<span class="te-sep" aria-hidden="true"></span>
 		<div class="te-group" role="group" aria-label="Marks">
 			{#each MARKS as mark (mark.title)}
@@ -118,43 +90,21 @@
 		</div>
 	{/if}
 
-	<span class="te-sep" aria-hidden="true"></span>
-	<div class="te-group" role="group" aria-label="The document">
-		<button
-			type="button"
-			class="tb"
-			onclick={() => editor.cmd?.copy()}
-			title="Copy the whole document"
-		>
-			<span class="te-key-ico" aria-hidden="true">{@html COPY_SVG}</span>
-			<!-- The word goes on a narrow bar and the glyph carries the key — EXCEPT while a key is
-			     saying something back. "Copied" and "Sure?" are state, not a label, and state that
-			     only shows on a wide window is state half the visitors never see. -->
-			<span class="te-key-word" class:te-say={editor.copied}
-				>{editor.copied ? 'Copied' : 'Copy'}</span
-			>
-		</button>
-		<button
-			type="button"
-			class="tb"
-			onclick={() => editor.cmd?.download()}
-			title="Download it as a .md file"
-		>
-			<span class="te-key-ico" aria-hidden="true">{@html DOWNLOAD_SVG}</span>
-			<span class="te-key-word">.md</span>
-		</button>
-		<button
-			type="button"
-			class="tb"
-			class:on={editor.armed}
-			onclick={() => editor.cmd?.clear()}
-			title={editor.armed ? 'Press again to clear the sheet' : 'Clear the sheet'}
-		>
-			<span class="te-key-ico" aria-hidden="true">{@html TRASH_SVG}</span>
-			<span class="te-key-word" class:te-say={editor.armed}>{editor.armed ? 'Sure?' : 'Clear'}</span
-			>
-		</button>
-	</div>
+	{#if !editor.narrow}
+		<span class="te-sep" aria-hidden="true"></span>
+		<div class="te-group" role="group" aria-label="The document">
+			{#each DOC_KEYS as k (k.id)}
+				<button type="button" class="tb" class:on={k.on?.()} onclick={k.run} title={k.title()}>
+					<span class="te-key-ico" aria-hidden="true">{@html k.svg}</span>
+					<!-- The word goes on a narrow bar and the glyph carries the key — EXCEPT while a
+					     key is saying something back. "Copied" and "Sure?" are state, not a label,
+					     and state that only shows on a wide window is state half the visitors never
+					     see. -->
+					<span class="te-key-word" class:te-say={k.on?.() || editor.copied}>{k.label()}</span>
+				</button>
+			{/each}
+		</div>
+	{/if}
 </div>
 
 <style>

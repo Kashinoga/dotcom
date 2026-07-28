@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { renderMarkdown, tally, lineMarks } from '$lib/markdown';
-	import { editor, shownMode } from '$lib/text-editor-state.svelte';
+	import { editor, shownMode, MARKS, DOC_KEYS } from '$lib/text-editor-state.svelte';
+	import FloatingKey from '$lib/FloatingKey.svelte';
+	import { NIB_SVG, RULE_SVG } from '$lib/icons';
 
 	// TEXT EDITOR — a Markdown editor, written as a page of the manual it renders.
 	//
@@ -96,6 +98,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 
 	let text = $state(STARTER);
 	let caretLine = $state(-1);
+	/** Is the phone's controls flyout disclosed? See the FloatingKey at the foot of the markup. */
+	let keyOpen = $state(false);
 
 	let ta: HTMLTextAreaElement | undefined = $state();
 	let paperEl: HTMLDivElement | undefined = $state();
@@ -188,6 +192,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			editor.copied = false;
 			editor.armed = false;
 			editor.scrolled = false;
+			keyOpen = false;
 		};
 	});
 
@@ -718,6 +723,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		requestAnimationFrame(() => (syncing = false));
 	}
 
+	// A window widening past the breakpoint puts the keys back in the bar, so a flyout left
+	// standing would be a second copy of controls that are already up there.
+	$effect(() => {
+		if (!editor.narrow) keyOpen = false;
+	});
+
 	// Leaving PROOF hands focus back to the sheet, so the mode keys in the bar are a round trip
 	// rather than a one-way door: press WRITE and you are typing again without reaching for the
 	// textarea. `tick` because the pane the caret is going to has not been mounted yet.
@@ -749,6 +760,59 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	/** Four figures in the pixel face, the way a manual sets a count. */
 	const pad = (n: number) => String(n).padStart(4, '0');
 </script>
+
+{#snippet markCard()}
+	<!-- The marks, as a grid rather than a column. They keep the flyout open — see the note at
+	     the call. -->
+	<div class="te-fly-marks" role="group" aria-label="Marks">
+		{#each MARKS as mark (mark.title)}
+			<button
+				type="button"
+				class="te-fly-mark"
+				title={mark.title}
+				aria-label={mark.title}
+				onclick={mark.run}
+			>
+				{#if mark.svg}
+					<span class="te-key-ico" aria-hidden="true">{@html mark.svg}</span>
+				{:else}
+					{mark.label}
+				{/if}
+			</button>
+		{/each}
+	</div>
+{/snippet}
+
+{#snippet docKeys()}
+	<!-- `icon-btn` is the class FloatingKey's stack dresses: it gives these the touch-sized
+	     frosted face the other apps' flyout controls wear.
+	     ORDER MATTERS and reads backwards: the stack is column-reverse so that the FIRST button
+	     here lands nearest the thumb. Copy, then the download, then Clear — the bar's own
+	     left-to-right — and the measure last, furthest away, because it is the one you set once
+	     and forget. -->
+	{#each DOC_KEYS as k (k.id)}
+		<button
+			type="button"
+			class="icon-btn"
+			class:on={k.on?.()}
+			title={k.title()}
+			aria-label={k.label()}
+			onclick={() => {
+				k.run();
+				if (k.folds()) keyOpen = false;
+			}}>{@html k.svg}</button
+		>
+	{/each}
+	<button
+		type="button"
+		class="icon-btn"
+		class:on={editor.measured}
+		aria-pressed={editor.measured}
+		title={editor.measured ? 'Let the text run the full width' : 'Hold the text to a measure'}
+		aria-label="Hold the text to a reading measure"
+		onclick={() => (editor.measured = !editor.measured)}>{@html RULE_SVG}</button
+	>
+{/snippet}
 
 <!-- The KEYS are not here. They live in the panel's dense bar, drawn by the catch-all page from
      $lib/TextEditorRack, and reach back into this component through the command table published
@@ -857,6 +921,28 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			</div>
 		{/if}
 	</div>
+
+	{#if editor.narrow}
+		<!-- THE PHONE'S CONTROLS, in the shared floating key ($lib/FloatingKey — the shape the
+		     Emoji Viewer started, the docs shell, the Park Ranger, the board and the Star Map all
+		     wear). Seventeen keys will not sit in a 390px bar without becoming a strip you swipe
+		     to reach anything, and the top of a phone is the worst place to put a control anyway:
+		     furthest from the thumbs, with the keyboard at the opposite end. The bar keeps the
+		     VIEW keys; everything else is here, one reach from where the hand already is.
+		     Two shapes, because the keys are two kinds. The MARKS go in the card as a grid — ten
+		     of them would make a 400px column of discs — and they leave the flyout STANDING, so a
+		     run of marks costs one open rather than one each. The document keys are the disc
+		     stack, and they FOLD it behind them, because each finishes the job. Clear is the
+		     exception that proves it: it asks first, and folding on the asking press would hide
+		     its own question. -->
+		<FloatingKey
+			bind:open={keyOpen}
+			icon={NIB_SVG}
+			label="Editor controls"
+			buttons={docKeys}
+			card={shown === 'proof' ? undefined : markCard}
+		/>
+	{/if}
 
 	<!-- THE RUNNING FOOT — the tally, set in the pixel face, the way a manual foots a page. The
 	     lamp at the end says whether what is on screen has reached storage yet. -->
@@ -1431,6 +1517,48 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		max-width: 100%;
 	}
 
+	/* ── The phone's flyout ────────────────────────────────────────────────────
+	   The card FloatingKey opens above its stack holds the marks as a grid. Five across is what
+	   fits a 390px screen with the key's own insets taken off, and it puts all ten within a
+	   thumb's sweep of the key that opened them.
+	   The buttons are dressed here rather than borrowing .icon-btn: a mark key is square and
+	   flush to its neighbours in a grid, where the stack's discs are spaced and round. Same
+	   plastic, different arrangement. */
+	.te-fly-marks {
+		display: grid;
+		grid-template-columns: repeat(5, 1fr);
+		gap: 0.4rem;
+	}
+	.te-fly-mark {
+		display: grid;
+		place-items: center;
+		box-sizing: border-box;
+		width: 100%;
+		height: 44px;
+		padding: 0;
+		color: var(--ink);
+		background: var(--pixel-key-face, rgba(255, 255, 255, 0.5));
+		border: 1px solid var(--pixel-key-border, rgba(0, 0, 0, 0.4));
+		border-radius: 4px;
+		box-shadow: var(--pixel-bevel);
+		font-family: var(--font-mono, ui-monospace, monospace);
+		font-size: 0.78rem;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.te-fly-mark:active {
+		box-shadow: var(--pixel-bevel-press);
+	}
+	.te-fly-mark:focus-visible {
+		outline: var(--focus-ring);
+		outline-offset: 2px;
+	}
+	.te-fly-mark :global(svg) {
+		display: block;
+		width: 1.1rem;
+		height: 1.1rem;
+	}
+
 	/* ── The running foot ──────────────────────────────────────────────────────
 	   The tally, set the way a manual foots a page: mono labels, pixel figures, one hairline
 	   over the lot. Fixed to the bottom of the desk, never scrolling with either pane. */
@@ -1503,6 +1631,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		/* The foot's lamp drops below the tally rather than squeezing it. */
 		.te-lamp {
 			margin-left: 0;
+		}
+		/* …and the whole foot starts clear of the floating key, which is fixed at the bottom-left
+		   and was sitting on top of the first count. */
+		.te-foot {
+			padding-left: 4.5rem;
 		}
 	}
 </style>

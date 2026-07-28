@@ -17,6 +17,20 @@
 // window must do nothing rather than throw; and a stale table left behind after a navigation would
 // hold a closure over a destroyed textarea. Every call site goes through `cmd?.`.
 
+import {
+	COPY_SVG,
+	DOWNLOAD_SVG,
+	TRASH_SVG,
+	BOLD_SVG,
+	ITALIC_SVG,
+	CODE_SVG,
+	QUOTE_SVG,
+	LIST_UL_SVG,
+	LIST_OL_SVG,
+	RULE_SVG,
+	LINK_SVG
+} from '$lib/icons';
+
 export type Mode = 'write' | 'split' | 'proof';
 
 /** What the rack can ask the editor to do. Registered by the editor while it is mounted. */
@@ -71,3 +85,75 @@ export const editor = $state({
 export function shownMode(): Mode {
 	return editor.narrow && editor.mode === 'split' ? 'write' : editor.mode;
 }
+
+// ── What the app offers ───────────────────────────────────────────────────────
+// The key tables live HERE rather than in the rack, because on a phone the same keys are drawn
+// twice in two different shapes: a strip in the bar on a wide window, a flyout at the thumb on a
+// narrow one. Two copies of the list is how the two quietly stop agreeing about what the app can
+// do — which is the same fault the register ($lib/places) exists to prevent, at a smaller scale.
+
+/** A key that inserts a mark. Either a glyph from the shared set or — for the two heading levels,
+ *  which no icon set distinguishes — a word. */
+export type MarkKey = { label?: string; svg?: string; title: string; run: () => void };
+
+export const MARKS: MarkKey[] = [
+	{ label: 'H1', title: 'Heading, first level', run: () => editor.cmd?.prefix('# ') },
+	{ label: 'H2', title: 'Heading, second level', run: () => editor.cmd?.prefix('## ') },
+	{ svg: BOLD_SVG, title: 'Bold (⌘B)', run: () => editor.cmd?.surround('**') },
+	{ svg: ITALIC_SVG, title: 'Italic (⌘I)', run: () => editor.cmd?.surround('*') },
+	{ svg: CODE_SVG, title: 'Code (⌘E)', run: () => editor.cmd?.surround('`') },
+	{ svg: QUOTE_SVG, title: 'Quotation', run: () => editor.cmd?.prefix('> ') },
+	{ svg: LIST_UL_SVG, title: 'Bulleted list', run: () => editor.cmd?.prefix('- ') },
+	{ svg: LIST_OL_SVG, title: 'Numbered list', run: () => editor.cmd?.prefix('1. ') },
+	{ svg: RULE_SVG, title: 'Rule', run: () => editor.cmd?.block('---') },
+	{ svg: LINK_SVG, title: 'Link (⌘K)', run: () => editor.cmd?.link() }
+];
+
+/**
+ * The keys that act on the DOCUMENT rather than on the text. Their labels are functions because
+ * two of them answer back — "Copied", "Sure?" — and that answer is state, read where it is drawn.
+ * `folds` says whether the key finishes the job: on a phone these close the flyout behind them,
+ * where a mark leaves it open so several can be applied without reopening.
+ */
+export type DocKey = {
+	id: string;
+	svg: string;
+	title: () => string;
+	label: () => string;
+	run: () => void;
+	on?: () => boolean;
+	folds: () => boolean;
+};
+
+export const DOC_KEYS: DocKey[] = [
+	{
+		id: 'copy',
+		svg: COPY_SVG,
+		title: () => 'Copy the whole document',
+		label: () => (editor.copied ? 'Copied' : 'Copy'),
+		run: () => editor.cmd?.copy(),
+		folds: () => true
+	},
+	{
+		id: 'download',
+		svg: DOWNLOAD_SVG,
+		title: () => 'Download it as a .md file',
+		label: () => '.md',
+		run: () => editor.cmd?.download(),
+		folds: () => true
+	},
+	{
+		id: 'clear',
+		svg: TRASH_SVG,
+		title: () => (editor.armed ? 'Press again to clear the sheet' : 'Clear the sheet'),
+		label: () => (editor.armed ? 'Sure?' : 'Clear'),
+		run: () => editor.cmd?.clear(),
+		on: () => editor.armed,
+		// Clear ASKS first, so this is read INVERTED — and the inversion is the whole subtlety.
+		// `folds` is asked AFTER the key has run, and by then the arming press has just set
+		// `armed` to true: reading it straight folded the flyout on the very press that posed the
+		// question, hiding it. Armed means "still asking"; not armed, at this point, means the
+		// second press went through and the sheet is clear.
+		folds: () => !editor.armed
+	}
+];

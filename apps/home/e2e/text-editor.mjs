@@ -583,6 +583,59 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	await p.waitForSelector('.te-type');
 	ok('a phone is not offered SPLIT', !(await p.getByRole('button', { name: 'Split' }).count()));
 	ok('and falls back to one pane', (await p.locator('.te-pane').count()) === 1);
+
+	// ── The phone's flyout ─────────────────────────────────────────────────────
+	// Seventeen keys will not sit in a 390px bar without becoming a strip you swipe to reach
+	// anything. The bar keeps the VIEW keys; the rest go to the shared floating key at the
+	// bottom-left, where every other app on the site puts its phone controls.
+	ok(
+		'the phone bar keeps only the view keys',
+		(await p.locator('.head-row .te-rack button').count()) === 2,
+		`${await p.locator('.head-row .te-rack button').count()}`
+	);
+	ok('and a floating key holds the rest', (await p.locator('.fkey').count()) === 1);
+	// The flyout is PARKED rather than unmounted when shut (FloatingKey keeps it in the DOM and
+	// slides it away), so its contents are always present. `aria-expanded` on the key is the state
+	// that actually says whether it is disclosed — counting the marks would pass either way.
+	const shown = () => p.locator('.fkey[aria-expanded="true"]').count();
+	ok('which is shut to begin with', (await shown()) === 0);
+
+	await p.locator('.fkey').click();
+	await p.waitForTimeout(350);
+	ok('it opens', (await shown()) === 1);
+	ok('the marks are a grid', (await p.locator('.te-fly-mark').count()) === 10);
+	ok('with the document keys as a stack', (await p.locator('.fkey-stack .icon-btn').count()) === 4);
+	// 14 of the 17 — the majority, which is the point of the exercise.
+	ok(
+		'so the majority of the keys are in the flyout',
+		(await p.locator('.te-fly-mark').count()) +
+			(await p.locator('.fkey-stack .icon-btn').count()) ===
+			14
+	);
+
+	// A MARK leaves the flyout standing, so a run of them costs one open rather than one each.
+	await p.locator('.te-type').fill('word');
+	await p.evaluate(() => {
+		const t = document.querySelector('.te-type');
+		t.focus();
+		t.setSelectionRange(0, 4);
+	});
+	await p.getByRole('button', { name: 'Bold (⌘B)' }).click();
+	await p.waitForTimeout(250);
+	ok('a mark applies from the flyout', (await p.locator('.te-type').inputValue()) === '**word**');
+	ok('and leaves it standing', (await shown()) === 1);
+
+	// A DOCUMENT key finishes the job and folds it — except Clear, which asks first, and would
+	// otherwise hide its own question.
+	const clear = p.locator('.fkey-stack .icon-btn').nth(2);
+	await clear.click();
+	await p.waitForTimeout(250);
+	ok('Clear asks without folding the flyout', (await shown()) === 1);
+	await clear.click();
+	await p.waitForTimeout(350);
+	ok('and folds it once it has cleared', (await shown()) === 0);
+	ok('having cleared the sheet', (await p.locator('.te-type').inputValue()) === '');
+
 	await phone.close();
 }
 
@@ -650,16 +703,20 @@ await browser.close();
 			// BOTH measure states, and in WRITE — the cap only bites when the pane is the whole
 			// window, and holding the text to a measure re-wraps it, which is precisely the kind of
 			// change that could put the mirror and the textarea on different line breaks.
-			for (const held of [true, false]) {
+			// Below the phone breakpoint the Measure key is not in the bar at all — it has moved to
+			// the flyout — and the cap cannot bind there anyway, because the pane is already
+			// narrower than the measure. So the narrow widths test the default state only, and say
+			// so rather than reaching for a control that is not there.
+			for (const held of width > 820 ? [true, false] : [true]) {
 				await p.evaluate(async (want) => {
 					const key = (label) =>
 						[...document.querySelectorAll('.te-rack button')].find(
 							(b) => b.textContent.trim() === label
 						);
-					if (!document.querySelector('.te').classList.contains('te-write')) key('Write').click();
+					key('Write')?.click();
 					await new Promise((r) => setTimeout(r, 150));
 					if (document.querySelector('.te').classList.contains('te-measured') !== want)
-						key('Measure').click();
+						key('Measure')?.click();
 					await new Promise((r) => setTimeout(r, 200));
 				}, held);
 
