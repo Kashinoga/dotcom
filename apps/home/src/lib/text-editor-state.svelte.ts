@@ -340,6 +340,20 @@ export const editor = $state({
 	 */
 	driveFetched: [] as string[],
 	/**
+	 * Which of its paths are being READ RIGHT NOW — folders and documents both, because pressing
+	 * either is a request and neither is instant. On a slow connection that is a row which does
+	 * nothing for a second or two, indistinguishable from the outside from an empty folder, an empty
+	 * document, or a press that missed.
+	 *
+	 * ONE LIST for the two, because it is one fact: this path is being read. A folder draws it where
+	 * its tally would be and a document where nothing was, and that is the whole of the difference.
+	 *
+	 * Separate from `driveFetched`, which is marked before a folder's request and stays marked
+	 * afterwards: that one says "this has been read", this says "this is being read", and a folder
+	 * row needs both to know whether to draw a tally or a bar.
+	 */
+	driveFetching: [] as string[],
+	/**
 	 * Where the SETTINGS flyout should stand, or null when it is shut. Carried rather than
 	 * anchored for the reason `headingAt` is — the key that opens it stands in a bar that scrolls
 	 * on a phone, and a popover parented into a scroller is clipped by it.

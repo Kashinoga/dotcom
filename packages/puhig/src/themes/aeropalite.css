@@ -35,6 +35,7 @@
 	   never left reading an undefined custom property; Pixelite tunes its own pair. */
 	--emerald: light-dark(#00734a, #3fca92);
 	--ruby: light-dark(#b3261e, #ff8a80); /* the refusal ink — see pixelite.css */
+	--topaz: light-dark(#8a5a00, #ffc95c); /* the in-flight ink — see pixelite.css */
 	--sub: light-dark(#717171, #9a9a9a); /* TODO(aeropalite): Aeropalite's subtext */
 
 	/* Grid line colour over the page field (tile size --grid-size lives in base). */

@@ -1123,6 +1123,22 @@ await reset('first\n\n\nlast');
 		JSON.stringify(await wp.locator(TREE_FILES).allTextContents())
 	);
 
+	// THE HEAD BELONGS TO ITS LIST. It used to be pinned to the top of the pane, above the shelves
+	// and above the drive, while the rows it heads sat at the bottom — so a folder announced itself
+	// three lists away from the first thing inside it, and the row under its name belonged to
+	// something else entirely.
+	ok(
+		"the folder's head is inside the folder's own section",
+		(await wp.locator('.te-local .te-work-head').count()) === 1 &&
+			(await wp.locator('.te-local .te-local-list').count()) === 1
+	);
+	ok(
+		'and stands immediately above its own rows, with nothing between',
+		await wp
+			.locator('.te-local .te-work-head')
+			.evaluate((el) => el.nextElementSibling?.classList.contains('te-local-list') ?? false)
+	);
+
 	await wp.getByRole('treeitem', { name: 'alpha.md' }).click();
 	await wp.waitForTimeout(600);
 	ok(
@@ -2536,6 +2552,12 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 			propfinds += 1;
 			const at = LEVELS[decodeURIComponent(target.pathname).replace(/\/$/, '')];
 			if (!at) return route.fulfill({ status: 404 });
+			// The SUB-FOLDER answers slowly on purpose, so the row's Fetching state is observable.
+			// A real server on a real connection takes long enough that somebody sees it; a stub
+			// that answers instantly would make the state untestable and, worse, look unnecessary.
+			if (decodeURIComponent(target.pathname).includes('Deeper')) {
+				await new Promise((r) => setTimeout(r, 1200));
+			}
 			return route.fulfill({
 				status: 207,
 				contentType: 'application/xml',
@@ -2543,6 +2565,9 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 			});
 		}
 		if (req.method() === 'GET') {
+			// Slowly, for the same reason the sub-folder is slow: a document on a server does not
+			// arrive in the frame you pressed the row in, and the row has to say so.
+			await new Promise((r) => setTimeout(r, 900));
 			return route.fulfill({ status: 200, headers: { etag: '"e1"' }, body: '# From the drive' });
 		}
 		return route.fulfill({ status: 405 });
@@ -2594,9 +2619,41 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	);
 	ok('one folder read so far, not the whole tree', propfinds === 2, `propfinds: ${propfinds}`);
 
-	// OPENING IS READING. The tree arrives a level at a time, so the twisty is also the fetch.
+	// OPENING IS READING. The tree arrives a level at a time, so the twisty is also the fetch — and
+	// a request is not instant, so the row says it is working. Without that, a slow folder is a row
+	// that does nothing for a second or two, which reads as an empty folder or a press that missed.
 	await dp.locator('.te-drive-list .te-work-dir').first().click();
-	await dp.waitForTimeout(900);
+	await dp.waitForTimeout(300);
+	ok(
+		'a folder being read says so, where its tally would be',
+		(await dp.locator('.te-drive-list .te-work-dir.fetching .te-work-fetching').count()) === 1
+	);
+	ok(
+		'and says it in topaz — the one ink that means still happening',
+		await dp.locator('.te-drive-list .te-work-fetching').evaluate((el) => {
+			const probe = document.createElement('span');
+			probe.style.color = 'var(--topaz)';
+			el.append(probe);
+			const want = getComputedStyle(probe).color;
+			probe.remove();
+			return getComputedStyle(el).color === want;
+		})
+	);
+	ok(
+		'with a bar that is actually moving',
+		await dp
+			.locator('.te-drive-list .te-work-bar')
+			.evaluate((el) => getComputedStyle(el, '::after').animationName !== 'none')
+	);
+	ok(
+		'and it is announced, not only drawn',
+		(await dp.locator('.te-drive-list .te-work-dir.fetching').getAttribute('aria-busy')) === 'true'
+	);
+	await dp.waitForTimeout(1600);
+	ok(
+		'and it stops saying so once the folder is there',
+		(await dp.locator('.te-drive-list .te-work-fetching').count()) === 0
+	);
 	ok('opening a drive folder is what fetches it', propfinds === 3, `propfinds: ${propfinds}`);
 	await eq(
 		'and its documents arrive under it',
@@ -2621,7 +2678,20 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	);
 
 	await dp.getByRole('treeitem', { name: 'top.md' }).click();
-	await dp.waitForTimeout(700);
+	await dp.waitForTimeout(250);
+	ok(
+		'a DOCUMENT being read says so as well, not only a folder',
+		(await dp.locator('.te-drive-list .te-work-row.fetching .te-work-fetching').count()) === 1
+	);
+	ok(
+		'and it is the same mark, not a second idea about the same state',
+		(await dp.locator('.te-drive-list .te-work-row.fetching .te-work-bar').count()) === 1
+	);
+	await dp.waitForTimeout(1200);
+	ok(
+		'which goes when the words arrive',
+		(await dp.locator('.te-drive-list .te-work-fetching').count()) === 0
+	);
 	ok(
 		'a drive document opens on the sheet like any other',
 		(await dp.locator('.te-type').inputValue()) === '# From the drive'
@@ -2662,7 +2732,7 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 		.locator('ul[aria-label="Elsewhere"] .te-work-file')
 		.filter({ hasText: 'top.md' })
 		.click();
-	await dp.waitForTimeout(800);
+	await dp.waitForTimeout(1800);
 	ok(
 		'and the row re-reads from the server, the way a handle row re-reads from disk',
 		(await dp.locator('.te-type').inputValue()) === '# From the drive'

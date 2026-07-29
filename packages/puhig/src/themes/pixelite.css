@@ -45,10 +45,16 @@
 
 	   RUBY, not crimson, and the name is the point: the answering inks are GEMS. Emerald landed,
 	   ruby did not, and cobalt — the mineral the accent is already named for — is the odd one out
-	   on purpose, because it is not an answer about anything. A fourth answer, if this app ever
-	   needs one, is a stone and not a shade. */
+	   on purpose, because it is not an answer about anything. TOPAZ is below, and it is the one
+	   that is not an answer either: it means still happening. Any further one is a stone and not a
+	   shade. */
 	--ruby: light-dark(#b3261e, #ff8a80); /* ruby-700 / ruby-200 */
 	--pixel-key-lost: light-dark(#fdeceb, #33110f); /* the lost-key fill, ruby-50 / deep ruby */
+	/* The FOURTH, and the one that is not an answer: TOPAZ means still happening. Emerald landed,
+	   ruby did not, and a thing in flight has not done either yet — which is exactly why it cannot
+	   borrow one of them. It is the only one of the four that is allowed to move, because it is the
+	   only one describing something that is still going on. */
+	--topaz: light-dark(#8a5a00, #ffc95c); /* topaz-700 / topaz-300 */
 	--sub: light-dark(rgba(0, 0, 0, 0.4), rgba(242, 242, 242, 0.4)); /* muted = ink at 40% */
 
 	/* Grid line colour over the page field (tile size --grid-size lives in base). */

@@ -2437,6 +2437,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// state module for why this is the opposite of the local tree's rule and why it has to be.
 		editor.driveCollapsed = [...listing.dirs];
 		editor.driveFetched = [''];
+		editor.driveFetching = [];
 		editor.driveName = next.name;
 		editor.driveOpen = true;
 		editor.drivePending = false;
@@ -2462,7 +2463,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// Marked BEFORE the request, not after: a folder pressed twice while its request is in
 		// flight would otherwise ask twice and merge twice.
 		editor.driveFetched = [...editor.driveFetched, path];
+		editor.driveFetching = [...editor.driveFetching, path];
 		const listing = await drive.listDir(path);
+		editor.driveFetching = editor.driveFetching.filter((p) => p !== path);
 		if (!listing) {
 			// It could not be read. Un-mark it, so pressing again tries again — a folder that failed
 			// once because the network dropped should not be permanently empty.
@@ -2483,6 +2486,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	function closeDrive() {
 		drive = null;
 		driveId = '';
+		editor.driveFetching = [];
 		editor.drive = [];
 		editor.driveFolders = [];
 		editor.driveCollapsed = [];
@@ -2522,7 +2526,15 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 */
 	async function openEntry(entry: FolderEntry, list: 'tree' | 'cloud' = 'tree') {
 		const from = storeOf(list);
+		// A DOCUMENT on a drive is a request too, and it is the one somebody is waiting on most
+		// directly — they pressed a row expecting words. Only the drive is marked: a local read is a
+		// handle and a `File.text()`, over before a frame has passed, and a bar that flickered for
+		// one frame on every press would be noise wearing the shape of information.
+		if (list === 'cloud') editor.driveFetching = [...editor.driveFetching, entry.path];
 		const body = await from?.read(entry.path);
+		if (list === 'cloud') {
+			editor.driveFetching = editor.driveFetching.filter((p) => p !== entry.path);
+		}
 		if (body == null) return;
 		editor.openPath = entry.path;
 		editor.openIn = list;
@@ -2717,6 +2729,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		aria-label={label}
 	>
 		{#each rows as row (row.kind === 'dir' ? `d:${row.path}` : `f:${row.entry.path}`)}
+			<!-- IS THIS ROW BEING READ? One question for both kinds, because it is one fact — see
+			     `driveFetching` in the state module. Hoisted above the branch so a folder and a
+			     document ask it the same way and answer it with the same two marks. -->
+			{@const busy =
+				list === 'cloud' &&
+				editor.driveFetching.includes(row.kind === 'dir' ? row.path : row.entry.path)}
 			{#if row.kind === 'dir'}
 				<li class="te-work-item" role="none">
 					<!-- A folder is a row you can shut. It carries how many documents are under
@@ -2726,6 +2744,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						type="button"
 						class="te-work-row te-work-dir"
 						class:into={list === 'tree' && dropInto === row.path}
+						class:fetching={busy}
+						aria-busy={busy || undefined}
 						role="treeitem"
 						aria-level={row.depth + 1}
 						aria-expanded={!row.shut}
@@ -2750,7 +2770,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						<!-- ABSENT, not zero, where the count cannot be known. See `count` in WorkRow: a
 							     remote folder nothing has been fetched from holds an unknown number of
 							     documents, and a confident 0 beside forty of them is worse than silence. -->
-						{#if row.count !== null}
+						{#if busy}
+							<!-- WHERE THE TALLY WOULD BE, because it is the answer to the same question:
+								     how much is in here. It cannot be known yet, and this says what is being
+								     done about that. -->
+							<span class="te-work-fetching">Fetching</span>
+							<span class="te-work-bar" aria-hidden="true"></span>
+						{:else if row.count !== null}
 							<span class="te-work-tally">{row.count}</span>
 						{/if}
 					</button>
@@ -2789,6 +2815,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						<button
 							type="button"
 							class="te-work-row"
+							class:fetching={busy}
+							aria-busy={busy || undefined}
 							role="treeitem"
 							aria-level={row.depth + 1}
 							aria-selected={editor.openIn === list && editor.openPath === entry.path}
@@ -2815,6 +2843,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 							oncontextmenu={(e) => openFileMenu(e, entry, list)}
 						>
 							<span class="te-work-file">{entry.name}</span>
+							{#if busy}
+								<!-- The same two marks a folder gets. A document has no tally for the word to
+									     stand in for, so it stands at the same right edge the tallies keep — the
+									     column is the column whatever happens to be in it. -->
+								<span class="te-work-fetching">Fetching</span>
+								<span class="te-work-bar" aria-hidden="true"></span>
+							{/if}
 						</button>
 					{/if}
 				</li>
@@ -3030,47 +3065,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			     close it: that is the difference between a workspace and a dialog.
 			     Set as the manual sets a list — a ruled row per document, the name in the mono
 			     voice over its path in the muted one, the open one marked. -->
-			<aside class="te-work" aria-label="Workspace: {editor.folderName || 'folder'}">
-				<!-- ONE ROW: the folder's name, its tally, and the three keys that act on the pane.
-				     The name had the row to itself for a while, because sharing it with three keys
-				     ellipsised any long name after a few characters and the name is the one thing
-				     in here you cannot work out from anything else. It shares again — a whole row
-				     spent on a word is a row the list could have had — and the ellipsis is answered
-				     rather than accepted: point at a clipped name and the whole of it opens below,
-				     wrapped, on the same sheet the menus are cut from. -->
-				<!-- The head is the ROOT's drop target. Dragging a document out of a sub-folder has to
-				     have somewhere to land, and the folder's own name is the obvious place: it is the
-				     row that names the directory everything else is inside. -->
-				<header
-					class="te-work-head"
-					role="group"
-					aria-label="Workspace {editor.folderName || ''}"
-					class:into={dropInto === ''}
-					ondragover={(e) => onDragOver(e, '')}
-					ondragleave={(e) => onDragLeave(e, '')}
-					ondrop={(e) => onDrop(e, '')}
-				>
-					<!-- THE FOLDER'S OWN NAME, and now the whole of what this row is for. `Workspace`
-					     as the placeholder rather than `Folder`: the row has the width for it since New,
-					     Change and Hide left for the bar key's menu — that is what they were competing
-					     with, and the name is the one thing in this row you cannot work out from
-					     anywhere else. -->
-					<h2 class="te-work-name" bind:this={workNameEl}>
-						{editor.folderName || 'Workspace'}
-					</h2>
-					<!-- The folder's own tally comes LAST, past the keys, because it is one of a
-					     column: every folder row in the tree below carries the same figure at the
-					     same right edge, and this one is the head of that column rather than a
-					     footnote to the name. -->
-					<span class="te-work-count">{editor.folder.length}</span>
-					{#if nameClipped}
-						<!-- Drawn only when the name is ACTUALLY clipped — a reveal that repeats a name
-						     you can already read in full is a flicker with no information in it. It
-						     hangs BELOW the row rather than over it, so it never lands under the
-						     pointer that opened it and cannot take its own hover away. -->
-						<span class="popover te-work-full" aria-hidden="true">{editor.folderName}</span>
-					{/if}
-				</header>
+			<!-- FOUR LISTS, and the pane is not any one of them. It used to be labelled for the folder,
+			     which was true while the folder was all there was in here. -->
+			<aside class="te-work" aria-label="Workspace">
 				<!-- TWO SHELVES above the tree, both drawn by the same snippet below: SCRATCH (what
 				     New makes, which has no file anywhere) and ELSEWHERE (what was opened from
 				     outside this folder). Scratch is on top because it is the list you just added
@@ -3145,25 +3142,73 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						{/if}
 					</section>
 				{/if}
-				<!-- A TREE, drawn flat: every row carries its own depth as a left inset, which indents
+				<!-- THE FOLDER, head and all. The head used to be pinned to the TOP of the pane, above
+				     the shelves and above the drive, while the rows it heads were at the bottom — so a
+				     workspace called `Syncthing` announced itself three lists away from the first thing
+				     inside it, and the row directly under its name belonged to something else.
+				     A head names the list it is on top of, or it is a title for the pane; this pane has
+				     four lists and no room for a title. -->
+				<section class="te-local" aria-label="Workspace: {editor.folderName || 'folder'}">
+					<!-- ONE ROW: the folder's name, its tally, and the three keys that act on the pane.
+				     The name had the row to itself for a while, because sharing it with three keys
+				     ellipsised any long name after a few characters and the name is the one thing
+				     in here you cannot work out from anything else. It shares again — a whole row
+				     spent on a word is a row the list could have had — and the ellipsis is answered
+				     rather than accepted: point at a clipped name and the whole of it opens below,
+				     wrapped, on the same sheet the menus are cut from. -->
+					<!-- The head is the ROOT's drop target. Dragging a document out of a sub-folder has to
+				     have somewhere to land, and the folder's own name is the obvious place: it is the
+				     row that names the directory everything else is inside. -->
+					<header
+						class="te-work-head"
+						role="group"
+						aria-label="Workspace {editor.folderName || ''}"
+						class:into={dropInto === ''}
+						ondragover={(e) => onDragOver(e, '')}
+						ondragleave={(e) => onDragLeave(e, '')}
+						ondrop={(e) => onDrop(e, '')}
+					>
+						<!-- THE FOLDER'S OWN NAME, and now the whole of what this row is for. `Workspace`
+					     as the placeholder rather than `Folder`: the row has the width for it since New,
+					     Change and Hide left for the bar key's menu — that is what they were competing
+					     with, and the name is the one thing in this row you cannot work out from
+					     anywhere else. -->
+						<h2 class="te-work-name" bind:this={workNameEl}>
+							{editor.folderName || 'Workspace'}
+						</h2>
+						<!-- The folder's own tally comes LAST, past the keys, because it is one of a
+					     column: every folder row in the tree below carries the same figure at the
+					     same right edge, and this one is the head of that column rather than a
+					     footnote to the name. -->
+						<span class="te-work-count">{editor.folder.length}</span>
+						{#if nameClipped}
+							<!-- Drawn only when the name is ACTUALLY clipped — a reveal that repeats a name
+						     you can already read in full is a flicker with no information in it. It
+						     hangs BELOW the row rather than over it, so it never lands under the
+						     pointer that opened it and cannot take its own hover away. -->
+							<span class="popover te-work-full" aria-hidden="true">{editor.folderName}</span>
+						{/if}
+					</header>
+					<!-- A TREE, drawn flat: every row carries its own depth as a left inset, which indents
 				     exactly as nested lists would and lets one `each` draw the whole thing. The
 				     ARIA is the flattened kind — `aria-level` on each item says where it sits, since
 				     the DOM nesting no longer does. -->
-				{@render tree(workRows, 'tree', 'Documents', toggleDir)}
-				{#if !editor.folder.length}
-					<!-- An EMPTY folder still gets its sidebar. It used to be hidden — and once New
+					{@render tree(workRows, 'tree', 'Documents', toggleDir)}
+					{#if !editor.folder.length}
+						<!-- An EMPTY folder still gets its sidebar. It used to be hidden — and once New
 					     existed that meant the one place to make a first document disappeared exactly
 					     when it was needed. -->
-					<!-- It names the KEY, which is the one thing here that cannot be guessed now: New and
+						<!-- It names the KEY, which is the one thing here that cannot be guessed now: New and
 					     Change were two keys in this pane's own head and they are in the bar's Workspace
 					     menu instead. Naming the place, not the gesture — the audience knows what a menu
 					     is; what it cannot know is which key was chosen to hold this one. -->
-					<p class="te-work-note">
-						{!editor.folderName
-							? 'No folder open. The Workspace key picks one, and makes scratch notes.'
-							: 'Nothing here this editor can open — it takes Markdown and plain text.'}
-					</p>
-				{/if}
+						<p class="te-work-note">
+							{!editor.folderName
+								? 'No folder open. The Workspace key picks one, and makes scratch notes.'
+								: 'Nothing here this editor can open — it takes Markdown and plain text.'}
+						</p>
+					{/if}
+				</section>
 				<!-- Only while there is no way to write ANYWHERE: not to the local disk, and not to
 				     whatever workspace is open. The second half is what stops this contradicting a
 				     writable store reached over a network, which Safari and Firefox can hold even
@@ -4590,12 +4635,91 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		opacity: 0.45;
 	}
 	.te-work-row.into,
+	/* ── A FOLDER BEING READ ───────────────────────────────────────────────────
+	   Opening a remote folder is a request, and on a slow connection the row does nothing for a
+	   second or two — which from the outside is indistinguishable from a folder that is empty or a
+	   press that missed. So it says so, in TOPAZ: the fourth gem, and the one that is not an
+	   answer. Emerald landed, ruby did not, and this has not done either yet.
+
+	   It is also the only one of the four allowed to MOVE, for the same reason — a bar that sweeps
+	   is saying "still going", which is the whole of what a determinate figure cannot say here: the
+	   server does not tell us how many rows are coming, so there is no progress to report, only
+	   activity. An indeterminate bar that pretends to be a percentage is a lie with a number in it. */
+	.te-work-row.fetching {
+		position: relative;
+		color: var(--topaz);
+	}
+	/* The word stands exactly where the tally stands, in the tally's own type — it is the answer to
+	   the same question, arriving late. */
+	.te-work-fetching {
+		margin-left: auto;
+		font-family: var(--font-mono, monospace);
+		font-size: 0.6rem;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--topaz);
+	}
+	/* A 2px rule along the bottom of the row, with a sliver sweeping it. Along the BOTTOM rather
+	   than under the name: every row in this pane is 30px and a bar with its own height would make
+	   this one taller than its neighbours, which is the one thing the row rule does not allow. */
+	.te-work-bar {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		height: 2px;
+		overflow: hidden;
+		background: color-mix(in srgb, var(--topaz) 18%, transparent);
+	}
+	.te-work-bar::after {
+		content: '';
+		position: absolute;
+		inset: 0 auto 0 0;
+		width: 38%;
+		background: var(--topaz);
+		animation: te-fetching 1.1s ease-in-out infinite;
+	}
+	@keyframes te-fetching {
+		0% {
+			transform: translateX(-100%);
+		}
+		/* 264%, not 100%: the sliver is 38% of the bar, so one of its OWN widths is 38% of the
+		   travel. Crossing the bar and clearing the far edge is (100 + 38) / 38 ≈ 264 of them.
+		   A round 100% would have it stall a third of the way across and jump back. */
+		100% {
+			transform: translateX(264%);
+		}
+	}
+	/* Reduced motion keeps the BAR and drops the sweep. The bar is the information; the movement is
+	   how it says "still", and somebody who has asked for less movement has not asked for less
+	   information. A steady breathing fill says the same thing without travelling. */
+	@media (prefers-reduced-motion: reduce) {
+		.te-work-bar::after {
+			width: 100%;
+			animation: te-fetching-still 1.6s ease-in-out infinite;
+		}
+		@keyframes te-fetching-still {
+			0%,
+			100% {
+				opacity: 0.35;
+			}
+			50% {
+				opacity: 1;
+			}
+		}
+	}
+
 	/* THE DRIVE'S BLOCK. A rule above it and its head set like the workspace's, so the pane reads as
 	   two places rather than one list with a gap in it. No shading: the shelves are shaded because
 	   they are NOT a place (they hold documents from anywhere and notes from nowhere), and a drive
 	   is as much a place as the folder is. */
-	.te-drive {
+	.te-drive,
+	.te-local {
 		border-top: 1px solid var(--pixel-hairline, rgba(0, 0, 0, 0.12));
+	}
+	/* Except at the very top, where a rule would be drawing the pane's own edge twice. */
+	.te-work > .te-local:first-child {
+		border-top: 0;
 	}
 	.te-work-head.into {
 		outline: 1px dashed var(--orange);
