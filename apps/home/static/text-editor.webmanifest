@@ -1,0 +1,45 @@
+{
+	"id": "/apps/text-editor",
+	"name": "Text Editor",
+	"short_name": "Text Editor",
+	"description": "A Markdown editor, set as a page of the manual it renders.",
+	"start_url": "/apps/text-editor",
+	"scope": "/apps/text-editor",
+	"display": "standalone",
+	"orientation": "any",
+	"background_color": "#ffffff",
+	"theme_color": "#ffffff",
+	"categories": ["productivity", "utilities"],
+	"icons": [
+		{
+			"src": "/icons/text-editor-192.png",
+			"sizes": "192x192",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/icons/text-editor-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "any"
+		},
+		{
+			"src": "/icons/text-editor-maskable-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		}
+	],
+	"file_handlers": [
+		{
+			"action": "/apps/text-editor",
+			"accept": {
+				"text/markdown": [".md", ".markdown", ".mdown", ".mkd"],
+				"text/plain": [".txt", ".text"]
+			}
+		}
+	],
+	"launch_handler": {
+		"client_mode": "focus-existing"
+	}
+}

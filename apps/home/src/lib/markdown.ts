@@ -23,6 +23,20 @@
 // Nothing in here touches the DOM or reads a global, so `node --test` exercises it directly
 // (test/markdown.test.ts) with no browser and no harness.
 
+/**
+ * What this engine will read. Deliberately narrow: handing it a binary would put mojibake on the
+ * sheet rather than an error.
+ *
+ * It lives HERE, beside the parser, rather than with the editor's state, because it is a fact
+ * about the format rather than about the app — and because two things now have to agree on it
+ * that cannot both import a module full of runes: the editor (which gates a folder walk and a
+ * picker on it) and the install manifest's `file_handlers`, which is a promise to the operating
+ * system that double-clicking one of these opens this app. A claim there that fails this test is
+ * a file manager taught to hand documents to an editor that will not take them —
+ * test/manifest.test.ts holds the two together.
+ */
+export const OPENABLE = /\.(md|markdown|mdown|mkd|txt|text)$/i;
+
 /** The tags this module will ever emit. Written down so a review can check the list, not the file. */
 export const EMITTED_TAGS = [
 	'h1',

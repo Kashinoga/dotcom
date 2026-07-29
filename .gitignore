@@ -55,6 +55,11 @@ dist/
 # data & manifests
 !*.json
 !*.geojson
+# The web app manifest — static/text-editor.webmanifest, which is what makes the editor
+# installable. Its own extension rather than .json because that is the one the spec names and
+# the one servers map to application/manifest+json; without this rule the deny-all above eats
+# it and the app is installable in dev and nowhere else.
+!*.webmanifest
 
 # ─── Dev-only: re-ignore AFTER opt-ins so these win ───
 # your underscore convention (_PLAN.md, _NOTES.md, …)

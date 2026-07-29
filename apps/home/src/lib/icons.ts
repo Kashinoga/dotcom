@@ -276,3 +276,14 @@ export const DOC_TEXT_SVG =
 // the keys carry one weight.
 export const INFO_SVG =
 	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22ZM12 5.75C11.3096 5.75 10.75 6.30964 10.75 7C10.75 7.69036 11.3096 8.25 12 8.25C12.6904 8.25 13.25 7.69036 13.25 7C13.25 6.30964 12.6904 5.75 12 5.75ZM12.875 10.75C12.875 10.2668 12.4832 9.875 12 9.875C11.5168 9.875 11.125 10.2668 11.125 10.75V17C11.125 17.4832 11.5168 17.875 12 17.875C12.4832 17.875 12.875 17.4832 12.875 17V10.75Z" fill="currentColor"/></svg>';
+
+// INSTALL — the key that offers the editor as an app of its own. Drawn here rather than taken
+// from reicon, because the set has no glyph for this and the two it has that come close are both
+// already spoken for: DOWNLOAD is the .MD key three keys to the left, and a key that wears the
+// same mark as another key on the same bar is a key nobody can tell apart.
+//
+// An arrow going DOWN INTO the app's own frame — the site's squircle, the one MAXIMIZE and every
+// other panel glyph is cut from, hollowed to a ring so the arrow has somewhere to land. The frame
+// is what makes it not a download: this arrow ends inside a window rather than at a tray.
+export const INSTALL_SVG =
+	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M2 12C2 7.28595 2 4.92893 3.46447 3.46447C4.92893 2 7.28595 2 12 2C16.714 2 19.0711 2 20.5355 3.46447C22 4.92893 22 7.28595 22 12C22 16.714 22 19.0711 20.5355 20.5355C19.0711 22 16.714 22 12 22C7.28595 22 4.92893 22 3.46447 20.5355C2 19.0711 2 16.714 2 12ZM3.5 12C3.5 7.993 3.5 5.99 4.745 4.745C5.99 3.5 7.993 3.5 12 3.5C16.007 3.5 18.01 3.5 19.255 4.745C20.5 5.99 20.5 7.993 20.5 12C20.5 16.007 20.5 18.01 19.255 19.255C18.01 20.5 16.007 20.5 12 20.5C7.993 20.5 5.99 20.5 4.745 19.255C3.5 18.01 3.5 16.007 3.5 12Z" fill="currentColor"/><path d="M12 7.25C12.4142 7.25 12.75 7.58579 12.75 8V13.1893L13.9697 11.9697C14.2626 11.6768 14.7374 11.6768 15.0303 11.9697C15.3232 12.2626 15.3232 12.7374 15.0303 13.0303L12.5303 15.5303C12.2374 15.8232 11.7626 15.8232 11.4697 15.5303L8.96967 13.0303C8.67678 12.7374 8.67678 12.2626 8.96967 11.9697C9.26256 11.6768 9.73744 11.6768 10.0303 11.9697L11.25 13.1893V8C11.25 7.58579 11.5858 7.25 12 7.25Z" fill="currentColor"/></svg>';

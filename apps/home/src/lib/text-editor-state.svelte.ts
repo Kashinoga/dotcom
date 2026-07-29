@@ -94,13 +94,17 @@ export type LooseDoc = {
 export type Ephemeral = { id: string; name: string; text: string };
 
 /**
- * What counts as openable. Deliberately narrow: this is a Markdown editor, and handing it a
- * binary would put mojibake on the sheet rather than an error. The extension list is the gate
- * for a FOLDER (where the picker cannot filter for us); a single file also offers these to the
- * native picker, which is a hint rather than a rule — the picker can always be overridden, so
- * the same check runs on what comes back.
+ * What counts as openable. The extension list is the gate for a FOLDER (where the picker cannot
+ * filter for us); a single file also offers these to the native picker, which is a hint rather
+ * than a rule — the picker can always be overridden, so the same check runs on what comes back.
+ *
+ * Re-exported rather than declared, so every caller here keeps its import: it now lives in
+ * $lib/markdown, beside the parser that has to be able to read whatever it lets in, and where a
+ * plain `node --test` can reach it. This module cannot be imported outside a Svelte build — it is
+ * runes all the way down — and the install manifest's file handlers need checking against the
+ * same list. See the note there.
  */
-export const OPENABLE = /\.(md|markdown|mdown|mkd|txt|text)$/i;
+export { OPENABLE } from '$lib/markdown';
 
 /** What the rack can ask the editor to do. Registered by the editor while it is mounted. */
 export type Commands = {
@@ -284,8 +288,70 @@ export const editor = $state({
 	 * forever while the document slid underneath it in plain sight.
 	 */
 	scrolled: false,
+	/**
+	 * Can this browser install the editor as an app, right now? True only once Chromium has fired
+	 * `beforeinstallprompt` at us — which it does when the manifest, the icons and a service worker
+	 * are all in place and the visitor has not already installed it.
+	 *
+	 * A flag rather than a capability check, because there is nothing to check: no browser will say
+	 * whether it is willing to install something, and Safari and Firefox never fire the event at all
+	 * (Safari installs from its own Share menu instead, which is not a thing a page can offer). So
+	 * the key is DRAWN only where it works, the way every other key in this app that depends on the
+	 * platform is — not drawn and disabled.
+	 */
+	installable: false,
+	/**
+	 * Is this window already the installed app? `display-mode: standalone` is the only reliable
+	 * way to know — there is no "am I installed" API, and asking would be the wrong question
+	 * anyway: what the key needs to know is whether the visitor is looking at the thing it would
+	 * offer to make.
+	 */
+	installed: false,
 	cmd: null as Commands | null
 });
+
+// ── Installing ────────────────────────────────────────────────────────────────
+// The editor can be installed as an app of its own (static/text-editor.webmanifest). The KEY that
+// offers it stands in the panel's chrome corner, which is the page's, and on a phone it goes down
+// to the editor's flyout — so, exactly like the rack, the two halves have to meet in this file.
+//
+// The event is held here as a plain module variable rather than in `$state`. It is a live DOM
+// object with a method that has to be called on the original, and nothing about it is worth
+// making reactive — `installable` above is the reactive part, and it is the only part a key reads.
+
+/** What Chromium hands over: a deferred prompt, to be shown later on a real gesture. */
+type InstallPrompt = Event & {
+	prompt(): Promise<void>;
+	userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+};
+
+let deferred: InstallPrompt | null = null;
+
+/** Hold on to the offer. Called from the editor's `beforeinstallprompt` listener. */
+export function holdInstall(event: Event) {
+	deferred = event as InstallPrompt;
+	editor.installable = true;
+}
+
+/**
+ * Show the browser's own install dialog. It can only be shown ONCE per offer — Chromium
+ * invalidates the event after `prompt()` — so the key goes away whatever the visitor answers.
+ * Declining is not an error and leaves nothing to say: the browser will offer again on a later
+ * visit, and a key that reappeared immediately would be arguing.
+ */
+export async function install() {
+	if (!deferred) return;
+	const offer = deferred;
+	deferred = null;
+	editor.installable = false;
+	try {
+		await offer.prompt();
+		await offer.userChoice;
+	} catch {
+		// A prompt the browser refused to show (no gesture, or already installed in another
+		// window). Nothing to recover — the offer is spent either way.
+	}
+}
 
 /**
  * SPLIT needs two readable columns and a phone has room for one, so it is not offered below the

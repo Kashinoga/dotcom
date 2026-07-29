@@ -83,10 +83,16 @@ export const countedCommits: number =
 export const RELEASES: Record<string, AppRelease> = {
 	TEXT: {
 		major: 0,
-		minor: 8,
-		fixes: 3,
-		commits: 316,
+		minor: 9,
+		// Back to zero, by hand, because a feature landed — see the note on `fixes` above. The
+		// three repairs it counts were repairs to the app as it stood before this.
+		fixes: 0,
+		commits: 317,
 		recent: [
+			{
+				at: '0.9.0.317',
+				what: 'Install it as an app: its own window, offline, and .md files open in it'
+			},
 			{ at: '0.8.3.316', what: 'Menus and flyouts lose their white outline in dark mode' },
 			{ at: '0.8.2.315', what: 'On a phone the flyout holds every key, Home and About with them' },
 			{

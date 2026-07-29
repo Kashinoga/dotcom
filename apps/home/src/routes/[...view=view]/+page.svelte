@@ -25,7 +25,7 @@
 	// The editor's own scroll state. The dense bar frosts when content goes under it, and this is
 	// the only way the bar can know: `surfScrolled` watches `.surface-body`, which in the editor
 	// never scrolls — its sheet and its proof scroll inside it instead.
-	import { editor as textEditor } from '$lib/text-editor-state.svelte';
+	import { editor as textEditor, install } from '$lib/text-editor-state.svelte';
 	import { emojiSearch } from '$lib/emoji-search.svelte';
 	import StarMap from '$lib/StarMap.svelte';
 	import DocsShell from '$lib/DocsShell.svelte';
@@ -52,7 +52,9 @@
 		// The Text Editor's About key, next to Home in its bar — see the TEXT branch of the dense
 		// header. It belongs to the bar rather than to the editor's own rack because Home does too:
 		// the two are the panel's chrome, not the document's controls.
-		INFO_SVG
+		INFO_SVG,
+		// …and the Install key beside it, which offers the editor as an app of its own.
+		INSTALL_SVG
 	} from '$lib/icons';
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
@@ -1716,6 +1718,18 @@
 	<meta property="og:image:alt" content={headTitle} />
 	<meta name="twitter:card" content="summary_large_image" />
 	<meta name="twitter:image" content={ogImage} />
+	<!-- THE MANIFEST IS THE TEXT EDITOR'S, and it is linked on the editor's own page and nowhere
+	     else. That is the whole of how "only this app is installable" is enforced: a browser
+	     offers to install the page it is looking at, so a manifest in app.html would put the
+	     whole site behind one icon called Text Editor. The editor registers the worker that goes
+	     with it, on the same argument — see $lib/TextEditor.
+	     iOS reads no manifest icon at all for Add to Home Screen, so the touch icon is stated
+	     beside it; both are baked by scripts/gen-icons.mjs. -->
+	{#if view?.kind === 'port' && view.code === 'TEXT'}
+		<link rel="manifest" href="/text-editor.webmanifest" />
+		<link rel="apple-touch-icon" href="/icons/text-editor-180.png" />
+		<meta name="apple-mobile-web-app-title" content="Text Editor" />
+	{/if}
 </svelte:head>
 
 <!-- Decorative station-sign bullet beside a panel title, in the colour of the line the
@@ -2675,6 +2689,25 @@
 															title="About — the manual page (replaces the sheet; ⌘Z undoes it)"
 															>{@html INFO_SVG}</button
 														>
+														<!-- INSTALL. The editor is the one app here that is offered as an app of
+														     its own — a window with no address bar, an icon in the Start menu, and
+														     `.md` files that open in it. It stands in the CHROME corner because
+														     that is what it is: it does nothing to the document, and everything to
+														     where the document is being written.
+														     Drawn only while there is an offer to make. Chromium is the only engine
+														     that will say so, and it says so once — so this key comes and goes, and
+														     it is not a setting. It goes to the flyout on a phone with Home and
+														     About, which is why the flag lives in $lib/text-editor-state and not
+														     in this file. -->
+														{#if textEditor.installable && !textEditor.installed}
+															<button
+																type="button"
+																class="icon-btn"
+																onclick={() => install()}
+																aria-label="Install Text Editor as an app"
+																title="Install Text Editor as an app">{@html INSTALL_SVG}</button
+															>
+														{/if}
 													{/if}
 													<!-- The editor says it is in beta, at the far end of the bar past Home.
 													     It was a SPAN — a label with nothing to press, on the argument that a

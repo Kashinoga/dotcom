@@ -10,12 +10,15 @@
 		OPENABLE,
 		HEADING_LEVELS,
 		openHeadings,
+		holdInstall,
+		install,
 		type FolderEntry,
 		type LooseDoc,
 		type Ephemeral
 	} from '$lib/text-editor-state.svelte';
 	import FloatingKey from '$lib/FloatingKey.svelte';
-	import { NIB_SVG, RULE_SVG, HOME_SVG, INFO_SVG } from '$lib/icons';
+	import { dev } from '$app/environment';
+	import { NIB_SVG, RULE_SVG, HOME_SVG, INFO_SVG, INSTALL_SVG } from '$lib/icons';
 
 	/**
 	 * The door out, which is the PAGE's — closing the panel, restoring the map behind it and
@@ -283,6 +286,44 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		recallFolder();
 		recallLoose();
 
+		// ── THE EDITOR AS AN APP ───────────────────────────────────────────────────
+		// This app can be installed — a window of its own, an icon in the Start menu or the dock,
+		// `.md` files that open in it, and no address bar. It is the only app on this site that
+		// is offered that way, and the reason is what the other places ARE: a reader of live
+		// aircraft or live weather installed to a desktop is a promise the app cannot keep the
+		// first time it opens on a plane. The editor's documents are already on this machine.
+		//
+		// All three of the pieces are here rather than in the page, because all three are the
+		// EDITOR's: the worker (which serves only this route), the offer, and the files a launch
+		// hands over. The page draws the key; that is all it knows about any of it.
+		registerWorker();
+		takeLaunchedFiles();
+
+		// Already running as the installed app. There is no API that answers "am I installed",
+		// and this is the better question anyway — what the key needs to know is whether the
+		// visitor is looking at the thing it would offer to make.
+		const standalone = window.matchMedia('(display-mode: standalone)');
+		editor.installed = standalone.matches;
+		const onStandalone = (e: MediaQueryListEvent) => (editor.installed = e.matches);
+		standalone.addEventListener('change', onStandalone);
+
+		// Chromium fires this when it is willing to install; nothing else fires it at all. The
+		// default is PREVENTED so the offer is ours to make: left alone, the browser puts up its
+		// own bar at the foot of the page, over the editor's foot, saying what the key in the bar
+		// already says.
+		const onOffer = (e: Event) => {
+			e.preventDefault();
+			holdInstall(e);
+		};
+		window.addEventListener('beforeinstallprompt', onOffer);
+		// Installed from somewhere else — the browser's own menu, or another tab. The offer this
+		// window is holding is spent, and the key has nothing left to do.
+		const onInstalled = () => {
+			editor.installable = false;
+			editor.installed = true;
+		};
+		window.addEventListener('appinstalled', onInstalled);
+
 		const fine = window.matchMedia('(pointer: fine)');
 		finePointer = fine.matches;
 		const onFine = (e: MediaQueryListEvent) => {
@@ -315,6 +356,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		return () => {
 			mq.removeEventListener('change', onMq);
 			fine.removeEventListener('change', onFine);
+			standalone.removeEventListener('change', onStandalone);
+			window.removeEventListener('beforeinstallprompt', onOffer);
+			window.removeEventListener('appinstalled', onInstalled);
+			// The key is drawn by the PAGE, which outlives this component — a flag left true after
+			// a navigation would put an install key in the corner of the air traffic board.
+			editor.installable = false;
 			document.removeEventListener('selectionchange', onSelectionChange);
 			clearTimeout(saveTimer);
 			clearTimeout(copyTimer);
@@ -946,6 +993,66 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		}
 		shelve({ id: `h:${handle.name}`, name: handle.name, handle });
 		await load(file, handle);
+	}
+
+	// ── Installed ─────────────────────────────────────────────────────────────
+	// See the note in onMount for why all of this is the editor's rather than the page's.
+
+	/**
+	 * Put the service worker up (src/service-worker.ts). It is what makes the editor openable
+	 * without a network, and it is also half of what makes the browser willing to install it at
+	 * all — Chromium will not offer an install for a page that has no worker.
+	 *
+	 * Registered from HERE and nowhere else, which is why `serviceWorker: { register: false }` is
+	 * set in vite.config.ts. A failure is quiet on purpose: the worker is an improvement to an app
+	 * that works without one, and a page that popped a message about a caching layer would be
+	 * telling the visitor about the plumbing.
+	 */
+	async function registerWorker() {
+		if (!('serviceWorker' in navigator)) return;
+		try {
+			// The dev server hands the worker over as an ES module (it is TypeScript, unbundled);
+			// the build emits one classic file. Registering with the wrong type fails outright, and
+			// the two answers are not the same in the two places.
+			await navigator.serviceWorker.register('/service-worker.js', {
+				type: dev ? 'module' : 'classic'
+			});
+		} catch {
+			// No worker: an insecure origin, a private window, a browser with them switched off.
+		}
+	}
+
+	/**
+	 * Documents handed over by a LAUNCH — a `.md` opened from the file manager once the editor is
+	 * installed (`file_handlers` in static/text-editor.webmanifest). They arrive as real handles,
+	 * already granted, which is the same thing the Open key's picker returns; so they go through
+	 * the same two steps and the launched document is savable in place like any other.
+	 *
+	 * There is ONE sheet, so a multiple selection cannot all be opened. Every one of them is
+	 * shelved — that is what the shelf is for, documents from outside the folder — and the first
+	 * goes on the sheet. Not the last: the first is the one under the pointer when a selection is
+	 * dragged onto the app.
+	 */
+	function takeLaunchedFiles() {
+		const queue = (
+			window as unknown as {
+				launchQueue?: { setConsumer(fn: (p: { files: FileSystemFileHandle[] }) => void): void };
+			}
+		).launchQueue;
+		if (!queue) return;
+		queue.setConsumer(async (params) => {
+			if (!params.files?.length) return;
+			for (const handle of params.files) {
+				shelve({ id: `h:${handle.name}`, name: handle.name, handle });
+			}
+			const first = params.files[0];
+			try {
+				await load(await first.getFile(), first);
+			} catch {
+				// The launch named a file the app can no longer read. Its row is on the shelf, and
+				// pressing that row is the retry.
+			}
+		});
 	}
 
 	// ── Scratch ───────────────────────────────────────────────────────────────
@@ -2194,6 +2301,22 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			keyOpen = false;
 		}}>{@html INFO_SVG}</button
 	>
+	<!-- INSTALL — offered only while there is an offer to make, which is Chromium, on a page it
+	     is willing to install, that is not already installed. It sits between About and Home for
+	     the reason the whole stack is ordered: it is rarer than About and it is not the door out,
+	     so it takes the middle. See `installable` in $lib/text-editor-state. -->
+	{#if editor.installable && !editor.installed}
+		<button
+			type="button"
+			class="icon-btn"
+			title="Install Text Editor as an app"
+			aria-label="Install Text Editor as an app"
+			onclick={() => {
+				install();
+				keyOpen = false;
+			}}>{@html INSTALL_SVG}</button
+		>
+	{/if}
 	{#if onHome}
 		<!-- Furthest from the thumb of anything in the stack, which is where the one key that
 		     leaves the app belongs. It does not fold the flyout: the panel is closing over it and

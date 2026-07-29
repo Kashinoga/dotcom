@@ -37,7 +37,15 @@ export default defineConfig({
 			// adapter-auto only supports some environments, see https://svelte.dev/docs/kit/adapter-auto for a list.
 			// If your environment is not supported, or you settled on a specific environment, switch out the adapter.
 			// See https://svelte.dev/docs/kit/adapters for more information about adapters.
-			adapter: adapter()
+			adapter: adapter(),
+
+			// The service worker belongs to the TEXT EDITOR and to nothing else — it is what makes
+			// that one app installable and able to open on a plane (see src/service-worker.ts).
+			// SvelteKit would register it from whatever page loaded first, which on this site is
+			// usually the map, and a worker registered there takes a scope of `/` and starts
+			// answering for panels that read live data. So registration is the editor's own, done
+			// while it is mounted — see $lib/TextEditor.svelte.
+			serviceWorker: { register: false }
 		})
 	],
 
