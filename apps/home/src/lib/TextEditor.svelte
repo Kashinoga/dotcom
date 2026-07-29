@@ -2873,8 +2873,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	add?: () => void
 )}
 	<div class="te-loose">
-		<div class="te-loose-head">
-			<span class="te-loose-name">{title}</span>
+		<!-- THE SAME HEAD the folder and the drive wear. It was set in the muted running-head voice,
+		     a shade of the real thing, back when the shelves were the only lists that had one and
+		     the folder's name sat at the top of the pane where nothing could be compared to it.
+		     Four lists now, each with a head, and one of them set differently reads as a subheading
+		     of whatever is above it rather than as the top of its own list. -->
+		<div class="te-work-head te-loose-head">
+			<h2 class="te-work-name">{title}</h2>
 			{#if add}
 				<!-- + on the Scratch head. New note is in the Workspace menu, which is the right place
 				     for it — the menu is where the pane's own controls went — but a list you add to
@@ -4313,9 +4318,19 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   A column of the desk, to the left of the panes: the folder is a place you are working IN,
 	   so it sits beside the work rather than over it. Fixed width — a file list that grew and
 	   shrank with the window would move the sheet every time you resized it. */
+	/* THE PANE IS THE SCROLLER, and it has to be: there are four lists in here now and each one
+	   scrolling inside its own box would mean four scrollbars, four thumbs, and a folder you could
+	   not reach because the list it was in had already given its share of the height to a list you
+	   were not looking at.
+	   It was the TREE that scrolled, back when the tree was the only list with an unknown length
+	   and a direct child of this box. Wrapping it in its own section — so the folder's head could
+	   stand on it — left the `overflow-y: auto` on a list that no longer had a constrained height,
+	   so nothing scrolled at all and `overflow: hidden` here quietly clipped the rest of the
+	   workspace off the bottom of the pane. */
 	.te-work {
 		border-radius: 4px;
-		overflow: hidden;
+		overflow-y: auto;
+		overscroll-behavior: contain;
 		flex: none;
 		width: 15rem;
 		display: flex;
@@ -4423,11 +4438,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		border-radius: 3px;
 		cursor: pointer;
 	}
+	/* A list takes exactly the height of its rows and scrolls not at all — the PANE above it is
+	   what scrolls. See the note on `.te-work`. */
 	.te-work-list {
 		margin: 0;
 		padding: 0;
 		list-style: none;
-		overflow-y: auto;
 	}
 	/* ── The shelf ─────────────────────────────────────────────────────────────
 	   What was opened from outside the folder. A SHADE off the sheet and ruled off underneath —
@@ -4457,12 +4473,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   whole of what a folder row does. So it is built to the same measurements: the row's height,
 	   the row's insets, the row's gap. Anything else made the pane read as two lists that had
 	   been set by different hands. */
+	/* `.te-work-head` carries the geometry now — 30px, the list's own side insets, the row's gap —
+	   and this is what is left that is the SHELF'S: the block it sits in is shaded, so the head has
+	   no background of its own to set. */
 	.te-loose-head {
-		display: flex;
-		align-items: center;
-		gap: 0.35rem;
-		min-height: 30px;
-		padding: 0.3rem 0.75rem;
+		background: none;
 	}
 	/* The manual's running-head voice — the same one a folder row in the tree is set in, because
 	   this is the same kind of thing: a heading over a handful of documents. */
@@ -4570,16 +4585,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 
 	/* The same voice a folder row's name is set in, for the same reason: both name a place. */
-	.te-loose-name {
-		flex: 1 1 auto;
-		min-width: 0;
-		font-family: var(--font-mono, monospace);
-		font-size: 0.7rem;
-		line-height: 1.3;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
-		color: var(--sub);
-	}
+	/* `.te-loose-name` was here and is gone with the markup that wore it: a shelf's title is a
+	   `.te-work-name` like every other head's, which is the whole point of the change. */
 	/* The lists themselves are FLUSH — no padding of their own at either end. Every gap in this
 	   pane is a head's, so a head sets the same distance from what is above it everywhere. */
 	.te-loose-list {

@@ -797,18 +797,27 @@ await reset('first\n\n\nlast');
 	{
 		// By CENTRE, not by top edge: a word, three plastic keys and a figure are different
 		// heights, so a shared row shows as a shared middle.
-		const mids = await page.evaluate(() =>
-			[...document.querySelectorAll('.te-work-head > *')]
-				.filter((e) => !e.classList.contains('te-work-full'))
-				.map((e) => {
-					const r = e.getBoundingClientRect();
-					return Math.round(r.top + r.height / 2);
-				})
+		// PER HEAD, not across the pane. There are four lists in here and every one has a head of
+		// its own, so a flat query collects children from three rows at three heights and reports
+		// a spread that is the pane's layout rather than any head's. The claim is about ONE head:
+		// the things in it sit on one line. It is checked of every head there is.
+		const spreads = await page.evaluate(() =>
+			[...document.querySelectorAll('.te-work-head')].map((head) => {
+				// By CENTRE, not by top edge: a word, a figure and a key are different heights, so a
+				// shared row shows as a shared middle.
+				const mids = [...head.children]
+					.filter((e) => !e.classList.contains('te-work-full'))
+					.map((e) => {
+						const r = e.getBoundingClientRect();
+						return Math.round(r.top + r.height / 2);
+					});
+				return Math.max(...mids) - Math.min(...mids);
+			})
 		);
 		ok(
-			'the name and the tally share one row',
-			Math.max(...mids) - Math.min(...mids) <= 2,
-			JSON.stringify(mids)
+			'the name and the tally share one row, in every head there is',
+			spreads.length >= 2 && spreads.every((d) => d <= 2),
+			JSON.stringify(spreads)
 		);
 		ok('with no second row left behind', (await page.locator('.te-work-acts').count()) === 0);
 		// And no KEYS in it at all. New, Change and Hide moved to the bar key's menu — three
@@ -819,7 +828,10 @@ await reset('first\n\n\nlast');
 		// tree carries the same figure at the same right edge.
 		const edges = await page.evaluate(() => {
 			const r = (s) => Math.round(document.querySelector(s).getBoundingClientRect().right);
-			return { head: r('.te-work-count'), row: r('.te-work-tally') };
+			// The FOLDER'S head and the folder's rows — scoped, because the shelves have heads and
+			// tallies of their own now and an unscoped query would compare one list's head with
+			// another list's rows.
+			return { head: r('.te-local .te-work-count'), row: r('.te-local-list .te-work-tally') };
 		});
 		ok(
 			'and the folder tally lines up with the row tallies',
@@ -832,7 +844,9 @@ await reset('first\n\n\nlast');
 		ok(
 			'a name too long for the row is clipped',
 			await page.evaluate(() => {
-				const el = document.querySelector('.te-work-name');
+				// The FOLDER'S name. `Scratch` is a head too and it fits in any row, so an unscoped
+				// query answers about the wrong one.
+				const el = document.querySelector('.te-local .te-work-name');
 				return el.scrollWidth > el.clientWidth + 1;
 			})
 		);
@@ -842,7 +856,7 @@ await reset('first\n\n\nlast');
 			page.locator('.te-work-full').evaluate((e) => getComputedStyle(e).opacity),
 			'0'
 		);
-		await page.locator('.te-work-name').hover();
+		await page.locator('.te-local .te-work-name').hover();
 		await page.waitForTimeout(250);
 		await eq(
 			'pointing at the name opens it',
@@ -857,7 +871,7 @@ await reset('first\n\n\nlast');
 		{
 			// It hangs BELOW the row on purpose: over the name it would land under the pointer that
 			// opened it, take its own hover away, and flicker.
-			const head = await page.locator('.te-work-head').boundingBox();
+			const head = await page.locator('.te-local .te-work-head').boundingBox();
 			const full = await page.locator('.te-work-full').boundingBox();
 			const pane = await page.locator('.te-work').boundingBox();
 			ok(
@@ -873,7 +887,7 @@ await reset('first\n\n\nlast');
 		}
 		// Pointing at the TALLY must not explain the folder — the reveal belongs to the name, and it
 		// hangs below the row, so anything else in the row opening it would be a flicker.
-		await page.locator('.te-work-head .te-work-count').hover();
+		await page.locator('.te-local .te-work-head .te-work-count').hover();
 		await page.waitForTimeout(250);
 		await eq(
 			'pointing at the tally does not open it',
@@ -1121,6 +1135,47 @@ await reset('first\n\n\nlast');
 		(await wp.locator(TREE_FILES).allTextContents()).join(',') ===
 			'drafts,gamma.md,alpha.md,beta.md,notes.txt',
 		JSON.stringify(await wp.locator(TREE_FILES).allTextContents())
+	);
+
+	// EVERY HEAD IS THE SAME HEAD. Four lists in this pane, each with one on top of it, and one of
+	// them set differently reads as a subheading of whatever is above rather than as the top of its
+	// own list. The shelves were the muted running-head voice, which was fine while the folder's
+	// name sat at the top of the pane where nothing could be compared to it.
+	ok(
+		'every list in the pane is headed the same way',
+		await wp.evaluate(() => {
+			const names = [...document.querySelectorAll('.te-work-head .te-work-name')];
+			if (names.length < 2) return false;
+			const set = (el) => {
+				const c = getComputedStyle(el);
+				return [c.fontWeight, c.fontSize, c.color, c.textTransform].join('|');
+			};
+			return names.every((n) => set(n) === set(names[0]));
+		})
+	);
+	// THE PANE IS THE SCROLLER. Each list scrolling in its own box would be four scrollbars and a
+	// folder you could not reach because a list you were not looking at had taken the height.
+	ok(
+		'the pane scrolls, and its lists do not',
+		await wp.evaluate(() => {
+			const pane = document.querySelector('.te-work');
+			const lists = [...document.querySelectorAll('.te-work-list')];
+			return (
+				getComputedStyle(pane).overflowY === 'auto' &&
+				lists.length > 0 &&
+				lists.every((l) => getComputedStyle(l).overflowY === 'visible')
+			);
+		})
+	);
+	ok(
+		'and it actually reaches the bottom of a workspace taller than it is',
+		await wp.evaluate(async () => {
+			const pane = document.querySelector('.te-work');
+			if (pane.scrollHeight <= pane.clientHeight) return true; // nothing to prove
+			pane.scrollTop = pane.scrollHeight;
+			await new Promise((r) => requestAnimationFrame(r));
+			return pane.scrollTop > 0;
+		})
 	);
 
 	// THE HEAD BELONGS TO ITS LIST. It used to be pinned to the top of the pane, above the shelves
@@ -1372,10 +1427,13 @@ await reset('first\n\n\nlast');
 		await fromWorkspace('New note', wp);
 		await wp.waitForTimeout(150);
 		ok('New asks for no name', (await wp.locator('.te-work-field').count()) === 0);
+		// `.te-loose .te-work-name`, not `.te-loose-name`: a shelf's title is set as every other head
+		// in this pane is now, so it wears the same class and is told apart by the block it is in.
 		ok(
 			'and puts a scratch document on a shelf of its own, above Elsewhere',
-			(await wp.locator('.te-loose-name').allTextContents()).join(',') === 'Scratch,Elsewhere',
-			JSON.stringify(await wp.locator('.te-loose-name').allTextContents())
+			(await wp.locator('.te-loose .te-work-name').allTextContents()).join(',') ===
+				'Scratch,Elsewhere',
+			JSON.stringify(await wp.locator('.te-loose .te-work-name').allTextContents())
 		);
 		// The LAST row: the shelf opens with a standing `Ephemeral 0`, so what New made is the one
 		// under it. Newest last, which is the order this list has always kept.
@@ -1709,7 +1767,9 @@ await reset('first\n\n\nlast');
 		);
 		// Out again, onto the head — which is the root's drop target, because dragging a document
 		// out of a sub-folder has to have somewhere to land.
-		await wp.dragAndDrop(`${TREE} >> text=beta.md`, '.te-work-head');
+		// The FOLDER'S head, which is the root's drop target. The shelves have heads too and neither
+		// of them takes a document.
+		await wp.dragAndDrop(`${TREE} >> text=beta.md`, '.te-local .te-work-head');
 		await wp.waitForTimeout(800);
 		ok(
 			'dropping one on the head moves it back to the top level',
