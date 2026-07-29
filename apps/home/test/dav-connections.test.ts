@@ -109,6 +109,13 @@ describe('the config a store is built from', () => {
 		keep: false
 	};
 
+	test('names the connection it came from, so a document can be shelved without it', () => {
+		// A shelf row keeps `{ connection, path }` — plain data that outlives the store. Carrying the
+		// store instead would carry a token into a list that is written to disk, and IndexedDB will
+		// not clone closures anyway. See `DetachedDoc.drive`.
+		assert.equal(configFor(c, 't').connection, c.id);
+	});
+
 	test('carries the token, and the connection does not', () => {
 		// The one place the two are together is the argument list of this function. A `Connection`
 		// is written to IndexedDB and held in reactive state; a token is neither.

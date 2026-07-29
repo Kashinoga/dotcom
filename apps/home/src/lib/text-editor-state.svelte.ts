@@ -69,6 +69,12 @@ export type LooseDoc = {
 	name: string;
 	file?: File;
 	handle?: FileSystemFileHandle;
+	/**
+	 * A document on a connected DRIVE — the connection's id and the path in it. See `DetachedDoc`
+	 * in $lib/text-editor-store, which this mirrors and which explains why a store is named rather
+	 * than carried.
+	 */
+	drive?: { connection: string; path: string };
 };
 
 /**

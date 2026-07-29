@@ -76,6 +76,23 @@ export type DetachedDoc = {
 	name: string;
 	file?: File;
 	handle?: FileSystemFileHandle;
+	/**
+	 * A document on a SERVER: which drive, and where in it. The connection is named by its id rather
+	 * than carried as an object, and both halves of that matter.
+	 *
+	 * A store cannot be carried: it is closures, so IndexedDB will not clone one, and a row that
+	 * could not be written down would be a cloud row that vanished on every reload — which is worse
+	 * than the local rows, not better. And a store holds the TOKEN, so carrying one would put a
+	 * password into a second place, in a list that is written to disk.
+	 *
+	 * An id and a path are plain data. The row is remembered, the connection is remembered beside
+	 * it, and opening the row re-reads from the server exactly as a handle row re-reads from disk.
+	 *
+	 * A flat optional beside `file` and `handle` rather than a discriminated union, because those
+	 * two are already the same idea — one of several ways of saying where a document came from — and
+	 * a union would have rewritten every consumer to say what this says by standing here.
+	 */
+	drive?: { connection: string; path: string };
 };
 
 /**

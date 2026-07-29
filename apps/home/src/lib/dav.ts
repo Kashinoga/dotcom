@@ -173,6 +173,12 @@ export function parseMultistatus(xml: string, root: string[]): DavEntry[] {
 // ── Reaching the server ───────────────────────────────────────────────────────
 
 export type DavConfig = {
+	/**
+	 * The id of the connection this config came from — see $lib/dav-connections. Carried so a
+	 * document taken out of this store can NAME the drive it belongs to without carrying the store
+	 * itself, which holds a token and cannot be written down. See `detach` below.
+	 */
+	connection: string;
 	/** The server's origin — `https://cloud.example.com`, no trailing slash and no `/remote.php`. */
 	base: string;
 	/** Whose files. It is a path segment in the DAV URL, not only a login. */
@@ -497,7 +503,26 @@ export function davStore(cfg: DavConfig, openable: RegExp): Store {
 		 * smaller version of the hole `shelveTheOpenOne` was written to close. The shelf needs a
 		 * third kind of row before this can answer.
 		 */
-		detach: (): DetachedDoc | null => null
+		/**
+		 * A reference that outlives this store: the connection's id and the path. That is the whole of
+		 * what is needed to read the document again, it is plain data, and it holds no credential.
+		 *
+		 * It used to answer null — a document on a server was neither a File nor a handle, so it could
+		 * not go on the shelf and lost its row when the workspace changed. `DetachedDoc.drive` is the
+		 * field that closes that; see the note on it.
+		 */
+		detach: (path) => {
+			const name = path.slice(path.lastIndexOf('/') + 1);
+			if (!name) return null;
+			// Keyed on the CONNECTION as well as the path. Two drives can both hold `Notes/README.md`,
+			// and a shelf keyed on the path alone would show one row for them and open the wrong one —
+			// the same reason a LooseDoc's id is not its name.
+			return {
+				id: `drive:${cfg.connection}\u0000${path}`,
+				name,
+				drive: { connection: cfg.connection, path }
+			};
+		}
 	};
 
 	/** MOVE, which is rename and move both — the only difference is how far the destination is. */

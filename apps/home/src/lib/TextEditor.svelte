@@ -1285,6 +1285,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.openIn = 'loose';
 	}
 
+	/**
+	 * A shelf row that cannot be opened. Moved, deleted, a permission that has lapsed, a drive that
+	 * will not answer — the row is the only thing that was ever ours, so the row goes.
+	 */
+	function dropShelfRow(id: string) {
+		editor.loose = editor.loose.filter((d) => d.id !== id);
+	}
+
 	/** The Open key's file. It has no handle — a picked file cannot be saved back to. */
 	async function openLooseFile(file: File) {
 		shelve({ id: looseId(file), name: file.name, file });
@@ -1293,6 +1301,22 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 
 	/** A row on the shelf, opened again. It re-reads from disk; the shelf holds no text. */
 	async function openLoose(doc: LooseDoc) {
+		// A DRIVE ROW re-reads from the server, exactly as a handle row re-reads from disk — the
+		// shelf holds where a document came from and never its words. If that drive is not the one
+		// currently open it is opened first, which is the same shape as a handle whose grant has
+		// lapsed re-asking on the click: the row promises to open the document, so the click is
+		// where the cost of keeping that promise is paid.
+		if (doc.drive) {
+			if (driveId !== doc.drive.connection) {
+				const c = editor.connections.find((k) => k.id === doc.drive!.connection);
+				if (!c || !(await openDrive(c))) return dropShelfRow(doc.id);
+			}
+			const body = await drive?.read(doc.drive.path);
+			if (body == null) return dropShelfRow(doc.id);
+			shelve(doc);
+			land(body, doc.name, null, !!drive?.writable);
+			return;
+		}
 		let file = doc.handle ? await doc.handle.getFile().catch(() => null) : (doc.file ?? null);
 		// A remembered row comes back with its grant lapsed. This click is a user gesture, which
 		// is the only moment a browser will re-ask — so it asks here rather than at mount, where
@@ -1303,12 +1327,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				.catch(() => 'denied');
 			if (state === 'granted') file = await doc.handle.getFile().catch(() => null);
 		}
-		if (!file) {
-			// Moved, deleted, or a permission that has lapsed. The row is the only thing that was
-			// ever ours, so the row goes.
-			editor.loose = editor.loose.filter((d) => d.id !== doc.id);
-			return;
-		}
+		if (!file) return dropShelfRow(doc.id);
 		shelve(doc);
 		await load(file, doc.handle ?? null);
 	}
@@ -1319,12 +1338,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * with its handle, rather than quietly losing its row.
 	 */
 	function shelveTheOpenOne() {
-		if (!editor.openPath || editor.openIn !== 'tree' || !editor.filename) return;
+		if (!editor.openPath || !editor.filename) return;
+		if (editor.openIn !== 'tree' && editor.openIn !== 'cloud') return;
 		// The STORE makes the row, because the store is the only thing that knows what the document
 		// was made of — a handle here, a File there. It used to be built from `editor.openHandle`,
 		// which a `webkitdirectory` document never had: those were shelved as a name with nothing
 		// behind it, so the row deleted itself the moment it was pressed.
-		const doc = store?.detach(editor.openPath);
+		const doc = storeOf(editor.openIn)?.detach(editor.openPath);
 		if (doc) {
 			const rest = editor.loose.filter((d) => d.id !== doc.id);
 			editor.loose = [doc, ...rest].slice(0, LOOSE_MAX);
@@ -1409,6 +1429,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * takes the list it is acting on rather than assuming there is only one.
 	 */
 	let drive = $state.raw<Store | null>(null);
+	/** Which CONNECTION the live drive is. A shelf row names one, and this is how it is matched. */
+	let driveId = $state('');
 
 	/** Which store a list's rows belong to. The one lookup that keeps the verbs written once. */
 	const storeOf = (list: 'tree' | 'cloud') => (list === 'cloud' ? drive : store);
@@ -1513,17 +1535,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		}
 		const handle = editor.openHandle;
 		if (!handle) return;
-		try {
-			const w = await handle.createWritable();
-			await w.write(text);
-			await w.close();
-		} catch (error) {
-			// Permission withdrawn, or the file went away. It USED to say nothing at all here — the
-			// reasoning being that a claim of a save that did not happen is worse than silence,
-			// which is true and is only half the choice available.
-			return answer(notWritten(whyLocal(error)));
-		}
-		answer(WROTE);
+		// Permission withdrawn, or the file went away. It USED to say nothing at all here — the
+		// reasoning being that a claim of a save that did not happen is worse than silence, which is
+		// true and is only half the choice available.
+		answer(await writeThrough(handle, text));
 	}
 
 	/** Land a write's answer on the Save key: Saved, or the one word that says why not. */
@@ -1969,10 +1984,18 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				name: doc.name,
 				read: async () => {
 					if (isOnSheet(doc.id, 'loose')) return text;
+					// A DRIVE row, where its drive happens to be the open one. Not opened here if it is
+					// not: a menu item is not the place to make a connection, any more than it is the
+					// place to throw a permission dialog. Pressing the row does both.
+					if (doc.drive) {
+						return driveId === doc.drive.connection
+							? ((await drive?.read(doc.drive.path)) ?? null)
+							: null;
+					}
 					try {
-						// A shelf row is a handle where the browser has them and a File where it does
-						// not — a `<input type=file>` pick carries no handle to store. Either can be
-						// read; only the first can be written, which is what the gate below is.
+						// Otherwise a handle where the browser has them and a File where it does not —
+						// a `<input type=file>` pick carries no handle to store. Either can be read;
+						// only the first can be written, which is what the gate below is.
 						const file = doc.handle ? await doc.handle.getFile() : doc.file;
 						return file ? await file.text() : null;
 					} catch {
@@ -1984,19 +2007,19 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				// A handle is the whole of the question here — a shelf row came from outside every
 				// workspace, so no store speaks for it, and a browser that handed one over can write
 				// through it. `canWrite` used to stand in front of this and said nothing extra.
-				clear: doc.handle
-					? async () => {
-							try {
-								const w = await doc.handle!.createWritable();
-								await w.write('');
-								await w.close();
-							} catch (error) {
-								return notWritten(whyLocal(error));
+				// A handle, or a drive row whose drive is open. Both can be written; a picked File
+				// cannot, and a drive that is not connected is not something to connect from a menu.
+				clear:
+					doc.handle || (doc.drive && driveId === doc.drive.connection)
+						? async () => {
+								const wrote = doc.drive
+									? ((await drive?.write(doc.drive.path, '')) ?? notWritten('gone'))
+									: await writeThrough(doc.handle!, '');
+								if (!wrote.ok) return wrote;
+								if (isOnSheet(doc.id, 'loose')) emptyTheSheet();
+								return WROTE;
 							}
-							if (isOnSheet(doc.id, 'loose')) emptyTheSheet();
-							return WROTE;
-						}
-					: null
+						: null
 			};
 		}
 
@@ -2017,6 +2040,18 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			}
 		};
 	});
+
+	/** Write through a bare handle — the shelf's own documents, which belong to no store. */
+	async function writeThrough(handle: FileSystemFileHandle, body: string): Promise<WriteResult> {
+		try {
+			const w = await handle.createWritable();
+			await w.write(body);
+			await w.close();
+			return WROTE;
+		} catch (error) {
+			return notWritten(whyLocal(error));
+		}
+	}
 
 	/** Copy a row's document to the clipboard, and say so on the row. */
 	async function copyDoc(doc: MenuDoc) {
@@ -2239,7 +2274,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 
 	/** The shelf from last time, minus anything the browser will no longer hand over. */
 	async function recallLoose() {
-		if (!editor.canWrite) return;
+		// NO `canWrite` GATE. It was right while a row could only be a handle — those are Chromium's
+		// alone — and it is wrong now: a drive row is plain data, and somebody in Safari or Firefox
+		// with a drive connected has a shelf worth remembering. The same conflation step two took
+		// out of the keys, one file later.
 		const handles = await handleStore('readonly');
 		if (!handles) return;
 		const kept: LooseDoc[] | null = await new Promise((resolve) => {
@@ -2251,10 +2289,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// Merged rather than assigned: this runs after the mount, and anything opened in the
 		// meantime is newer than anything remembered.
 		const have = new Set(editor.loose.map((d) => d.id));
-		editor.loose = [...editor.loose, ...kept.filter((d) => d.handle && !have.has(d.id))].slice(
-			0,
-			LOOSE_MAX
-		);
+		editor.loose = [
+			...editor.loose,
+			...kept.filter((d) => (d.handle || d.drive) && !have.has(d.id))
+		].slice(0, LOOSE_MAX);
 	}
 
 	async function rememberFolder(dir: FileSystemDirectoryHandle | null) {
@@ -2386,7 +2424,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			editor.drivePending = true;
 			return false;
 		}
+		// Whatever was open on the LAST drive is about to stop being in a list, exactly as a document
+		// is when a folder changes — `adopt` shelves for the folder and this is the drive's half of
+		// the same job. Without it, connecting a second drive left the first one's open document on
+		// the sheet with no row: the hole gap A was about, reopened one path over.
+		shelveTheOpenOne();
 		drive = next;
+		driveId = c.id;
 		editor.drive = listing.files;
 		editor.driveFolders = listing.dirs;
 		// EVERY folder arrives SHUT, and every one of them is unfetched. See `driveFetched` in the
@@ -2397,6 +2441,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.driveOpen = true;
 		editor.drivePending = false;
 		editor.folderShown = true;
+		// Only a document from the OLD DRIVE stops being the open one — it has just been shelved.
+		// A folder document, a shelf row or a scratch note belongs to no drive at all.
+		if (editor.openIn === 'cloud') {
+			editor.openPath = '';
+			editor.openWritable = false;
+		}
 		return true;
 	}
 
@@ -2432,6 +2482,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	/** Shut a drive's section without forgetting the drive. */
 	function closeDrive() {
 		drive = null;
+		driveId = '';
 		editor.drive = [];
 		editor.driveFolders = [];
 		editor.driveCollapsed = [];

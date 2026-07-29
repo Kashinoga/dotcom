@@ -2380,6 +2380,18 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 {
 	const c = await browser.newContext({ viewport: { width: 1400, height: 900 } });
 	const dp = await c.newPage();
+	// A folder to change TO, so the shelving assertion at the end has something to change to. The
+	// same OPFS stub the writable-workspace block uses — see the note there.
+	await dp.addInitScript(() => {
+		window.__seed = async () => {
+			const root = await navigator.storage.getDirectory();
+			const h = await root.getFileHandle('local.md', { create: true });
+			const f = await h.createWritable();
+			await f.write('# Local');
+			await f.close();
+			window.showDirectoryPicker = async () => root;
+		};
+	});
 
 	const RESPONSE = (href, dir, etag) =>
 		`<d:response><d:href>${href}</d:href><d:propstat><d:prop>` +
@@ -2421,6 +2433,7 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	});
 
 	await dp.goto(`${B}/apps/text-editor`, { waitUntil: 'networkidle' });
+	await dp.evaluate(() => window.__seed());
 	await dp.waitForTimeout(400);
 	await dp
 		.getByRole('button', { name: /settings/i })
@@ -2500,6 +2513,43 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	ok(
 		'and Save is offered, in an engine that can never write to a folder on the machine',
 		(await dp.getByRole('button', { name: /^Save/ }).count()) === 1
+	);
+
+	// A DRIVE DOCUMENT CAN BE SHELVED. It used to be the one document in the pane that could not:
+	// the shelf held a File or a handle and a document on a server is neither, so changing the
+	// workspace under it took its row away. A row keeps `{ connection, path }` now — plain data, so
+	// it can be written down, and no credential, so it is safe to.
+	await dp.getByRole('button', { name: 'Workspace', exact: true }).click();
+	await dp.waitForTimeout(200);
+	await dp
+		.locator('.te-work-menu .popover-item')
+		.filter({ hasText: /folder/ })
+		.click();
+	await dp.waitForTimeout(900);
+	ok(
+		'changing the folder shelves the open drive document rather than losing its row',
+		(await dp.locator('ul[aria-label="Elsewhere"] .te-work-file').allTextContents()).includes(
+			'top.md'
+		),
+		JSON.stringify(await dp.locator('ul[aria-label="Elsewhere"] .te-work-file').allTextContents())
+	);
+	ok(
+		'and it is NOT a scratch note — it is still a document on a server',
+		!(await dp.locator('ul[aria-label="Scratch"] .te-work-file').allTextContents()).includes(
+			'top.md'
+		)
+	);
+	// The shelf holds where a document came from, never its words. Pressing the row re-reads.
+	await dp.locator('.te-type').fill('scribbled over');
+	await dp.waitForTimeout(200);
+	await dp
+		.locator('ul[aria-label="Elsewhere"] .te-work-file')
+		.filter({ hasText: 'top.md' })
+		.click();
+	await dp.waitForTimeout(800);
+	ok(
+		'and the row re-reads from the server, the way a handle row re-reads from disk',
+		(await dp.locator('.te-type').inputValue()) === '# From the drive'
 	);
 	await c.close();
 }

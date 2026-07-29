@@ -168,6 +168,7 @@ describe('hrefs', () => {
 
 describe('where a request goes', () => {
 	const cfg: DavConfig = {
+		connection: 'https://cloud.example.com andrew@example.com',
 		base: 'https://cloud.example.com/',
 		user: 'andrew@example.com',
 		token: 'app-password',
