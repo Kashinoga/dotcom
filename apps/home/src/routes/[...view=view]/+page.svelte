@@ -1834,8 +1834,10 @@
 	{:else if v.code === 'TEXT'}
 		<!-- Text Editor: a Markdown editor. `dense` chrome, so this is the whole viewport under
 							     the one-row bar — the component lays out its own rack, sheet, proof and running
-							     foot inside it, and takes no arguments. -->
-		<TextEditor />
+							     foot inside it. The one thing it cannot do for itself is leave: on a phone the
+							     bar's chrome corner empties into the editor's floating key, and the door out is
+							     this page's (see `home`). Same bargain the ranger's key keeps. -->
+		<TextEditor onHome={() => home()} />
 	{:else if v.code === 'DENS'}
 		<!-- Densette: The Curriculum, an in-universe RPG manual. A reading like Weather
 							     and the Court, but printed — it renders as a Pixelite technical manual under
@@ -2642,28 +2644,38 @@
 								     pause twin and its gear alongside, and on a phone the three of them
 								     leave the bar together for a floating key. -->
 											<div class="head-actions">
-												<button
-													type="button"
-													class="icon-btn"
-													onclick={() => home()}
-													aria-label="Close and go home"
-													title="Home">{@html HOME_SVG}</button
-												>
+												{#if v.code !== 'TEXT' || !textEditor.narrow}
+													<button
+														type="button"
+														class="icon-btn"
+														onclick={() => home()}
+														aria-label="Close and go home"
+														title="Home">{@html HOME_SVG}</button
+													>
+												{/if}
 												{#if v.code === 'TEXT'}
 													<!-- ABOUT — the manual page the editor opens with, put back on the sheet.
 													     It reads as chrome rather than as a mark, which is why it stands with
 													     Home here instead of in the rack: the rack's keys all act on the
 													     document you are writing, and this one replaces it.
 													     Undoable (it goes through the editor's own write path), so unlike
-													     Clear it does not have to ask — hence a plain key, not a two-step. -->
-													<button
-														type="button"
-														class="icon-btn"
-														onclick={() => textEditor.cmd?.readme()}
-														aria-label="About Text Editor — put the manual page on the sheet"
-														title="About — the manual page (replaces the sheet; ⌘Z undoes it)"
-														>{@html INFO_SVG}</button
-													>
+													     Clear it does not have to ask — hence a plain key, not a two-step.
+													     ON A PHONE this and Home BOTH leave the bar for the editor's floating
+													     key, the way the ranger's three do — a one-row bar cannot carry two
+													     view keys, two chrome keys and a tag at 390px. Gated on the editor's
+													     OWN `narrow`, not on this page's `isMobile`: the two thresholds are
+													     820px and 960px, and hand-writing the second one here is how a key
+													     ends up in neither place across a 140px band. -->
+													{#if !textEditor.narrow}
+														<button
+															type="button"
+															class="icon-btn"
+															onclick={() => textEditor.cmd?.readme()}
+															aria-label="About Text Editor — put the manual page on the sheet"
+															title="About — the manual page (replaces the sheet; ⌘Z undoes it)"
+															>{@html INFO_SVG}</button
+														>
+													{/if}
 													<!-- The editor says it is in beta, at the far end of the bar past Home.
 													     It was a SPAN — a label with nothing to press, on the argument that a
 													     button which does nothing is a promise to a keyboard and a screen reader

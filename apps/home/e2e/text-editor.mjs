@@ -1146,6 +1146,81 @@ await reset('first\n\n\nlast');
 		ok('closing a scratch note asks first', (await item.textContent()).trim() === 'Sure?');
 		await item.click();
 		await wp.waitForTimeout(400);
+
+		// ── THE ROW'S OWN × ASKS IN WORDS ──────────────────────────────────────
+		// It asked in a SHADE: the same glyph, the accent colour, no other difference. That is not
+		// a question — it left you pressing what looked like the control you had just pressed, so
+		// two answers read as one double-click. The menu's Close has said `Sure?` all along; this
+		// is the same bargain and now says the same word.
+		await wp.getByRole('button', { name: 'New', exact: true }).click();
+		await wp.waitForTimeout(400);
+		{
+			const x = wp.locator('.te-loose').first().locator('.te-eph-close').first();
+			ok('a scratch row carries a ×', (await x.textContent()).trim() === '×');
+			// CENTRED IN ITS OWN BUTTON, which it was not: a <button> carries the UA's `1px 6px`
+			// padding, and this rule never reset it — so the content box was 6px wide inside an
+			// 18px border-box while the glyph's advance is 8.33px. Nothing can be centred in a box
+			// narrower than itself; it clamps to the start edge and overflows the other way, which
+			// put the × a pixel right of centre. Measured off the TEXT BOX rather than the ink, so
+			// the assertion is about the layout rather than about one font's bearings.
+			const centred = () =>
+				wp.evaluate(async () => {
+					await document.fonts.ready;
+					const el = document.querySelector('.te-loose .te-eph-close');
+					const r = el.getBoundingClientRect();
+					const rg = document.createRange();
+					rg.selectNodeContents(el);
+					const t = rg.getBoundingClientRect();
+					return { left: +(t.x - r.x).toFixed(2), right: +(r.right - t.right).toFixed(2) };
+				});
+			const shutGaps = await centred();
+			ok(
+				'and the × stands in the middle of it',
+				Math.abs(shutGaps.left - shutGaps.right) < 0.5,
+				JSON.stringify(shutGaps)
+			);
+			const shut = await x.evaluate((el) => Math.round(el.getBoundingClientRect().width));
+			await x.click();
+			await wp.waitForTimeout(300);
+			ok('one press turns it into the question', (await x.textContent()).trim() === 'Sure?');
+			// And it has to LOOK like a different control, not a recoloured one — it takes the
+			// width of the word, and an edge, so it reads as a key standing over the row.
+			const armed = await x.evaluate((el) => ({
+				w: Math.round(el.getBoundingClientRect().width),
+				edge: getComputedStyle(el).borderTopWidth
+			}));
+			ok(
+				'and grows to the width of it, with an edge of its own',
+				armed.w > shut + 8 && parseFloat(armed.edge) >= 1,
+				JSON.stringify({ shut, ...armed })
+			);
+			// The armed pill has padding of its OWN, which is the same trap one line wider: the
+			// word has to fit inside it or it clamps left exactly as the × did.
+			const armedGaps = await centred();
+			ok(
+				'the word is centred in it too',
+				Math.abs(armedGaps.left - armedGaps.right) < 0.5,
+				JSON.stringify(armedGaps)
+			);
+			// It must not eat the sidebar it stands in.
+			const inside = await wp.evaluate(() => {
+				const el = document.querySelector('.te-loose .te-eph-close');
+				const pane = document.querySelector('.te-work');
+				if (!el || !pane) return false;
+				const a = el.getBoundingClientRect();
+				const b = pane.getBoundingClientRect();
+				return a.left >= b.left && a.right <= b.right + 1;
+			});
+			ok('and stays inside the workspace', inside);
+			await x.click();
+			await wp.waitForTimeout(400);
+			// By the shelf's LABEL, not by position: the Scratch block is not drawn at all when it
+			// empties, so `.te-loose` first() would be asking Elsewhere how many rows it has.
+			ok(
+				'the second press closes the note',
+				(await wp.locator('ul[aria-label="Scratch"] .te-work-row').count()) === 0
+			);
+		}
 		// The order of the scratch list is YOURS — the tree is alphabetical because a folder is,
 		// and the shelf is by recency because that is what it means, but these are notes you made.
 		// Two fresh ones — the first note was closed just above, so its name is free again.
@@ -1694,6 +1769,29 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	ok('a phone is not offered SPLIT', !(await p.getByRole('button', { name: 'Split' }).count()));
 	ok('and falls back to one pane', (await p.locator('.te-pane').count()) === 1);
 
+	// ── AND DROPS THE RUNNING FOOT ─────────────────────────────────────────────
+	// The tally is a desk affordance. On a phone the same rows are wanted by the sheet, the
+	// software keyboard takes the bottom third the moment anybody types, and the flyout key
+	// already stands in that corner. Not rendered rather than hidden — a `display: none` foot
+	// still costs a subtree and still keeps the counts derived for something nobody can read.
+	ok('a phone does not draw the running foot', (await p.locator('.te-foot').count()) === 0);
+	ok('nor any part of it', (await p.locator('.te-tally, .te-lamp').count()) === 0);
+	// The sheet takes the rows back. Measured against the desk rather than a fixed number: what
+	// matters is that nothing is reserved below the panes.
+	const bottoms = await p.evaluate(() => {
+		const te = document.querySelector('.te').getBoundingClientRect();
+		const desk = document.querySelector('.te-desk').getBoundingClientRect();
+		return { left: Math.round(te.bottom - desk.bottom) };
+	});
+	ok('and the desk runs to the bottom of the app', bottoms.left <= 1, JSON.stringify(bottoms));
+	// The key keeps FloatingKey's own inset now that there is nothing under it to clear. This is
+	// the assertion that catches the old lift coming back with a stale measurement behind it.
+	const keyOff = await p.evaluate(() => {
+		const k = document.querySelector('.fkey');
+		return k ? Math.round(innerHeight - k.getBoundingClientRect().bottom) : -1;
+	});
+	ok('the floating key sits at its own inset', keyOff >= 16 && keyOff <= 24, `${keyOff}px`);
+
 	// ── The phone's flyout ─────────────────────────────────────────────────────
 	// Seventeen keys will not sit in a 390px bar without becoming a strip you swipe to reach
 	// anything. The bar keeps the VIEW keys; the rest go to the shared floating key at the
@@ -1706,6 +1804,51 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 		`${await p.locator('.head-row .tb').count()}`
 	);
 	ok('and a floating key holds the rest', (await p.locator('.fkey').count()) === 1);
+	// THE BAR'S CHROME CORNER EMPTIES TOO. Home and About go down to the flyout on a phone; the
+	// beta tag stays, because it is the one of the three that has to be SEEN rather than reached.
+	const corner = await p.evaluate(() =>
+		[...document.querySelectorAll('.surface-head .head-actions > *')].map(
+			(el) => el.getAttribute('aria-label') ?? el.className.split(' ')[0]
+		)
+	);
+	ok(
+		'the phone bar keeps only the beta tag in its corner',
+		corner.length === 1 && /is in beta/.test(corner[0]),
+		JSON.stringify(corner)
+	);
+	// THE TAG STANDS ALONE NOW, and that is exactly when its height broke: it was fitted with
+	// `align-self: stretch`, which only ever worked because a 28px Home was setting the height of
+	// the row it stretched into. Left by itself it stretched to its own type — 19.6px against
+	// 28px keys, measured. It states the control line itself now.
+	const heights = await p.evaluate(() => {
+		const tag = document.querySelector('.beta')?.getBoundingClientRect().height ?? 0;
+		const key = document.querySelector('.head-row .tb')?.getBoundingClientRect().height ?? 0;
+		return { tag: +tag.toFixed(1), key: +key.toFixed(1) };
+	});
+	ok(
+		'and the tag stands at the same height as the keys beside it',
+		Math.abs(heights.tag - heights.key) < 0.6 && heights.key > 0,
+		JSON.stringify(heights)
+	);
+	// Neither may be drawn TWICE — the bar dropping them and the flyout adding them is one move,
+	// and a stale copy left in the bar is the failure this catches. Counted in the DOM rather
+	// than by role: the flyout is parked and hidden while it is shut, and an accessibility query
+	// cannot see either of them until it opens.
+	const drawn = (label) =>
+		p.evaluate(
+			(l) =>
+				[...document.querySelectorAll('button')].filter((el) =>
+					(el.getAttribute('aria-label') || '').startsWith(l)
+				).length,
+			label
+		);
+	ok('Home is drawn once, in the flyout', (await drawn('Close and go home')) === 1);
+	ok('and About once, beside it', (await drawn('About Text Editor')) === 1);
+	ok(
+		'both inside the stack rather than the bar',
+		(await p.locator('.fkey-stack .icon-btn[aria-label^="Close and go home"]').count()) === 1 &&
+			(await p.locator('.fkey-stack .icon-btn[aria-label^="About Text Editor"]').count()) === 1
+	);
 	// The flyout is PARKED rather than unmounted when shut (FloatingKey keeps it in the DOM and
 	// slides it away), so its contents are always present. `aria-expanded` on the key is the state
 	// that actually says whether it is disclosed — counting the marks would pass either way.
@@ -1718,16 +1861,53 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	ok('the marks are a grid', (await p.locator('.te-fly-mark').count()) === 9);
 	ok(
 		'with the document keys as a stack',
-		(await p.locator('.fkey-stack .icon-btn').count()) === 6,
+		(await p.locator('.fkey-stack .icon-btn').count()) === 8,
 		`${await p.locator('.fkey-stack .icon-btn').count()} discs`
 	);
-	// 15 of the 18 — the majority, which is the point of the exercise.
+	// 17 of the 19 — everything but the two view keys, which is the point of the exercise.
 	ok(
-		'so the majority of the keys are in the flyout',
+		'so all but the view keys are in the flyout',
 		(await p.locator('.te-fly-mark').count()) +
 			(await p.locator('.fkey-stack .icon-btn').count()) ===
-			15
+			17
 	);
+	// ORDER. The stack is column-reverse, so the LAST disc written is the top one — and Home is
+	// last on purpose: it is the only key in the app that leaves it, it asks nothing first, and
+	// the bottom of the stack is where a thumb lands. About sits just under it.
+	const discs = await p.evaluate(() =>
+		[...document.querySelectorAll('.fkey-stack .icon-btn')].map(
+			(el) => (el.getAttribute('aria-label') || '').split(' —')[0]
+		)
+	);
+	ok(
+		'Home is furthest from the thumb, with About under it',
+		discs.at(-1) === 'Close and go home' && discs.at(-2) === 'About Text Editor',
+		JSON.stringify(discs)
+	);
+	const rise = await p.evaluate(() => {
+		const d = [...document.querySelectorAll('.fkey-stack .icon-btn')];
+		return d.map((el) => Math.round(el.getBoundingClientRect().top));
+	});
+	ok(
+		'and the stack rises, so last written is highest on screen',
+		rise.every((t, i) => i === 0 || t < rise[i - 1]),
+		JSON.stringify(rise)
+	);
+
+	// ABOUT WORKS FROM HERE, and folds the flyout behind it the way every key that finishes its
+	// job does. Home is not pressed in this suite: it would close the panel and take the rest of
+	// the phone cases with it.
+	await p.locator('.te-type').fill('scribble');
+	await p.getByRole('button', { name: /^About Text Editor/ }).click();
+	await p.waitForTimeout(350);
+	ok(
+		'About puts the manual on the sheet from the flyout',
+		(await p.locator('.te-type').inputValue()).startsWith('# Text Editor'),
+		JSON.stringify((await p.locator('.te-type').inputValue()).slice(0, 20))
+	);
+	ok('and folds the flyout behind it', (await shown()) === 0);
+	await p.locator('.fkey').click();
+	await p.waitForTimeout(350);
 
 	// A MARK leaves the flyout standing, so a run of them costs one open rather than one each.
 	await p.locator('.te-type').fill('word');

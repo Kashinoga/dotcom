@@ -84,9 +84,14 @@ export const RELEASES: Record<string, AppRelease> = {
 	TEXT: {
 		major: 0,
 		minor: 8,
-		fixes: 1,
-		commits: 314,
+		fixes: 2,
+		commits: 315,
 		recent: [
+			{ at: '0.8.2.315', what: 'On a phone the flyout holds every key, Home and About with them' },
+			{
+				at: '0.8.2.315',
+				what: 'The running foot is a desk affordance; the phone gets those rows back'
+			},
 			{ at: '0.8.1.314', what: 'Proof follows the workspace: pick a document there and it is set' },
 			{
 				at: '0.8.0.313',

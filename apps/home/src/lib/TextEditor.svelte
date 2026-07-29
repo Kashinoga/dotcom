@@ -15,7 +15,15 @@
 		type Ephemeral
 	} from '$lib/text-editor-state.svelte';
 	import FloatingKey from '$lib/FloatingKey.svelte';
-	import { NIB_SVG, RULE_SVG } from '$lib/icons';
+	import { NIB_SVG, RULE_SVG, HOME_SVG, INFO_SVG } from '$lib/icons';
+
+	/**
+	 * The door out, which is the PAGE's — closing the panel, restoring the map behind it and
+	 * pushing the URL are all things this component knows nothing about. It arrives as a prop for
+	 * the same reason the ranger's floating key takes one ($lib/RangerKey): on a phone the bar's
+	 * chrome corner empties into the flyout, and the flyout is drawn in here.
+	 */
+	let { onHome }: { onHome?: () => void } = $props();
 
 	// TEXT EDITOR — a Markdown editor, written as a page of the manual it renders.
 	//
@@ -112,8 +120,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	let caretLine = $state(-1);
 	/** Is the phone's controls flyout disclosed? See the FloatingKey at the foot of the markup. */
 	let keyOpen = $state(false);
-	/** The running foot's measured height — the floating key sits clear above it. */
-	let footHeight = $state(0);
 
 	let ta: HTMLTextAreaElement | undefined = $state();
 	let paperEl: HTMLDivElement | undefined = $state();
@@ -2109,7 +2115,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					{#if row.close}
 						<!-- The × is a SIBLING of the row, not a child: a button inside a button is not markup
 						     a browser will keep. It asks twice, like everything else in this app that cannot be
-						     undone — a scratch note's words are nowhere but this row. -->
+						     undone — a scratch note's words are nowhere but this row.
+						     ARMED, IT SAYS SO IN WORDS. It used to ask by turning the same × the accent
+						     colour, which is not a question: you were asked to press a second time by
+						     something that looked like the thing you had just pressed, so the gesture read
+						     as a double-click on one control rather than as two answers. Clear had the
+						     answer already — it becomes the word `Sure?` — and this is the same two-press
+						     bargain, so it wears the same word. -->
 						<button
 							type="button"
 							class="te-eph-close"
@@ -2120,7 +2132,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 							aria-label={editor.doomed === row.id
 								? `Press again to close ${row.name}`
 								: `Close ${row.name}`}
-							onclick={row.close}>×</button
+							onclick={row.close}>{editor.doomed === row.id ? 'Sure?' : '×'}</button
 						>
 					{/if}
 				</li>
@@ -2159,6 +2171,41 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		aria-label="Hold the text to a reading measure"
 		onclick={() => (editor.measured = !editor.measured)}>{@html RULE_SVG}</button
 	>
+	<!-- THE PANEL'S CHROME, past the document keys — the same two that stand past the last rule
+	     in the bar's right-hand corner on a desk. They come DOWN here on a phone because the bar
+	     has one row: at 390px it was carrying two view keys, Home, About and the beta tag, and
+	     the tag is the only one of those that has to be seen rather than reached.
+	     They are not `DOC_KEYS` and never will be — that table is the document's verbs, published
+	     for the rack, and neither of these acts on the document as a document. About REPLACES it
+	     and Home leaves it.
+	     THIS PAIR IS THE ONE PLACE THE ORDER IS REVERSED. Everywhere else in this stack the first
+	     button written is nearest the thumb and matches the bar read left to right. Here About is
+	     written first and Home last, so Home ends furthest away: it is the only key in the app
+	     that leaves it, there is no second press to change your mind, and a stack of 40px discs
+	     under a thumb is exactly where a mis-tap happens. Read the stack downward instead and the
+	     bar's own order comes back — Home, About, then the document. -->
+	<button
+		type="button"
+		class="icon-btn"
+		title="About — the manual page (replaces the sheet; ⌘Z undoes it)"
+		aria-label="About Text Editor — put the manual page on the sheet"
+		onclick={() => {
+			readme();
+			keyOpen = false;
+		}}>{@html INFO_SVG}</button
+	>
+	{#if onHome}
+		<!-- Furthest from the thumb of anything in the stack, which is where the one key that
+		     leaves the app belongs. It does not fold the flyout: the panel is closing over it and
+		     folding first would animate a key nobody is looking at any more. -->
+		<button
+			type="button"
+			class="icon-btn"
+			title="Home"
+			aria-label="Close and go home"
+			onclick={onHome}>{@html HOME_SVG}</button
+		>
+	{/if}
 {/snippet}
 
 <!-- The KEYS are not here. They live in the panel's dense bar, drawn by the catch-all page from
@@ -2167,7 +2214,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
      the running foot under both. -->
 <div
 	class="te"
-	style:--te-foot-h="{footHeight}px"
 	class:te-write={shown === 'write'}
 	class:te-proof-only={shown === 'proof'}
 	class:te-measured={editor.measured}
@@ -2741,27 +2787,35 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	{/if}
 
 	<!-- THE RUNNING FOOT — the tally, set in the pixel face, the way a manual foots a page. The
-	     lamp at the end says whether what is on screen has reached storage yet. -->
-	<div class="te-foot" bind:clientHeight={footHeight}>
-		<dl class="te-tally">
-			<div class="te-count">
-				<dt>Lines</dt>
-				<dd>{pad(count.lines)}</dd>
-			</div>
-			<div class="te-count">
-				<dt>Words</dt>
-				<dd>{pad(count.words)}</dd>
-			</div>
-			<div class="te-count">
-				<dt>Chars</dt>
-				<dd>{pad(count.chars)}</dd>
-			</div>
-			<div class="te-count">
-				<dt>Read</dt>
-				<dd>{count.minutes ? `${pad(count.minutes)} min` : '—'}</dd>
-			</div>
-		</dl>
-		<!-- The lamp speaks only while a write is pending, and is silent the rest of the time.
+	     lamp at the end says whether what is on screen has reached storage yet.
+	     A DESK AFFORDANCE ONLY. A phone has one pane, a software keyboard over the bottom third
+	     of it, and the flyout key already standing in that corner; a fixed strip of counts under
+	     all of that spends the scarcest rows on the screen on four numbers nobody came for. It is
+	     not rendered rather than hidden, so the sheet gets the rows back and the tally stops being
+	     computed for a foot that is not there.
+	     The two never share a screen now — the foot is wide-only and the flyout is narrow-only —
+	     which is what let the key's measured lift above the foot go with it. -->
+	{#if !editor.narrow}
+		<div class="te-foot">
+			<dl class="te-tally">
+				<div class="te-count">
+					<dt>Lines</dt>
+					<dd>{pad(count.lines)}</dd>
+				</div>
+				<div class="te-count">
+					<dt>Words</dt>
+					<dd>{pad(count.words)}</dd>
+				</div>
+				<div class="te-count">
+					<dt>Chars</dt>
+					<dd>{pad(count.chars)}</dd>
+				</div>
+				<div class="te-count">
+					<dt>Read</dt>
+					<dd>{count.minutes ? `${pad(count.minutes)} min` : '—'}</dd>
+				</div>
+			</dl>
+			<!-- The lamp speaks only while a write is pending, and is silent the rest of the time.
 		     It used to sign off with "Set in type", which read as a wordmark rather than as
 		     status — a phrase the foot wore permanently, saying the same thing whatever the app
 		     was doing, which is the opposite of what a status line is for.
@@ -2769,17 +2823,19 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		     cut: the save effect runs on mount, so that line was only ever on screen for the
 		     400ms before the first write landed. A message nobody can finish reading is a flash,
 		     not a message. -->
-		<p class="te-lamp" class:te-lamp-dirty={dirty} role="status">
-			{#if dirty}Setting…{:else if editor.filename}{editor.filename}{/if}
-		</p>
-	</div>
+			<p class="te-lamp" class:te-lamp-dirty={dirty} role="status">
+				{#if dirty}Setting…{:else if editor.filename}{editor.filename}{/if}
+			</p>
+		</div>
+	{/if}
 </div>
 
 <style>
 	/* ── The desk ──────────────────────────────────────────────────────────────
-	   Full height of whatever the stage gives it, in three bands: the rack, the desk, the foot.
-	   Only the middle band scrolls — the rack and the foot are always to hand, which is the
-	   whole reason an editor takes the viewport rather than sitting in a scrolling panel. */
+	   Full height of whatever the stage gives it, in three bands: the rack, the desk, the foot —
+	   two of them on a phone, where the foot does not run. Only the middle band scrolls; the rack
+	   and the foot are always to hand, which is the whole reason an editor takes the viewport
+	   rather than sitting in a scrolling panel. */
 	.te {
 		display: flex;
 		flex-direction: column;
@@ -3549,7 +3605,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 	/* The × on a scratch row. Held back until the row is reached for, the way the tree's verbs
 	   once were — but there is only one of it and it is a glyph rather than a word, so it costs
-	   the name nothing. Armed, it takes the accent: the second press is the end of those words. */
+	   the name nothing. ARMED it stops being a glyph and becomes the question — see `.on` below,
+	   which is where the width comes from. */
 	.te-work-item {
 		position: relative;
 	}
@@ -3562,6 +3619,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		height: 18px;
 		display: grid;
 		place-items: center;
+		/* PADDING ZERO, and it is load-bearing. A <button> carries the UA's own `1px 6px`, which
+		   this rule never reset — so inside an 18px border-box the CONTENT box was 6px wide while
+		   the glyph's advance is 8.33px. `place-items: center` cannot centre something wider than
+		   the box it is centring in: it clamps to the start edge and overflows the other way, so
+		   the × sat a pixel right of centre (measured off the rendered pixels — 7.4px of face to
+		   its left against 5.3px to its right). Nothing about the glyph was wrong; it was never
+		   being centred in the button at all, only in the six pixels the UA had left it. */
+		padding: 0;
 		font-family: var(--font-mono, monospace);
 		font-size: 0.85rem;
 		line-height: 1;
@@ -3584,7 +3649,31 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		background: color-mix(in srgb, var(--orange) 10%, transparent);
 		outline: none;
 	}
+	/* THE QUESTION. It stops being an 18px square and becomes a small plastic key wearing the
+	   word — the bar's Clear key at row scale, and for the same reason: a second press has to be
+	   asked for in language, not in a shade of the first press.
+	   It is drawn as a KEY (a face and an edge, not a wash) so it reads as standing OVER the row
+	   rather than as the row having changed colour. That matters here more than in the bar: this
+	   button is absolutely positioned over the end of the filename, and a word on a wash would
+	   read as part of the name underneath it.
+	   Width is left to the content. The 18px square is a `min-width` now rather than a width, so
+	   the × keeps its box and the word takes what it needs. */
 	.te-eph-close.on {
+		width: auto;
+		min-width: 18px;
+		padding: 0 0.3rem;
+		font-size: 0.55rem;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--orange);
+		background: var(--pixel-key-on, color-mix(in srgb, var(--orange) 14%, transparent));
+		border: 1px solid color-mix(in srgb, var(--orange) 55%, transparent);
+	}
+	/* The hover pair spelled out, because the plain :hover above is (0,2,0) like this and would
+	   otherwise win on order and wash the key's face back out mid-question. */
+	.te-eph-close.on:hover,
+	.te-eph-close.on:focus-visible {
 		color: var(--orange);
 		background: var(--pixel-key-on, color-mix(in srgb, var(--orange) 14%, transparent));
 	}
@@ -3836,18 +3925,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		color: var(--sub);
 	}
 
-	/* THE FLOATING KEY sits clear of the running foot rather than on it. $lib/FloatingKey pins
-	   itself 1.25rem off the bottom, which is right in an app whose content runs to the edge —
-	   this one ends in a fixed foot, and the key was landing on the tally. Overridden with
-	   :global() because the class belongs to that component; the offset is the foot's MEASURED
-	   height, so it follows the foot when it wraps to two lines on a narrow screen.
-	   The class is DOUBLED for weight. FloatingKey styles its own key as `.fkey.svelte-hash`, which
-	   is (0,2,0); a bare `:global(.fkey)` is (0,1,0) and loses, and `:global(.te .fkey)` merely
-	   ties and would be decided by whichever component's stylesheet happened to be injected last.
-	   `.fkey.fkey` is (0,3,0) and settles it. */
-	:global(.te .fkey.fkey) {
-		bottom: calc(var(--te-foot-h, 0px) + 1.25rem);
-	}
+	/* THE FLOATING KEY takes FloatingKey's own 1.25rem inset and needs nothing from this file.
+	   It used to be lifted by the running foot's measured height, because the key was landing on
+	   the tally — the two shared the bottom of a phone. The foot is a desk affordance now, so on
+	   the only screen the key exists on there is nothing under it, and the override went with the
+	   measurement that fed it (`footHeight`, `--te-foot-h`, and a doubled-class specificity fight
+	   with the component's own stylesheet). Rules that exist to reconcile two things are the
+	   first thing to delete when one of them leaves. */
 
 	/* ── The contents rail ─────────────────────────────────────────────────────
 	   The docs shell's right rail, in an editor: a column of the document's own headings, stepped
@@ -4092,10 +4176,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			border-left: 0;
 			border-top: 1px solid var(--te-rule);
 		}
-		/* The foot's lamp drops below the tally rather than squeezing it. */
-		.te-lamp {
-			margin-left: 0;
-		}
 		/* The workspace cannot be a column on a phone — there is only room for one. It becomes a
 		   sheet over the desk instead, and closes when you pick from it (see `load`). */
 		.te-work {
@@ -4105,12 +4185,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			width: auto;
 			padding-top: 0;
 		}
-		/* EQUAL ON EVERY SIDE. It used to carry a 4.5rem left inset so the floating key would not
-		   sit on the first count — which fixed the collision by making the foot lopsided: 72px of
-		   padding on the left against 12px on the right, measured. The key moves up above the
-		   foot instead (see the .fkey override), so the foot can simply be evenly framed. */
-		.te-foot {
-			padding: 0.75rem;
-		}
+		/* No .te-foot rules here any more: the foot is not drawn at this width at all. What stood
+		   here was the third answer to one collision — the key sitting on the first count. The
+		   first was a 4.5rem left inset on the foot, which fixed it by making the foot lopsided
+		   (72px of padding on the left against 12px on the right, measured); the second lifted
+		   the key by the foot's height. Removing one of the two things is what actually settled
+		   it. */
 	}
 </style>

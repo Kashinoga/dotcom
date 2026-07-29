@@ -131,15 +131,30 @@
 	/* The tag itself keeps puhig's `.beta` entirely — this file adds only its fit and the state
 	   it can now be in.
 	   FIT: standing among the panel's actions it has to match the CONTROLS beside it rather than
-	   shrink to its own type. `align-self: stretch` rather than a height, so it follows whatever
-	   the row is — 28px of Pixelite's control line, 42px of Aeropalite's disc — instead of
-	   picking one and being wrong in the other theme. It was 19.6px against a 28px Home,
-	   measured. (This rule came out of the catch-all page with the element.) */
+	   shrink to its own type. It was 19.6px against a 28px Home, measured.
+	   `align-self: stretch` did that job for as long as a taller SIBLING was setting the height of
+	   the actions row — which is a dependency on the company the tag keeps, and the day the
+	   editor's Home and About went down to the phone's flyout the tag was left alone in that row,
+	   stretching to its own 19.6px content and nothing else. So the control line is stated here
+	   instead: 42px is the base disc, 28px is Pixelite's one control line (puhig `.icon-btn`, and
+	   the rack's own `.tb` — the third place this number is written, each with this note). Stretch
+	   stays, so a row that is somehow taller still wins; the min-height is the floor for a tag
+	   standing on its own.
+	   Measured after, at both widths: 28px against 28px keys under Pixelite, which is the theme
+	   this ships in. Under Aeropalite the tag is 42px — level with the disc row it stands in on a
+	   desk, and taller than the rack's keys on a phone, where that row now holds nothing else.
+	   That gap is Aeropalite's own: its dense bar mixes 42px discs with the rack's 28px keys, and
+	   it did so before any of this. Not worth a fourth copy of the 820px breakpoint to paper
+	   over. */
 	.beta {
 		align-self: stretch;
+		min-height: 42px;
 		display: inline-flex;
 		align-items: center;
 		flex: none;
+	}
+	:global(html[data-look='pixelite']) .beta {
+		min-height: 28px;
 	}
 	/* Open, it takes the accent it already borrows on hover, so the card reads as belonging to
 	   the thing that opened it. */
