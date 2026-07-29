@@ -352,6 +352,37 @@ await page.waitForTimeout(200);
 	// No New needed: there is ALWAYS a scratch note, and at mount it is `Ephemeral 0` with the
 	// sheet already on it. That is the point of the standing note — every document on the sheet
 	// is a document in the pane, so every document on the sheet has these three verbs.
+	//
+	// The Scratch head carries a + as well, which is the short road to the same New that the
+	// Workspace menu holds — at the head of the list it adds to. ELSEWHERE does not get one:
+	// that shelf is a record of what you reached for, not a list you can ask to grow.
+	{
+		const heads = page.locator('.te-loose-head');
+		ok(
+			'the Scratch head offers a + and Elsewhere does not',
+			(await page.locator('ul[aria-label="Scratch"]').count()) === 1 &&
+				(await heads.first().locator('.te-loose-add').count()) === 1,
+			`${await heads.count()} shelves`
+		);
+		await heads.first().locator('.te-loose-add').click();
+		await page.waitForTimeout(300);
+		await eq(
+			'and it makes a note, on a blank sheet',
+			page.locator('.te-work-row.on .te-work-file').textContent(),
+			'Ephemeral 1'
+		);
+		await eq('with nothing on it', value(), '');
+		// Back to the standing note for the cases below, which are about it. The LAST row is the
+		// one the + just made — closing the first would take `Ephemeral 0` and leave its own
+		// replacement behind, which is the same list with different words in it.
+		await page.locator('ul[aria-label="Scratch"] .te-work-row').last().click({ button: 'right' });
+		await page.waitForTimeout(200);
+		await page.locator('.te-file-menu .popover-item', { hasText: /^Close$/ }).click();
+		await page.waitForTimeout(200);
+		await page.locator('.te-file-menu .popover-item', { hasText: /^Sure\?$/ }).click();
+		await page.waitForTimeout(400);
+	}
+
 	await reset('keep me');
 	await page.waitForTimeout(450); // the debounce that follows the sheet into the note
 

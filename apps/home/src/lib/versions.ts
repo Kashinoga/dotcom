@@ -92,8 +92,9 @@ export const RELEASES: Record<string, AppRelease> = {
 		// Four. The newest is the standing note being MARKED open without being put on the sheet,
 		// which made its row do nothing when pressed — the app already thought it was open.
 		fixes: 4,
-		commits: 320,
+		commits: 321,
 		recent: [
+			{ at: '0.9.4.321', what: 'A + on the Scratch head, at the top of the list it adds to' },
 			{ at: '0.9.4.320', what: 'Closing a scratch note lands on another one, sheet and all' },
 			{ at: '0.9.3.319', what: 'There is always a scratch note, and Scratch is always shown' },
 			{ at: '0.9.3.319', what: 'New, Change and Hide are behind the Workspace key' },

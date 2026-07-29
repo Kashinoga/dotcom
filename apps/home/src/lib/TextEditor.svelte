@@ -2398,11 +2398,29 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		/** Present where a row can be dismissed from the row itself. False while it asks. */
 		close?: () => boolean;
 	}[],
-	sort?: () => void
+	sort?: () => void,
+	add?: () => void
 )}
 	<div class="te-loose">
 		<div class="te-loose-head">
 			<span class="te-loose-name">{title}</span>
+			{#if add}
+				<!-- + on the Scratch head. New note is in the Workspace menu, which is the right place
+				     for it — the menu is where the pane's own controls went — but a list you add to
+				     this often deserves the shorter road as well, at the head of the list it adds to.
+				     Only on SCRATCH: nothing can be added to ELSEWHERE by asking, since that shelf is
+				     a record of what you reached for rather than a list you keep.
+				     It stands LEFT of A–Z, which is the order the two are used in. The tally stays
+				     last, past both, because it heads a column — every folder row in the tree below
+				     carries the same figure at the same right edge. -->
+				<button
+					type="button"
+					class="te-loose-sort te-loose-add"
+					title="Make a scratch document"
+					aria-label="New {title} note"
+					onclick={add}>+</button
+				>
+			{/if}
 			{#if sort}
 				<!-- A-Z. Only on the list whose order is the visitor's: sorting ELSEWHERE would
 				     contradict what that shelf means, which is the order you reached for them. -->
@@ -2641,7 +2659,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 								menu: (e: MouseEvent) => openShelfMenu(e, d.id, 'ephemeral'),
 								close: () => closeShelfRow({ id: d.id, list: 'ephemeral' })
 							})),
-							sortEphemeral
+							sortEphemeral,
+							newEphemeral
 						)}
 					{/if}
 					{#if editor.loose.length}
@@ -4045,6 +4064,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-loose-sort:focus-visible {
 		color: var(--orange);
 		outline: none;
+	}
+	/* The + is the same key at the same weight, one step up in size: a single glyph set at 0.6rem
+	   beside a two-character word reads as a speck rather than as a control. Its line-height is
+	   stated because a lone `+` in the mono face sits high in its own box, and the row is 30px of
+	   things that all have to sit on one line. */
+	.te-loose-add {
+		font-size: 0.85rem;
+		line-height: 1;
 	}
 	/* The × on a scratch row. Held back until the row is reached for, the way the tree's verbs
 	   once were — but there is only one of it and it is a glyph rather than a word, so it costs
