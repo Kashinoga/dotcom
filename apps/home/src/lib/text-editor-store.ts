@@ -1,0 +1,355 @@
+// The WORKSPACE'S BACKING STORE — what a tree of documents is, and what can be done to one.
+//
+// The editor grew up against one backing store and had it in its hands: every verb in the pane
+// called a `FileSystemFileHandle` method directly, and the row it called through carried the handle
+// as a field. That is a fine shape for one store and an impossible one for two, because a document
+// that lives on a server has no handle to carry and never will.
+//
+// So a row is a NAME AND A PATH, and this is the thing that knows what a path means. Nothing above
+// here touches a handle: the map from path to handle is private to the local store, in the same way
+// a URL and a session cookie would be private to a remote one. The editor asks for a listing, a
+// body, a write, a rename, a move, a delete; the store answers, and where it cannot it says so.
+//
+// Two implementations live here, and they are the two ways a browser will hand over a folder:
+//
+//   `localStore`    — a real directory handle from `showDirectoryPicker`. Chromium only, and the
+//                     only one that can be written to. See `canWrite` in $lib/text-editor-state
+//                     for why the detect is on that one function and on nothing else.
+//   `snapshotStore` — the `<input webkitdirectory>` fallback. Every browser, read-only, and gone
+//                     at the end of the session: those are File objects with nothing behind them.
+//
+// WHAT BELONGS HERE, and what does not. The store owns the rules that every backing store has to
+// keep, whatever it is made of — a name is a name and not a path, a move that would overwrite is
+// refused rather than performed, a new file gets a free name rather than landing on top of an old
+// one. It does NOT own the shelf or the scratch notes: a loose document is a single file from
+// anywhere at all and a scratch note has no file, so neither is a path in a tree and neither is
+// this module's business.
+
+/**
+ * A document in the tree. Its name and where it sits, and — deliberately — nothing else. Every
+ * field this used to carry (`file`, `handle`, `parent`) was the local store's own bookkeeping,
+ * published to the whole editor because there was nowhere else to put it.
+ */
+export type FolderEntry = { name: string; path: string };
+
+/** What a walk found: the readable documents, and every directory it went into. */
+export type Listing = { files: FolderEntry[]; dirs: string[] };
+
+/**
+ * A document taken OUT of a tree, so it can outlive it — what the shelf holds when a folder is
+ * changed underneath the document on the sheet. It is the shelf's `LooseDoc`, described here
+ * because the store is the only thing that can produce one: it knows what the row was made of.
+ */
+export type DetachedDoc = {
+	id: string;
+	name: string;
+	file?: File;
+	handle?: FileSystemFileHandle;
+};
+
+/**
+ * WHAT A WORKSPACE CAN DO. Every method that changes something answers with what it did rather
+ * than throwing — a null or a false, which the caller reports on the row. That is not politeness:
+ * over a network every one of these can fail for reasons that are nobody's mistake, and an
+ * exception thrown out of a drag handler is a failure the visitor never sees.
+ */
+export type Store = {
+	/** Which kind, for the messages that have to name it. */
+	kind: 'local' | 'snapshot';
+	/** The folder's own name — the head of the tree. */
+	name: string;
+	/** Can anything in here be written? False for a snapshot, always. */
+	writable: boolean;
+	/**
+	 * Read the tree. Called when the folder is picked, and again when it is reconnected.
+	 *
+	 * NULL means the store could not be read AT ALL — the folder moved, was deleted, or the grant
+	 * went away between the check and the call — and that is a different answer from an empty
+	 * listing. A remembered folder that answers null is forgotten; one that answers an empty tree is
+	 * an empty tree. A partial read (a folder that went away mid-walk) answers with what it got:
+	 * some of a workspace is worth showing, and the rows that are there are all still true.
+	 */
+	list(): Promise<Listing | null>;
+	/** A document's words, or null if they cannot be got at. */
+	read(path: string): Promise<string | null>;
+	/** Write a document back. False if nothing was written. */
+	write(path: string, body: string): Promise<boolean>;
+	/**
+	 * Make a NEW document under `dir` ('' is the root), named `base` + `ext` or the first free
+	 * variant of it, holding `body`. Answers with the entry it made, or null.
+	 */
+	create(dir: string, base: string, ext: string, body: string): Promise<FolderEntry | null>;
+	/** Rename in place. `to` is a NAME, not a path. Answers with the entry at its new path. */
+	rename(path: string, to: string): Promise<FolderEntry | null>;
+	/** Move to another directory in the same tree. Refused if the name is taken there. */
+	move(path: string, dir: string): Promise<FolderEntry | null>;
+	remove(path: string): Promise<boolean>;
+	/** A reference to this document that outlives the store, for the shelf. Null if there is none. */
+	detach(path: string): DetachedDoc | null;
+};
+
+/** The directory part of a path — '' for a document at the root. */
+export const dirOf = (path: string) =>
+	path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
+
+/** A path, from a directory and a name. The root takes no leading slash. */
+export const join = (dir: string, name: string) => (dir ? `${dir}/${name}` : name);
+
+/** Folders not worth walking into. A workspace is for documents, not for a dependency tree. */
+const SKIP_DIR = /^(node_modules|\.git|\.svn|\.hg|\.cache|dist|build|\.next|\.svelte-kit)$/;
+
+/** How much of a folder is worth walking. See the note in `walk`. */
+const MAX_FILES = 500;
+const MAX_DEPTH = 6;
+
+// ── The local store ───────────────────────────────────────────────────────────
+
+/** The local store, plus the two things only a handle-backed folder has: a root, and permission. */
+export type LocalStore = Store & {
+	kind: 'local';
+	/** The directory handle itself — what IndexedDB keeps so the folder comes back next visit. */
+	root: FileSystemDirectoryHandle;
+	permission(): Promise<'granted' | 'denied' | 'prompt' | undefined>;
+	requestPermission(): Promise<'granted' | 'denied' | 'prompt' | undefined>;
+};
+
+/**
+ * A real folder on the disk, through the File System Access API.
+ *
+ * The two maps are the whole reason this is a closure rather than a bag of functions. A tree row is
+ * derived from paths, so a folder in the sidebar is a STRING — and every write needs the actual
+ * handle behind it. Collecting them on the way down the walk is the only place they all pass
+ * through; the alternative is re-walking from the root on every drop.
+ */
+export function localStore(root: FileSystemDirectoryHandle, openable: RegExp): LocalStore {
+	let files = new Map<string, FileSystemFileHandle>();
+	let dirs = new Map<string, FileSystemDirectoryHandle>();
+
+	async function walk(dir: FileSystemDirectoryHandle, prefix: string, out: FolderEntry[]) {
+		dirs.set(prefix, dir);
+		// A folder can be arbitrarily deep and arbitrarily large; a workspace that walked all of it
+		// would hang on a home directory. Stop at a depth and a count that still cover any notes
+		// folder anyone actually keeps.
+		if (out.length > MAX_FILES || prefix.split('/').length > MAX_DEPTH) return;
+		for await (const [name, entry] of dir.entries()) {
+			const path = join(prefix, name);
+			if (entry.kind === 'directory') {
+				if (!SKIP_DIR.test(name) && !name.startsWith('.')) {
+					await walk(entry as FileSystemDirectoryHandle, path, out);
+				}
+			} else if (openable.test(name)) {
+				files.set(path, entry as FileSystemFileHandle);
+				out.push({ name, path });
+			}
+		}
+	}
+
+	/**
+	 * `Ephemeral 1.md`, or the first numbered variant that is free. `getFileHandle(create: true)`
+	 * hands back an EXISTING file of that name rather than failing, so making a second note over a
+	 * first one would be silent — the same trap `move` sets, answered the same way.
+	 */
+	async function freeName(dir: FileSystemDirectoryHandle, base: string, ext: string) {
+		for (let n = 1; n < 100; n += 1) {
+			const name = n === 1 ? `${base}${ext}` : `${base} ${n}${ext}`;
+			try {
+				await dir.getFileHandle(name);
+			} catch {
+				return name;
+			}
+		}
+		return `${base} ${Date.now()}${ext}`;
+	}
+
+	async function put(handle: FileSystemFileHandle, body: string) {
+		try {
+			const w = await handle.createWritable();
+			await w.write(body);
+			await w.close();
+			return true;
+		} catch {
+			// Permission withdrawn, or the file went away. Nothing was written; the caller says
+			// nothing rather than claiming a save that did not happen.
+			return false;
+		}
+	}
+
+	const store: LocalStore = {
+		kind: 'local',
+		name: root.name,
+		writable: true,
+		root,
+
+		async list() {
+			const out: FolderEntry[] = [];
+			files = new Map();
+			dirs = new Map();
+			try {
+				await walk(root, '', out);
+			} catch {
+				// Nothing at all came back, so the ROOT is what failed: the folder moved, or was
+				// deleted, or a grant lapsed between the check and here. Anything else is a folder
+				// that went away mid-walk, and what was gathered before it did is still true.
+				if (!out.length && dirs.size <= 1) return null;
+			}
+			out.sort((a, b) => a.path.localeCompare(b.path));
+			return { files: out, dirs: [...dirs.keys()].filter(Boolean) };
+		},
+
+		async read(path) {
+			const handle = files.get(path);
+			if (!handle) return null;
+			try {
+				return await (await handle.getFile()).text();
+			} catch {
+				return null;
+			}
+		},
+
+		async write(path, body) {
+			const handle = files.get(path);
+			return handle ? put(handle, body) : false;
+		},
+
+		async create(dir, base, ext, body) {
+			const into = dirs.get(dir);
+			if (!into) return null;
+			const name = await freeName(into, base, ext);
+			let handle: FileSystemFileHandle;
+			try {
+				handle = await into.getFileHandle(name, { create: true });
+			} catch {
+				return null;
+			}
+			if (!(await put(handle, body))) return null;
+			const path = join(dir, name);
+			files.set(path, handle);
+			return { name, path };
+		},
+
+		async rename(path, to) {
+			const handle = files.get(path);
+			// A name is a NAME, not a path — a rename that could write into another directory is a
+			// move, and this is the last place that difference can still be enforced.
+			if (!handle || !to || /[/\\]/.test(to)) return null;
+			try {
+				await handle.move(to);
+			} catch {
+				return null;
+			}
+			const moved = { name: to, path: join(dirOf(path), to) };
+			files.delete(path);
+			files.set(moved.path, handle);
+			return moved;
+		},
+
+		async move(path, dir) {
+			const handle = files.get(path);
+			const into = dirs.get(dir);
+			const name = path.slice(path.lastIndexOf('/') + 1);
+			if (!handle || !into || dirOf(path) === dir) return null;
+			// A name already taken at the destination. `move` OVERWRITES without a word — the
+			// platform will not warn you that the README you dropped has just replaced the README
+			// that was there — so this is the one place the store checks BEFORE acting.
+			try {
+				await into.getFileHandle(name);
+				return null;
+			} catch {
+				/* nothing there by that name, which is what we wanted */
+			}
+			try {
+				await handle.move(into, name);
+			} catch {
+				return null;
+			}
+			const moved = { name, path: join(dir, name) };
+			files.delete(path);
+			files.set(moved.path, handle);
+			return moved;
+		},
+
+		async remove(path) {
+			// Deleting is the DIRECTORY'S verb, not the file's: `removeEntry` is called on the folder
+			// that contains it, which is why the walk keeps both maps rather than only the files.
+			const parent = dirs.get(dirOf(path));
+			if (!parent) return false;
+			try {
+				await parent.removeEntry(path.slice(path.lastIndexOf('/') + 1));
+			} catch {
+				return false;
+			}
+			files.delete(path);
+			return true;
+		},
+
+		detach(path) {
+			const handle = files.get(path);
+			if (!handle) return null;
+			return { id: path, name: handle.name, handle };
+		},
+
+		permission: () => Promise.resolve(root.queryPermission?.({ mode: 'readwrite' })),
+		requestPermission: () => Promise.resolve(root.requestPermission?.({ mode: 'readwrite' }))
+	};
+	return store;
+}
+
+// ── The snapshot store ────────────────────────────────────────────────────────
+
+/**
+ * A `<input webkitdirectory>` folder: a flat list of File objects, read-only, and only as fresh as
+ * the moment it was picked. Every browser has it and none of them will let it be written to, so
+ * every verb below the reading one answers no.
+ *
+ * It knows no DIRECTORIES either — an empty folder leaves no File to be seen in, so `dirs` is
+ * empty and a tree derived from these paths is the whole of what this store can say. That is the
+ * platform's limit, not a shortcut: it is also why moving is not offered here.
+ */
+export function snapshotStore(name: string, picked: File[], openable: RegExp): Store {
+	const files = new Map<string, File>();
+	const out: FolderEntry[] = [];
+	// The folder's own name is the first segment of every entry's relative path — and it is only
+	// ever the first segment, so it comes OFF the paths as well as out of them. Left on, it would
+	// be a tree with one root node holding everything, indenting every document by a level to
+	// repeat what the heading above the list already says.
+	const root = picked[0]?.webkitRelativePath?.split('/')[0] ?? '';
+	for (const f of picked) {
+		if (!openable.test(f.name)) continue;
+		const full = f.webkitRelativePath || f.name;
+		const path = root && full.startsWith(`${root}/`) ? full.slice(root.length + 1) : full;
+		files.set(path, f);
+		out.push({ name: f.name, path });
+	}
+	out.sort((a, b) => a.path.localeCompare(b.path));
+
+	const no = async () => null;
+	return {
+		kind: 'snapshot',
+		name: name || root,
+		writable: false,
+		list: async () => ({ files: out, dirs: [] }),
+		read: async (path) => {
+			const file = files.get(path);
+			if (!file) return null;
+			try {
+				return await file.text();
+			} catch {
+				// A file that vanished between picking and reading, or one the browser will not hand
+				// over. A snapshot is a list of promises about a folder as it was.
+				return null;
+			}
+		},
+		write: async () => false,
+		create: no,
+		rename: no,
+		move: no,
+		remove: async () => false,
+		// A File CAN be shelved, even though it cannot be saved to: the shelf re-reads a row when it
+		// is opened, and a File will still answer for as long as the tab is alive. The row is lost on
+		// a reload, like every other snapshot row, because there is nothing behind it to remember.
+		detach: (path) => {
+			const file = files.get(path);
+			return file ? { id: path, name: file.name, file } : null;
+		}
+	};
+}

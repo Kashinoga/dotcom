@@ -35,23 +35,16 @@ import {
 export type Mode = 'write' | 'split' | 'proof';
 
 /**
- * One readable document inside an opened folder. It arrives one of two ways, and which one
- * decides what the workspace can do with it:
+ * One readable document inside an opened folder — a NAME AND A PATH, and nothing else.
  *
- *   `file`   — a read-only snapshot from `<input webkitdirectory>`. Every browser. Open only.
- *   `handle` — a live handle from `showDirectoryPicker`. Chromium only. Open, save in place,
- *              rename, delete.
- *
- * `parent` comes with the handle because deleting is the DIRECTORY's verb, not the file's:
- * `removeEntry` is called on the folder that contains it.
+ * It used to carry the thing it was made of: a `File` from `<input webkitdirectory>`, or a live
+ * `handle` and its `parent` from `showDirectoryPicker`. Every one of those was the local store's
+ * own bookkeeping, published to the whole editor because there was nowhere else to put it — and a
+ * document that lives on a server has none of them and never will. They are private to the store
+ * now (see $lib/text-editor-store), which is what lets a second kind of workspace exist at all.
  */
-export type FolderEntry = {
-	name: string;
-	path: string;
-	file?: File;
-	handle?: FileSystemFileHandle;
-	parent?: FileSystemDirectoryHandle;
-};
+import type { FolderEntry } from '$lib/text-editor-store';
+export type { FolderEntry, Store } from '$lib/text-editor-store';
 
 /**
  * A document on the sheet that did NOT come out of the open folder — one picked with Open, or
@@ -198,8 +191,23 @@ export const editor = $state({
 	 * workspace shows its documents the moment it is picked rather than a row you have to press.
 	 */
 	collapsed: [] as string[],
-	/** The handle behind the open document, when there is one — what makes saving possible. */
+	/**
+	 * The handle behind the open document when it came from OUTSIDE the tree — the Open key's
+	 * picker, a launched file, or a row on the shelf. A document in the WORKSPACE no longer has one
+	 * here: it is a path, and the store is what knows how to write to a path (see
+	 * $lib/text-editor-store). This is what is left of the field, and it is the shelf's.
+	 */
 	openHandle: null as FileSystemFileHandle | null,
+	/**
+	 * Can the document ON THE SHEET be written back to where it came from?
+	 *
+	 * Not "does this browser have the API" — that is `canWrite`, and the two were the same question
+	 * for exactly as long as there was one kind of workspace. A tree document is writable when its
+	 * store is; a shelf document is writable when it has a handle behind it; a scratch note is
+	 * neither until it is filed. The keys read THIS, so that a key which offers to save says so
+	 * because of the document in front of it rather than because of the engine it is running in.
+	 */
+	openWritable: false,
 	/** Briefly true after a save lands, so the key can say so. */
 	saved: false,
 	/** The path of the entry currently on the sheet, so the workspace can mark it. */
@@ -534,14 +542,18 @@ export const DOC_KEYS: DocKey[] = [
 		run: () => editor.cmd?.saveInPlace(),
 		done: () => editor.saved,
 		/**
-		 * Only when there is somewhere for it to go. Two ways there can be: a real file behind the
-		 * sheet, or a SCRATCH note and a writable folder open to file it into — which is the one
-		 * way a document is created on disk now that New makes a scratch note instead. Otherwise
-		 * `.md` (the download) is how a document leaves, and it stands right beside this.
+		 * Only when there is somewhere for it to go. Two ways there can be: a document on the sheet
+		 * that can be written back to, or a SCRATCH note and a writable folder open to file it into
+		 * — which is the one way a document is created on disk now that New makes a scratch note
+		 * instead. Otherwise `.md` (the download) is how a document leaves, and it stands right
+		 * beside this.
+		 *
+		 * `openWritable`, not `openHandle`: what the key needs to know is whether THIS document can
+		 * be saved, and a handle is only one of the ways that can be true.
 		 */
 		shown: () =>
 			editor.canWrite &&
-			(!!editor.openHandle || (editor.openIn === 'ephemeral' && editor.folderWritable)),
+			(editor.openWritable || (editor.openIn === 'ephemeral' && editor.folderWritable)),
 		folds: () => true
 	},
 	/*
@@ -577,7 +589,7 @@ export const DOC_KEYS: DocKey[] = [
 		title: () =>
 			!editor.canWrite
 				? 'Download a copy — this browser cannot save in place'
-				: editor.openHandle
+				: editor.openWritable
 					? 'Download a copy — Save writes to the file itself'
 					: 'Download it as a .md file',
 		label: () => '.md',

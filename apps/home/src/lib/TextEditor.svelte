@@ -16,6 +16,7 @@
 		type LooseDoc,
 		type Ephemeral
 	} from '$lib/text-editor-state.svelte';
+	import { localStore, snapshotStore, type LocalStore, type Store } from '$lib/text-editor-store';
 	import FloatingKey from '$lib/FloatingKey.svelte';
 	import TextEditorSettings from '$lib/TextEditorSettings.svelte';
 	import { dev } from '$app/environment';
@@ -815,7 +816,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			// ⌘S saves back to the open file where that is possible. Where it is not, the browser's
 			// own Save-page dialog is not what anyone pressing ⌘S in an editor wants either, so it
 			// is swallowed and the download takes its place.
-			if (k === 's') return stop(event, () => (editor.openHandle ? saveInPlace() : download()));
+			if (k === 's') return stop(event, () => (editor.openWritable ? saveInPlace() : download()));
 		}
 
 		// TAB indents, and that is a deliberate trade. Tab is the keyboard's way OUT of a control,
@@ -934,14 +935,39 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 
 	/**
-	 * Put a document on the sheet. It goes through `write`, like every other edit, so opening the
-	 * wrong file is UNDOABLE — Cmd-Z brings back what was there. That is the whole reason opening
-	 * does not have to ask first.
+	 * A document's WORDS, on the sheet, under its name. It goes through `write`, like every other
+	 * edit, so opening the wrong file is UNDOABLE — Cmd-Z brings back what was there. That is the
+	 * whole reason opening does not have to ask first.
+	 *
+	 * `handle` is the shelf's business and is null for anything in the workspace: a tree document is
+	 * a path in a store now, and the store is what knows how to write to one. `writable` is the
+	 * answer to the only question the keys ever asked the handle — can this be saved back — asked
+	 * of the document rather than of the browser.
+	 */
+	function land(
+		body: string,
+		name: string,
+		handle: FileSystemFileHandle | null,
+		writable: boolean
+	) {
+		// Whatever is on the sheet may be a scratch note, and this is about to be over it.
+		stashEphemeral();
+		putOnSheet(body.replace(/\r\n?/g, '\n'));
+		editor.filename = name;
+		editor.openHandle = handle;
+		editor.openWritable = writable;
+		// The workspace STAYS OPEN when you pick from it — that is what makes it a workspace
+		// rather than a picker. It closes on a phone, where it covers the sheet it just filled.
+		if (editor.narrow) editor.folderShown = false;
+	}
+
+	/**
+	 * The same, from a File — the Open key's pick, a launched document, a row on the shelf. These
+	 * are the documents that come from OUTSIDE any workspace, which is why they still arrive as a
+	 * file and a handle rather than as a path.
 	 */
 	async function load(file: File, handle: FileSystemFileHandle | null = null) {
 		let body: string;
-		// Whatever is on the sheet may be a scratch note, and this is about to be over it.
-		stashEphemeral();
 		try {
 			body = await file.text();
 		} catch {
@@ -949,12 +975,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			// over. Nothing to put on the sheet, and nothing worth interrupting the writer for.
 			return;
 		}
-		putOnSheet(body.replace(/\r\n?/g, '\n'));
-		editor.filename = file.name;
-		editor.openHandle = handle;
-		// The workspace STAYS OPEN when you pick from it — that is what makes it a workspace
-		// rather than a picker. It closes on a phone, where it covers the sheet it just filled.
-		if (editor.narrow) editor.folderShown = false;
+		land(body, file.name, handle, !!handle);
 	}
 
 	/**
@@ -1139,6 +1160,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		putOnSheet(doc.text);
 		editor.filename = doc.name;
 		editor.openHandle = null;
+		editor.openWritable = false;
 		editor.openPath = doc.id;
 		editor.openIn = 'ephemeral';
 	}
@@ -1279,11 +1301,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 */
 	function shelveTheOpenOne() {
 		if (!editor.openPath || editor.openIn !== 'tree' || !editor.filename) return;
-		const doc: LooseDoc = {
-			id: editor.openPath,
-			name: editor.filename,
-			handle: editor.openHandle ?? undefined
-		};
+		// The STORE makes the row, because the store is the only thing that knows what the document
+		// was made of — a handle here, a File there. It used to be built from `editor.openHandle`,
+		// which a `webkitdirectory` document never had: those were shelved as a name with nothing
+		// behind it, so the row deleted itself the moment it was pressed.
+		const doc = store?.detach(editor.openPath);
+		if (!doc) return;
 		const rest = editor.loose.filter((d) => d.id !== doc.id);
 		editor.loose = [doc, ...rest].slice(0, LOOSE_MAX);
 		// It is not marked as open after this: `openPath` is cleared by the folder that is
@@ -1307,39 +1330,47 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		pickFolder();
 	}
 
-	// ── Writing, where the browser allows it ──────────────────────────────────
-	// Everything below needs a live handle, which only `showDirectoryPicker` yields and only
-	// Chromium implements. See `canWrite` in $lib/text-editor-state for why the detect is on that
-	// one function and not on the handle classes, which exist everywhere and reach nothing.
+	// ── The workspace's backing store ─────────────────────────────────────────
+	// The tree is not a list of handles any more. It is a list of PATHS and a `Store` that knows
+	// what a path means — see $lib/text-editor-store, which holds both the walk and the five verbs
+	// that used to be spelled out here against `FileSystemFileHandle`. Two stores exist today, and
+	// they are the two ways a browser will hand over a folder: a real directory (Chromium, writable)
+	// and a `webkitdirectory` snapshot (everywhere, read-only).
+	//
+	// `$state.raw` rather than `$state`: this is REPLACED wholesale and never mutated, and a deep
+	// proxy would be actively harmful — the local store carries the directory handle that IndexedDB
+	// has to structured-clone, and a Proxy is not cloneable.
+	let store = $state.raw<Store | null>(null);
 
-	/** Folders not worth walking into. A workspace is for documents, not for a dependency tree. */
-	const SKIP_DIR = /^(node_modules|\.git|\.svn|\.hg|\.cache|dist|build|\.next|\.svelte-kit)$/;
-
-	/** Collect the openable documents under a directory handle, depth first, path in hand. */
 	/**
-	 * Every directory the walk went into, by path. A tree row is DERIVED from the file paths (see
-	 * `workRows`), so a folder in the sidebar is a string rather than a thing — and moving a file
-	 * into one needs the actual handle. Collecting them on the way down is the only place they
-	 * all pass through; the alternative is re-walking from the root on every drop.
+	 * Take a store on as the workspace. False if it could not be read at all, which only a
+	 * remembered folder ever acts on — see `openHeldFolder`.
 	 */
-	let heldDirs = new Map<string, FileSystemDirectoryHandle>();
-
-	async function walk(dir: FileSystemDirectoryHandle, prefix: string, out: FolderEntry[]) {
-		heldDirs.set(prefix, dir);
-		// A folder can be arbitrarily deep and arbitrarily large; a workspace that walked all of
-		// it would hang on a home directory. Stop at a depth and a count that still cover any
-		// notes folder anyone actually keeps.
-		if (out.length > 500 || prefix.split('/').length > 6) return;
-		for await (const [name, entry] of dir.entries()) {
-			const path = prefix ? `${prefix}/${name}` : name;
-			if (entry.kind === 'directory') {
-				if (!SKIP_DIR.test(name) && !name.startsWith('.')) {
-					await walk(entry as FileSystemDirectoryHandle, path, out);
-				}
-			} else if (OPENABLE.test(name)) {
-				out.push({ name, path, handle: entry as FileSystemFileHandle, parent: dir });
-			}
+	async function adopt(next: Store) {
+		const listing = await next.list();
+		if (!listing) return false;
+		// Whatever was open belonged to the LAST folder. Shelved before the new one lands, or its
+		// row would simply vanish with the tree it was in. A no-op unless a TREE document is on the
+		// sheet, which is why it can be called on every path through here.
+		shelveTheOpenOne();
+		store = next;
+		editor.folder = listing.files;
+		editor.folders = listing.dirs;
+		editor.folderName = next.name;
+		editor.folderWritable = next.writable;
+		editor.folderShown = true;
+		editor.folderPending = false;
+		// Only a document from the OLD TREE stops being the open one — it has just been shelved by
+		// the line above. A scratch note or a shelf row belongs to no folder at all, and clearing
+		// the mark on one because a folder changed underneath it took the Save key away from a
+		// note that was still on the sheet.
+		if (editor.openIn === 'tree') {
+			editor.openPath = '';
+			editor.openWritable = false;
 		}
+		// A different folder is a different tree; what was shut in the last one means nothing here.
+		editor.collapsed = [];
+		return true;
 	}
 
 	/** The Chromium path: a real directory, with permission to write it. */
@@ -1354,32 +1385,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			// saying anything about.
 			return;
 		}
-		const out: FolderEntry[] = [];
-		heldDirs = new Map();
-		try {
-			await walk(dir, '', out);
-		} catch {
-			/* a folder that went away mid-walk — take what was gathered */
-		}
-		out.sort((a, b) => a.path.localeCompare(b.path));
-		editor.folders = [...heldDirs.keys()].filter(Boolean);
-		// Whatever was open belonged to the LAST folder. Shelved before the new one lands, or its
-		// row would simply vanish with the tree it was in.
-		shelveTheOpenOne();
-		editor.folder = out;
-		editor.folderName = dir.name;
-		editor.folderShown = true;
-		// Only a document from the OLD TREE stops being the open one — it has just been shelved by
-		// the line above. A scratch note or a shelf row belongs to no folder at all, and clearing
-		// the mark on one because a folder changed underneath it took the Save key away from a
-		// note that was still on the sheet.
-		if (editor.openIn === 'tree') editor.openPath = '';
-		// A different folder is a different tree; what was shut in the last one means nothing here.
-		editor.collapsed = [];
-		heldFolder = dir;
-		editor.folderWritable = true;
-		editor.folderPending = false;
-		rememberFolder(dir);
+		held = localStore(dir, OPENABLE);
+		if (await adopt(held)) rememberFolder(dir);
 	}
 
 	/**
@@ -1394,51 +1401,35 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 */
 	async function fileScratchNote() {
 		const doc = editor.ephemeral.find((d) => d.id === editor.openPath);
-		if (!doc || !heldFolder) return;
-		const name = await freeName(heldFolder, doc.name, '.md');
-		let handle: FileSystemFileHandle;
-		try {
-			handle = await heldFolder.getFileHandle(name, { create: true });
-			const w = await handle.createWritable();
-			await w.write(text);
-			await w.close();
-		} catch {
-			return;
-		}
-		const entry: FolderEntry = { name, path: name, handle, parent: heldFolder };
+		// Into the store that is OPEN, at its root. The free name and the write are both the store's
+		// — filing a second note over a first one has to be impossible wherever documents are kept,
+		// not only where this app happens to have written the check.
+		if (!doc || !store?.writable) return;
+		const entry = await store.create('', doc.name, '.md', text);
+		if (!entry) return;
 		if (!editor.folder.some((e) => e.path === entry.path)) {
 			editor.folder = [...editor.folder, entry].sort((a, b) => a.path.localeCompare(b.path));
 		}
 		editor.ephemeral = editor.ephemeral.filter((d) => d.id !== doc.id);
 		editor.openPath = entry.path;
 		editor.openIn = 'tree';
-		editor.openHandle = handle;
-		editor.filename = name;
+		editor.openHandle = null;
+		editor.openWritable = true;
+		editor.filename = entry.name;
 		saySaved();
 		flash(entry.path, 'Saved');
 	}
 
-	/**
-	 * `Ephemeral 1.md`, or the first numbered variant that is free. `getFileHandle(create: true)`
-	 * hands back an EXISTING file of that name rather than failing, so filing a second note over
-	 * a first one would be silent — the same trap `move` sets, answered the same way.
-	 */
-	async function freeName(dir: FileSystemDirectoryHandle, base: string, ext: string) {
-		for (let n = 1; n < 100; n += 1) {
-			const name = n === 1 ? `${base}${ext}` : `${base} ${n}${ext}`;
-			try {
-				await dir.getFileHandle(name);
-			} catch {
-				return name;
-			}
-		}
-		return `${base} ${Date.now()}${ext}`;
-	}
-
-	/** Write the sheet back to the file it came from. */
+	/** Write the sheet back to the document it came from. */
 	async function saveInPlace() {
 		// A scratch note has no file to be written BACK to; it is written OUT for the first time.
 		if (editor.openIn === 'ephemeral') return fileScratchNote();
+		// A document in the workspace is a path, and the store owns the write. A document from the
+		// SHELF is a handle and has no store behind it — it came from outside every folder.
+		if (editor.openIn === 'tree') {
+			if (await store?.write(editor.openPath, text)) saySaved();
+			return;
+		}
 		const handle = editor.openHandle;
 		if (!handle) return;
 		try {
@@ -1488,85 +1479,69 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		saidTimer = window.setTimeout(() => (said = { key: '', word: '', tone: 'done' }), 1700);
 	}
 
-	/** Rename an entry on disk, and follow it if it is the one on the sheet. */
+	/** Rename an entry in the store, and follow it if it is the one on the sheet. */
 	async function rename(entry: FolderEntry, to: string) {
 		const name = to.trim();
 		editor.renaming = '';
-		if (!name || name === entry.name || !entry.handle) return;
+		if (!name || name === entry.name || !store) return;
 		// A name is a NAME, not a path — a rename that could write into another directory is a
-		// move, and a text field in a list is the wrong place to offer one.
+		// move, and a text field in a list is the wrong place to offer one. The store refuses one
+		// too; this is the field's own answer, given before the round trip.
 		if (/[/\\]/.test(name)) return;
-		try {
-			await entry.handle.move(name);
-		} catch {
-			return;
-		}
+		const moved = await store.rename(entry.path, name);
+		if (!moved) return;
 		const was = entry.path;
-		entry.name = name;
-		entry.path = was.includes('/') ? `${was.slice(0, was.lastIndexOf('/'))}/${name}` : name;
+		entry.name = moved.name;
+		entry.path = moved.path;
 		editor.folder = [...editor.folder].sort((a, b) => a.path.localeCompare(b.path));
 		if (editor.openPath === was) {
-			editor.openPath = entry.path;
-			editor.filename = name;
+			editor.openPath = moved.path;
+			editor.filename = moved.name;
 		}
 		flash(entry.path, 'Saved');
 	}
 
 	// ── Moving a document ─────────────────────────────────────────────────────
-	// Drag a row onto a folder and the file MOVES ON DISK — `handle.move(dir, name)`, the same
-	// call rename uses with a directory in front of it. Chromium only, like every other write.
+	// Drag a row onto a folder and the document MOVES where it is kept — one call to the store,
+	// which is the same call rename makes with a directory in front of it.
 	//
 	// Dropping is the only gesture here that changes something outside this app without a key
 	// having been pressed, so it is deliberately narrow: only a document can be dragged, only a
 	// folder row or the head can take it, and a name already in the destination cancels the whole
-	// thing. `move` OVERWRITES silently — the platform will not warn you that the README you
-	// dropped has just replaced the README that was there.
+	// thing. That last rule is the STORE'S now rather than this function's, because it is not a
+	// fact about the File System Access API — every backing store this app ever grows will have
+	// some way of silently overwriting, and the check belongs beside the write it guards.
 
 	/** The path being dragged, and the folder path under the pointer. Both '' for none. */
 	let dragging = $state('');
 	let dropInto = $state<string | null>(null);
 
-	/** The directory a tree path lives in — '' is the root. */
-	const dirAt = (path: string) => heldDirs.get(path);
-
 	async function moveTo(entry: FolderEntry, destPath: string) {
-		const dest = dirAt(destPath);
-		const from = entry.path.includes('/') ? entry.path.slice(0, entry.path.lastIndexOf('/')) : '';
-		if (!dest || !entry.handle || from === destPath) return;
-		// A name already taken at the destination. `move` would overwrite it without a word, so
-		// this is the one place the app checks BEFORE acting rather than reporting afterwards.
-		try {
-			await dest.getFileHandle(entry.name);
-			return;
-		} catch {
-			/* nothing there by that name, which is what we wanted */
-		}
-		try {
-			await entry.handle.move(dest, entry.name);
-		} catch {
-			return;
-		}
+		const moved = await store?.move(entry.path, destPath);
+		if (!moved) return;
 		const was = entry.path;
-		entry.path = destPath ? `${destPath}/${entry.name}` : entry.name;
-		entry.parent = dest;
+		entry.path = moved.path;
 		editor.folder = [...editor.folder].sort((a, b) => a.path.localeCompare(b.path));
 		// The document on the sheet follows its own file, exactly as it does through a rename.
-		if (editor.openIn === 'tree' && editor.openPath === was) editor.openPath = entry.path;
-		flash(entry.path, 'Moved', 'here');
+		if (editor.openIn === 'tree' && editor.openPath === was) editor.openPath = moved.path;
+		flash(moved.path, 'Moved', 'here');
 	}
 
-	/** Can this row be dragged at all? The same gate every other write in here keeps. */
-	const canMove = (entry: FolderEntry) => editor.canWrite && !!entry.handle && heldDirs.size > 0;
+	/**
+	 * Can rows be dragged at all? It stopped being a question about the ROW when the row stopped
+	 * carrying a handle: what it asks is whether the workspace can be written to, and that is one
+	 * answer for the whole tree.
+	 */
+	const canMove = () => editor.canWrite && editor.folderWritable;
 
 	function onDragStart(event: DragEvent, entry: FolderEntry) {
-		if (!canMove(entry)) return event.preventDefault();
+		if (!canMove()) return event.preventDefault();
 		dragging = entry.path;
 		event.dataTransfer?.setData('text/plain', entry.path);
 		if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
 	}
 
 	function onDragOver(event: DragEvent, destPath: string) {
-		console.log('[DBG] dragover', JSON.stringify({ dragging, destPath }));
 		if (!dragging) return;
 		const from = dragging.includes('/') ? dragging.slice(0, dragging.lastIndexOf('/')) : '';
 		// A folder will not take what it already holds. Without this every row lights up as a
@@ -1608,12 +1583,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		}
 		clearTimeout(doomTimer);
 		editor.doomed = '';
-		if (!entry.parent) return;
-		try {
-			await entry.parent.removeEntry(entry.name);
-		} catch {
-			return;
-		}
+		if (!(await store?.remove(entry.path))) return;
 		editor.folder = editor.folder.filter((e) => e.path !== entry.path);
 		// The sheet keeps what it is showing — the words are still yours even though the file is
 		// gone — but it is no longer that file, so it stops claiming to be.
@@ -1621,6 +1591,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			editor.openPath = '';
 			editor.filename = '';
 			editor.openHandle = null;
+			editor.openWritable = false;
 		}
 	}
 	let doomTimer = 0;
@@ -1803,28 +1774,20 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				name: entry.name,
 				read: async () => {
 					if (isOnSheet(entry.path, 'tree')) return text;
-					const file = entry.handle ? await entry.handle.getFile() : entry.file;
-					return file ? await file.text() : null;
+					return (await store?.read(entry.path)) ?? null;
 				},
-				// Only where the browser can write AND there is a handle to write through. A
-				// `webkitdirectory` workspace has neither, and a Clear that could not clear would be
-				// the one kind of key this app refuses to draw.
-				clear:
-					editor.canWrite && entry.handle
-						? async () => {
-								try {
-									const w = await entry.handle!.createWritable();
-									await w.write('');
-									await w.close();
-								} catch {
-									return false;
-								}
-								// It is still the open file, still named, still savable — it is empty now.
-								// So the sheet follows it rather than being detached from it.
-								if (isOnSheet(entry.path, 'tree')) emptyTheSheet();
-								return true;
-							}
-						: null
+				// Only where the workspace can be written to. A `webkitdirectory` snapshot cannot be,
+				// and a Clear that could not clear would be the one kind of key this app refuses to
+				// draw.
+				clear: store?.writable
+					? async () => {
+							if (!(await store?.write(entry.path, ''))) return false;
+							// It is still the open file, still named, still savable — it is empty now.
+							// So the sheet follows it rather than being detached from it.
+							if (isOnSheet(entry.path, 'tree')) emptyTheSheet();
+							return true;
+						}
+					: null
 			};
 		}
 
@@ -2145,44 +2108,34 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			req.onerror = () => resolve(null);
 		});
 		if (!dir) return;
-		editor.folderName = dir.name;
-		heldFolder = dir;
+		held = localStore(dir, OPENABLE);
+		editor.folderName = held.name;
 		// Granted already (same session, or a browser that persisted the grant) — open it outright.
 		// Otherwise leave it named and shut, for `reconnect` to ask about on a real click.
-		const state = await dir.queryPermission?.({ mode: 'readwrite' });
-		if (state === 'granted') await openHeldFolder();
+		if ((await held.permission()) === 'granted') await openHeldFolder();
 		else editor.folderPending = true;
 	}
 
-	let heldFolder: FileSystemDirectoryHandle | null = null;
+	/**
+	 * The REMEMBERED store, which is not always the open one: between a recall and a reconnect it is
+	 * named and shut, waiting for the click that lets the browser re-ask. Typed as the local store
+	 * rather than as a `Store`, because permission is a thing only a handle-backed folder has.
+	 */
+	let held: LocalStore | null = null;
 
 	async function openHeldFolder() {
-		if (!heldFolder) return;
-		const out: FolderEntry[] = [];
-		heldDirs = new Map();
-		try {
-			await walk(heldFolder, '', out);
-		} catch {
-			// The folder moved, or was deleted, or the grant went away between the check and here.
-			editor.folderPending = false;
-			editor.folderName = '';
-			await rememberFolder(null);
-			return;
-		}
-		out.sort((a, b) => a.path.localeCompare(b.path));
-		editor.folder = out;
-		editor.folders = [...heldDirs.keys()].filter(Boolean);
-		editor.folderWritable = true;
+		if (!held) return;
+		if (await adopt(held)) return;
+		// The folder moved, or was deleted, or the grant went away between the check and here.
 		editor.folderPending = false;
-		editor.folderShown = true;
-		editor.collapsed = [];
+		editor.folderName = '';
+		await rememberFolder(null);
 	}
 
 	/** The one thing a remembered folder needs: a click, so the browser will re-ask. */
 	async function reconnect() {
-		if (!heldFolder) return;
-		const state = await heldFolder.requestPermission?.({ mode: 'readwrite' });
-		if (state !== 'granted') return;
+		if (!held) return;
+		if ((await held.requestPermission()) !== 'granted') return;
 		await openHeldFolder();
 	}
 
@@ -2195,44 +2148,23 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 
 	/**
-	 * Put an entry on the sheet and mark it as the one the workspace is showing. An entry arrives
-	 * either as a read-only File (every browser) or as a live handle (Chromium) — the handle is
-	 * what later makes saving, renaming and deleting possible, so it is carried through.
+	 * Put an entry on the sheet and mark it as the one the workspace is showing. It is a PATH — the
+	 * store is what turns one into words, and what will later save, rename or delete it.
 	 */
 	async function openEntry(entry: FolderEntry) {
-		const file = entry.handle ? await entry.handle.getFile() : entry.file;
-		if (!file) return;
+		const body = await store?.read(entry.path);
+		if (body == null) return;
 		editor.openPath = entry.path;
 		editor.openIn = 'tree';
-		load(file, entry.handle ?? null);
+		land(body, entry.name, null, !!store?.writable);
 	}
 
 	function tookFolder(event: Event) {
 		const picked = [...((event.currentTarget as HTMLInputElement).files ?? [])];
-		// The folder's own name is the first segment of every entry's relative path — and it is
-		// only ever the first segment, so it comes OFF the paths as well as out of them. Left on,
-		// it would be a tree with one root node holding everything, indenting every document by a
-		// level to repeat what the heading above the list already says.
-		const root = picked[0]?.webkitRelativePath?.split('/')[0] ?? '';
-		const entries = picked
-			.filter((f) => OPENABLE.test(f.name))
-			.map((f) => {
-				const full = f.webkitRelativePath || f.name;
-				const path = root && full.startsWith(`${root}/`) ? full.slice(root.length + 1) : full;
-				return { name: f.name, path, file: f };
-			})
-			.sort((a, b) => a.path.localeCompare(b.path));
-		shelveTheOpenOne();
-		editor.folder = entries;
-		// A `webkitdirectory` workspace has no handles at all, so nothing in it can be moved —
-		// and no empty folders either: an empty directory leaves no File to be seen in.
-		heldDirs = new Map();
-		editor.folders = [];
-		editor.folderWritable = false;
-		editor.folderName = root;
-		editor.folderShown = true;
-		if (editor.openIn === 'tree') editor.openPath = '';
-		editor.collapsed = [];
+		// A `webkitdirectory` workspace is read-only, session-only, and knows no empty folders: an
+		// empty directory leaves no File to be seen in. All three are the platform's, and all three
+		// are the snapshot store's to say — see $lib/text-editor-store.
+		adopt(snapshotStore('', picked, OPENABLE));
 	}
 
 	/** The document leaves as a real file. The name is the first heading, or the date. */
@@ -2287,6 +2219,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.openPath = '';
 		editor.openIn = 'tree';
 		editor.openHandle = null;
+		editor.openWritable = false;
 	}
 
 	// ── Scroll ────────────────────────────────────────────────────────────────
@@ -2764,7 +2697,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 											: undefined}
 										aria-haspopup="menu"
 										title={entry.path}
-										draggable={canMove(entry)}
+										draggable={canMove()}
 										ondragstart={(e) => onDragStart(e, entry)}
 										ondragend={() => {
 											dragging = '';
@@ -3100,7 +3033,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			     menu itself used to be: it refused to open at all without a writable handle, which
 			     also took Copy and Save a copy away from every browser that cannot write. The menu
 			     opens everywhere now and these two simply are not in it. -->
-			{#if editor.canWrite && fileMenuEntry.handle}
+			{#if editor.canWrite && editor.folderWritable}
 				<button
 					type="button"
 					role="menuitem"
