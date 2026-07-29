@@ -31,6 +31,7 @@ import {
 	DOC_TEXT_SVG,
 	FOLDER_OPEN_SVG
 } from '$lib/icons';
+import type { FolderEntry } from '$lib/text-editor-store';
 
 export type Mode = 'write' | 'split' | 'proof';
 
@@ -43,7 +44,6 @@ export type Mode = 'write' | 'split' | 'proof';
  * document that lives on a server has none of them and never will. They are private to the store
  * now (see $lib/text-editor-store), which is what lets a second kind of workspace exist at all.
  */
-import type { FolderEntry } from '$lib/text-editor-store';
 export type { FolderEntry, Store } from '$lib/text-editor-store';
 
 /**
@@ -119,7 +119,7 @@ export type Commands = {
 	 * like opening a file, so the key does not have to ask.
 	 */
 	readme(): void;
-	/** Write the sheet back to the file it came from. Only when `canWrite` and a handle is open. */
+	/** Write the sheet back to where it came from. Only when `openWritable` says there is a where. */
 	saveInPlace(): void;
 };
 // COPY and CLEAR are gone from this table, not renamed. They are a document's verbs now, offered
@@ -169,9 +169,10 @@ export const editor = $state({
 	folderName: '',
 	/**
 	 * Is the open folder one this browser can WRITE into — a real directory handle rather than a
-	 * `webkitdirectory` snapshot? `canWrite` says the browser has the API at all; this says there
-	 * is somewhere to use it. Save on a scratch note reads it, because a key offering to file a
-	 * note in a folder that cannot take one is a key that lies.
+	 * `webkitdirectory` snapshot? It is the STORE's own answer (see $lib/text-editor-store), which
+	 * is why it is not the same question as `canWrite`: a remote store would be writable in every
+	 * engine, including the two that can never reach the local disk. Save on a scratch note reads
+	 * it, because a key offering to file a note in a folder that cannot take one is a key that lies.
 	 */
 	folderWritable: false,
 	/**
@@ -550,10 +551,13 @@ export const DOC_KEYS: DocKey[] = [
 		 *
 		 * `openWritable`, not `openHandle`: what the key needs to know is whether THIS document can
 		 * be saved, and a handle is only one of the ways that can be true.
+		 *
+		 * And it does NOT ask `canWrite` any more. That was the browser's answer standing in for the
+		 * document's, which was harmless while the local disk was the only place a document could
+		 * live and wrong the moment it was not — a store reached over a network is writable in
+		 * Safari and Firefox too. Both flags below already imply everything `canWrite` was adding.
 		 */
-		shown: () =>
-			editor.canWrite &&
-			(editor.openWritable || (editor.openIn === 'ephemeral' && editor.folderWritable)),
+		shown: () => editor.openWritable || (editor.openIn === 'ephemeral' && editor.folderWritable),
 		folds: () => true
 	},
 	/*
@@ -594,6 +598,14 @@ export const DOC_KEYS: DocKey[] = [
 					: 'Download it as a .md file',
 		label: () => '.md',
 		run: () => editor.cmd?.download(),
+		/**
+		 * `canWrite`, deliberately — this is the one gate in the app that is still the BROWSER's
+		 * question rather than the document's, and it stays that way. `.md` is here because a
+		 * download is the only way a document reaches the LOCAL DISK in an engine that cannot write
+		 * to one, and that stays true however many remote stores are connected: somebody in Safari
+		 * with a drive open can save, but they still cannot get a copy onto their own machine any
+		 * other way. Complementing Save would take the key away from exactly those people.
+		 */
 		shown: () => !editor.canWrite,
 		folds: () => true
 	}

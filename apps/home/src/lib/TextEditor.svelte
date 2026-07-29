@@ -1532,7 +1532,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * carrying a handle: what it asks is whether the workspace can be written to, and that is one
 	 * answer for the whole tree.
 	 */
-	const canMove = () => editor.canWrite && editor.folderWritable;
+	const canMove = () => editor.folderWritable;
 
 	function onDragStart(event: DragEvent, entry: FolderEntry) {
 		if (!canMove()) return event.preventDefault();
@@ -1811,20 +1811,22 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						return null;
 					}
 				},
-				clear:
-					editor.canWrite && doc.handle
-						? async () => {
-								try {
-									const w = await doc.handle!.createWritable();
-									await w.write('');
-									await w.close();
-								} catch {
-									return false;
-								}
-								if (isOnSheet(doc.id, 'loose')) emptyTheSheet();
-								return true;
+				// A handle is the whole of the question here — a shelf row came from outside every
+				// workspace, so no store speaks for it, and a browser that handed one over can write
+				// through it. `canWrite` used to stand in front of this and said nothing extra.
+				clear: doc.handle
+					? async () => {
+							try {
+								const w = await doc.handle!.createWritable();
+								await w.write('');
+								await w.close();
+							} catch {
+								return false;
 							}
-						: null
+							if (isOnSheet(doc.id, 'loose')) emptyTheSheet();
+							return true;
+						}
+					: null
 			};
 		}
 
@@ -2728,7 +2730,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 							: 'Nothing here this editor can open — it takes Markdown and plain text.'}
 					</p>
 				{/if}
-				{#if !editor.canWrite}
+				<!-- Only while there is no way to write ANYWHERE: not to the local disk, and not to
+				     whatever workspace is open. The second half is what stops this contradicting a
+				     writable store reached over a network, which Safari and Firefox can hold even
+				     though they can never reach a folder on the machine. -->
+				{#if !editor.canWrite && !editor.folderWritable}
 					<p class="te-work-note">
 						Read-only — this browser cannot write to a folder. Chrome and Edge can.
 					</p>
@@ -3033,7 +3039,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			     menu itself used to be: it refused to open at all without a writable handle, which
 			     also took Copy and Save a copy away from every browser that cannot write. The menu
 			     opens everywhere now and these two simply are not in it. -->
-			{#if editor.canWrite && editor.folderWritable}
+			{#if editor.folderWritable}
 				<button
 					type="button"
 					role="menuitem"
