@@ -101,10 +101,12 @@
 		// Only now, and only if asked. See the head of $lib/dav-connections for what keeping it does
 		// and does not buy.
 		if (keep) await seal(conn.id, secret);
-		onConnected(conn, secret);
-		// The token does not stay in a field once it has been handed over. It is going somewhere
-		// that was thought about; an `<input>` in a component that may not unmount is not that.
+		// The field is cleared BEFORE the handover, not after. `onConnected` closes the flyout, which
+		// destroys this component — anything written to its state past that point is written to
+		// nothing. The token does not stay in a field once it has been handed over: it is going
+		// somewhere that was thought about, and an `<input>` is not that.
 		token = '';
+		onConnected(conn, secret);
 		onClose();
 	}
 </script>

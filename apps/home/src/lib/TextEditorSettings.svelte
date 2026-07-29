@@ -97,8 +97,14 @@
 		}}
 	>
 		{#if connecting}
+			<!-- A SUCCESSFUL CONNECT CLOSES THE WHOLE FLYOUT, not just the form. Returning to the menu
+			     would leave the card — and its scrim — over the pane that has just grown a new list,
+			     which is the one thing somebody wants to look at. Connecting is a finished action. -->
 			<TextEditorConnect
-				onConnected={(c, token) => onConnected?.(c, token)}
+				onConnected={(c, token) => {
+					onConnected?.(c, token);
+					close();
+				}}
 				onClose={() => (connecting = false)}
 			/>
 		{:else}

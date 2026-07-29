@@ -254,7 +254,7 @@ export const editor = $state({
 	 * `loose:anything`, and a marker that a real filename could forge is a marker that will mark
 	 * the wrong row one day.
 	 */
-	openIn: 'tree' as 'tree' | 'loose' | 'ephemeral',
+	openIn: 'tree' as 'tree' | 'cloud' | 'loose' | 'ephemeral',
 	/**
 	 * Can this browser reach the real file system for WRITING — save in place, rename, delete?
 	 *
@@ -296,6 +296,43 @@ export const editor = $state({
 	 * that a component is free to spread into a log, a snapshot or a devtools panel.
 	 */
 	connections: [] as Connection[],
+	// ── THE DRIVE ─────────────────────────────────────────────────────────────
+	// A connected workspace is a FOURTH LIST in the pane, beside the tree, Elsewhere and Scratch —
+	// not a replacement for the folder. The two are different kinds of place and somebody may
+	// reasonably have both open: a folder of work on the machine, and notes that follow them about.
+	//
+	// The fields below shadow the local ones deliberately rather than being folded into them. A
+	// generic `workspaces[]` was the other option and it would have rewritten every assertion in the
+	// suite and every reference to `editor.folder` in the page for a saving of about nine lines.
+	// Two named things that are drawn by one snippet is the smaller idea.
+	/** Its documents, flat, exactly as `folder` is. The tree is derived where it is drawn. */
+	drive: [] as FolderEntry[],
+	/** Its folders, by path — including ones nothing has been fetched from yet. */
+	driveFolders: [] as string[],
+	/** What the head says: the drive's own folder name. */
+	driveName: '',
+	/** Is a connection LIVE — opened, answered, and holding rows? */
+	driveOpen: false,
+	/**
+	 * A drive is REMEMBERED but not open: a first load with a connection in the list, or one whose
+	 * password could not be read back. The section is drawn with its head and a line saying so,
+	 * rather than not drawn at all — a workspace that vanishes because a token expired looks like a
+	 * workspace that was never there.
+	 */
+	drivePending: false,
+	/** Which of its folders are shut, by path. Its own, because it is its own tree. */
+	driveCollapsed: [] as string[],
+	/**
+	 * Which of its folders have been READ. A remote tree arrives one level at a time (see `listDir`
+	 * in $lib/text-editor-store), so a folder can be on screen with its children unknown — and an
+	 * unfetched folder drawn open is indistinguishable from an empty one.
+	 *
+	 * Hence the OTHER half of this arrangement: a drive's folders arrive SHUT. That is deliberately
+	 * the opposite of the rule the local tree keeps (see `collapsed`, which records shut precisely
+	 * so an unseen folder arrives open), and the reason is the cost: arriving open on a remote tree
+	 * means arriving with a request per folder, which is the thing lazy listing exists to avoid.
+	 */
+	driveFetched: [] as string[],
 	/**
 	 * Where the SETTINGS flyout should stand, or null when it is shut. Carried rather than
 	 * anchored for the reason `headingAt` is — the key that opens it stands in a bar that scrolls
@@ -332,7 +369,7 @@ export const editor = $state({
 		path: string;
 		x: number;
 		y: number;
-		list: 'tree' | 'loose' | 'ephemeral';
+		list: 'tree' | 'cloud' | 'loose' | 'ephemeral';
 	} | null,
 	// `copied` was here, beside `armed`, and went with the Copy key: a row says "Copied" on the
 	// row itself now (see `flash` in the editor), which is the only place that can say WHICH
@@ -580,7 +617,7 @@ export const DOC_KEYS: DocKey[] = [
 		svg: SAVE_SVG,
 		title: () =>
 			editor.openIn === 'ephemeral'
-				? `File this note in ${editor.folderName || 'the folder'} as ${editor.filename}.md`
+				? `File this note in ${editor.folderName || editor.driveName || 'the folder'} as ${editor.filename}.md`
 				: `Save back to ${editor.filename || 'the file'}`,
 		label: () => (editor.saveFailed ? SAID[editor.saveFailed] : editor.saved ? 'Saved' : 'Save'),
 		run: () => editor.cmd?.saveInPlace(),

@@ -270,11 +270,11 @@ const PROPS =
 	'<d:resourcetype/><d:getetag/><d:getcontentlength/>' +
 	'</d:prop></d:propfind>';
 
-// A cloud drive is not a source tree, so the local store's skip list would be wrong here: hiding a
-// folder somebody called `build` from their own Documents is not a service. Dot-directories are
-// still skipped, because those are hidden by the same convention everywhere.
-const MAX_FILES = 500;
-const MAX_DEPTH = 6;
+// How much of one folder is worth drawing, and how deep a path is worth following. The depth is
+// looser than the local store's six: a walk that cost a recursive descent had to stop early, and
+// one folder at a time costs one request whenever somebody asks for it.
+const MAX_IN_DIR = 500;
+const MAX_DEPTH = 8;
 
 /**
  * WHAT HAPPENED WHEN WE TRIED THE SERVER ONCE. Used by the connect form and by nothing else — the
@@ -356,42 +356,52 @@ export function davStore(cfg: DavConfig, openable: RegExp): Store {
 		return entries;
 	}
 
+	/** One folder's own children, as a Listing. Null if that folder could not be read. */
+	async function level(at: string): Promise<Listing | null> {
+		const entries = await propfind(at);
+		if (!entries) return null;
+		const files: FolderEntry[] = [];
+		const dirs: string[] = [];
+		for (const e of entries) {
+			const path = join(at, e.path);
+			// Dot-directories are skipped and NOTHING ELSE IS. The local store's list (node_modules,
+			// dist, build) is right for a source tree and wrong here: a cloud drive is somebody's
+			// documents, and hiding a folder they called `build` from their own Documents is not a
+			// service. Hidden files are hidden everywhere by the same convention, so those still go.
+			if (e.dir) {
+				if (!e.name.startsWith('.') && path.split('/').length < MAX_DEPTH) dirs.push(path);
+			} else if (openable.test(e.name)) {
+				files.push({ name: e.name, path });
+			}
+		}
+		files.sort((a, b) => a.path.localeCompare(b.path));
+		dirs.sort((a, b) => a.localeCompare(b));
+		// A CAP PER FOLDER, not per tree. The old one guarded an unbounded walk of the whole drive;
+		// there is no such walk now, and what is left to guard is a single folder with more rows in
+		// it than anybody is going to read.
+		return { files: files.slice(0, MAX_IN_DIR), dirs: dirs.slice(0, MAX_IN_DIR) };
+	}
+
 	const store: Store = {
 		kind: 'dav',
 		name: cfg.name || cfg.root.split('/').pop() || cfg.user,
 		writable: true,
 
-		async list(): Promise<Listing | null> {
-			const files: FolderEntry[] = [];
-			const dirs: string[] = [];
-			const queue: string[] = [''];
-			let reached = false;
-			etags.clear();
-			while (queue.length && files.length <= MAX_FILES) {
-				const at = queue.shift() as string;
-				const entries = await propfind(at);
-				if (!entries) {
-					// The ROOT failing is the store being unreachable; a folder inside it failing is
-					// one folder nobody can see. The first is null, per the Store contract, and the
-					// second is a workspace with a gap in it — which is still worth showing.
-					if (!reached) return null;
-					continue;
-				}
-				reached = true;
-				if (at) dirs.push(at);
-				for (const e of entries) {
-					const path = join(at, e.path);
-					if (e.dir) {
-						if (!e.name.startsWith('.') && path.split('/').length < MAX_DEPTH) queue.push(path);
-					} else if (openable.test(e.name)) {
-						files.push({ name: e.name, path });
-					}
-				}
-			}
-			files.sort((a, b) => a.path.localeCompare(b.path));
-			dirs.sort((a, b) => a.localeCompare(b));
-			return { files, dirs };
+		/**
+		 * THE ROOT LEVEL ONLY. It walked the whole tree once — breadth first, one PROPFIND per
+		 * folder — and that is a round trip per folder before anything at all is on screen. A drive
+		 * with forty folders in it took forty requests to show the first document.
+		 *
+		 * So the tree arrives one level at a time and the rest comes through `listDir` as folders
+		 * are opened. Two consequences the workspace has to carry, both of them real: a folder that
+		 * has not been fetched cannot be told from an empty one unless it is drawn SHUT, and a
+		 * folder tally would be a confident lie. See the drive's rows in $lib/TextEditor.
+		 */
+		async list() {
+			return level('');
 		},
+
+		listDir: (path: string) => level(path),
 
 		async read(path) {
 			const res = await dav(cfg, 'GET', target(cfg, path));

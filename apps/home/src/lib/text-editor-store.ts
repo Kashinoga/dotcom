@@ -101,6 +101,18 @@ export type Store = {
 	 * some of a workspace is worth showing, and the rows that are there are all still true.
 	 */
 	list(): Promise<Listing | null>;
+	/**
+	 * ONE FOLDER'S OWN CHILDREN — present only on a store where reading the whole tree at once is
+	 * not free. Its presence is what tells the workspace the tree is PARTIAL: a store without it has
+	 * already said everything it knows in `list`, and a store with it has said only the top.
+	 *
+	 * A flag would have done, and this is better: the flag and the method could disagree, and a
+	 * store that claimed to be lazy without a way to fetch would draw a tree nobody could open.
+	 *
+	 * `list()` on a lazy store returns the ROOT LEVEL, not everything — the caller walks the rest as
+	 * folders are opened.
+	 */
+	listDir?(path: string): Promise<Listing | null>;
 	/** A document's words, or null if they cannot be got at. */
 	read(path: string): Promise<string | null>;
 	/** Write a document back — and say why not, where it did not. See `WriteError`. */

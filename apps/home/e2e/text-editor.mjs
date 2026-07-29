@@ -758,7 +758,12 @@ await reset('first\n\n\nlast');
 	await page.waitForTimeout(500);
 	// The tree's own rows. There is a SECOND list in this pane now — the shelf above it — and both
 	// draw `.te-work-file`, so every claim about the tree has to say which list it means.
-	const TREE = '.te-work-list:not(.te-loose-list)';
+	// SCOPED ON THE POSITIVE CLASS. It used to be `.te-work-list:not(.te-loose-list)` — every list in
+	// the pane draws `.te-work-list`, so the tree had to be described by what it is not. Four lists
+	// draw it now (the folder, the drive, Scratch and Elsewhere) and a chain of exclusions is one
+	// list away from being wrong every time. Each says what it IS: `.te-local-list`, `.te-drive-list`,
+	// `.te-shelf-list`.
+	const TREE = '.te-local-list';
 	// A TREE, not a path list: sub-folders are rows of their own, folders before documents, and
 	// what is inside one is indented under it rather than spelled out as a path on every line.
 	// The folder's own name is stripped from the paths — it is the heading above the list, and
@@ -886,7 +891,7 @@ await reset('first\n\n\nlast');
 	// relationship to the workspace at all (no handle to compare, and webkitRelativePath is empty
 	// for a one-file pick), so claiming to know it was already in the tree would be a guess.
 	{
-		const TREE = '.te-work-list:not(.te-loose-list)';
+		const TREE = '.te-local-list';
 		const outside = dir.mkdtempSync(path.join(os.tmpdir(), 'te-out-'));
 		dir.writeFileSync(path.join(outside, 'elsewhere.md'), '# From elsewhere');
 
@@ -920,8 +925,7 @@ await reset('first\n\n\nlast');
 		{
 			const geo = await page.evaluate(() => ({
 				shelf: document.querySelector('.te-loose').getBoundingClientRect().bottom,
-				tree: document.querySelector('.te-work-list:not(.te-loose-list)').getBoundingClientRect()
-					.top,
+				tree: document.querySelector('.te-local-list').getBoundingClientRect().top,
 				shelfBg: getComputedStyle(document.querySelector('.te-loose')).backgroundColor,
 				paneBg: getComputedStyle(document.querySelector('.te-work')).backgroundColor
 			}));
@@ -1111,7 +1115,7 @@ await reset('first\n\n\nlast');
 
 	// The TREE, scoped: the pane also holds the Scratch shelf, which always has a standing note
 	// in it, and a bare `.te-work-file` counts that too.
-	const TREE_FILES = '.te-work-list:not(.te-loose-list) .te-work-file';
+	const TREE_FILES = '.te-local-list .te-work-file';
 	ok(
 		'a writable folder walks into its sub-folders and skips what it cannot read',
 		(await wp.locator(TREE_FILES).allTextContents()).join(',') ===
@@ -1639,7 +1643,7 @@ await reset('first\n\n\nlast');
 	// like every other write in this suite — a sidebar that redrew without the move happening
 	// would pass otherwise.
 	{
-		const TREE = '.te-work-list:not(.te-loose-list)';
+		const TREE = '.te-local-list';
 		ok(
 			'a document can be dragged',
 			(await wp
@@ -2358,6 +2362,144 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	ok(
 		'and a drive that never answered was never kept',
 		(await cp.locator('.te-set-drive').count()) === 0
+	);
+	await c.close();
+}
+
+// ── A DRIVE IS A FOURTH LIST ─────────────────────────────────────────────────
+// The connected workspace, driven against a STUBBED upstream. `/api/nextcloud` is intercepted and
+// answered with real multistatus XML — the route's own rules are exhaustively unit-tested
+// (test/dav-proxy), and what is under test here is everything above it: the parser, the store, the
+// lazy tree, and the two rules a remote tree keeps that a local one does not.
+//
+// THOSE TWO RULES ARE THE POINT. A drive's folders arrive SHUT, which is the opposite of the local
+// tree's rule and deliberate: arriving open on a remote tree means arriving with a request per
+// folder. And a drive's folders carry NO TALLY, because a folder nothing has been fetched from
+// holds an unknown number of documents and a confident 0 beside forty of them is worse than
+// silence.
+{
+	const c = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+	const dp = await c.newPage();
+
+	const RESPONSE = (href, dir, etag) =>
+		`<d:response><d:href>${href}</d:href><d:propstat><d:prop>` +
+		(dir ? '<d:resourcetype><d:collection/></d:resourcetype>' : '<d:resourcetype/>') +
+		(etag ? `<d:getetag>&quot;${etag}&quot;</d:getetag>` : '') +
+		'</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>';
+	const ROOT = '/remote.php/dav/files/andrew/Notes';
+	/** What each folder answers with. The root has one document and one folder; the folder has two. */
+	const LEVELS = {
+		[`${ROOT}`]: [
+			RESPONSE(`${ROOT}/`, true),
+			RESPONSE(`${ROOT}/top.md`, false, 'e1'),
+			RESPONSE(`${ROOT}/Deeper/`, true)
+		],
+		[`${ROOT}/Deeper`]: [
+			RESPONSE(`${ROOT}/Deeper/`, true),
+			RESPONSE(`${ROOT}/Deeper/one.md`, false, 'e2'),
+			RESPONSE(`${ROOT}/Deeper/two.md`, false, 'e3')
+		]
+	};
+	let propfinds = 0;
+	await dp.route('**/api/nextcloud', async (route) => {
+		const req = route.request();
+		const target = new URL(req.headers()['x-dav-target']);
+		if (req.method() === 'PROPFIND') {
+			propfinds += 1;
+			const at = LEVELS[decodeURIComponent(target.pathname).replace(/\/$/, '')];
+			if (!at) return route.fulfill({ status: 404 });
+			return route.fulfill({
+				status: 207,
+				contentType: 'application/xml',
+				body: `<?xml version="1.0"?><d:multistatus xmlns:d="DAV:">${at.join('')}</d:multistatus>`
+			});
+		}
+		if (req.method() === 'GET') {
+			return route.fulfill({ status: 200, headers: { etag: '"e1"' }, body: '# From the drive' });
+		}
+		return route.fulfill({ status: 405 });
+	});
+
+	await dp.goto(`${B}/apps/text-editor`, { waitUntil: 'networkidle' });
+	await dp.waitForTimeout(400);
+	await dp
+		.getByRole('button', { name: /settings/i })
+		.first()
+		.click();
+	await dp.getByRole('button', { name: /Connect a drive/ }).click();
+	await dp.waitForTimeout(200);
+	const field = (n) => dp.locator('.te-conn-row input').nth(n);
+	await field(0).fill('cloud.example.com');
+	await field(1).fill('andrew');
+	await field(2).fill('app-password');
+	await field(3).fill('Notes');
+	await dp.getByRole('radio', { name: /Through this site/ }).click();
+	await dp.getByRole('button', { name: /^(Connect|Trying)/ }).click();
+	await dp.waitForTimeout(1200);
+
+	ok(
+		'a connected drive is its own section, headed with its folder',
+		(await dp.locator('.te-drive-head .te-work-name').textContent()) === 'Notes'
+	);
+	ok(
+		'and it does NOT replace the folder — the local tree is still its own list',
+		(await dp.locator('.te-local-list').count()) === 1 &&
+			(await dp.locator('.te-drive-list').count()) === 1
+	);
+	await eq(
+		'its top level is there, and only its top level',
+		dp
+			.locator('.te-drive-list .te-work-file')
+			.allTextContents()
+			.then((n) => n.join(',')),
+		'Deeper,top.md'
+	);
+	ok(
+		'a folder arrives SHUT, which is the opposite of the local rule and on purpose',
+		(await dp.locator('.te-drive-list .te-work-dir').first().getAttribute('aria-expanded')) ===
+			'false'
+	);
+	ok(
+		'and carries NO tally, because how many are in it is not yet known',
+		(await dp.locator('.te-drive-list .te-work-tally').count()) === 0
+	);
+	ok('one folder read so far, not the whole tree', propfinds === 2, `propfinds: ${propfinds}`);
+
+	// OPENING IS READING. The tree arrives a level at a time, so the twisty is also the fetch.
+	await dp.locator('.te-drive-list .te-work-dir').first().click();
+	await dp.waitForTimeout(900);
+	ok('opening a drive folder is what fetches it', propfinds === 3, `propfinds: ${propfinds}`);
+	await eq(
+		'and its documents arrive under it',
+		dp
+			.locator('.te-drive-list .te-work-file')
+			.allTextContents()
+			.then((n) => n.join(',')),
+		'Deeper,one.md,two.md,top.md'
+	);
+	ok(
+		'a folder that HAS been read gets its tally back',
+		(await dp.locator('.te-drive-list .te-work-tally').first().textContent()).trim() === '2'
+	);
+	await dp.locator('.te-drive-list .te-work-dir').first().click();
+	await dp.waitForTimeout(500);
+	await dp.locator('.te-drive-list .te-work-dir').first().click();
+	await dp.waitForTimeout(500);
+	ok(
+		'and shutting and reopening it does not ask again',
+		propfinds === 3,
+		`propfinds: ${propfinds}`
+	);
+
+	await dp.getByRole('treeitem', { name: 'top.md' }).click();
+	await dp.waitForTimeout(700);
+	ok(
+		'a drive document opens on the sheet like any other',
+		(await dp.locator('.te-type').inputValue()) === '# From the drive'
+	);
+	ok(
+		'and Save is offered, in an engine that can never write to a folder on the machine',
+		(await dp.getByRole('button', { name: /^Save/ }).count()) === 1
 	);
 	await c.close();
 }
