@@ -32,6 +32,7 @@ import {
 	FOLDER_OPEN_SVG
 } from '$lib/icons';
 import type { FolderEntry, WriteError } from '$lib/text-editor-store';
+import type { Connection } from '$lib/dav-connections';
 
 export type Mode = 'write' | 'split' | 'proof';
 
@@ -285,6 +286,16 @@ export const editor = $state({
 	 * scroller. Fixed, positioned from the key's measured rect, it escapes.
 	 */
 	headingAt: null as { x: number; y: number } | null,
+	/**
+	 * THE DRIVES this editor knows about — see $lib/dav-connections. Kept apart from the store
+	 * because a connection OUTLIVES the workspace it opens: it is what a shelf row will point at
+	 * once a row can name a document on a server, and it is what Settings lists and forgets.
+	 *
+	 * The TOKEN is not in here. It is sealed in the vault for a connection that is kept and held in
+	 * a module variable for one that is not, and either way it has no business in reactive state
+	 * that a component is free to spread into a log, a snapshot or a devtools panel.
+	 */
+	connections: [] as Connection[],
 	/**
 	 * Where the SETTINGS flyout should stand, or null when it is shut. Carried rather than
 	 * anchored for the reason `headingAt` is — the key that opens it stands in a bar that scrolls

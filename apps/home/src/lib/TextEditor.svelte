@@ -27,6 +27,14 @@
 		type WriteResult
 	} from '$lib/text-editor-store';
 	import { SAID } from '$lib/text-editor-state.svelte';
+	import {
+		configFor,
+		forgetToken,
+		objectStore,
+		unseal,
+		type Connection
+	} from '$lib/dav-connections';
+	import { davStore } from '$lib/dav';
 	import FloatingKey from '$lib/FloatingKey.svelte';
 	import TextEditorSettings from '$lib/TextEditorSettings.svelte';
 	import { dev } from '$app/environment';
@@ -318,6 +326,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// dialog on load — see recallFolder and recallLoose; both re-ask on a click instead.
 		recallFolder();
 		recallLoose();
+		recallConnections();
 
 		// ── THE EDITOR AS AN APP ───────────────────────────────────────────────────
 		// This app can be installed — a window of its own, an icon in the Start menu or the dock,
@@ -2107,23 +2116,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	// grant has lapsed to 'prompt', and a browser will only re-ask during a user gesture — so the
 	// workspace comes back as a NAMED, unopened folder with one key to reconnect it, rather than
 	// popping a permission dialog at somebody who has just loaded a page.
-	const HANDLE_DB = 'ksh:text-editor';
-
-	function handleStore(mode: IDBTransactionMode): Promise<IDBObjectStore | null> {
-		return new Promise((resolve) => {
-			if (typeof indexedDB === 'undefined') return resolve(null);
-			const req = indexedDB.open(HANDLE_DB, 1);
-			req.onupgradeneeded = () => req.result.createObjectStore('handles');
-			req.onsuccess = () => {
-				try {
-					resolve(req.result.transaction('handles', mode).objectStore('handles'));
-				} catch {
-					resolve(null);
-				}
-			};
-			req.onerror = () => resolve(null);
-		});
-	}
+	// The DATABASE is opened in $lib/dav-connections, which owns its version — there are two stores
+	// in it now (the folder handles here, a connection's sealed token there) and only one of them
+	// can decide what version the database is at. `indexedDB.open` at a version BELOW the one on
+	// disk fails outright, so two openers asking for different numbers is a remembered folder that
+	// stops working the day somebody connects a drive.
+	const handleStore = (mode: IDBTransactionMode) => objectStore('handles', mode);
 
 	/**
 	 * THE SHELF, remembered. Only the rows with a HANDLE behind them: a File from the fallback
@@ -2220,6 +2218,75 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		if (!held) return;
 		if ((await held.requestPermission()) !== 'granted') return;
 		await openHeldFolder();
+	}
+
+	// ── Drives ────────────────────────────────────────────────────────────────
+	// A CONNECTION IS NOT A FOLDER. A folder is picked, used and forgotten in one gesture; a drive
+	// is set up once and then simply exists, which is why it is made in Settings and why the list of
+	// them lives in `editor.connections` rather than anywhere near the workspace. Opening one IS the
+	// workspace, and that part goes through `adopt` exactly as a picked folder does — the whole
+	// point of the store seam.
+	//
+	// The TOKEN is deliberately not in `editor`. A kept one is sealed in the vault and read back
+	// when the drive is opened; an unkept one lives in this map for as long as the tab does and is
+	// written nowhere. Neither is reactive: nothing should be able to put one on screen by
+	// rendering the wrong thing, and nothing needs to.
+	const sessionTokens = new Map<string, string>();
+
+	/** The list, kept across visits. Only what a connection IS — never what opens it. */
+	async function rememberConnections() {
+		const handles = await objectStore('handles', 'readwrite');
+		if (!handles) return;
+		try {
+			const keep = editor.connections.filter((c) => c.keep);
+			if (keep.length) handles.put($state.snapshot(keep), 'drives');
+			else handles.delete('drives');
+		} catch {
+			/* private mode — a drive that is not remembered is asked for again, which is survivable */
+		}
+	}
+
+	async function recallConnections() {
+		const handles = await objectStore('handles', 'readonly');
+		if (!handles) return;
+		const kept: Connection[] | null = await new Promise((resolve) => {
+			const req = handles.get('drives');
+			req.onsuccess = () => resolve(req.result ?? null);
+			req.onerror = () => resolve(null);
+		});
+		if (kept?.length) editor.connections = kept;
+	}
+
+	/**
+	 * A drive, just connected. It has already ANSWERED — the form probes before it hands anything
+	 * over — so this opens it rather than checking it again.
+	 */
+	async function connected(c: Connection, token: string) {
+		if (!c.keep) sessionTokens.set(c.id, token);
+		editor.connections = [...editor.connections.filter((d) => d.id !== c.id), c];
+		rememberConnections();
+		await openDrive(c, token);
+	}
+
+	/** Open a drive as the workspace. The token comes from wherever that drive's token lives. */
+	async function openDrive(c: Connection, token?: string) {
+		const secret = token ?? sessionTokens.get(c.id) ?? (c.keep ? await unseal(c.id) : null);
+		// No token and no way to get one — a vault cleared, or another browser profile. The drive
+		// stays in the list because the drive is still real; it is the password that is missing.
+		if (!secret) return false;
+		return adopt(davStore(configFor(c, secret), OPENABLE));
+	}
+
+	/**
+	 * FORGET, which is not revoke. The app password itself lives on the server and stays valid
+	 * until it is cancelled in Nextcloud's Devices & sessions — that list is the control, and this
+	 * app cannot reach it. All this does is stop holding a copy.
+	 */
+	async function forgetDrive(c: Connection) {
+		editor.connections = editor.connections.filter((d) => d.id !== c.id);
+		sessionTokens.delete(c.id);
+		await forgetToken(c.id);
+		rememberConnections();
 	}
 
 	function pickFolder() {
@@ -3216,7 +3283,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	     stands in the bar's corner on a desk and at the foot of the floating stack on a phone.
 	     Drawn HERE, once, for the reason the heading menu is: two keys open it and neither of
 	     them can own it. It portals itself out to <body>. -->
-	<TextEditorSettings {onApps} />
+	<TextEditorSettings {onApps} onConnected={connected} onForget={forgetDrive} />
 
 	<!-- The two pickers. Hidden rather than styled: a file input cannot be made to look like
 	     anything in this manual, and the keys that stand in for it already do. -->

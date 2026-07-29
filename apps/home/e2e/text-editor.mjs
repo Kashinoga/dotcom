@@ -1314,12 +1314,17 @@ await reset('first\n\n\nlast');
 		);
 		// The shelf is kept in IndexedDB — a handle is a structured-cloneable OBJECT, so
 		// JSON.stringify would hand back a row that opens nothing.
+		//
+		// OPENED WITHOUT A VERSION, deliberately. A reader wants whatever version is on disk; naming
+		// one makes this assertion a second opinion about the schema, and it fails with a
+		// VersionError the day the app adds a store — which is exactly what happened when the vault
+		// arrived and took the database to 2. The app owns the version. This only reads.
 		ok(
 			'the shelf is remembered, handles and all',
 			await wp.evaluate(
 				() =>
 					new Promise((resolve) => {
-						const req = indexedDB.open('ksh:text-editor', 1);
+						const req = indexedDB.open('ksh:text-editor');
 						req.onsuccess = () => {
 							const get = req.result
 								.transaction('handles', 'readonly')
@@ -2271,6 +2276,90 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	await rows.filter({ hasText: 'Ephemeral 2' }).first().click();
 	await page.waitForTimeout(250);
 	ok('and the note beside it still has its words', (await value()).includes('bravo'));
+}
+
+// ── CONNECTING A DRIVE ───────────────────────────────────────────────────────
+// The form that sets up a Nextcloud workspace. Nothing here reaches a real server — what is under
+// test is the part that runs BEFORE a password goes anywhere, which is the part where a mistake
+// costs somebody their credentials rather than their afternoon.
+//
+// The two failures at the end are the whole reason there are two modes. A blocked CORS preflight
+// and a dead network are the same TypeError, so DIRECT cannot know which it hit and says the thing
+// it is most likely to be; PROXIED gets a 502 from this site's own route and knows the server was
+// unreachable. Two modes, two different pieces of information, and no fallback between them —
+// falling back would move a password to a different machine because the wifi dropped.
+{
+	const c = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+	const cp = await c.newPage();
+	await cp.goto(`${B}/apps/text-editor`, { waitUntil: 'networkidle' });
+	await cp.waitForTimeout(400);
+	await cp
+		.getByRole('button', { name: /settings/i })
+		.first()
+		.click();
+	await cp.waitForTimeout(250);
+	ok(
+		'Settings is where a drive is connected, not the Workspace menu',
+		(await cp.getByRole('button', { name: /Connect a drive/ }).count()) === 1
+	);
+	await cp.getByRole('button', { name: /Connect a drive/ }).click();
+	await cp.waitForTimeout(250);
+
+	const connect = cp.getByRole('button', { name: /^(Connect|Trying)/ });
+	const field = (n) => cp.locator('.te-conn-row input').nth(n);
+	ok('and Connect is refused until it has been told enough', await connect.isDisabled());
+
+	await field(0).fill('http://cloud.example.com');
+	await cp.waitForTimeout(150);
+	ok(
+		'http is refused OUT LOUD rather than upgraded to https',
+		(await cp.locator('.te-conn-note').first().textContent()).includes('https only')
+	);
+
+	await field(0).fill('nx-nope-9f2a.example');
+	await field(1).fill('andrew');
+	await field(2).fill('app-password');
+	await cp.waitForTimeout(150);
+	ok('and offered once it has', !(await connect.isDisabled()));
+
+	await cp.getByRole('radio', { name: /Through this site/ }).click();
+	await connect.click();
+	await cp.waitForTimeout(4000);
+	const proxied = (
+		(await cp
+			.locator('.te-conn-bad')
+			.textContent()
+			.catch(() => '')) ?? ''
+	).trim();
+	ok(
+		'a proxied drive that cannot be reached says exactly that',
+		proxied === 'Could not reach the server.',
+		proxied
+	);
+
+	await cp.getByRole('radio', { name: /^Direct/ }).click();
+	await connect.click();
+	await cp.waitForTimeout(4000);
+	const direct = (
+		(await cp
+			.locator('.te-conn-bad')
+			.textContent()
+			.catch(() => '')) ?? ''
+	).trim();
+	ok(
+		'and a direct one names the thing it is most likely to be',
+		direct.includes('WebAppPassword'),
+		direct
+	);
+	ok(
+		'the two modes do not say the same thing, because they do not know the same thing',
+		proxied !== direct
+	);
+	ok(
+		'and a drive that never answered was never kept',
+		(await cp.locator('.te-set-drive').count()) === 0
+	);
+	await c.close();
 }
 
 await browser.close();

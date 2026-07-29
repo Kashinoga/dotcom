@@ -277,6 +277,42 @@ const MAX_FILES = 500;
 const MAX_DEPTH = 6;
 
 /**
+ * WHAT HAPPENED WHEN WE TRIED THE SERVER ONCE. Used by the connect form and by nothing else — the
+ * store's own verbs answer in the words a ROW can use, and this answers in the words somebody
+ * filling in a form needs, which are not the same words.
+ *
+ * `blocked` is the one worth having and the one that cannot be known for certain. A request the
+ * browser refused to make rejects with a bare TypeError carrying nothing: offline, bad certificate,
+ * mistyped host and a CORS preflight that was never answered all arrive identically. In DIRECT mode
+ * the overwhelmingly likely cause is the last of those, because the other three would have been
+ * noticed before somebody got as far as typing an app password — so the form says so as the first
+ * thing to check, and says it as a suggestion.
+ */
+export type Probe = 'ok' | 'refused' | 'no-such-user' | 'blocked' | 'failed';
+
+/** One PROPFIND at the workspace root, to find out whether any of this works. */
+export async function probe(cfg: DavConfig): Promise<Probe> {
+	const res = await dav(cfg, 'PROPFIND', target(cfg), {
+		headers: { depth: '0', 'content-type': 'application/xml; charset=utf-8' },
+		body: PROPS
+	});
+	// Null is the request not happening at all. See `blocked` above for why the mode decides how
+	// this is described rather than the failure describing itself.
+	if (!res) return 'blocked';
+	if (res.status === 207) return 'ok';
+	// THROUGH THE PROXY a dead upstream is not a dead fetch — the route answers 502 and the request
+	// itself succeeded, so the TypeError that means `blocked` in direct mode never happens. Without
+	// this, an unreachable server in proxied mode reported "the server answered, but not in a way
+	// this understands", which is true of the proxy and useless about the server.
+	if (res.status === 502 || res.status === 504) return 'blocked';
+	if (res.status === 401 || res.status === 403) return 'refused';
+	// A good password and a wrong username: the credential is accepted and the path under
+	// `/files/<user>/` is somebody else's or nobody's.
+	if (res.status === 404) return 'no-such-user';
+	return 'failed';
+}
+
+/**
  * An HTTP status, said in the words a row can use. 412 is the interesting one and it means two
  * different things on two different requests — "somebody else changed it" after `If-Match`, and
  * "that name is taken" after `If-None-Match: *` or `Overwrite: F` — so only the caller that sent
@@ -284,6 +320,8 @@ const MAX_DEPTH = 6;
  */
 function whyStatus(status: number): WriteError {
 	if (status === 412 || status === 409) return 'conflict';
+	// The proxy's own word for an upstream it could not reach. See `probe`.
+	if (status === 502 || status === 504) return 'offline';
 	if (status === 401 || status === 403) return 'denied';
 	if (status === 404 || status === 410) return 'gone';
 	return 'failed';
