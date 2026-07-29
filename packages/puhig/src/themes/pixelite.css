@@ -142,6 +142,28 @@
 	/* The universal ink hairline — black/20 on paper; on dark stock a legible white/26 (a faint
 	   white/20 rule vanished against the near-black gutter). */
 	--pixel-hairline: light-dark(rgba(0, 0, 0, 0.2), rgba(255, 255, 255, 0.26));
+	/* The edge of a surface that OPENS OVER the page — a popover (row menu, heading picker, the
+	   version card) and the phone flyout's card. Its own token rather than --card-edge or
+	   --pixel-key-border because those two are worn by things that sit IN the page, at page
+	   brightness, where a bright rule is the point.
+	   An overlay is not that. It is read at close range, usually the only lit thing on the screen,
+	   and at night a white/28 rule over the #202023 sheet resolves to about #5e5e61 — a bright
+	   halo tracing the menu. This is a flat dark gray instead: still clearly above the sheet, no
+	   longer a light source. Light stock keeps the ink line it always had.
+	   light-dark(), not the .scheme-dark class, so the subtrees that force `color-scheme: dark`
+	   for their own reasons (the ranger in orbit, the star map's key) get it for free. */
+	--popover-edge: light-dark(rgba(0, 0, 0, 0.5), #3a3a3f);
+	/* The rule INSIDE one — under a popover's title, over its note. It follows the edge down for
+	   the reason it has to: left on the universal white/26 hairline it came out brighter than the
+	   frame around it, and a divider that out-glares the edge of the surface it divides reads as
+	   the wrong thing being important. A shade quieter than the edge, which is the order these
+	   two were always meant to be in. Light stock is the hairline's own value, unchanged. */
+	--popover-rule: light-dark(rgba(0, 0, 0, 0.2), #34343a);
+	/* An overlay's drop. Light stock is the paper shadow itself, unchanged — this only exists so
+	   the dark arm below has something to override. It cannot be a light-dark() like everything
+	   else here: light-dark() takes exactly two arguments, and a shadow LIST is commas all the way
+	   down, so the parser would read this recipe as five arguments and drop the declaration. */
+	--popover-shadow: var(--pixel-paper-shadow);
 }
 
 /* Dark stock this round tuned or added — the sheet surface, its edge/border/shadow, and the
@@ -166,6 +188,16 @@
 		inset 1px 1px 0 2px rgba(255, 255, 255, 0.14), inset -1px -1px 0 2px rgba(0, 0, 0, 0.5);
 	--pixel-bevel-press:
 		inset -1px -1px 0 2px rgba(255, 255, 255, 0.14), inset 1px 1px 0 2px rgba(0, 0, 0, 0.5);
+	/* An overlay's drop for dark, same geometry as the paper shadow it replaces — this is not a
+	   different shadow, it is the same one with the light taken out of it. The paper recipe ends
+	   in `inset 0 -1px 1px 1px #fff`, a SOLID white ring 1px proud of the box on every side: on
+	   paper that is the print's top-light, on a #202023 sheet it is a white outline tracing the
+	   menu, and it was the brightest thing on a night screen. A faint top rim-light says the same
+	   thing (this surface is raised) without lighting the room; the two drops firm up to hold the
+	   overlay off a dark page, the way --card-shadow's dark arm above does. */
+	--popover-shadow:
+		0 1px 4px 1px rgba(0, 0, 0, 0.45), 0 1px 1px 0 rgba(0, 0, 0, 0.6),
+		inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
 }
 
 /* CHROME THAT IS NIGHT WHATEVER THE SCHEME. Two places on the site float controls on a surface
@@ -188,6 +220,12 @@ html[data-look='pixelite'] .sm-key {
 		inset 1px 1px 0 2px rgba(255, 255, 255, 0.14), inset -1px -1px 0 2px rgba(0, 0, 0, 0.5);
 	--pixel-bevel-press:
 		inset -1px -1px 0 2px rgba(255, 255, 255, 0.14), inset 1px 1px 0 2px rgba(0, 0, 0, 0.5);
+	/* The overlay drop rides along for the same reason and by the same rule — a popover opened
+	   from one of these subtrees is over night whatever the page says. (--popover-edge does not
+	   need restating: it is a light-dark(), and these subtrees flip the used color-scheme.) */
+	--popover-shadow:
+		0 1px 4px 1px rgba(0, 0, 0, 0.45), 0 1px 1px 0 rgba(0, 0, 0, 0.6),
+		inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
 }
 
 /* Pre-existing OS-keyed dark stock (the puhig Card's seams/grooves/grid/sleeve — not touched

@@ -84,9 +84,10 @@ export const RELEASES: Record<string, AppRelease> = {
 	TEXT: {
 		major: 0,
 		minor: 8,
-		fixes: 2,
-		commits: 315,
+		fixes: 3,
+		commits: 316,
 		recent: [
+			{ at: '0.8.3.316', what: 'Menus and flyouts lose their white outline in dark mode' },
 			{ at: '0.8.2.315', what: 'On a phone the flyout holds every key, Home and About with them' },
 			{
 				at: '0.8.2.315',

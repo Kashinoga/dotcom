@@ -222,7 +222,11 @@
 		background: color-mix(in srgb, var(--page) 92%, transparent);
 		-webkit-backdrop-filter: blur(8px);
 		backdrop-filter: blur(8px);
-		border: 1px solid var(--pixel-key-border, rgba(0, 0, 0, 0.4));
+		/* The OVERLAY edge, not the key border, though the card wears the key's face: this is a
+		   surface that opened over the app, and at night the key's white/42 rule drew a bright
+		   halo around it. The keys inside the stack keep their own border — they are keys, and
+		   they should go on looking like the ones in the bar. */
+		border: 1px solid var(--popover-edge, var(--pixel-key-border, rgba(0, 0, 0, 0.4)));
 		border-radius: 4px;
 		box-shadow: var(--pixel-bevel, 0 3px 10px rgba(4, 7, 15, 0.28));
 	}
