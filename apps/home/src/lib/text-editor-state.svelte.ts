@@ -213,8 +213,21 @@ export const editor = $state({
 	/**
 	 * SCRATCH — what New makes, newest last. Above the shelf, because the shelf is where things
 	 * from elsewhere land and these came from nowhere at all.
+	 *
+	 * There is ALWAYS at least one (`Ephemeral 0`, made at mount and remade if the list ever
+	 * empties). The sheet used to be able to be a document with no row behind it — a first visit,
+	 * before anything was opened or made — and that one document was the exception to everything
+	 * the workspace can do: it could not be copied, saved out or cleared from a row, because it
+	 * had no row. Now every document on the sheet is a document in the pane.
 	 */
 	ephemeral: [] as Ephemeral[],
+	/**
+	 * Is the SCRATCH shelf drawn? It is, always, unless this says otherwise — the shelf used to
+	 * appear only when it had rows, which meant the list you were about to add to was invisible
+	 * until you had added to it. Hiding it is a choice made in Settings and kept across visits,
+	 * for the desk where scratch notes are not part of how somebody works.
+	 */
+	scratchShown: true,
 	/**
 	 * WHICH LIST `openPath` names. Three lists draw rows in this pane and all three can hold the
 	 * same string; without this the mark would land on every row that matched.
@@ -265,6 +278,13 @@ export const editor = $state({
 	 * rather than four — which is what a one-row bar can afford.
 	 */
 	settingsAt: null as { x: number; y: number } | null,
+	/**
+	 * Where the WORKSPACE menu should stand, or null when it is shut — New, Change and Hide, the
+	 * three keys the pane's head used to carry. Carried rather than anchored for the reason
+	 * `headingAt` is: the key that opens it is in a bar that scrolls on a phone, and a popover
+	 * parented into a scroller is clipped by it.
+	 */
+	workspaceAt: null as { x: number; y: number } | null,
 	/** Is the contents rail showing? On by default: it is the one column that costs nothing. */
 	contentsShown: true,
 	/** Which entry is being renamed, if any — the workspace swaps its row for a field. */
@@ -410,6 +430,16 @@ export function openHeadings(event: MouseEvent) {
  * from its own right edge (the x carried here is the key's RIGHT) and pulled back inside the
  * window by the effect in $lib/TextEditorSettings.
  */
+/**
+ * Open the WORKSPACE menu under the key that was pressed — the word key in the bar on a desk, the
+ * disc in the flyout's stack on a phone. LEFT-aligned, unlike the settings card: this key is at
+ * the far left of the bar, and a menu laid out from its right edge would open off the screen.
+ */
+export function openWorkspaceMenu(event: MouseEvent) {
+	const key = (event.currentTarget as HTMLElement).getBoundingClientRect();
+	editor.workspaceAt = editor.workspaceAt ? null : { x: key.left, y: key.bottom + 6 };
+}
+
 export function openSettings(event: MouseEvent) {
 	const key = (event.currentTarget as HTMLElement).getBoundingClientRect();
 	editor.settingsAt = editor.settingsAt ? null : { x: key.right, y: key.bottom + 6 };
@@ -437,8 +467,15 @@ export type DocKey = {
 	svg: string;
 	title: () => string;
 	label: () => string;
-	run: () => void;
+	/**
+	 * The EVENT is passed on. Most of these want nothing to do with it, and `() => void` is
+	 * assignable here so they carry on saying so — but a key that opens a popover has to measure
+	 * the key it is opening from, and the only thing that knows where the key is is the key.
+	 */
+	run: (event: MouseEvent) => void;
 	on?: () => boolean;
+	/** Does this key OPEN something rather than do something? Draws the caret, like `H▾`. */
+	opens?: () => boolean;
 	/**
 	 * Is the key ANSWERING — "Saved", "Copied" — rather than offering? A different state from
 	 * `on`, and drawn in a different colour for that reason: `on` is the cobalt accent, which
@@ -468,20 +505,20 @@ export const OPEN_KEYS: DocKey[] = [
 	{
 		id: 'folder',
 		svg: FOLDER_OPEN_SVG,
-		title: () =>
-			editor.folder.length
-				? editor.folderShown
-					? 'Hide the workspace'
-					: 'Show the workspace'
-				: 'Open a folder as a workspace',
+		title: () => 'The workspace — a new note, a different folder, or hide the pane',
 		// WORKSPACE, not Folder. The key opens a folder, but what it MAKES is the workspace — the
 		// pane beside the sheet with the tree, the shelves and New in it — and that pane is what
-		// the key shows and hides every time after the first. Naming it for the thing it picks
-		// rather than the thing it builds described one press out of many.
+		// the key acts on every time after the first. Naming it for the thing it picks rather than
+		// the thing it builds described one press out of many.
 		label: () => 'Workspace',
-		run: () => editor.cmd?.openFolder(),
+		// IT OPENS A MENU rather than doing one of the three things. The pane's own head used to
+		// carry New, Change and Hide as three keys on the row with the folder's name, which is
+		// three controls in 250px competing with the one thing in that row you cannot work out
+		// from anywhere else. They are here, behind the key that already means the workspace.
+		run: openWorkspaceMenu,
 		on: () => editor.folderShown,
-		folds: () => true
+		opens: () => true,
+		folds: () => false
 	}
 ];
 

@@ -56,9 +56,22 @@
 	<div class="te-lead">
 		<div class="te-group" role="group" aria-label="Open">
 			{#each OPEN_KEYS as k (k.id)}
-				<button type="button" class="tb" class:on={k.on?.()} onclick={k.run} title={k.title()}>
+				<!-- A key that OPENS something wears the caret and says so — the same pair the heading
+				     key keeps (`H▾`). Workspace is one: it holds New, a different folder, and the
+				     pane's own hide. -->
+				<button
+					type="button"
+					class="tb"
+					class:on={k.on?.()}
+					aria-expanded={k.opens?.() ? !!editor.workspaceAt : undefined}
+					onclick={k.run}
+					title={k.title()}
+				>
 					<span class="te-key-ico" aria-hidden="true">{@html k.svg}</span>
 					<span class="te-key-word">{k.label()}</span>
+					{#if k.opens?.()}
+						<span class="te-caret-down" aria-hidden="true"></span>
+					{/if}
 				</button>
 			{/each}
 		</div>

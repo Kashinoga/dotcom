@@ -90,6 +90,19 @@
 				close();
 			}}>About</button
 		>
+		<!-- HIDE SCRATCH — the one thing in this flyout that is a SETTING rather than a door. The
+		     shelf is drawn always now, rows or none, and there is always at least one row in it;
+		     for a desk where scratch notes are not part of how somebody works, that is a list that
+		     never goes away. One item that says which way it will go, like the workspace menu's
+		     own hide. Kept across visits. -->
+		<button
+			type="button"
+			class="popover-item"
+			onclick={() => {
+				editor.scratchShown = !editor.scratchShown;
+				close();
+			}}>{editor.scratchShown ? 'Hide Scratch' : 'Show Scratch'}</button
+		>
 		{#if editor.installable && !editor.installed}
 			<!-- Only while there is an offer to make. Chromium fires `beforeinstallprompt` once and
 			     the offer is spent by showing it, so this is a key that comes and goes rather than a

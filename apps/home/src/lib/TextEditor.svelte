@@ -252,10 +252,18 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					editor.filename = editor.ephemeral.find((d) => d.id === scratch.open)?.name ?? '';
 				}
 			}
+			// Whether the SCRATCH shelf is drawn at all. Only an explicit '0' hides it — an absent key
+			// is a first visit, and a first visit should see the list.
+			editor.scratchShown = localStorage.getItem(`${STORE}:scratch-shown`) !== '0';
 		} catch {
 			// Private mode, a storage quota, a browser with storage switched off. The editor works
 			// perfectly well without persistence; it just forgets. Nothing to tell the visitor.
 		}
+
+		// AFTER the restore, and outside the try: a storage failure must not be the reason the pane
+		// comes up with no document in it. `text` is whatever survived — the manual page on a first
+		// visit, the last sheet on a later one — and the standing note is made around it.
+		ensureScratch(text);
 
 		// The editor owns the media query even though the RACK is what reads it: the rack only
 		// exists while the editor does, and one listener beats two that could disagree.
@@ -373,6 +381,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			// The flyout is drawn by this component but its position is shared state — left set, a
 			// navigation back into the editor would open on a card nobody asked for.
 			editor.settingsAt = null;
+			editor.workspaceAt = null;
 			editor.scrolled = false;
 			keyOpen = false;
 		};
@@ -403,10 +412,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	$effect(() => {
 		editor.mode;
 		editor.measured;
+		editor.scratchShown;
 		if (typeof localStorage === 'undefined') return;
 		try {
 			localStorage.setItem(`${STORE}:mode`, editor.mode);
 			localStorage.setItem(`${STORE}:measure`, editor.measured ? '1' : '0');
+			localStorage.setItem(`${STORE}:scratch-shown`, editor.scratchShown ? '1' : '0');
 		} catch {
 			/* nothing to do */
 		}
@@ -1063,6 +1074,32 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		if (at >= 0) editor.ephemeral[at].text = text;
 	}
 
+	/**
+	 * THE STANDING NOTE. There is always a scratch document, and at mount it is `Ephemeral 0`.
+	 *
+	 * Before this the sheet could hold a document with no row behind it — whatever a first visit
+	 * opened with, or whatever was restored — and that one document was the exception to
+	 * everything the workspace can do to a document: no Copy, no Save a copy, no Clear, because
+	 * all three are a ROW'S verbs now. Seeding the list closes that hole rather than special-casing
+	 * it in three places.
+	 *
+	 * `keep` is the sheet's own words, so a first visit does not lose the manual page it opened
+	 * with: the note is made AROUND what is already there rather than over it. It takes id `eph-0`
+	 * and the seq carries on at 1, so the first New is still `Ephemeral 1`.
+	 */
+	function ensureScratch(keep = '') {
+		if (editor.ephemeral.length) return;
+		const doc = { id: 'eph-0', name: 'Ephemeral 0', text: keep };
+		editor.ephemeral = [doc];
+		// Only if nothing else is on the sheet. A restored folder can have a document open behind
+		// it, and a note that stole the sheet at mount would be a note nobody asked for.
+		if (!editor.openPath) {
+			editor.openPath = doc.id;
+			editor.openIn = 'ephemeral';
+			editor.filename = doc.name;
+		}
+	}
+
 	function newEphemeral() {
 		stashEphemeral();
 		const doc = { id: `eph-${ephemeralSeq++}`, name: nextEphemeralName(), text: '' };
@@ -1144,6 +1181,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			editor.openIn = 'tree';
 			editor.filename = '';
 		}
+		// Closing the LAST one leaves a standing note behind it rather than an empty list — the
+		// pane always has a scratch document, and closing the only one reads as clearing it. The
+		// new one is empty: what it replaces is gone, and this is not a way of undoing that.
+		ensureScratch();
 	}
 
 	// The sheet is the live copy while a scratch note is open, so the row has to follow it. On a
@@ -1679,6 +1720,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	// that a file list has a context menu is a line explaining a doorknob. The pane says the one
 	// thing that cannot be guessed — that this browser will not write at all — and nothing else.
 	let fileMenuEl: HTMLDivElement | null = $state(null);
+	/** The workspace menu's own element, so it can be pulled back inside the window. */
+	let workMenuEl: HTMLDivElement | null = $state(null);
 	let fileMenuAt = $state({ x: 0, y: 0 });
 	/** The TREE entry the open menu belongs to — null when the menu belongs to a shelf row. */
 	const fileMenuEntry = $derived(
@@ -1964,6 +2007,22 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// A menu the pointer opened should still be a menu the keyboard can walk. Focusing the
 		// first item is also what closes the loop on Shift+F10: the event that opens it leaves
 		// focus on the row, and nothing else would move it in.
+		if (!el.contains(document.activeElement)) el.querySelector('button')?.focus();
+	});
+
+	$effect(() => {
+		const at = editor.workspaceAt;
+		const el = workMenuEl;
+		if (!at || !el) return;
+		// LEFT-aligned to its key and pulled back off the right edge if it overhangs — this key is
+		// at the far left of the bar on a desk and in the flyout's stack on a phone, and neither
+		// place is anywhere near the edge it could fall off. The clamp is for the phone, where the
+		// stack sits at the bottom and the menu opens upward into the window.
+		const box = el.getBoundingClientRect();
+		const left = Math.max(8, Math.min(at.x, window.innerWidth - box.width - 8));
+		const top = Math.max(8, Math.min(at.y, window.innerHeight - box.height - 8));
+		if (Math.abs(left - box.left) > 0.5) el.style.left = `${left}px`;
+		if (Math.abs(top - box.top) > 0.5) el.style.top = `${top}px`;
 		if (!el.contains(document.activeElement)) el.querySelector('button')?.focus();
 	});
 
@@ -2404,9 +2463,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	<!-- `icon-btn` is the class FloatingKey's stack dresses: it gives these the touch-sized
 	     frosted face the other apps' flyout controls wear.
 	     ORDER MATTERS and reads backwards: the stack is column-reverse so that the FIRST button
-	     here lands nearest the thumb. Copy, then the download, then Clear — the bar's own
+	     here lands nearest the thumb. The document keys, then the file keys — the bar's own
 	     left-to-right — and the measure last, furthest away, because it is the one you set once
-	     and forget. -->
+	     and forget.
+	     THE EVENT IS PASSED ON. Most of these want nothing to do with it; Workspace opens a menu
+	     and has to measure the disc it opens from, and on a phone that disc is the only thing that
+	     knows where the bottom-left of the screen is. -->
 	{#each [...DOC_KEYS, ...OPEN_KEYS].filter((k) => k.shown?.() ?? true) as k (k.id)}
 		<button
 			type="button"
@@ -2415,8 +2477,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			class:done={k.done?.()}
 			title={k.title()}
 			aria-label={k.label()}
-			onclick={() => {
-				k.run();
+			aria-expanded={k.opens?.() ? !!editor.workspaceAt : undefined}
+			onclick={(e) => {
+				k.run(e);
 				if (k.folds()) keyOpen = false;
 			}}>{@html k.svg}</button
 		>
@@ -2512,33 +2575,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					ondragleave={(e) => onDragLeave(e, '')}
 					ondrop={(e) => onDrop(e, '')}
 				>
-					<!-- The FOLDER'S OWN NAME once there is one, and the word `Folder` as the placeholder
-					     for the slot it goes in. Not `Workspace`, even though the pane IS the workspace
-					     and the bar's key says so now: this row holds a name, three keys and a tally in
-					     250px, and `WORKSPACE` came out as `WORKSP…` in the empty state — a placeholder
-					     that needs the hover reveal to be read is not a placeholder. The pane says
-					     workspace where it has the room: its aria-label, and the key that opens it. -->
-					<h2 class="te-work-name" bind:this={workNameEl}>{editor.folderName || 'Folder'}</h2>
-					<!-- New is offered EVERYWHERE now. It used to need a writable folder to create
-					     into, which made it a Chromium key; a scratch note needs nothing but a sheet. -->
-					<button
-						type="button"
-						class="tb te-work-act"
-						onclick={newEphemeral}
-						title="Make a scratch document">New</button
-					>
-					<button
-						type="button"
-						class="tb te-work-act"
-						onclick={pickFolder}
-						title="Open a different folder">Change</button
-					>
-					<button
-						type="button"
-						class="tb te-work-act"
-						onclick={() => (editor.folderShown = false)}
-						title="Hide the workspace">Hide</button
-					>
+					<!-- THE FOLDER'S OWN NAME, and now the whole of what this row is for. `Workspace`
+					     as the placeholder rather than `Folder`: the row has the width for it since New,
+					     Change and Hide left for the bar key's menu — that is what they were competing
+					     with, and the name is the one thing in this row you cannot work out from
+					     anywhere else. -->
+					<h2 class="te-work-name" bind:this={workNameEl}>
+						{editor.folderName || 'Workspace'}
+					</h2>
 					<!-- The folder's own tally comes LAST, past the keys, because it is one of a
 					     column: every folder row in the tree below carries the same figure at the
 					     same right edge, and this one is the head of that column rather than a
@@ -2563,7 +2607,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				     it is the same grey, and the one white gap is the one below, which is where
 				     the shelves actually end and the folder begins. -->
 				<div class="te-shelves">
-					{#if editor.ephemeral.length}
+					<!-- SCRATCH IS ALWAYS DRAWN (unless it is switched off in Settings). It used to
+					     appear only once it had rows, which made the list you were about to add to
+					     invisible until you had added to it — and there is always a row now anyway,
+					     because the sheet is always a document with one. -->
+					{#if editor.scratchShown}
 						{@render shelf(
 							'Scratch',
 							editor.ephemeral.map((d) => ({
@@ -2699,9 +2747,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					<!-- An EMPTY folder still gets its sidebar. It used to be hidden — and once New
 					     existed that meant the one place to make a first document disappeared exactly
 					     when it was needed. -->
+					<!-- It names the KEY, which is the one thing here that cannot be guessed now: New and
+					     Change were two keys in this pane's own head and they are in the bar's Workspace
+					     menu instead. Naming the place, not the gesture — the audience knows what a menu
+					     is; what it cannot know is which key was chosen to hold this one. -->
 					<p class="te-work-note">
 						{!editor.folderName
-							? 'No folder open. Change picks one; New makes a scratch document.'
+							? 'No folder open. The Workspace key picks one, and makes scratch notes.'
 							: 'Nothing here this editor can open — it takes Markdown and plain text.'}
 					</p>
 				{/if}
@@ -3035,6 +3087,67 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					}}>{editor.doomed === fileMenuEntry.path ? 'Sure?' : 'Delete'}</button
 				>
 			{/if}
+		</div>
+	{/if}
+
+	<!-- THE WORKSPACE MENU — New, Change and Hide, which stood as three keys on the pane's own
+	     head. They were three controls sharing a 250px row with the folder's name, and the name
+	     lost: any name past a few characters ellipsised behind them. They are behind the bar key
+	     that already means the workspace, which is where somebody looking for them will press.
+	     Drawn HERE for the reason every other popover in this app is: the key that opens it lives
+	     in a bar that scrolls, and a popover parented into a scroller is clipped by it. -->
+	{#if editor.workspaceAt}
+		<button
+			class="popover-scrim"
+			aria-label="Close the workspace menu"
+			onclick={() => (editor.workspaceAt = null)}
+		></button>
+		<div
+			class="popover te-work-menu"
+			role="menu"
+			aria-label="Workspace"
+			tabindex="-1"
+			bind:this={workMenuEl}
+			style:left="{editor.workspaceAt.x}px"
+			style:top="{editor.workspaceAt.y}px"
+			onkeydown={(e) => {
+				if (e.key === 'Escape') {
+					e.stopPropagation();
+					editor.workspaceAt = null;
+				}
+			}}
+		>
+			<!-- New is offered EVERYWHERE. It used to need a writable folder to create into, which
+			     made it a Chromium key; a scratch note needs nothing but a sheet. -->
+			<button
+				type="button"
+				role="menuitem"
+				class="popover-item"
+				onclick={() => {
+					editor.workspaceAt = null;
+					newEphemeral();
+				}}>New note</button
+			>
+			<button
+				type="button"
+				role="menuitem"
+				class="popover-item"
+				onclick={() => {
+					editor.workspaceAt = null;
+					pickFolder();
+				}}>{editor.folderName ? 'Change folder…' : 'Open a folder…'}</button
+			>
+			<!-- Hide and Show are ONE item that says which it will do, rather than two with one of
+			     them dead. The pane is the only thing in this app that a key both opens and closes. -->
+			<button
+				type="button"
+				role="menuitem"
+				class="popover-item"
+				onclick={() => {
+					editor.folderShown = !editor.folderShown;
+					editor.workspaceAt = null;
+				}}>{editor.folderShown ? 'Hide the workspace' : 'Show the workspace'}</button
+			>
 		</div>
 	{/if}
 
@@ -4371,6 +4484,15 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-file-menu {
 		min-width: 9rem;
 		max-width: 15rem;
+	}
+
+	/* ── The workspace menu ────────────────────────────────────────────────────
+	   The shared popover again, with a width and nothing else. Wider than the row menu because
+	   its items are sentences rather than verbs — `Hide the workspace` says which way the toggle
+	   will go, and an item that wrapped to say it would be worse than the three keys this
+	   replaced. */
+	.te-work-menu {
+		min-width: 12rem;
 	}
 
 	/* ── The phone's flyout ────────────────────────────────────────────────────

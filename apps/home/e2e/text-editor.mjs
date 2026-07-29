@@ -51,6 +51,18 @@ const key = (k) => page.keyboard.press(k);
 const press = (name) => page.getByRole('button', { name }).click();
 const selectAll = () => key('ControlOrMeta+a');
 
+/**
+ * The WORKSPACE MENU — New, a different folder, and the pane's own hide. All three were keys on
+ * the pane's head; they are behind the bar key that already means the workspace.
+ */
+const workMenu = (pg = page) => pg.locator('.te-work-menu .popover-item');
+async function fromWorkspace(name, pg = page) {
+	await pg.getByRole('button', { name: 'Workspace', exact: true }).click();
+	await pg.waitForTimeout(250);
+	await workMenu(pg).filter({ hasText: name }).click();
+	await pg.waitForTimeout(250);
+}
+
 /** Put an exact document on the sheet, focused, caret at the end. */
 async function reset(to = '') {
 	await ta.fill(to);
@@ -337,12 +349,14 @@ await page.waitForTimeout(200);
 // A scratch note is the case that works in every browser: it has no file behind it, so no
 // permission and no handle stand between the menu item and the words.
 {
-	await press('New');
-	await page.waitForTimeout(150);
+	// No New needed: there is ALWAYS a scratch note, and at mount it is `Ephemeral 0` with the
+	// sheet already on it. That is the point of the standing note — every document on the sheet
+	// is a document in the pane, so every document on the sheet has these three verbs.
 	await reset('keep me');
 	await page.waitForTimeout(450); // the debounce that follows the sheet into the note
 
 	const row = page.locator('.te-work-list .te-work-row').first();
+	await eq('the pane opens with a standing scratch note', row.textContent(), 'Ephemeral 0');
 	const item = () => page.locator('.te-file-menu .popover-item', { hasText: /^(Clear|Sure\?)$/ });
 	await row.click({ button: 'right' });
 	await page.waitForTimeout(150);
@@ -389,15 +403,20 @@ await page.waitForTimeout(200);
 		);
 	}
 
-	// Put the pane back as it was. The scratch list is persisted, and a note left here would be
-	// counted by every shelf case further down.
+	// CLOSING THE LAST ONE brings a standing note back rather than leaving an empty list. Closing
+	// the only scratch note reads as clearing it, and the pane always has one.
 	await row.click({ button: 'right' });
 	await page.waitForTimeout(150);
 	const close = () => page.locator('.te-file-menu .popover-item', { hasText: /^(Close|Sure\?)$/ });
 	await close().click();
 	await close().click();
 	await page.waitForTimeout(300);
-	ok('the note closes again', (await page.locator('.te-work-list .te-work-row').count()) === 0);
+	ok(
+		'closing the last note leaves a standing one behind it',
+		(await page.locator('.te-work-list .te-work-row').allTextContents()).join(',') ===
+			'Ephemeral 0',
+		JSON.stringify(await page.locator('.te-work-list .te-work-row').allTextContents())
+	);
 	await reset('');
 }
 
@@ -662,7 +681,11 @@ await reset('first\n\n\nlast');
 	const dir = await import('node:fs');
 	const os = await import('node:os');
 	const path = await import('node:path');
-	const folder = dir.mkdtempSync(path.join(os.tmpdir(), 'te-e2e-'));
+	// The prefix is deliberately long. This folder's NAME is what the head shows, and one of the
+	// cases below is the reveal that answers a clipped name — which needs a name that clips. The
+	// head has more room since New, Change and Hide left it for the bar key's menu, and a short
+	// `te-e2e-` name stopped clipping the day they went.
+	const folder = dir.mkdtempSync(path.join(os.tmpdir(), 'te-e2e-a-workspace-with-a-long-name-'));
 	dir.writeFileSync(path.join(folder, 'alpha.md'), '# Alpha\n\nFirst note.');
 	dir.writeFileSync(path.join(folder, 'beta.markdown'), '# Beta\n\nSecond note.');
 	dir.writeFileSync(path.join(folder, 'notes.txt'), 'plain text note');
@@ -737,11 +760,15 @@ await reset('first\n\n\nlast');
 				})
 		);
 		ok(
-			'the name, the keys and the tally share one row',
+			'the name and the tally share one row',
 			Math.max(...mids) - Math.min(...mids) <= 2,
 			JSON.stringify(mids)
 		);
 		ok('with no second row left behind', (await page.locator('.te-work-acts').count()) === 0);
+		// And no KEYS in it at all. New, Change and Hide moved to the bar key's menu — three
+		// controls sharing 250px with the one thing in the row you cannot work out from anywhere
+		// else, which is the folder's name.
+		ok('and no keys left in the head', (await page.locator('.te-work-head .tb').count()) === 0);
 		// The tally comes LAST, past the keys, because it heads a column: every folder row in the
 		// tree carries the same figure at the same right edge.
 		const edges = await page.evaluate(() => {
@@ -754,8 +781,8 @@ await reset('first\n\n\nlast');
 			JSON.stringify(edges)
 		);
 
-		// The folder is a mkdtemp name — always long enough to be clipped in a 15rem head, which
-		// is what makes this deterministic rather than a case that depends on the machine.
+		// The folder's name is made long on purpose (see the mkdtemp above), so this is
+		// deterministic rather than a case that depends on the machine's temp path.
 		ok(
 			'a name too long for the row is clipped',
 			await page.evaluate(() => {
@@ -798,11 +825,12 @@ await reset('first\n\n\nlast');
 				JSON.stringify({ pane, full })
 			);
 		}
-		// Pointing at a KEY must not explain the folder.
-		await page.locator('.te-work-act').last().hover();
+		// Pointing at the TALLY must not explain the folder — the reveal belongs to the name, and it
+		// hangs below the row, so anything else in the row opening it would be a flicker.
+		await page.locator('.te-work-head .te-work-count').hover();
 		await page.waitForTimeout(250);
 		await eq(
-			'pointing at a key does not open it',
+			'pointing at the tally does not open it',
 			page.locator('.te-work-full').evaluate((e) => getComputedStyle(e).opacity),
 			'0'
 		);
@@ -826,7 +854,7 @@ await reset('first\n\n\nlast');
 		await eq(
 			'a file opened by hand is still on the shelf, several acts later',
 			page
-				.locator('.te-loose .te-work-file')
+				.locator('ul[aria-label="Elsewhere"] .te-work-file')
 				.allTextContents()
 				.then((t) => t.join(',')),
 			'alpha.md'
@@ -836,14 +864,14 @@ await reset('first\n\n\nlast');
 		await eq(
 			'a second one goes to the FRONT — the order is the order you reached for them',
 			page
-				.locator('.te-loose .te-work-file')
+				.locator('ul[aria-label="Elsewhere"] .te-work-file')
 				.allTextContents()
 				.then((t) => t.join(',')),
 			'elsewhere.md,alpha.md'
 		);
 		ok(
 			'marked as the one on the sheet',
-			(await page.locator('.te-loose .te-work-row.on').count()) === 1
+			(await page.locator('ul[aria-label="Elsewhere"] .te-work-row.on').count()) === 1
 		);
 		ok('and the tree marks nothing', (await page.locator(`${TREE} .te-work-row.on`).count()) === 0);
 		// Above the tree, and a shade off the sheet — that shading is the whole of how it says it
@@ -862,22 +890,27 @@ await reset('first\n\n\nlast');
 		// Opening a tree row leaves the shelf standing — it is a shelf, not a mode.
 		await page.getByRole('treeitem', { name: 'beta.markdown' }).click();
 		await page.waitForTimeout(700);
-		ok('a tree row leaves the shelf standing', (await page.locator('.te-loose').count()) === 1);
+		ok(
+			'a tree row leaves the shelf standing',
+			(await page.locator('ul[aria-label="Elsewhere"]').count()) === 1
+		);
 		ok(
 			'and takes the mark off it',
-			(await page.locator('.te-loose .te-work-row.on').count()) === 0
+			(await page.locator('ul[aria-label="Elsewhere"] .te-work-row.on').count()) === 0
 		);
 		ok('marking the tree instead', (await page.locator(`${TREE} .te-work-row.on`).count()) === 1);
 		// A shelf row opens again by re-READING — the shelf holds where a document came from, not
 		// its text. There is one sheet in this editor and these are not buffers.
-		await page.locator('.te-loose .te-work-row').first().click();
+		await page.locator('ul[aria-label="Elsewhere"] .te-work-row').first().click();
 		await page.waitForTimeout(700);
 		await eq('a shelf row opens again', value(), '# From elsewhere');
 		// Its menu holds the three verbs every document has, and then CLOSE — which acts on the
 		// LIST rather than on the disk, and is why it is offered in every browser where Rename and
-		// Delete are not. There is no Clear here: this shelf row came in through the hidden input,
-		// so it carries a File and no handle, and there is nothing to write through.
-		await page.locator('.te-loose .te-work-row').first().click({ button: 'right' });
+		// Delete are not.
+		await page
+			.locator('ul[aria-label="Elsewhere"] .te-work-row')
+			.first()
+			.click({ button: 'right' });
 		await page.waitForTimeout(300);
 		await eq(
 			'a shelf row offers Close, and nothing that touches the disk',
@@ -892,7 +925,7 @@ await reset('first\n\n\nlast');
 		await eq(
 			'Close takes that row off and leaves the rest',
 			page
-				.locator('.te-loose .te-work-file')
+				.locator('ul[aria-label="Elsewhere"] .te-work-file')
 				.allTextContents()
 				.then((t) => t.join(',')),
 			'alpha.md'
@@ -936,16 +969,11 @@ await reset('first\n\n\nlast');
 		JSON.stringify((await page.locator('.te-lamp').textContent()).trim())
 	);
 
-	// With a workspace loaded the WORKSPACE key TOGGLES the pane rather than re-picking: once a
-	// folder is open, the workspace is a place you go rather than a thing you choose. The key is
-	// named for what it shows rather than for what it picks — that is the press you make once,
-	// and this is every press after it.
-	const folderKey = page.getByRole('button', { name: 'Workspace', exact: true });
-	await folderKey.click();
-	await page.waitForTimeout(300);
-	ok('the Workspace key hides the pane', (await page.locator('.te-work').count()) === 0);
-	await folderKey.click();
-	await page.waitForTimeout(300);
+	// The WORKSPACE key opens a menu, and hiding the pane is an item on it — one item that says
+	// which way it will go, rather than two with one of them dead.
+	await fromWorkspace('Hide the workspace');
+	ok('the menu hides the pane', (await page.locator('.te-work').count()) === 0);
+	await fromWorkspace('Show the workspace');
 	ok('and shows it again', (await page.locator('.te-work').count()) === 1);
 	ok(
 		'without forgetting which document is open',
@@ -1033,13 +1061,21 @@ await reset('first\n\n\nlast');
 	await wp.evaluate(() => window.__seed());
 	await wp.waitForTimeout(300);
 	await wp.getByRole('button', { name: 'Workspace', exact: true }).click();
+	await wp.waitForTimeout(200);
+	await wp
+		.locator('.te-work-menu .popover-item')
+		.filter({ hasText: /folder/ })
+		.click();
 	await wp.waitForTimeout(700);
 
+	// The TREE, scoped: the pane also holds the Scratch shelf, which always has a standing note
+	// in it, and a bare `.te-work-file` counts that too.
+	const TREE_FILES = '.te-work-list:not(.te-loose-list) .te-work-file';
 	ok(
 		'a writable folder walks into its sub-folders and skips what it cannot read',
-		(await wp.locator('.te-work-file').allTextContents()).join(',') ===
+		(await wp.locator(TREE_FILES).allTextContents()).join(',') ===
 			'drafts,gamma.md,alpha.md,beta.md,notes.txt',
-		JSON.stringify(await wp.locator('.te-work-file').allTextContents())
+		JSON.stringify(await wp.locator(TREE_FILES).allTextContents())
 	);
 
 	await wp.getByRole('treeitem', { name: 'alpha.md' }).click();
@@ -1142,7 +1178,7 @@ await reset('first\n\n\nlast');
 		await wp.waitForTimeout(700);
 		await eq(
 			'a hand-picked file lands on the shelf',
-			wp.locator('.te-loose').last().locator('.te-work-file').textContent(),
+			wp.locator('ul[aria-label="Elsewhere"] .te-work-file').last().textContent(),
 			'notes.txt'
 		);
 		ok(
@@ -1193,17 +1229,19 @@ await reset('first\n\n\nlast');
 	// own above Elsewhere — and it is the ONE kind of document this pane holds the text of,
 	// because there is nowhere to read it back from.
 	{
-		await wp.getByRole('button', { name: 'New', exact: true }).click();
-		await wp.waitForTimeout(400);
+		await fromWorkspace('New note', wp);
+		await wp.waitForTimeout(150);
 		ok('New asks for no name', (await wp.locator('.te-work-field').count()) === 0);
 		ok(
 			'and puts a scratch document on a shelf of its own, above Elsewhere',
 			(await wp.locator('.te-loose-name').allTextContents()).join(',') === 'Scratch,Elsewhere',
 			JSON.stringify(await wp.locator('.te-loose-name').allTextContents())
 		);
+		// The LAST row: the shelf opens with a standing `Ephemeral 0`, so what New made is the one
+		// under it. Newest last, which is the order this list has always kept.
 		ok(
 			'named for you',
-			(await wp.locator('.te-loose').first().locator('.te-work-file').textContent()) ===
+			(await wp.locator('ul[aria-label="Scratch"] .te-work-file').last().textContent()) ===
 				'Ephemeral 1'
 		);
 		ok('on a blank sheet', (await wp.locator('.te-type').inputValue()) === '');
@@ -1219,7 +1257,7 @@ await reset('first\n\n\nlast');
 		await wp.getByRole('treeitem', { name: 'renamed.md' }).click();
 		await wp.waitForTimeout(600);
 		ok('a tree row still opens over it', (await wp.locator('.te-type').inputValue()) !== '');
-		await wp.locator('.te-loose').first().locator('.te-work-row').click();
+		await wp.locator('ul[aria-label="Scratch"] .te-work-row').last().click();
 		await wp.waitForTimeout(600);
 		ok(
 			'and the scratch note still has its words',
@@ -1227,7 +1265,7 @@ await reset('first\n\n\nlast');
 			await wp.locator('.te-type').inputValue()
 		);
 		// Closing one is the end of those words, so it asks twice — exactly as Clear does.
-		await wp.locator('.te-loose').first().locator('.te-work-row').click({ button: 'right' });
+		await wp.locator('ul[aria-label="Scratch"] .te-work-row').last().click({ button: 'right' });
 		await wp.waitForTimeout(300);
 		// Named rather than "the only item": the menu carries Copy, Save a copy and Clear above it
 		// now — a scratch note is a document like any other, and Close is what is special about it.
@@ -1243,10 +1281,10 @@ await reset('first\n\n\nlast');
 		// a question — it left you pressing what looked like the control you had just pressed, so
 		// two answers read as one double-click. The menu's Close has said `Sure?` all along; this
 		// is the same bargain and now says the same word.
-		await wp.getByRole('button', { name: 'New', exact: true }).click();
-		await wp.waitForTimeout(400);
+		await fromWorkspace('New note', wp);
+		await wp.waitForTimeout(150);
 		{
-			const x = wp.locator('.te-loose').first().locator('.te-eph-close').first();
+			const x = wp.locator('ul[aria-label="Scratch"] .te-eph-close').last();
 			ok('a scratch row carries a ×', (await x.textContent()).trim() === '×');
 			// CENTRED IN ITS OWN BUTTON, which it was not: a <button> carries the UA's `1px 6px`
 			// padding, and this rule never reset it — so the content box was 6px wide inside an
@@ -1305,50 +1343,46 @@ await reset('first\n\n\nlast');
 			ok('and stays inside the workspace', inside);
 			await x.click();
 			await wp.waitForTimeout(400);
-			// By the shelf's LABEL, not by position: the Scratch block is not drawn at all when it
-			// empties, so `.te-loose` first() would be asking Elsewhere how many rows it has.
+			// By the shelf's LABEL, not by position: two shelves draw the same rows, and asking the
+			// first one by position is asking whichever happens to be on top.
+			// ONE row left, not none: the pane always keeps a scratch note, so closing the last one
+			// leaves a standing `Ephemeral 0` rather than an empty list.
 			ok(
 				'the second press closes the note',
-				(await wp.locator('ul[aria-label="Scratch"] .te-work-row').count()) === 0
+				(await wp.locator('ul[aria-label="Scratch"] .te-work-file').allTextContents()).join(',') ===
+					'Ephemeral 0',
+				JSON.stringify(await wp.locator('ul[aria-label="Scratch"] .te-work-file').allTextContents())
 			);
 		}
 		// The order of the scratch list is YOURS — the tree is alphabetical because a folder is,
 		// and the shelf is by recency because that is what it means, but these are notes you made.
-		// Two fresh ones — the first note was closed just above, so its name is free again.
-		await wp.getByRole('button', { name: 'New', exact: true }).click();
+		// Two fresh ones, under the standing note the list always keeps.
+		const scratch = 'ul[aria-label="Scratch"]';
+		await fromWorkspace('New note', wp);
 		await wp.waitForTimeout(300);
-		await wp.getByRole('button', { name: 'New', exact: true }).click();
-		await wp.waitForTimeout(400);
+		await fromWorkspace('New note', wp);
+		await wp.waitForTimeout(150);
 		await eq(
 			'two scratch notes stand in the order they were made',
 			wp
-				.locator('.te-loose')
-				.first()
-				.locator('.te-work-file')
+				.locator(`${scratch} .te-work-file`)
 				.allTextContents()
 				.then((t) => t.join(',')),
-			'Ephemeral 1,Ephemeral 2'
+			'Ephemeral 0,Ephemeral 1,Ephemeral 2'
 		);
-		await wp.dragAndDrop('.te-loose >> text=Ephemeral 2', '.te-loose >> text=Ephemeral 1');
+		await wp.dragAndDrop(`${scratch} >> text=Ephemeral 2`, `${scratch} >> text=Ephemeral 1`);
 		await wp.waitForTimeout(500);
 		await eq(
 			'and one dragged onto the other takes its place',
 			wp
-				.locator('.te-loose')
-				.first()
-				.locator('.te-work-file')
+				.locator(`${scratch} .te-work-file`)
 				.allTextContents()
 				.then((t) => t.join(',')),
-			'Ephemeral 2,Ephemeral 1'
+			'Ephemeral 0,Ephemeral 2,Ephemeral 1'
 		);
-		// Both off again, so the shelf is empty for what follows.
-		for (const _ of [0, 1]) {
-			await wp
-				.locator('.te-loose')
-				.first()
-				.locator('.te-work-row')
-				.first()
-				.click({ button: 'right' });
+		// Down to the standing note for what follows — closing the last one always leaves that.
+		for (const _ of [0, 1, 2]) {
+			await wp.locator(`${scratch} .te-work-row`).first().click({ button: 'right' });
 			await wp.waitForTimeout(300);
 			const closeItem = wp.locator('.te-file-menu [role=menuitem]', {
 				hasText: /^(Close|Sure\?)$/
@@ -1360,8 +1394,9 @@ await reset('first\n\n\nlast');
 		}
 
 		ok(
-			'and the second press takes it, and the empty shelf with it',
-			(await wp.locator('.te-loose-name').allTextContents()).join(',') === 'Elsewhere'
+			'and the second press takes it, leaving the standing note',
+			(await wp.locator(`${scratch} .te-work-file`).allTextContents()).join(',') === 'Ephemeral 0',
+			JSON.stringify(await wp.locator(`${scratch} .te-work-file`).allTextContents())
 		);
 	}
 
@@ -1369,36 +1404,47 @@ await reset('first\n\n\nlast');
 	// The one way a document is created on disk now that New makes a note rather than a file —
 	// and the right way round: you write the thing first and decide it is worth keeping second.
 	{
-		await wp.getByRole('button', { name: 'New', exact: true }).click();
-		await wp.waitForTimeout(400);
+		await fromWorkspace('New note', wp);
+		await wp.waitForTimeout(150);
 		await wp.locator('.te-type').fill('# worth keeping');
 		await wp.waitForTimeout(400);
 		ok(
 			'a scratch note offers Save once a writable folder is open',
 			(await wp.getByRole('button', { name: /^Save/ }).count()) === 1
 		);
+		// The NAME IS READ rather than written down. The sequence never reuses a number — a name
+		// that came back would open the door to two rows called the same thing — so which
+		// `Ephemeral N` this is depends on how many the cases above made, and pinning it here
+		// would make every one of them load-bearing for this one.
+		const noteName = (await wp.locator('.te-lamp').textContent()).trim();
 		await eq(
 			'and says where it would go',
 			wp.getByRole('button', { name: /^Save/ }).getAttribute('title'),
-			'File this note in the folder as Ephemeral 1.md'
+			`File this note in the folder as ${noteName}.md`
 		);
 		await wp.getByRole('button', { name: /^Save/ }).click();
 		await wp.waitForTimeout(700);
 		ok(
 			'Save files it in the folder',
-			await wp.evaluate(async () => {
+			await wp.evaluate(async (name) => {
 				const root = await navigator.storage.getDirectory();
-				const f = await (await root.getFileHandle('Ephemeral 1.md')).getFile();
+				const f = await (await root.getFileHandle(`${name}.md`)).getFile();
 				return (await f.text()) === '# worth keeping';
-			})
+			}, noteName),
+			noteName
 		);
+		// The ROW leaves the scratch list — the shelf itself stays, because it always does now and
+		// the standing note is still in it.
 		ok(
 			'it leaves the scratch shelf',
-			(await wp.locator('.te-loose-name', { hasText: 'Scratch' }).count()) === 0
+			!(await wp.locator('ul[aria-label="Scratch"] .te-work-file').allTextContents()).includes(
+				noteName
+			),
+			JSON.stringify(await wp.locator('ul[aria-label="Scratch"] .te-work-file').allTextContents())
 		);
 		ok(
 			'and the sheet is holding a real file now',
-			(await wp.locator('.te-lamp').textContent()).trim() === 'Ephemeral 1.md'
+			(await wp.locator('.te-lamp').textContent()).trim() === `${noteName}.md`
 		);
 	}
 
@@ -1412,7 +1458,7 @@ await reset('first\n\n\nlast');
 			const root = await navigator.storage.getDirectory();
 			await root.getDirectoryHandle('nothing-in-here', { create: true });
 		});
-		await wp.getByRole('button', { name: 'Change', exact: true }).click();
+		await fromWorkspace(/folder/, wp);
 		await wp.waitForTimeout(900);
 		ok(
 			'an empty folder gets a row of its own',
@@ -1540,7 +1586,7 @@ await reset('first\n\n\nlast');
 			await f.write('# the one already there');
 			await f.close();
 		});
-		await wp.getByRole('button', { name: 'Change', exact: true }).click();
+		await fromWorkspace(/folder/, wp);
 		await wp.waitForTimeout(900);
 		await wp.dragAndDrop(`${TREE} >> text=beta.md >> nth=1`, '.te-work-dir');
 		await wp.waitForTimeout(800);
@@ -2007,15 +2053,20 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	ok('a mark applies from the flyout', (await p.locator('.te-type').inputValue()) === '**word**');
 	ok('and leaves it standing', (await shown()) === 1);
 
-	// A DOCUMENT key finishes the job and folds the flyout behind it. Clear used to be the
-	// exception here — it asks first, and folding would have hidden its own question — and it is
-	// not in this stack at all any more: clearing is a document's verb, on its row's menu.
+	// A key that OPENS something leaves the flyout standing, exactly as the gear does — its menu
+	// draws over the stack, and folding the thing underneath would animate a column nobody is
+	// looking at. Clear used to be the exception in this stack (it asks first, and folding would
+	// have hidden its own question); it is not here at all now, because clearing is a document's
+	// verb on its own row's menu.
 	// The stack labels its discs with the KEY'S OWN WORD (the flyout has no room for the bar's
 	// full title), so this asks for `Workspace` rather than for the folder-picker's tooltip.
 	const workspaceKey = p.locator('.fkey-stack .icon-btn[aria-label="Workspace"]');
 	await workspaceKey.click();
 	await p.waitForTimeout(350);
-	ok('a file key folds the flyout behind it', (await shown()) === 0);
+	ok('the workspace menu opens from the flyout', (await p.locator('.te-work-menu').count()) === 1);
+	ok('and leaves the flyout standing under it', (await shown()) === 1);
+	await p.keyboard.press('Escape');
+	await p.waitForTimeout(250);
 	ok(
 		'and no Clear is left in the stack',
 		(await p.locator('.fkey-stack .icon-btn[aria-label^="Clear"]').count()) === 0
@@ -2039,9 +2090,9 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 
 	// Two scratch notes, so there is something to pick BETWEEN. New needs no folder, which is why
 	// this case is here rather than in the OPFS one.
-	await press('New');
+	await fromWorkspace('New note');
 	await reset('# alpha\n\nthe first note');
-	await press('New');
+	await fromWorkspace('New note');
 	await reset('# bravo\n\nthe second note');
 	// The open note's words go back to its row on a debounce — this is the one document the pane
 	// holds the text of, so a case that raced it would be picking an empty note.
