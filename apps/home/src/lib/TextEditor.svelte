@@ -1316,11 +1316,53 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// which a `webkitdirectory` document never had: those were shelved as a name with nothing
 		// behind it, so the row deleted itself the moment it was pressed.
 		const doc = store?.detach(editor.openPath);
-		if (!doc) return;
-		const rest = editor.loose.filter((d) => d.id !== doc.id);
-		editor.loose = [doc, ...rest].slice(0, LOOSE_MAX);
-		// It is not marked as open after this: `openPath` is cleared by the folder that is
-		// arriving, and the sheet still holds it but the workspace no longer claims to.
+		if (doc) {
+			const rest = editor.loose.filter((d) => d.id !== doc.id);
+			editor.loose = [doc, ...rest].slice(0, LOOSE_MAX);
+			// It is not marked as open after this: `openPath` is cleared by the folder that is
+			// arriving, and the sheet still holds it but the workspace no longer claims to.
+			return;
+		}
+		// NULL IS NOT "nothing to do here". It is "there is no way to refer to this document once
+		// the workspace it is in has gone", and the caller is about to take its row away — so
+		// returning quietly leaves a document on the sheet with NO ROW ANYWHERE, which is the one
+		// state this pane is built not to have. Copy, Save a copy and Clear are all a row's verbs;
+		// a sheet with no row is a document that none of them can reach.
+		//
+		// It becomes a SCRATCH note, and that is not a demotion — it is the correct name for what
+		// it now is. A scratch note is defined here as the one document this pane holds the words
+		// of because there is nowhere to read them back from, and a document whose store has just
+		// gone is exactly that. The words are kept, the row is real, and every verb works.
+		//
+		// A remote document does NOT have to end up here: its server is still there and only this
+		// app has lost its grip on it. Giving it a proper shelf row needs a reference that outlives
+		// the store — a connection and a path rather than a handle — which is what the connection
+		// registry is for. Until then this is the floor, and the floor is not the ground.
+		strandTheOpenOne();
+	}
+
+	/**
+	 * The open document, kept as a scratch note because nothing else can hold it. See the note
+	 * above for when this happens and why it is the honest answer rather than a fallback.
+	 *
+	 * It is marked OPEN, unlike a shelved row: the sheet is not changing, so the row and the sheet
+	 * have to agree about what is on it. That is the opposite of `shelveTheOpenOne`'s ending, and
+	 * for the opposite reason — there the document is leaving the workspace's care, here it is
+	 * arriving in it.
+	 */
+	function strandTheOpenOne() {
+		const doc = {
+			id: `eph-${ephemeralSeq++}`,
+			// Its own name, not `Ephemeral 4`. What is on the sheet is still that document, and a
+			// row that renamed it would be the second thing lost in one gesture.
+			name: editor.filename,
+			text
+		};
+		editor.ephemeral = [...editor.ephemeral, doc];
+		editor.openPath = doc.id;
+		editor.openIn = 'ephemeral';
+		editor.openHandle = null;
+		editor.openWritable = false;
 	}
 
 	/**
@@ -2052,6 +2094,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	});
 
 	// ── Remembering the folder ────────────────────────────────────────────────
+	// NOTE ON THE NAME `handles` in the four functions below: it is the IndexedDB object store, and
+	// it is not called `store` because this component now has one of those at its top level — the
+	// workspace's backing store. Two things called `store` in one file, one of them shadowing the
+	// other inside four functions, is a trap set for whoever edits them next.
 	// A directory HANDLE can be stored — it is a structured-cloneable object, so IndexedDB will
 	// take one — and re-used on the next visit. A `webkitdirectory` File cannot: it is a snapshot
 	// with nothing behind it. So this only helps where the File System Access API does, which is
@@ -2090,14 +2136,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * gesture and therefore the one moment a browser will allow the question.
 	 */
 	async function rememberLoose() {
-		const store = await handleStore('readwrite');
-		if (!store) return;
+		const handles = await handleStore('readwrite');
+		if (!handles) return;
 		const keep = editor.loose
 			.filter((d) => d.handle)
 			.map((d) => ({ id: d.id, name: d.name, handle: d.handle }));
 		try {
-			if (keep.length) store.put(keep, 'loose');
-			else store.delete('loose');
+			if (keep.length) handles.put(keep, 'loose');
+			else handles.delete('loose');
 		} catch {
 			/* private mode, or a browser that will not clone a handle — forgetting is survivable */
 		}
@@ -2106,10 +2152,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	/** The shelf from last time, minus anything the browser will no longer hand over. */
 	async function recallLoose() {
 		if (!editor.canWrite) return;
-		const store = await handleStore('readonly');
-		if (!store) return;
+		const handles = await handleStore('readonly');
+		if (!handles) return;
 		const kept: LooseDoc[] | null = await new Promise((resolve) => {
-			const req = store.get('loose');
+			const req = handles.get('loose');
 			req.onsuccess = () => resolve(req.result ?? null);
 			req.onerror = () => resolve(null);
 		});
@@ -2124,11 +2170,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 
 	async function rememberFolder(dir: FileSystemDirectoryHandle | null) {
-		const store = await handleStore('readwrite');
-		if (!store) return;
+		const handles = await handleStore('readwrite');
+		if (!handles) return;
 		try {
-			if (dir) store.put(dir, 'folder');
-			else store.delete('folder');
+			if (dir) handles.put(dir, 'folder');
+			else handles.delete('folder');
 		} catch {
 			/* private mode, or a browser that will not clone a handle — forgetting is survivable */
 		}
@@ -2137,10 +2183,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	/** The folder from last time, if the browser kept it and still lets us read it. */
 	async function recallFolder() {
 		if (!editor.canWrite) return;
-		const store = await handleStore('readonly');
-		if (!store) return;
+		const handles = await handleStore('readonly');
+		if (!handles) return;
 		const dir: FileSystemDirectoryHandle | null = await new Promise((resolve) => {
-			const req = store.get('folder');
+			const req = handles.get('folder');
 			req.onsuccess = () => resolve(req.result ?? null);
 			req.onerror = () => resolve(null);
 		});
