@@ -2366,6 +2366,122 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	await c.close();
 }
 
+// ── SIGNING IN INSTEAD OF TYPING A PASSWORD ──────────────────────────────────
+// Login Flow v2: the server makes the app password and hands it over, so nothing about an account
+// is ever typed into this app. Three steps and a wait, all of them stubbed here — what is under
+// test is that the app opens a tab, waits, reads what comes back, and fills in the two fields
+// rather than connecting behind somebody's back.
+//
+// THE POP-UP IS THE PART MOST LIKELY TO BREAK. `window.open` only makes a tab during a real
+// gesture, and starting the flow is a round trip — so the tab is opened EMPTY on the click and
+// pointed at the URL afterwards. Opened after the round trip, every browser treats it as a pop-up
+// and blocks it, which is a failure nobody sees in development because the dev machine allows them.
+{
+	const c = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+	const lp = await c.newPage();
+	let polls = 0;
+	await lp.route('**/api/nextcloud', async (route) => {
+		const req = route.request();
+		const path = new URL(req.headers()['x-dav-target']).pathname;
+		if (path === '/index.php/login/v2') {
+			return route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({
+					poll: {
+						token: 'poll-token',
+						endpoint: 'https://cloud.example.com/index.php/login/v2/poll'
+					},
+					login: 'https://cloud.example.com/index.php/login/v2/flow/abc'
+				})
+			});
+		}
+		if (path === '/index.php/login/v2/poll') {
+			polls += 1;
+			// 404 IS THE ORDINARY ANSWER, for as long as nobody has granted it — which is most of the
+			// time somebody is looking at a login page. Treating it as a failure would end the flow
+			// two seconds after it began.
+			if (polls < 2) return route.fulfill({ status: 404 });
+			return route.fulfill({
+				status: 200,
+				contentType: 'application/json',
+				body: JSON.stringify({
+					server: 'https://cloud.example.com',
+					loginName: 'granted-user',
+					appPassword: 'server-made-password'
+				})
+			});
+		}
+		return route.fulfill({ status: 405 });
+	});
+	// The tab the flow opens goes to a server we do not have, so it is answered with a stub. ON THE
+	// CONTEXT, not the page: a route registered on `lp` intercepts `lp`'s requests, and the sign-in
+	// tab is a page of its own — the navigation went straight out and landed on a Chrome error page,
+	// which reads exactly like the app having failed to point the tab anywhere.
+	await c.route('https://cloud.example.com/**', (route) =>
+		route.fulfill({ status: 200, contentType: 'text/html', body: '<p>sign in</p>' })
+	);
+
+	await lp.goto(`${B}/apps/text-editor`, { waitUntil: 'networkidle' });
+	await lp.waitForTimeout(400);
+	await lp
+		.getByRole('button', { name: /settings/i })
+		.first()
+		.click();
+	await lp.getByRole('button', { name: /Connect a drive/ }).click();
+	await lp.waitForTimeout(200);
+
+	const signIn = lp.getByRole('button', { name: /Sign in on your server/ });
+	ok('the sign-in key is not offered in direct mode', (await signIn.count()) === 0);
+	await lp.getByRole('radio', { name: /Through this site/ }).click();
+	await lp.waitForTimeout(150);
+	ok(
+		'and is offered in the proxied one, where both of its requests can be made',
+		(await signIn.count()) === 1
+	);
+	ok('but not until there is a server to sign in to', await signIn.isDisabled());
+
+	await lp.locator('.te-conn-row input').nth(0).fill('cloud.example.com');
+	await lp.waitForTimeout(150);
+	ok('and then it is', !(await signIn.isDisabled()));
+
+	const opened = c.waitForEvent('page');
+	await signIn.click();
+	const tab = await opened;
+	// It arrives BLANK and is pointed afterwards, which is the whole trick — see the note above. So
+	// the assertion waits for the navigation rather than reading the URL the tab was born with,
+	// which is `about:blank` every time and would pass for the wrong reason if it were checked
+	// loosely.
+	await tab.waitForURL(/\/login\/v2\/flow\//, { timeout: 10000 }).catch(() => {});
+	ok(
+		'pressing it opens a tab on THEIR server, not a form in this app',
+		tab.url().startsWith('https://cloud.example.com/index.php/login/v2/flow/'),
+		tab.url()
+	);
+	await lp.waitForTimeout(5000);
+	ok(
+		'and it waited through a 404 rather than giving up on the first one',
+		polls >= 2,
+		`polls: ${polls}`
+	);
+	await eq(
+		'the user comes back from the server',
+		lp.locator('.te-conn-row input').nth(1).inputValue(),
+		'granted-user'
+	);
+	await eq(
+		'and so does the password, which was never typed here',
+		lp.locator('.te-conn-row input').nth(2).inputValue(),
+		'server-made-password'
+	);
+	ok(
+		'the fields are FILLED IN, not connected behind your back — the folder is still yours to pick',
+		(await lp.locator('.te-conn').count()) === 1 &&
+			(await lp.locator('.te-drive-head').count()) === 0
+	);
+	await c.close();
+}
+
 // ── A DRIVE IS A FOURTH LIST ─────────────────────────────────────────────────
 // The connected workspace, driven against a STUBBED upstream. `/api/nextcloud` is intercepted and
 // answered with real multistatus XML — the route's own rules are exhaustively unit-tested

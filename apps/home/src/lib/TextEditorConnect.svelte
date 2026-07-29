@@ -9,6 +9,7 @@
 		type Connection
 	} from '$lib/dav-connections';
 	import { probe, type Probe } from '$lib/dav';
+	import { POLL_EVERY_MS, POLL_FOR_MS, pollOnce, startLogin } from '$lib/dav-login';
 
 	// CONNECTING A DRIVE — the form, and the one choice in it that is not a preference.
 	//
@@ -45,6 +46,9 @@
 	let via = $state<'direct' | 'proxy'>('direct');
 	let keep = $state(true);
 	let trying = $state(false);
+	/** Waiting for somebody to finish signing in on their own server. See `signIn`. */
+	let waiting = $state(false);
+	let flowWindow: Window | null = null;
 	/** What the server said last time we asked, in the words this form needs. Empty until we ask. */
 	let problem = $state('');
 
@@ -54,7 +58,7 @@
 	// Derived rather than written in the markup: Svelte reads a `{` followed by `/` as a block
 	// CLOSING tag, so an expression that opens with a regular expression literal does not parse.
 	const typedHttp = $derived(/^http:\/\//i.test(base.trim()));
-	const ready = $derived(!!cleanBase && !!user.trim() && !!token.trim() && !trying);
+	const ready = $derived(!!cleanBase && !!user.trim() && !!token.trim() && !trying && !waiting);
 
 	/**
 	 * IT IS TRIED BEFORE IT IS KEPT. A connection form that accepts whatever is typed and fails
@@ -71,6 +75,79 @@
 		failed: 'The server answered, but not in a way this understands.',
 		blocked: ''
 	};
+
+	/**
+	 * LOGIN FLOW V2 — the server makes the app password and hands it over, so nobody types one.
+	 * Proxied mode only; the note at the head of $lib/dav-login says why at length.
+	 *
+	 * THE TAB IS OPENED FIRST, EMPTY, and pointed at the URL once there is one. `window.open` is
+	 * only allowed to make a tab during a real gesture, and starting the flow is a round trip — open
+	 * it after that round trip and every browser treats it as a pop-up and blocks it.
+	 */
+	async function signIn() {
+		if (!cleanBase || waiting) return;
+		problem = '';
+		// NOT `noopener`. It is the reflex, and here it is wrong: `window.open` with `noopener`
+		// returns NULL by specification — the whole point is that the opener gets no handle — and a
+		// null handle is a window this code cannot then point anywhere. The result was a blank tab
+		// that stayed blank while the flow waited for a sign-in nobody could reach.
+		//
+		// What that leaves is the opened page holding `window.opener`. It is the visitor's own
+		// Nextcloud, on the origin they typed, and `readFlow` refuses a login URL that is anywhere
+		// else — so the page that gets the handle is the same one they are about to type their
+		// password into.
+		flowWindow = window.open('', '_blank');
+		waiting = true;
+		const flow = await startLogin(cleanBase);
+		if (!flow) {
+			flowWindow?.close();
+			flowWindow = null;
+			waiting = false;
+			problem =
+				'That server would not start a sign-in. Check the address, or paste an app password.';
+			return;
+		}
+		// `replace`, not `href`: the blank page is scaffolding and has no business in their back
+		// button, where it would look like a page that failed to load.
+		if (flowWindow) flowWindow.location.replace(flow.login);
+		else {
+			// A blocked pop-up. Not an error to argue with — the link is offered instead, and the
+			// poll below carries on waiting for whichever way they get there.
+			problem = 'Allow the sign-in tab, or open it yourself: ' + flow.login;
+		}
+		const until = Date.now() + POLL_FOR_MS;
+		while (waiting && Date.now() < until) {
+			await new Promise((r) => setTimeout(r, POLL_EVERY_MS));
+			if (!waiting) return; // cancelled while we slept
+			const said = await pollOnce(flow);
+			if (said === 'pending') continue;
+			waiting = false;
+			flowWindow?.close();
+			flowWindow = null;
+			if (!said) {
+				problem = 'The sign-in did not complete.';
+				return;
+			}
+			// Filled in rather than connected outright: the FOLDER is still theirs to choose, and a
+			// flow that jumped straight to a connected drive would take that choice away.
+			user = said.user;
+			token = said.token;
+			problem = '';
+			return;
+		}
+		if (waiting) {
+			waiting = false;
+			flowWindow?.close();
+			flowWindow = null;
+			problem = 'The sign-in timed out.';
+		}
+	}
+
+	/** Stop waiting. The tab is theirs to close or not — this app only stops asking. */
+	function stopWaiting() {
+		waiting = false;
+		problem = '';
+	}
 
 	async function connect() {
 		if (!cleanBase || !ready) return;
@@ -185,6 +262,25 @@
 			: 'Needs nothing on your server. Your password and your documents pass through this site on every request.'}
 	</p>
 
+	<!-- SIGN IN, where it is certain to work. Proxied only — see $lib/dav-login: both of the flow's
+	     own requests need CORS, and routing them through the proxy in DIRECT mode would break that
+	     mode's one promise at the exact moment the credential is created. -->
+	{#if via === 'proxy'}
+		<div class="te-conn-keys te-conn-signin">
+			{#if waiting}
+				<span class="te-conn-note">Waiting for you to sign in…</span>
+				<button type="button" class="chip" onclick={stopWaiting}>Stop</button>
+			{:else}
+				<button type="button" class="chip" disabled={!cleanBase} onclick={signIn}
+					>Sign in on your server</button
+				>
+			{/if}
+		</div>
+		<p class="te-conn-note">
+			Your server makes the app password and fills in the two fields above. Nothing is typed here.
+		</p>
+	{/if}
+
 	<label class="te-conn-check">
 		<input type="checkbox" bind:checked={keep} />
 		<span>Remember this drive</span>
@@ -265,6 +361,13 @@
 		align-items: center;
 		gap: 0.4rem;
 		font-size: 0.78rem;
+		margin-top: 0.35rem;
+	}
+	/* The sign-in row sits with the fields rather than with Cancel and Connect, so it reads as
+	   another way to fill them in rather than as a third thing to press at the end. */
+	.te-conn-signin {
+		justify-content: flex-start;
+		align-items: center;
 		margin-top: 0.35rem;
 	}
 	.te-conn-keys {
