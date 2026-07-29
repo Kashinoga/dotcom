@@ -16,7 +16,17 @@
 		type LooseDoc,
 		type Ephemeral
 	} from '$lib/text-editor-state.svelte';
-	import { localStore, snapshotStore, type LocalStore, type Store } from '$lib/text-editor-store';
+	import {
+		localStore,
+		snapshotStore,
+		notWritten,
+		WROTE,
+		whyLocal,
+		type LocalStore,
+		type Store,
+		type WriteResult
+	} from '$lib/text-editor-store';
+	import { SAID } from '$lib/text-editor-state.svelte';
 	import FloatingKey from '$lib/FloatingKey.svelte';
 	import TextEditorSettings from '$lib/TextEditorSettings.svelte';
 	import { dev } from '$app/environment';
@@ -1427,8 +1437,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// A document in the workspace is a path, and the store owns the write. A document from the
 		// SHELF is a handle and has no store behind it — it came from outside every folder.
 		if (editor.openIn === 'tree') {
-			if (await store?.write(editor.openPath, text)) saySaved();
-			return;
+			return answer(store ? await store.write(editor.openPath, text) : notWritten('gone'));
 		}
 		const handle = editor.openHandle;
 		if (!handle) return;
@@ -1436,20 +1445,33 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			const w = await handle.createWritable();
 			await w.write(text);
 			await w.close();
-		} catch {
-			// Permission withdrawn, or the file went away. Nothing was written; say nothing rather
-			// than claim a save that did not happen.
-			return;
+		} catch (error) {
+			// Permission withdrawn, or the file went away. It USED to say nothing at all here — the
+			// reasoning being that a claim of a save that did not happen is worse than silence,
+			// which is true and is only half the choice available.
+			return answer(notWritten(whyLocal(error)));
 		}
-		saySaved();
+		answer(WROTE);
+	}
+
+	/** Land a write's answer on the Save key: Saved, or the one word that says why not. */
+	function answer(wrote: WriteResult) {
+		clearTimeout(savedTimer);
+		editor.saved = wrote.ok;
+		editor.saveFailed = wrote.ok ? '' : wrote.why;
+		// A refusal holds twice as long as a confirmation. "Saved" is a thing you glance at and a
+		// refusal is a thing you have to read, decide about, and probably act on.
+		savedTimer = window.setTimeout(
+			() => {
+				editor.saved = false;
+				editor.saveFailed = '';
+			},
+			wrote.ok ? 1400 : 3200
+		);
 	}
 
 	/** The Save key's own confirmation — emerald, for a second and a bit. */
-	function saySaved() {
-		editor.saved = true;
-		clearTimeout(savedTimer);
-		savedTimer = window.setTimeout(() => (editor.saved = false), 1400);
-	}
+	const saySaved = () => answer(WROTE);
 	let savedTimer = 0;
 
 	/**
@@ -1470,13 +1492,19 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * `done` is emerald and means it happened (Saved, Copied); `here` is the accent and means look
 	 * where it is now (Moved, Cleared).
 	 */
-	let said = $state({ key: '', word: '', tone: 'done' as 'done' | 'here' });
+	type Tone = 'done' | 'here' | 'lost';
+	let said = $state({ key: '', word: '', tone: 'done' as Tone });
 	let saidTimer = 0;
 
-	function flash(key: string, word: string, tone: 'done' | 'here' = 'done') {
+	function flash(key: string, word: string, tone: Tone = 'done') {
 		said = { key, word, tone };
 		clearTimeout(saidTimer);
-		saidTimer = window.setTimeout(() => (said = { key: '', word: '', tone: 'done' }), 1700);
+		// A refusal holds longer than a confirmation, for the reason `answer` does: one is glanced
+		// at and the other has to be read and acted on.
+		saidTimer = window.setTimeout(
+			() => (said = { key: '', word: '', tone: 'done' }),
+			tone === 'lost' ? 3200 : 1700
+		);
 	}
 
 	/** Rename an entry in the store, and follow it if it is the one on the sheet. */
@@ -1747,8 +1775,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		name: string;
 		/** Its words, read from wherever they actually live. Null if they cannot be got at. */
 		read: () => Promise<string | null>;
-		/** Empty it, where that is possible at all. Null means Clear is not offered on this row. */
-		clear: (() => Promise<boolean>) | null;
+		/**
+		 * Empty it, where that is possible at all. Null means Clear is not offered on this row —
+		 * which is not the same as a Clear that was refused, and is why this is not simply a verb
+		 * that answers no.
+		 */
+		clear: (() => Promise<WriteResult>) | null;
 	};
 
 	/** Is this row the one on the sheet? Its words are then the sheet's, not the disk's. */
@@ -1781,11 +1813,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				// draw.
 				clear: store?.writable
 					? async () => {
-							if (!(await store?.write(entry.path, ''))) return false;
+							const wrote = store ? await store.write(entry.path, '') : notWritten('gone');
+							if (!wrote.ok) return wrote;
 							// It is still the open file, still named, still savable — it is empty now.
 							// So the sheet follows it rather than being detached from it.
 							if (isOnSheet(entry.path, 'tree')) emptyTheSheet();
-							return true;
+							return wrote;
 						}
 					: null
 			};
@@ -1820,11 +1853,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 								const w = await doc.handle!.createWritable();
 								await w.write('');
 								await w.close();
-							} catch {
-								return false;
+							} catch (error) {
+								return notWritten(whyLocal(error));
 							}
 							if (isOnSheet(doc.id, 'loose')) emptyTheSheet();
-							return true;
+							return WROTE;
 						}
 					: null
 			};
@@ -1843,7 +1876,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			clear: async () => {
 				note.text = '';
 				if (isOnSheet(note.id, 'ephemeral')) emptyTheSheet();
-				return true;
+				return WROTE;
 			}
 		};
 	});
@@ -1899,7 +1932,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		}
 		clearTimeout(armTimer);
 		editor.armed = '';
-		if (await doc.clear()) flash(doc.key, 'Cleared', 'here');
+		const wrote = await doc.clear();
+		if (wrote.ok) flash(doc.key, 'Cleared', 'here');
+		else flash(doc.key, SAID[wrote.why], 'lost');
 		return true;
 	}
 
@@ -2381,6 +2416,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						class:into={row.list === 'ephemeral' && dropEphOn === row.id}
 						class:said={said.key === row.id}
 						class:said-here={said.key === row.id && said.tone === 'here'}
+						class:said-lost={said.key === row.id && said.tone === 'lost'}
 						data-said={said.key === row.id ? said.word : null}
 						aria-current={editor.openIn === row.list && editor.openPath === row.id
 							? 'true'
@@ -2447,6 +2483,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			class="icon-btn"
 			class:on={k.on?.()}
 			class:done={k.done?.()}
+			class:lost={k.lost?.()}
 			title={k.title()}
 			aria-label={k.label()}
 			aria-expanded={k.opens?.() ? !!editor.workspaceAt : undefined}
@@ -2693,6 +2730,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 										class:dragging={dragging === entry.path}
 										class:said={said.key === entry.path}
 										class:said-here={said.key === entry.path && said.tone === 'here'}
+										class:said-lost={said.key === entry.path && said.tone === 'lost'}
 										data-said={said.key === entry.path ? said.word : null}
 										aria-current={editor.openIn === 'tree' && editor.openPath === entry.path
 											? 'true'
@@ -4178,6 +4216,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   now. Same split the keys keep between `.done` and `.on`. */
 	.te-work-row.said-here {
 		--te-said: var(--orange);
+	}
+	/* The REFUSAL tone. Neither of the other two would do: emerald says it happened, and the accent
+	   says look where it is now — a write that did not happen is not either of those, and wearing
+	   one of their colours would make the row say the opposite of what it means. */
+	.te-work-row.said-lost {
+		--te-said: var(--crimson);
 	}
 	/* The word is the ROW'S, carried as an attribute rather than as one rule per verb. Four verbs
 	   answer here now and a fifth should cost a call, not a stylesheet. */

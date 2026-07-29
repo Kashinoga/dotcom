@@ -18,8 +18,8 @@
 // the file was deleted, a remote one fails because a train went into a tunnel. Those are not the
 // same event and the editor does not yet tell them apart. See the note on `write` below.
 
-import type { DetachedDoc, FolderEntry, Listing, Store } from '$lib/text-editor-store';
-import { dirOf, join } from '$lib/text-editor-store';
+import type { DetachedDoc, FolderEntry, Listing, Store, WriteError } from '$lib/text-editor-store';
+import { dirOf, join, notWritten, WROTE } from '$lib/text-editor-store';
 
 // ── Reading a multistatus ─────────────────────────────────────────────────────
 // PROPFIND answers 207 with a document like this, and the parts of it worth having are few:
@@ -277,6 +277,19 @@ const MAX_FILES = 500;
 const MAX_DEPTH = 6;
 
 /**
+ * An HTTP status, said in the words a row can use. 412 is the interesting one and it means two
+ * different things on two different requests — "somebody else changed it" after `If-Match`, and
+ * "that name is taken" after `If-None-Match: *` or `Overwrite: F` — so only the caller that sent
+ * the precondition can name it, and only `write` calls this with a 412 in play.
+ */
+function whyStatus(status: number): WriteError {
+	if (status === 412 || status === 409) return 'conflict';
+	if (status === 401 || status === 403) return 'denied';
+	if (status === 404 || status === 410) return 'gone';
+	return 'failed';
+}
+
+/**
  * A WORKSPACE ON A SERVER.
  *
  * `list` walks BREADTH FIRST, one PROPFIND per folder at `Depth: 1`. Not `Depth: infinity`, which
@@ -362,10 +375,10 @@ export function davStore(cfg: DavConfig, openable: RegExp): Store {
 		 * edge case on a cloud drive — it is what a cloud drive is FOR — where two windows onto one
 		 * local file is a thing somebody had to go out of their way to arrange.
 		 *
-		 * The 412 is currently lost: `Store.write` answers true or false, and the editor says
-		 * nothing at all when it is false. That is right for a local write, which fails when the
-		 * file was deleted, and wrong for this one, which fails when somebody else got there first
-		 * and needs to be TOLD. It is the next thing this needs and it is an interface change.
+		 * A 412 IS THE GOOD OUTCOME OF A BAD SITUATION: nothing was lost, and the only reason the
+		 * visitor has to be told is that they are the one holding the other version. Saying nothing
+		 * — which is what a bare false would leave the editor doing — would let them close a tab
+		 * over work they still had.
 		 */
 		async write(path, body) {
 			const known = etags.get(path);
@@ -376,11 +389,12 @@ export function davStore(cfg: DavConfig, openable: RegExp): Store {
 				},
 				body
 			});
-			if (!res?.ok) return false;
+			if (!res) return notWritten('offline');
+			if (!res.ok) return notWritten(whyStatus(res.status));
 			const tag = res.headers.get('etag');
 			if (tag) etags.set(path, tag.replace(/^W\//i, '').replace(/^"|"$/g, ''));
 			else etags.delete(path); // whatever we had is stale; a re-read will fetch the new one
-			return true;
+			return WROTE;
 		},
 
 		/**

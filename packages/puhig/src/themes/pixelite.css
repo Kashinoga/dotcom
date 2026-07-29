@@ -38,6 +38,12 @@
 	   cobalt pair — an ink that carries on paper and on dark stock, over a faint tinted seat. */
 	--emerald: light-dark(#00734a, #3fca92); /* emerald-700 / emerald-400 */
 	--pixel-key-done: light-dark(#dcf5ea, #0f3025); /* the done-key fill, emerald-50 / deep green */
+	/* The THIRD ink, and the last. A control that has just FAILED at something cannot borrow either
+	   of the other two: emerald means it landed, cobalt means it is the mode you are in, and a
+	   refusal wearing one of those says the opposite of what happened. Same weights again — an ink
+	   that carries on paper and on dark stock, over a faint tinted seat. */
+	--crimson: light-dark(#b3261e, #ff8a80); /* red-700 / red-200 */
+	--pixel-key-lost: light-dark(#fdeceb, #33110f); /* the lost-key fill, red-50 / deep red */
 	--sub: light-dark(rgba(0, 0, 0, 0.4), rgba(242, 242, 242, 0.4)); /* muted = ink at 40% */
 
 	/* Grid line colour over the page field (tile size --grid-size lives in base). */
@@ -298,6 +304,14 @@ html[data-look='pixelite'] .icon-btn.done:hover {
 	border-color: var(--emerald);
 	background: var(--pixel-key-done);
 }
+/* The disc REFUSING. Same argument as `.done` above, one step further: a disc carries a glyph and
+ * no word at all, so on a phone the colour is the whole of the message. */
+html[data-look='pixelite'] .icon-btn.lost,
+html[data-look='pixelite'] .icon-btn.lost:hover {
+	color: var(--crimson);
+	border-color: var(--crimson);
+	background: var(--pixel-key-lost);
+}
 
 /* Settings segmented controls (.seg) and the sky picker (.sky-opt) → plastic keys with a
  * mono, uppercase label. Same white/50 face, ink border, bevel and 4px corners; the
@@ -486,6 +500,25 @@ html[data-look='pixelite'] .type-btn.done:hover:not(:disabled) {
 	color: var(--emerald);
 	border-color: var(--emerald);
 	background: var(--pixel-key-done);
+}
+/* `.lost` — the key saying a write did NOT happen. The third state and the last one: `.on` is the
+ * mode you are in, `.done` is it landed, this is it did not. The hover pair is spelled out for the
+ * same reason the emerald one is — the theme's hover selector out-specifies a bare class, and a
+ * refusal that turned cobalt under the pointer would do it at the exact moment somebody leaned in
+ * to read it. */
+html[data-look='pixelite'] .chip.lost,
+html[data-look='pixelite'] .tb.lost,
+html[data-look='pixelite'] .mini.lost,
+html[data-look='pixelite'] .legend-btn.lost,
+html[data-look='pixelite'] .type-btn.lost,
+html[data-look='pixelite'] .chip.lost:hover:not(:disabled),
+html[data-look='pixelite'] .tb.lost:hover:not(:disabled),
+html[data-look='pixelite'] .mini.lost:hover:not(:disabled),
+html[data-look='pixelite'] .legend-btn.lost:hover:not(:disabled),
+html[data-look='pixelite'] .type-btn.lost:hover:not(:disabled) {
+	color: var(--crimson);
+	border-color: var(--crimson);
+	background: var(--pixel-key-lost);
 }
 html[data-look='pixelite'] .chip:active:not(:disabled),
 html[data-look='pixelite'] .tb:active:not(:disabled),

@@ -168,6 +168,7 @@
 						class="tb"
 						class:on={k.on?.()}
 						class:done={k.done?.()}
+						class:lost={k.lost?.()}
 						onclick={k.run}
 						title={k.title()}
 					>
@@ -176,7 +177,9 @@
 						     a key is saying something back. "Saved" and "Sure?" are state, not a label,
 						     and state that only shows on a wide window is state half the visitors never
 						     see. -->
-						<span class="te-key-word" class:te-say={k.on?.() || k.done?.()}>{k.label()}</span>
+						<span class="te-key-word" class:te-say={k.on?.() || k.done?.() || k.lost?.()}
+							>{k.label()}</span
+						>
 					</button>
 				{/each}
 			</div>

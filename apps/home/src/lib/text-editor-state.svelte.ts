@@ -31,7 +31,7 @@ import {
 	DOC_TEXT_SVG,
 	FOLDER_OPEN_SVG
 } from '$lib/icons';
-import type { FolderEntry } from '$lib/text-editor-store';
+import type { FolderEntry, WriteError } from '$lib/text-editor-store';
 
 export type Mode = 'write' | 'split' | 'proof';
 
@@ -44,7 +44,7 @@ export type Mode = 'write' | 'split' | 'proof';
  * document that lives on a server has none of them and never will. They are private to the store
  * now (see $lib/text-editor-store), which is what lets a second kind of workspace exist at all.
  */
-export type { FolderEntry, Store } from '$lib/text-editor-store';
+export type { FolderEntry, Store, WriteError, WriteResult } from '$lib/text-editor-store';
 
 /**
  * A document on the sheet that did NOT come out of the open folder — one picked with Open, or
@@ -211,6 +211,14 @@ export const editor = $state({
 	openWritable: false,
 	/** Briefly true after a save lands, so the key can say so. */
 	saved: false,
+	/**
+	 * Briefly set to WHY a save did not land. A save is the one write in this app whose failure
+	 * leaves nothing on screen to notice — the words are still on the sheet either way — and it was
+	 * silent here for as long as the only way to fail was a file somebody had deleted. Over a
+	 * network it can fail because a train went into a tunnel, or because the same note is open on a
+	 * phone, and neither of those may be told by saying nothing.
+	 */
+	saveFailed: '' as WriteError | '',
 	/** The path of the entry currently on the sheet, so the workspace can mark it. */
 	openPath: '',
 	/**
@@ -423,6 +431,23 @@ export type MarkKey = { label?: string; svg?: string; title: string; run: () => 
 /** The six levels, behind one key. See `headingAt`. */
 export const HEADING_LEVELS = [1, 2, 3, 4, 5, 6];
 
+/**
+ * WHAT A REFUSED WRITE SAYS, one word each, because it is said on a key in a one-row bar and on a
+ * row in a 250px column. These are the whole message — there is no second line and no dialog, and
+ * the audience for this app can act on every one of them.
+ *
+ * `Conflict` is the only one that is not self-evident, and it is deliberately the technical word:
+ * it means the document changed somewhere else and NOTHING was overwritten. A softer word would
+ * have to be longer to say the same thing, and the people who use this know what it means.
+ */
+export const SAID: Record<WriteError, string> = {
+	conflict: 'Conflict',
+	offline: 'Offline',
+	denied: 'Refused',
+	gone: 'Gone',
+	failed: 'Failed'
+};
+
 /** Open the heading menu under whatever key was pressed. */
 export function openHeadings(event: MouseEvent) {
 	const key = (event.currentTarget as HTMLElement).getBoundingClientRect();
@@ -493,6 +518,13 @@ export type DocKey = {
 	 * on its own timer. `armed` is deliberately NOT this: "Sure?" is a question, not an answer.
 	 */
 	done?: () => boolean;
+	/**
+	 * Is the key saying a write did NOT happen? A third state beside `done`, in a third colour,
+	 * because the two it would otherwise borrow are both wrong: emerald means it landed, and the
+	 * cobalt accent means this is the mode you are in. A refusal is neither, and a refusal that
+	 * looked like either would be worse than no answer at all.
+	 */
+	lost?: () => boolean;
 	/** Drawn at all? A key that cannot do what it says should not be on screen. */
 	shown?: () => boolean;
 	folds: () => boolean;
@@ -539,9 +571,10 @@ export const DOC_KEYS: DocKey[] = [
 			editor.openIn === 'ephemeral'
 				? `File this note in ${editor.folderName || 'the folder'} as ${editor.filename}.md`
 				: `Save back to ${editor.filename || 'the file'}`,
-		label: () => (editor.saved ? 'Saved' : 'Save'),
+		label: () => (editor.saveFailed ? SAID[editor.saveFailed] : editor.saved ? 'Saved' : 'Save'),
 		run: () => editor.cmd?.saveInPlace(),
 		done: () => editor.saved,
+		lost: () => !!editor.saveFailed,
 		/**
 		 * Only when there is somewhere for it to go. Two ways there can be: a document on the sheet
 		 * that can be written back to, or a SCRATCH note and a writable folder open to file it into

@@ -1145,6 +1145,80 @@ await reset('first\n\n\nlast');
 		})) === '# Alpha changed'
 	);
 
+	// A SAVE THAT DID NOT HAPPEN SAYS SO. This is the one write in the app whose failure leaves
+	// nothing on screen to notice — the words are still on the sheet either way — so the key is the
+	// only thing that can tell you, and for a long time it said nothing at all.
+	//
+	// The failure is FORCED by making `createWritable` throw the DOMException the spec defines for
+	// a file that is not there. Deleting the file for real does not work and the reason is worth
+	// recording: `createWritable` on a handle whose entry has been removed RE-CREATES it in OPFS —
+	// measured, right here — so the save succeeds and the file comes back. What is under test is
+	// this app's handling of the exception, and that is what is raised.
+	await wp.evaluate(() => {
+		window.__realWritable = FileSystemFileHandle.prototype.createWritable;
+		FileSystemFileHandle.prototype.createWritable = async function () {
+			throw new DOMException('no such file', 'NotFoundError');
+		};
+	});
+	await wp.locator('.te-type').fill('# Alpha refused');
+	await wp.waitForTimeout(200);
+	await wp.getByRole('button', { name: /^Save/ }).click();
+	await wp.waitForTimeout(400);
+	ok(
+		'a refused save says which way it was refused',
+		(await wp.locator('.tb.lost').innerText()).trim().toUpperCase() === 'GONE',
+		await wp
+			.locator('.tb.lost')
+			.innerText()
+			.catch(() => 'no .lost key at all')
+	);
+	ok(
+		'and wears the refusal ink, not the emerald that means it landed',
+		(await wp.locator('.tb.lost').count()) === 1 && (await wp.locator('.tb.done').count()) === 0
+	);
+	ok(
+		'which is the crimson token rather than a colour of its own',
+		// `--crimson` is a `light-dark()`, so its DECLARED value cannot be compared against a
+		// computed one. It is resolved through a throwaway element that wears it, which is the only
+		// way to ask the browser what it actually came out as — and checked against the emerald in
+		// the same breath, because the whole claim is that these two are not the same answer.
+		await wp.locator('.tb.lost').evaluate((el) => {
+			const wear = (value) => {
+				const probe = document.createElement('span');
+				probe.style.color = value;
+				el.append(probe);
+				const out = getComputedStyle(probe).color;
+				probe.remove();
+				return out;
+			};
+			const got = getComputedStyle(el).color;
+			return got === wear('var(--crimson)') && got !== wear('var(--emerald)');
+		})
+	);
+	ok(
+		'and nothing was written, which is the whole point of saying so',
+		(await wp.evaluate(async () => {
+			const root = await navigator.storage.getDirectory();
+			return (await (await root.getFileHandle('alpha.md')).getFile()).text();
+		})) === '# Alpha changed'
+	);
+	await wp.evaluate(() => {
+		FileSystemFileHandle.prototype.createWritable = window.__realWritable;
+	});
+	await wp.getByRole('button', { name: /^Save/ }).click();
+	await wp.waitForTimeout(400);
+	ok(
+		'and the next save, which works, says Saved again',
+		(await wp.locator('.tb.done').count()) === 1 && (await wp.locator('.tb.lost').count()) === 0
+	);
+	ok(
+		'writing what the refused one could not',
+		(await wp.evaluate(async () => {
+			const root = await navigator.storage.getDirectory();
+			return (await (await root.getFileHandle('alpha.md')).getFile()).text();
+		})) === '# Alpha refused'
+	);
+
 	// RENAME AND DELETE ARE ON THE ROW'S CONTEXT MENU, not on the row. Playwright's `click` with
 	// button: 'right' fires a real contextmenu event at the row's centre, which is what the
 	// workspace listens for — so this drives the menu the same way a pointer does.

@@ -32,6 +32,37 @@
  */
 export type FolderEntry = { name: string; path: string };
 
+/**
+ * WHY A WRITE DID NOT HAPPEN. A write is the one verb in this app whose failure leaves NOTHING on
+ * screen to notice — a rename that was refused shows the old name, a delete that was refused leaves
+ * the row where it was, a move that was refused leaves it in its folder. A save that was refused
+ * looks exactly like a save that worked, and the words are still on the sheet either way. So this
+ * one answers with a reason and the others answer with a yes or a no.
+ *
+ * The reasons are what a row can usefully SAY, not a translation of the platform's error list.
+ * `conflict` in particular could not exist before there was somewhere to keep a document other
+ * than this machine, and it is the one nobody would guess: it means the document changed under you
+ * and nothing was overwritten, which is good news wearing the shape of bad news.
+ */
+export type WriteError = 'conflict' | 'offline' | 'denied' | 'gone' | 'failed';
+
+/** A write's answer. Only `{ ok: true }` means the words are safe. */
+export type WriteResult = { ok: true } | { ok: false; why: WriteError };
+
+export const WROTE: WriteResult = { ok: true };
+export const notWritten = (why: WriteError): WriteResult => ({ ok: false, why });
+
+/**
+ * What the File System Access API throws, said in the words above. Its exceptions are DOMExceptions
+ * whose `name` is the whole of the information — the message is for a console, not for a row.
+ */
+export function whyLocal(error: unknown): WriteError {
+	const name = error instanceof DOMException ? error.name : '';
+	if (name === 'NotAllowedError' || name === 'SecurityError') return 'denied';
+	if (name === 'NotFoundError') return 'gone';
+	return 'failed';
+}
+
 /** What a walk found: the readable documents, and every directory it went into. */
 export type Listing = { files: FolderEntry[]; dirs: string[] };
 
@@ -72,8 +103,8 @@ export type Store = {
 	list(): Promise<Listing | null>;
 	/** A document's words, or null if they cannot be got at. */
 	read(path: string): Promise<string | null>;
-	/** Write a document back. False if nothing was written. */
-	write(path: string, body: string): Promise<boolean>;
+	/** Write a document back — and say why not, where it did not. See `WriteError`. */
+	write(path: string, body: string): Promise<WriteResult>;
 	/**
 	 * Make a NEW document under `dir` ('' is the root), named `base` + `ext` or the first free
 	 * variant of it, holding `body`. Answers with the entry it made, or null.
@@ -161,16 +192,16 @@ export function localStore(root: FileSystemDirectoryHandle, openable: RegExp): L
 		return `${base} ${Date.now()}${ext}`;
 	}
 
-	async function put(handle: FileSystemFileHandle, body: string) {
+	async function put(handle: FileSystemFileHandle, body: string): Promise<WriteResult> {
 		try {
 			const w = await handle.createWritable();
 			await w.write(body);
 			await w.close();
-			return true;
-		} catch {
-			// Permission withdrawn, or the file went away. Nothing was written; the caller says
-			// nothing rather than claiming a save that did not happen.
-			return false;
+			return WROTE;
+		} catch (error) {
+			// Permission withdrawn, or the file went away. Which of those it was is worth carrying:
+			// one is fixed by clicking Reconnect and the other is not fixable at all.
+			return notWritten(whyLocal(error));
 		}
 	}
 
@@ -208,7 +239,9 @@ export function localStore(root: FileSystemDirectoryHandle, openable: RegExp): L
 
 		async write(path, body) {
 			const handle = files.get(path);
-			return handle ? put(handle, body) : false;
+			// No handle at that path is the tree disagreeing with the disk, which is what happens
+			// when something was moved or deleted by another program while this was open.
+			return handle ? put(handle, body) : notWritten('gone');
 		},
 
 		async create(dir, base, ext, body) {
@@ -221,7 +254,7 @@ export function localStore(root: FileSystemDirectoryHandle, openable: RegExp): L
 			} catch {
 				return null;
 			}
-			if (!(await put(handle, body))) return null;
+			if (!(await put(handle, body)).ok) return null;
 			const path = join(dir, name);
 			files.set(path, handle);
 			return { name, path };
@@ -339,7 +372,9 @@ export function snapshotStore(name: string, picked: File[], openable: RegExp): S
 				return null;
 			}
 		},
-		write: async () => false,
+		// Not "it failed" — it was never possible. A snapshot is a list of File objects and no
+		// browser will write through one.
+		write: async () => notWritten('denied'),
 		create: no,
 		rename: no,
 		move: no,
