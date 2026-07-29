@@ -1177,8 +1177,8 @@ await reset('first\n\n\nlast');
 		(await wp.locator('.tb.lost').count()) === 1 && (await wp.locator('.tb.done').count()) === 0
 	);
 	ok(
-		'which is the crimson token rather than a colour of its own',
-		// `--crimson` is a `light-dark()`, so its DECLARED value cannot be compared against a
+		'which is the ruby token rather than a colour of its own',
+		// `--ruby` is a `light-dark()`, so its DECLARED value cannot be compared against a
 		// computed one. It is resolved through a throwaway element that wears it, which is the only
 		// way to ask the browser what it actually came out as — and checked against the emerald in
 		// the same breath, because the whole claim is that these two are not the same answer.
@@ -1192,7 +1192,7 @@ await reset('first\n\n\nlast');
 				return out;
 			};
 			const got = getComputedStyle(el).color;
-			return got === wear('var(--crimson)') && got !== wear('var(--emerald)');
+			return got === wear('var(--ruby)') && got !== wear('var(--emerald)');
 		})
 	);
 	ok(

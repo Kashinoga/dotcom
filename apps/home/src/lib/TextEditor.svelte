@@ -4221,7 +4221,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   says look where it is now — a write that did not happen is not either of those, and wearing
 	   one of their colours would make the row say the opposite of what it means. */
 	.te-work-row.said-lost {
-		--te-said: var(--crimson);
+		--te-said: var(--ruby);
 	}
 	/* The word is the ROW'S, carried as an attribute rather than as one rule per verb. Four verbs
 	   answer here now and a fifth should cost a call, not a stylesheet. */

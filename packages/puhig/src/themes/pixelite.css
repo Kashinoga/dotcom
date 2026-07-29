@@ -31,19 +31,24 @@
 	--card-grain: none;
 	--foil-sparkle: none;
 	--orange: light-dark(#103dff, #607ffd); /* cobalt-600 — the one accent (ink scale below) */
-	/* The SECOND ink, and the only one. Cobalt is what a control wears when it is selected, or
-	   hovered, or otherwise being pointed at — so a key that has just SUCCEEDED at something and
-	   says so in cobalt is the one colour in this manual saying two different things at once.
-	   Emerald is that answer: "it landed", never "it is on". Tuned to the same weights as the
-	   cobalt pair — an ink that carries on paper and on dark stock, over a faint tinted seat. */
+	/* The SECOND ink. Cobalt is what a control wears when it is selected, or hovered, or otherwise
+	   being pointed at — so a key that has just SUCCEEDED at something and says so in cobalt is the
+	   one colour in this manual saying two different things at once. Emerald is that answer: "it
+	   landed", never "it is on". Tuned to the same weights as the cobalt pair — an ink that carries
+	   on paper and on dark stock, over a faint tinted seat. */
 	--emerald: light-dark(#00734a, #3fca92); /* emerald-700 / emerald-400 */
 	--pixel-key-done: light-dark(#dcf5ea, #0f3025); /* the done-key fill, emerald-50 / deep green */
 	/* The THIRD ink, and the last. A control that has just FAILED at something cannot borrow either
 	   of the other two: emerald means it landed, cobalt means it is the mode you are in, and a
 	   refusal wearing one of those says the opposite of what happened. Same weights again — an ink
-	   that carries on paper and on dark stock, over a faint tinted seat. */
-	--crimson: light-dark(#b3261e, #ff8a80); /* red-700 / red-200 */
-	--pixel-key-lost: light-dark(#fdeceb, #33110f); /* the lost-key fill, red-50 / deep red */
+	   that carries on paper and on dark stock, over a faint tinted seat.
+
+	   RUBY, not crimson, and the name is the point: the answering inks are GEMS. Emerald landed,
+	   ruby did not, and cobalt — the mineral the accent is already named for — is the odd one out
+	   on purpose, because it is not an answer about anything. A fourth answer, if this app ever
+	   needs one, is a stone and not a shade. */
+	--ruby: light-dark(#b3261e, #ff8a80); /* ruby-700 / ruby-200 */
+	--pixel-key-lost: light-dark(#fdeceb, #33110f); /* the lost-key fill, ruby-50 / deep ruby */
 	--sub: light-dark(rgba(0, 0, 0, 0.4), rgba(242, 242, 242, 0.4)); /* muted = ink at 40% */
 
 	/* Grid line colour over the page field (tile size --grid-size lives in base). */
@@ -308,8 +313,8 @@ html[data-look='pixelite'] .icon-btn.done:hover {
  * no word at all, so on a phone the colour is the whole of the message. */
 html[data-look='pixelite'] .icon-btn.lost,
 html[data-look='pixelite'] .icon-btn.lost:hover {
-	color: var(--crimson);
-	border-color: var(--crimson);
+	color: var(--ruby);
+	border-color: var(--ruby);
 	background: var(--pixel-key-lost);
 }
 
@@ -516,8 +521,8 @@ html[data-look='pixelite'] .tb.lost:hover:not(:disabled),
 html[data-look='pixelite'] .mini.lost:hover:not(:disabled),
 html[data-look='pixelite'] .legend-btn.lost:hover:not(:disabled),
 html[data-look='pixelite'] .type-btn.lost:hover:not(:disabled) {
-	color: var(--crimson);
-	border-color: var(--crimson);
+	color: var(--ruby);
+	border-color: var(--ruby);
 	background: var(--pixel-key-lost);
 }
 html[data-look='pixelite'] .chip:active:not(:disabled),
