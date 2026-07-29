@@ -417,6 +417,16 @@ await page.waitForTimeout(200);
 			'Ephemeral 0',
 		JSON.stringify(await page.locator('.te-work-list .te-work-row').allTextContents())
 	);
+	// AND THE SHEET IS THAT NOTE'S, not the closed one's. The standing note was MARKED open
+	// without being put on the sheet: the row said `Ephemeral 0`, the sheet still held the words
+	// of the note that had just been destroyed, and clicking the row did nothing at all — the app
+	// thought that note was already open, because by its own markers it was.
+	await eq('the standing note is on the sheet, not merely marked', value(), '');
+	await eq('and the foot names it', page.locator('.te-lamp').textContent(), 'Ephemeral 0');
+	ok(
+		'with the row marked to match',
+		(await page.locator('.te-work-row.on .te-work-file').textContent()) === 'Ephemeral 0'
+	);
 	await reset('');
 }
 
@@ -1393,6 +1403,10 @@ await reset('first\n\n\nlast');
 			await wp.waitForTimeout(400);
 		}
 
+		// CLOSING THE OPEN ONE LANDS ON ANOTHER NOTE, the way closing a tab does — the sheet used
+		// to keep the closed note's words with no row marked anywhere, which is a document the
+		// workspace has never heard of and therefore one with no Copy, no Save a copy and no
+		// Clear.
 		ok(
 			'and the second press takes it, leaving the standing note',
 			(await wp.locator(`${scratch} .te-work-file`).allTextContents()).join(',') === 'Ephemeral 0',

@@ -263,7 +263,17 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// AFTER the restore, and outside the try: a storage failure must not be the reason the pane
 		// comes up with no document in it. `text` is whatever survived — the manual page on a first
 		// visit, the last sheet on a later one — and the standing note is made around it.
-		ensureScratch(text);
+		const standing = ensureScratch(text);
+		// The MARKERS only. The note was made from the sheet, so it is already exactly what is on
+		// it, and a write here would be a write on top of an identical one — on the single path
+		// where the textarea may not have mounted yet. Skipped entirely if something else is
+		// already open: a restored folder can have a document on the sheet behind it, and a note
+		// that stole it at mount would be a note nobody asked for.
+		if (standing && !editor.openPath) {
+			editor.openPath = standing.id;
+			editor.openIn = 'ephemeral';
+			editor.filename = standing.name;
+		}
 
 		// The editor owns the media query even though the RACK is what reads it: the rack only
 		// exists while the editor does, and one listener beats two that could disagree.
@@ -1087,17 +1097,20 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * with: the note is made AROUND what is already there rather than over it. It takes id `eph-0`
 	 * and the seq carries on at 1, so the first New is still `Ephemeral 1`.
 	 */
-	function ensureScratch(keep = '') {
-		if (editor.ephemeral.length) return;
+	function ensureScratch(keep = ''): Ephemeral | null {
+		if (editor.ephemeral.length) return null;
 		const doc = { id: 'eph-0', name: 'Ephemeral 0', text: keep };
 		editor.ephemeral = [doc];
-		// Only if nothing else is on the sheet. A restored folder can have a document open behind
-		// it, and a note that stole the sheet at mount would be a note nobody asked for.
-		if (!editor.openPath) {
-			editor.openPath = doc.id;
-			editor.openIn = 'ephemeral';
-			editor.filename = doc.name;
-		}
+		// It MAKES the note and does not open it. Opening is the caller's, because the two callers
+		// need opposite things: at mount the note is made around what is already on the sheet and
+		// only the markers are missing, and after a close the sheet is holding the words of the
+		// note that was just destroyed and has to be written over.
+		//
+		// Marking a row open without putting it on the sheet is exactly the bug this shape fixes:
+		// the row said `Ephemeral 0` was open, the sheet still held the closed note's words, and
+		// clicking the row did nothing at all — `openEphemeral` saw a note that was already open
+		// and returned.
+		return doc;
 	}
 
 	function newEphemeral() {
@@ -1175,16 +1188,22 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 
 	/** Take a scratch note off the list. Its words go with it — there is nowhere else they are. */
 	function closeEphemeral(doc: Ephemeral) {
+		const at = editor.ephemeral.findIndex((d) => d.id === doc.id);
+		const wasOpen = editor.openIn === 'ephemeral' && editor.openPath === doc.id;
 		editor.ephemeral = editor.ephemeral.filter((d) => d.id !== doc.id);
-		if (editor.openIn === 'ephemeral' && editor.openPath === doc.id) {
-			editor.openPath = '';
-			editor.openIn = 'tree';
-			editor.filename = '';
-		}
 		// Closing the LAST one leaves a standing note behind it rather than an empty list — the
 		// pane always has a scratch document, and closing the only one reads as clearing it. The
 		// new one is empty: what it replaces is gone, and this is not a way of undoing that.
-		ensureScratch();
+		const standing = ensureScratch();
+		if (!wasOpen) return;
+		// IT LANDS ON ANOTHER NOTE, the way closing a tab does. The sheet used to keep the closed
+		// note's words with no row marked anywhere — a document on the sheet that the workspace
+		// had never heard of, which is the one state this pane is now built not to have: Copy,
+		// Save a copy and Clear are a ROW'S verbs, so a sheet with no row has none of them.
+		// The neighbour at the same index (the one that slid up into the closed row's place), or
+		// the last one if it was the last row, or the standing note that has just been made.
+		const next = standing ?? editor.ephemeral[Math.min(at, editor.ephemeral.length - 1)];
+		putEphemeralOnSheet(next);
 	}
 
 	// The sheet is the live copy while a scratch note is open, so the row has to follow it. On a

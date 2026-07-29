@@ -89,11 +89,12 @@ export const RELEASES: Record<string, AppRelease> = {
 		// the two of them could be empty. The rearrangement they arrived with is not counted —
 		// nothing became possible that was not possible before, and the scheme counts what the
 		// app can DO rather than where it keeps it.
-		// Three: the two visual repairs above, and the sheet that could hold a document with no row
-		// behind it — which made that one document the exception to every verb the workspace has.
-		fixes: 3,
-		commits: 319,
+		// Four. The newest is the standing note being MARKED open without being put on the sheet,
+		// which made its row do nothing when pressed — the app already thought it was open.
+		fixes: 4,
+		commits: 320,
 		recent: [
+			{ at: '0.9.4.320', what: 'Closing a scratch note lands on another one, sheet and all' },
 			{ at: '0.9.3.319', what: 'There is always a scratch note, and Scratch is always shown' },
 			{ at: '0.9.3.319', what: 'New, Change and Hide are behind the Workspace key' },
 			{ at: '0.9.2.318', what: 'One Settings key holds Apps, About, Install and the version' },
