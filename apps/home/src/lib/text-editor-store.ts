@@ -55,7 +55,7 @@ export type DetachedDoc = {
  */
 export type Store = {
 	/** Which kind, for the messages that have to name it. */
-	kind: 'local' | 'snapshot';
+	kind: 'local' | 'snapshot' | 'dav';
 	/** The folder's own name — the head of the tree. */
 	name: string;
 	/** Can anything in here be written? False for a snapshot, always. */

@@ -38,9 +38,17 @@ export async function resolve(specifier, context, next) {
 		return resolve(pathToFileURL(resolvePath(lib, specifier.slice(5))).href, context, next);
 	}
 
-	// Extensionless relative specifier: try `.ts`, then let Node's own resolver have it (so a
-	// genuine typo still reports as a missing module, at the right path).
-	if (/^\.{1,2}\//.test(specifier) && !/\.[a-z0-9]+$/i.test(specifier)) {
+	// Extensionless specifier: try `.ts`, then let Node's own resolver have it (so a genuine typo
+	// still reports as a missing module, at the right path).
+	//
+	// `file:` is in here because of the branch ABOVE: a `$lib/x` specifier is rewritten to an
+	// absolute file URL and handed back to this function, and it is still extensionless when it
+	// arrives. Without it, `$lib/a` importing `$lib/b` resolved to a path with no file at it and
+	// reported a missing module in a directory full of them.
+	if (
+		(/^\.{1,2}\//.test(specifier) || specifier.startsWith('file:')) &&
+		!/\.[a-z0-9]+$/i.test(specifier)
+	) {
 		try {
 			return await next(`${specifier}.ts`, context);
 		} catch {
