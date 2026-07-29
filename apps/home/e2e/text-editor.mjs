@@ -80,19 +80,28 @@ const value = () => ta.inputValue();
 	// favicon already say where you are, and a dense bar has one row to give.
 	ok('the bar carries no title', (await page.locator('.head-title').count()) === 0);
 	ok('the bar carries the rack instead', await page.locator('.head-row .te-rack').isVisible());
-	// The corner holds two keys now — Home and About — so this asks for Home by name rather than
-	// for "the icon button", which stopped being one element the moment About arrived.
+	// The corner holds ONE key now: Settings. Home, About, Install and the beta tag all went
+	// behind it — none of them acts on the document, and a one-row bar cannot spend four
+	// controls on chrome. The way out is inside it, and it leads to Apps.
 	ok(
-		'and offers the way out',
-		await page.getByRole('button', { name: 'Close and go home' }).isVisible()
+		'and offers the settings key',
+		await page.locator('.icon-btn[aria-label="Settings"]').isVisible()
+	);
+	ok(
+		'the corner is one key wide',
+		(await page.locator('.head-actions .icon-btn').count()) === 1,
+		`${await page.locator('.head-actions .icon-btn').count()}`
 	);
 	// Every key the app has is in that one bar row, and nothing is left in the body. Counted by
-	// CLASS rather than by container: the keys live in two clusters now — the scrolling strip and
-	// the fixed right-hand tail beside Home — and `.tb` is what they share. Home is `.icon-btn`,
-	// so it is not among them.
+	// CLASS rather than by container: the keys live in two clusters — the scrolling strip and the
+	// fixed right-hand tail — and `.tb` is what they share. The settings gear is `.icon-btn`, so
+	// it is not among them.
+	// FIFTEEN, down from eighteen: Copy, .md and Clear are on a document's own right-click menu
+	// now, and .md is drawn in the bar only where the browser cannot write in place at all (this
+	// engine can, so it is absent here — see the picker-less run further down, where it is back).
 	ok(
 		'every key is in the bar',
-		(await page.locator('.head-row .tb').count()) === 18,
+		(await page.locator('.head-row .tb').count()) === 15,
 		`${await page.locator('.head-row .tb').count()}`
 	);
 	// The document keys sit at the RIGHT END, parted from Home by a rule: they act on the file
@@ -104,19 +113,20 @@ const value = () => ta.inputValue();
 			const seps = left('.te-tail .te-sep');
 			return {
 				lead: left('.te-lead .tb'),
-				leadSep: left('.te-lead .te-sep')[0],
 				marks: left('.te-rack .te-mark-key'),
 				view: left('.te-tail [aria-label="View"] .tb'),
 				doc: left('.te-tail [aria-label="The document"] .tb'),
 				lastSep: seps[seps.length - 1],
-				home: left('.head-actions .icon-btn')[0]
+				settings: left('.head-actions .icon-btn')[0]
 			};
 		});
 		// Left to right, the bar tells the order of the work: bring a document in, mark it up,
 		// choose how to look at it, then take it away.
 		ok(
-			'the file keys lead the bar, with a rule on their right',
-			Math.max(...geo.lead) < geo.leadSep && geo.leadSep < Math.min(...geo.marks),
+			// No rule after them any more: these two wear words and the strip beside them is
+			// glyphs, which is already the whole of the difference.
+			'the file keys lead the bar, ahead of the marks',
+			Math.max(...geo.lead) < Math.min(...geo.marks),
 			JSON.stringify(geo)
 		);
 		ok(
@@ -130,8 +140,8 @@ const value = () => ta.inputValue();
 			JSON.stringify(geo)
 		);
 		ok(
-			'with a rule between the document keys and Home',
-			Math.max(...geo.doc) < geo.lastSep && geo.lastSep < geo.home,
+			'with a rule between the document keys and the settings key',
+			(!geo.doc.length || Math.max(...geo.doc) < geo.lastSep) && geo.lastSep < geo.settings,
 			JSON.stringify(geo)
 		);
 	}
@@ -321,33 +331,114 @@ await page.waitForTimeout(200);
 	);
 }
 
-// ── Clearing asks first ──────────────────────────────────────────────────────
-await reset('keep me');
-const clear = page.getByRole('button', { name: /Clear|Sure/ });
-await clear.click();
-await eq('the first press arms rather than clears', value(), 'keep me');
-await eq(
-	'the key becomes the question',
-	clear.textContent().then((t) => t.trim()),
-	'Sure?'
-);
-await clear.click();
-await eq('the second press clears the sheet', value(), '');
-
-// ── The About key ────────────────────────────────────────────────────────────
-// It puts the app's own manual page back on the sheet — the document a first visit opens with,
-// and the only documentation this app has. It stands with Home in the bar's right-hand corner
-// rather than in the rack, because it is the panel's chrome: every key in the rack acts on the
-// document, and this one replaces it.
+// ── Clearing asks first, on the document's own menu ─────────────────────────
+// Clear used to be a key in the bar acting on the sheet. It is a DOCUMENT'S verb now, on the
+// right-click menu of the row it belongs to, so it can say which document it is about to empty.
+// A scratch note is the case that works in every browser: it has no file behind it, so no
+// permission and no handle stand between the menu item and the words.
 {
-	const about = page.getByRole('button', { name: /^About Text Editor/ });
-	ok('the bar offers an About key', (await about.count()) === 1);
+	await press('New');
+	await page.waitForTimeout(150);
+	await reset('keep me');
+	await page.waitForTimeout(450); // the debounce that follows the sheet into the note
+
+	const row = page.locator('.te-work-list .te-work-row').first();
+	const item = () => page.locator('.te-file-menu .popover-item', { hasText: /^(Clear|Sure\?)$/ });
+	await row.click({ button: 'right' });
+	await page.waitForTimeout(150);
+	ok('a document\u2019s menu offers Clear', (await item().count()) === 1);
+	await item().click();
+	await eq('the first press arms rather than clears', value(), 'keep me');
+	await eq(
+		'the item becomes the question',
+		item()
+			.textContent()
+			.then((t) => t.trim()),
+		'Sure?'
+	);
+	await item().click();
+	await page.waitForTimeout(200);
+	await eq('the second press empties the document', value(), '');
+	ok('and the menu closes behind it', (await page.locator('.te-file-menu').count()) === 0);
+	// The row says so. Every write in this pane you cannot otherwise see answers on the row —
+	// renamed, moved, copied, cleared — and they all go through one mechanism now.
+	ok(
+		'the row says what happened',
+		(await row.getAttribute('data-said')) === 'Cleared',
+		JSON.stringify(await row.getAttribute('data-said'))
+	);
+
+	// COPY and SAVE A COPY stand with it. They are offered on every row in every browser —
+	// reading a document needs no permission — where Clear is a write and is drawn only where
+	// the platform will take one.
+	await row.click({ button: 'right' });
+	await page.waitForTimeout(150);
+	const verbs = await page.locator('.te-file-menu .popover-item').allTextContents();
+	ok(
+		'the menu carries the three document verbs',
+		verbs.slice(0, 3).join('|') === 'Copy|Save a copy|Clear',
+		JSON.stringify(verbs)
+	);
+	await page.keyboard.press('Escape');
+	await page.waitForTimeout(150);
+	// And none of the three is left in the bar.
+	for (const gone of ['Copy', 'Clear']) {
+		ok(
+			`the bar no longer carries ${gone}`,
+			(await page.getByRole('button', { name: gone, exact: true }).count()) === 0
+		);
+	}
+
+	// Put the pane back as it was. The scratch list is persisted, and a note left here would be
+	// counted by every shelf case further down.
+	await row.click({ button: 'right' });
+	await page.waitForTimeout(150);
+	const close = () => page.locator('.te-file-menu .popover-item', { hasText: /^(Close|Sure\?)$/ });
+	await close().click();
+	await close().click();
+	await page.waitForTimeout(300);
+	ok('the note closes again', (await page.locator('.te-work-list .te-work-row').count()) === 0);
+	await reset('');
+}
+
+// ── The settings flyout ──────────────────────────────────────────────────────
+// Home, About, Install and the beta tag stood in the bar's corner as four separate things. None
+// of them acts on the document and a dense bar has one row, so they are behind ONE key now — and
+// the flyout it opens is drawn by the editor, from two keys that cannot own it (the gear here on
+// a desk, the gear in the floating stack on a phone).
+{
+	// By CLASS and label rather than by role: the site's own Settings PLACE is a nav item called
+	// Settings too, and a role query matches both.
+	const gear = page.locator('.icon-btn[aria-label="Settings"]');
+	ok('the corner offers a settings key', (await gear.count()) === 1);
+	ok('and is shut to begin with', (await gear.getAttribute('aria-expanded')) === 'false');
 
 	// Typed, not filled: this case is about the UNDO stack, and `reset` sets the value outright.
 	await ta.click();
 	await selectAll();
 	await page.keyboard.type('scribble');
+
+	await gear.click();
+	await page.waitForTimeout(250);
+	ok('pressing it opens the card', (await page.locator('.te-set-card').count()) === 1);
+	ok('and the key says it is open', (await gear.getAttribute('aria-expanded')) === 'true');
+	// The card is a POPOVER — puhig's shared one, the same surface the workspace's row menu uses.
+	// Portalled to <body>, because `position: fixed` inside the panel's header is fixed to the
+	// header rather than to the window and the app painted straight over it.
+	ok(
+		'the card is portalled clear of the panel',
+		await page.evaluate(
+			() => document.querySelector('.te-set-card')?.parentElement === document.body
+		)
+	);
+
+	// ABOUT — the app's own manual page, put back on the sheet. It is the only documentation
+	// this app has, which is why it is one press away rather than a link to somewhere else.
+	const about = page.locator('.te-set-card .popover-item', { hasText: /^About$/ });
+	ok('the flyout offers About', (await about.count()) === 1);
 	await about.click();
+	await page.waitForTimeout(200);
+	ok('and closes behind it', (await page.locator('.te-set-card').count()) === 0);
 	const doc = await value();
 	ok(
 		'it opens with the manual page',
@@ -367,84 +458,66 @@ await eq('the second press clears the sheet', value(), '');
 		'the proof sets it',
 		(await page.locator('.te-proof h1').first().innerText()) === 'Text Editor'
 	);
-
 	// The whole reason it does not have to ask the way Clear does.
 	await ta.click();
 	await key('ControlOrMeta+z');
 	await eq('one undo brings back what was on the sheet', value(), 'scribble');
 
-	await about.click();
-
-	// Order in the corner: out, then about, then the tag. Read left to right, the door comes first.
-	const corner = await page.evaluate(() =>
-		[...document.querySelectorAll('.surface-head .head-actions > *')].map(
-			(el) => el.getAttribute('aria-label') ?? el.className.split(' ')[0]
-		)
+	// APPS — the door out. It leads to the place this app is IN rather than to the front of the
+	// site, and it is written LAST so it is furthest from where a hand starts.
+	await gear.click();
+	await page.waitForTimeout(250);
+	const items = await page.locator('.te-set-card .popover-item').allTextContents();
+	ok(
+		'the flyout holds About and Apps, in that order',
+		items[0].trim() === 'About' && items[items.length - 1].trim() === 'Apps',
+		JSON.stringify(items)
 	);
 	ok(
-		'it sits to the right of Home, before the beta tag',
-		corner.length === 3 &&
-			/home/i.test(corner[0]) &&
-			/^About/.test(corner[1]) &&
-			/is in beta/.test(corner[2]),
-		JSON.stringify(corner)
+		'and the bar no longer carries a way home of its own',
+		(await page.getByRole('button', { name: 'Close and go home' }).count()) === 0
 	);
 
-	// ── THE BETA TAG ─────────────────────────────────────────────────────────
-	// It was a label with nothing to press. It has something to say now — the version, what the
-	// four numbers mean, and what landed recently — so it is a button that opens a card.
-	{
-		const tag = page.getByRole('button', { name: /is in beta/ });
-		ok(
-			'the tag says which version this is',
-			/v0\.\d+\.\d+\.\d+/.test(await tag.getAttribute('aria-label')),
-			await tag.getAttribute('aria-label')
-		);
-		ok('and is shut to begin with', (await tag.getAttribute('aria-expanded')) === 'false');
-		await tag.click();
-		await page.waitForTimeout(300);
-		ok('pressing it opens the version card', (await page.locator('.beta-card').count()) === 1);
-		ok(
-			'which carries all four positions',
-			/^v0\.\d+\.\d+\.\d+$/.test((await page.locator('.beta-ver').textContent()).trim()),
-			await page.locator('.beta-ver').textContent()
-		);
-		// The legend is what makes the number readable, and it has to name every position it
-		// explains — a fourth figure with three words under it is worse than no legend at all.
-		const scheme = (await page.locator('.beta-scheme').textContent()).trim();
-		ok(
-			'and a legend naming each of the four in order',
-			scheme === 'collections · features · fixes · commits',
-			JSON.stringify(scheme)
-		);
-		// Every line of the list carries the WHOLE version it landed in. Several features land in
-		// one minor, so a column keyed on the first two numbers is a column of identical `0.8`s.
-		const ats = await page.locator('.beta-at').allTextContents();
-		ok(
-			'and every recent line is dated to a full version',
-			ats.length > 0 && ats.every((a) => /^\d+\.\d+\.\d+\.\d+$/.test(a.trim())),
-			JSON.stringify(ats)
-		);
-		// The column has to hold the whole version on ONE line: the list is read down the
-		// figures, and a version that wraps takes its line's text with it.
-		const wrapped = await page.evaluate(() =>
-			[...document.querySelectorAll('.beta-at')].some((el) => el.scrollWidth > el.clientWidth + 1)
-		);
-		ok('the version column is wide enough for the fourth figure', !wrapped);
-		// The card is a POPOVER — puhig's shared one, the same surface the workspace's row menu
-		// uses. Portalled to <body>, because `position: fixed` inside the panel's header is fixed
-		// to the header rather than to the window and the app painted straight over it.
-		ok(
-			'the card is portalled clear of the panel',
-			await page.evaluate(
-				() => document.querySelector('.beta-card')?.parentElement === document.body
-			)
-		);
-		await page.keyboard.press('Escape');
-		await page.waitForTimeout(250);
-		ok('Escape shuts the card', (await page.locator('.beta-card').count()) === 0);
-		ok('and leaves the editor open behind it', (await page.locator('.te').count()) === 1);
-	}
+	// ── THE VERSION ──────────────────────────────────────────────────────────
+	// It was the beta tag's card, opened from a word in the bar. The tag is gone and the card is
+	// a block at the foot of this flyout — the same component ($lib/VersionCard), so the two
+	// cannot drift.
+	ok(
+		'the flyout carries all four positions',
+		/^v0\.\d+\.\d+\.\d+$/.test((await page.locator('.ver-num').textContent()).trim()),
+		await page.locator('.ver-num').textContent()
+	);
+	// The legend is what makes the number readable, and it has to name every position it
+	// explains — a fourth figure with three words under it is worse than no legend at all.
+	const scheme = (await page.locator('.ver-scheme').textContent()).trim();
+	ok(
+		'and a legend naming each of the four in order',
+		scheme === 'collections · features · fixes · commits',
+		JSON.stringify(scheme)
+	);
+	// Every line of the list carries the WHOLE version it landed in. Several features land in
+	// one minor, so a column keyed on the first two numbers is a column of identical `0.9`s.
+	const ats = await page.locator('.ver-at').allTextContents();
+	ok(
+		'and every recent line is dated to a full version',
+		ats.length > 0 && ats.every((a) => /^\d+\.\d+\.\d+\.\d+$/.test(a.trim())),
+		JSON.stringify(ats)
+	);
+	// The column has to hold the whole version on ONE line: the list is read down the figures,
+	// and a version that wraps takes its line's text with it.
+	const wrapped = await page.evaluate(() =>
+		[...document.querySelectorAll('.ver-at')].some((el) => el.scrollWidth > el.clientWidth + 1)
+	);
+	ok('the version column is wide enough for the fourth figure', !wrapped);
+	ok(
+		'and no beta tag is left in the bar',
+		(await page.getByRole('button', { name: /is in beta/ }).count()) === 0
+	);
+
+	await page.keyboard.press('Escape');
+	await page.waitForTimeout(250);
+	ok('Escape shuts the flyout', (await page.locator('.te-set-card').count()) === 0);
+	ok('and leaves the editor open behind it', (await page.locator('.te').count()) === 1);
 }
 
 // ── THE CARET ────────────────────────────────────────────────────────────────
@@ -800,8 +873,10 @@ await reset('first\n\n\nlast');
 		await page.locator('.te-loose .te-work-row').first().click();
 		await page.waitForTimeout(700);
 		await eq('a shelf row opens again', value(), '# From elsewhere');
-		// Its menu holds ONE verb, and that verb acts on the list rather than on the disk — which
-		// is why it is offered in every browser where Rename and Delete are not.
+		// Its menu holds the three verbs every document has, and then CLOSE — which acts on the
+		// LIST rather than on the disk, and is why it is offered in every browser where Rename and
+		// Delete are not. There is no Clear here: this shelf row came in through the hidden input,
+		// so it carries a File and no handle, and there is nothing to write through.
 		await page.locator('.te-loose .te-work-row').first().click({ button: 'right' });
 		await page.waitForTimeout(300);
 		await eq(
@@ -810,9 +885,9 @@ await reset('first\n\n\nlast');
 				.locator('.te-file-menu [role=menuitem]')
 				.allTextContents()
 				.then((t) => t.join(',').trim()),
-			'Close'
+			'Copy,Save a copy,Close'
 		);
-		await page.locator('.te-file-menu [role=menuitem]').click();
+		await page.locator('.te-file-menu [role=menuitem]', { hasText: /^Close$/ }).click();
 		await page.waitForTimeout(500);
 		await eq(
 			'Close takes that row off and leaves the rest',
@@ -861,12 +936,14 @@ await reset('first\n\n\nlast');
 		JSON.stringify((await page.locator('.te-lamp').textContent()).trim())
 	);
 
-	// With a workspace loaded the Folder key TOGGLES the pane rather than re-picking: once a
-	// folder is open, "Folder" is a place you go rather than a thing you choose.
-	const folderKey = page.getByRole('button', { name: 'Folder' });
+	// With a workspace loaded the WORKSPACE key TOGGLES the pane rather than re-picking: once a
+	// folder is open, the workspace is a place you go rather than a thing you choose. The key is
+	// named for what it shows rather than for what it picks — that is the press you make once,
+	// and this is every press after it.
+	const folderKey = page.getByRole('button', { name: 'Workspace', exact: true });
 	await folderKey.click();
 	await page.waitForTimeout(300);
-	ok('the Folder key hides the workspace', (await page.locator('.te-work').count()) === 0);
+	ok('the Workspace key hides the pane', (await page.locator('.te-work').count()) === 0);
 	await folderKey.click();
 	await page.waitForTimeout(300);
 	ok('and shows it again', (await page.locator('.te-work').count()) === 1);
@@ -875,10 +952,12 @@ await reset('first\n\n\nlast');
 		(await page.locator('.te-work-row.on').count()) === 1
 	);
 
-	// The About key forgets the file too, and for the same reason: the manual page is not the
-	// document that was open, and a name left behind would point Save at a file it would overwrite.
-	const aboutKey = page.getByRole('button', { name: /^About Text Editor/ });
-	await aboutKey.click();
+	// ABOUT forgets the file too, and for the same reason: the manual page is not the document
+	// that was open, and a name left behind would point Save at a file it would overwrite. It is
+	// in the settings flyout now, so this goes through the gear.
+	await page.locator('.icon-btn[aria-label="Settings"]').click();
+	await page.waitForTimeout(250);
+	await page.locator('.te-set-card .popover-item', { hasText: /^About$/ }).click();
 	await page.waitForTimeout(700);
 	ok(
 		'About forgets the filename',
@@ -889,21 +968,30 @@ await reset('first\n\n\nlast');
 		'and unmarks the workspace row with it',
 		(await page.locator('.te-work-row.on').count()) === 0
 	);
-	// Put the file back on the sheet — the clearing case below needs a named document.
+	// Put the file back on the sheet, and check the pane came back to it.
 	await page.getByRole('treeitem', { name: 'beta.markdown' }).click();
 	await page.waitForTimeout(300);
-
-	// Clearing the sheet forgets the name with it — what is on screen is no longer that file.
-	const clearKey = page.getByRole('button', { name: /Clear|Sure/ });
-	await clearKey.click();
-	await clearKey.click();
-	await page.waitForTimeout(700);
 	ok(
-		'clearing forgets the filename',
-		(await page.locator('.te-lamp').textContent()).trim() === '',
-		JSON.stringify((await page.locator('.te-lamp').textContent()).trim())
+		'the row is marked again',
+		(await page.locator('.te-work-row.on .te-work-file').textContent()) === 'beta.markdown'
 	);
-	ok('and unmarks the workspace row', (await page.locator('.te-work-row.on').count()) === 0);
+
+	// CLEAR is not offered here at all. This workspace came from a `webkitdirectory` pick, which
+	// hands over Files and no handles, so there is nothing to write through — and this app does
+	// not draw a key that cannot do what it says. (The Chromium run below, against a real
+	// directory handle, is where Clear on a tree row is exercised.)
+	await page.getByRole('treeitem', { name: 'beta.markdown' }).click({ button: 'right' });
+	await page.waitForTimeout(200);
+	{
+		const verbs = await page.locator('.te-file-menu .popover-item').allTextContents();
+		ok(
+			'a read-only workspace offers Copy and Save a copy, and no Clear',
+			verbs.includes('Copy') && verbs.includes('Save a copy') && !verbs.includes('Clear'),
+			JSON.stringify(verbs)
+		);
+	}
+	await page.keyboard.press('Escape');
+	await page.waitForTimeout(150);
 
 	dir.rmSync(folder, { recursive: true, force: true });
 }
@@ -944,7 +1032,7 @@ await reset('first\n\n\nlast');
 	await wp.goto(`${B}/apps/text-editor`, { waitUntil: 'networkidle' });
 	await wp.evaluate(() => window.__seed());
 	await wp.waitForTimeout(300);
-	await wp.getByRole('button', { name: 'Folder' }).click();
+	await wp.getByRole('button', { name: 'Workspace', exact: true }).click();
 	await wp.waitForTimeout(700);
 
 	ok(
@@ -960,11 +1048,12 @@ await reset('first\n\n\nlast');
 		'and a SAVE key appears, which it does not without a handle',
 		(await wp.getByRole('button', { name: /^Save/ }).count()) === 1
 	);
+	// The download key is NOT in the bar here. It is drawn only where the browser cannot save in
+	// place at all — in Chromium a copy is Save a copy, on the document's own menu — so this
+	// engine, with a real handle open, gets Save and nothing beside it.
 	ok(
-		'with the download reworded to point at it',
-		(await wp.getByRole('button', { name: '.md', exact: true }).getAttribute('title')) ===
-			'Download a copy — Save writes to the file itself',
-		JSON.stringify(await wp.getByRole('button', { name: '.md', exact: true }).getAttribute('title'))
+		'and no download key beside it, because Save is the way out here',
+		(await wp.getByRole('button', { name: '.md', exact: true }).count()) === 0
 	);
 
 	await wp.locator('.te-type').fill('# Alpha changed');
@@ -1140,7 +1229,9 @@ await reset('first\n\n\nlast');
 		// Closing one is the end of those words, so it asks twice — exactly as Clear does.
 		await wp.locator('.te-loose').first().locator('.te-work-row').click({ button: 'right' });
 		await wp.waitForTimeout(300);
-		const item = wp.locator('.te-file-menu [role=menuitem]');
+		// Named rather than "the only item": the menu carries Copy, Save a copy and Clear above it
+		// now — a scratch note is a document like any other, and Close is what is special about it.
+		const item = wp.locator('.te-file-menu [role=menuitem]', { hasText: /^(Close|Sure\?)$/ });
 		await item.click();
 		await wp.waitForTimeout(300);
 		ok('closing a scratch note asks first', (await item.textContent()).trim() === 'Sure?');
@@ -1259,9 +1350,12 @@ await reset('first\n\n\nlast');
 				.first()
 				.click({ button: 'right' });
 			await wp.waitForTimeout(300);
-			await wp.locator('.te-file-menu [role=menuitem]').click();
+			const closeItem = wp.locator('.te-file-menu [role=menuitem]', {
+				hasText: /^(Close|Sure\?)$/
+			});
+			await closeItem.click();
 			await wp.waitForTimeout(200);
-			await wp.locator('.te-file-menu [role=menuitem]').click();
+			await closeItem.click();
 			await wp.waitForTimeout(400);
 		}
 
@@ -1347,7 +1441,12 @@ await reset('first\n\n\nlast');
 		await wp.locator('.te-work-field').press('Enter');
 		await wp.waitForTimeout(400);
 		const row = wp.getByRole('treeitem', { name: 'renamed-again.md' });
-		ok('the renamed row says Saved', (await wp.locator('.te-work-row.saved').count()) === 1);
+		// One mechanism answers for all four verbs now — renamed, moved, copied, cleared — and the
+		// word is carried on the row rather than written into a rule per verb.
+		ok(
+			'the renamed row says Saved',
+			(await wp.locator('.te-work-row[data-said="Saved"]').count()) === 1
+		);
 		ok(
 			'in the emerald, not the accent',
 			await row.evaluate((el) => {
@@ -1386,10 +1485,13 @@ await reset('first\n\n\nlast');
 		await wp.waitForTimeout(400);
 		// A move ANSWERS too, in the accent rather than the emerald — it is a write you can see,
 		// but only if you were looking at the part of the list it landed in.
-		ok('the moved row says so', (await wp.locator('.te-work-row.moved').count()) === 1);
+		ok(
+			'the moved row says so',
+			(await wp.locator('.te-work-row[data-said="Moved"]').count()) === 1
+		);
 		ok(
 			'in the accent, not the emerald',
-			await wp.locator('.te-work-row.moved').evaluate((el) => {
+			await wp.locator('.te-work-row[data-said="Moved"]').evaluate((el) => {
 				const c = getComputedStyle(el, '::after').color.match(/\d+/g).map(Number);
 				return c[2] > c[1] + 40;
 			})
@@ -1804,36 +1906,18 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 		`${await p.locator('.head-row .tb').count()}`
 	);
 	ok('and a floating key holds the rest', (await p.locator('.fkey').count()) === 1);
-	// THE BAR'S CHROME CORNER EMPTIES TOO. Home and About go down to the flyout on a phone; the
-	// beta tag stays, because it is the one of the three that has to be SEEN rather than reached.
+	// THE BAR'S CHROME CORNER EMPTIES ENTIRELY on a phone. It is one key on a desk — Settings —
+	// and on a phone even that goes down to the flyout, where everything else already is.
 	const corner = await p.evaluate(() =>
 		[...document.querySelectorAll('.surface-head .head-actions > *')].map(
 			(el) => el.getAttribute('aria-label') ?? el.className.split(' ')[0]
 		)
 	);
-	ok(
-		'the phone bar keeps only the beta tag in its corner',
-		corner.length === 1 && /is in beta/.test(corner[0]),
-		JSON.stringify(corner)
-	);
-	// THE TAG STANDS ALONE NOW, and that is exactly when its height broke: it was fitted with
-	// `align-self: stretch`, which only ever worked because a 28px Home was setting the height of
-	// the row it stretched into. Left by itself it stretched to its own type — 19.6px against
-	// 28px keys, measured. It states the control line itself now.
-	const heights = await p.evaluate(() => {
-		const tag = document.querySelector('.beta')?.getBoundingClientRect().height ?? 0;
-		const key = document.querySelector('.head-row .tb')?.getBoundingClientRect().height ?? 0;
-		return { tag: +tag.toFixed(1), key: +key.toFixed(1) };
-	});
-	ok(
-		'and the tag stands at the same height as the keys beside it',
-		Math.abs(heights.tag - heights.key) < 0.6 && heights.key > 0,
-		JSON.stringify(heights)
-	);
-	// Neither may be drawn TWICE — the bar dropping them and the flyout adding them is one move,
+	ok('the phone bar keeps nothing in its corner', corner.length === 0, JSON.stringify(corner));
+	// Nothing may be drawn TWICE — the bar dropping a key and the flyout adding it is one move,
 	// and a stale copy left in the bar is the failure this catches. Counted in the DOM rather
 	// than by role: the flyout is parked and hidden while it is shut, and an accessibility query
-	// cannot see either of them until it opens.
+	// cannot see anything in it until it opens.
 	const drawn = (label) =>
 		p.evaluate(
 			(l) =>
@@ -1842,13 +1926,12 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 				).length,
 			label
 		);
-	ok('Home is drawn once, in the flyout', (await drawn('Close and go home')) === 1);
-	ok('and About once, beside it', (await drawn('About Text Editor')) === 1);
+	ok('Settings is drawn once, in the flyout', (await drawn('Settings')) === 1);
 	ok(
-		'both inside the stack rather than the bar',
-		(await p.locator('.fkey-stack .icon-btn[aria-label^="Close and go home"]').count()) === 1 &&
-			(await p.locator('.fkey-stack .icon-btn[aria-label^="About Text Editor"]').count()) === 1
+		'inside the stack rather than the bar',
+		(await p.locator('.fkey-stack .icon-btn[aria-label^="Settings"]').count()) === 1
 	);
+
 	// The flyout is PARKED rather than unmounted when shut (FloatingKey keeps it in the DOM and
 	// slides it away), so its contents are always present. `aria-expanded` on the key is the state
 	// that actually says whether it is disclosed — counting the marks would pass either way.
@@ -1859,31 +1942,29 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	await p.waitForTimeout(350);
 	ok('it opens', (await shown()) === 1);
 	ok('the marks are a grid', (await p.locator('.te-fly-mark').count()) === 9);
-	ok(
-		'with the document keys as a stack',
-		(await p.locator('.fkey-stack .icon-btn').count()) === 8,
-		`${await p.locator('.fkey-stack .icon-btn').count()} discs`
-	);
-	// 17 of the 19 — everything but the two view keys, which is the point of the exercise.
+	// FOUR discs where the browser can write — Open, Workspace, the measure and Settings — and
+	// five where it cannot, which is where `.md` is still a bar key. Copy, .md and Clear left for
+	// the row menu; About, Install and the door out went behind the gear.
+	const discCount = await p.locator('.fkey-stack .icon-btn').count();
+	ok('with the document keys as a stack', discCount === 4 || discCount === 5, `${discCount} discs`);
+	// Everything but the two view keys is in the flyout, which is the point of the exercise. The
+	// TOTAL is what is asserted rather than a written-down number: the stack lost three discs to
+	// the settings gear and the document keys lost three to the row menu, and a hard-coded count
+	// here would have to be re-derived by hand every time the bar changes shape.
 	ok(
 		'so all but the view keys are in the flyout',
-		(await p.locator('.te-fly-mark').count()) +
-			(await p.locator('.fkey-stack .icon-btn').count()) ===
-			17
+		(await p.locator('.head-row .tb').count()) === 2,
+		`${await p.locator('.head-row .tb').count()} keys left in the bar`
 	);
-	// ORDER. The stack is column-reverse, so the LAST disc written is the top one — and Home is
-	// last on purpose: it is the only key in the app that leaves it, it asks nothing first, and
-	// the bottom of the stack is where a thumb lands. About sits just under it.
+	// ORDER. The stack is column-reverse, so the LAST disc written is the top one — and Settings
+	// is last on purpose: it holds the one key in the app that leaves it, which asks nothing
+	// first, and the bottom of the stack is where a thumb lands.
 	const discs = await p.evaluate(() =>
 		[...document.querySelectorAll('.fkey-stack .icon-btn')].map(
 			(el) => (el.getAttribute('aria-label') || '').split(' —')[0]
 		)
 	);
-	ok(
-		'Home is furthest from the thumb, with About under it',
-		discs.at(-1) === 'Close and go home' && discs.at(-2) === 'About Text Editor',
-		JSON.stringify(discs)
-	);
+	ok('Settings is furthest from the thumb', discs.at(-1) === 'Settings', JSON.stringify(discs));
 	const rise = await p.evaluate(() => {
 		const d = [...document.querySelectorAll('.fkey-stack .icon-btn')];
 		return d.map((el) => Math.round(el.getBoundingClientRect().top));
@@ -1894,20 +1975,25 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 		JSON.stringify(rise)
 	);
 
-	// ABOUT WORKS FROM HERE, and folds the flyout behind it the way every key that finishes its
-	// job does. Home is not pressed in this suite: it would close the panel and take the rest of
-	// the phone cases with it.
+	// ABOUT WORKS FROM HERE, through the settings card the gear opens over the stack. Apps is not
+	// pressed in this suite: it would close the panel and take the rest of the phone cases with
+	// it.
 	await p.locator('.te-type').fill('scribble');
-	await p.getByRole('button', { name: /^About Text Editor/ }).click();
+	await p.locator('.icon-btn[aria-label="Settings"]').click();
+	await p.waitForTimeout(300);
+	ok('the gear opens the card on a phone too', (await p.locator('.te-set-card').count()) === 1);
+	await p.locator('.te-set-card .popover-item', { hasText: /^About$/ }).click();
 	await p.waitForTimeout(350);
 	ok(
 		'About puts the manual on the sheet from the flyout',
 		(await p.locator('.te-type').inputValue()).startsWith('# Text Editor'),
 		JSON.stringify((await p.locator('.te-type').inputValue()).slice(0, 20))
 	);
-	ok('and folds the flyout behind it', (await shown()) === 0);
-	await p.locator('.fkey').click();
-	await p.waitForTimeout(350);
+	// The card closes; the STACK BEHIND IT DOES NOT. The gear is the one disc that does not fold
+	// the flyout — its card opens over the stack, and folding the thing underneath would animate
+	// a column nobody is looking at.
+	ok('the card closes behind it', (await p.locator('.te-set-card').count()) === 0);
+	ok('and leaves the flyout standing', (await shown()) === 1);
 
 	// A MARK leaves the flyout standing, so a run of them costs one open rather than one each.
 	await p.locator('.te-type').fill('word');
@@ -1921,16 +2007,19 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	ok('a mark applies from the flyout', (await p.locator('.te-type').inputValue()) === '**word**');
 	ok('and leaves it standing', (await shown()) === 1);
 
-	// A DOCUMENT key finishes the job and folds it — except Clear, which asks first, and would
-	// otherwise hide its own question.
-	const clear = p.locator('.fkey-stack .icon-btn').nth(2);
-	await clear.click();
-	await p.waitForTimeout(250);
-	ok('Clear asks without folding the flyout', (await shown()) === 1);
-	await clear.click();
+	// A DOCUMENT key finishes the job and folds the flyout behind it. Clear used to be the
+	// exception here — it asks first, and folding would have hidden its own question — and it is
+	// not in this stack at all any more: clearing is a document's verb, on its row's menu.
+	// The stack labels its discs with the KEY'S OWN WORD (the flyout has no room for the bar's
+	// full title), so this asks for `Workspace` rather than for the folder-picker's tooltip.
+	const workspaceKey = p.locator('.fkey-stack .icon-btn[aria-label="Workspace"]');
+	await workspaceKey.click();
 	await p.waitForTimeout(350);
-	ok('and folds it once it has cleared', (await shown()) === 0);
-	ok('having cleared the sheet', (await p.locator('.te-type').inputValue()) === '');
+	ok('a file key folds the flyout behind it', (await shown()) === 0);
+	ok(
+		'and no Clear is left in the stack',
+		(await p.locator('.fkey-stack .icon-btn[aria-label^="Clear"]').count()) === 0
+	);
 
 	await phone.close();
 }
@@ -1972,13 +2061,24 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 		JSON.stringify(picked.slice(0, 60))
 	);
 
-	await page.getByRole('button', { name: /^About Text Editor/ }).click();
+	await page.locator('.icon-btn[aria-label="Settings"]').click();
+	await page.waitForTimeout(250);
+	await page.locator('.te-set-card .popover-item', { hasText: /^About$/ }).click();
 	await page.waitForTimeout(250);
 	ok('About puts the manual on it in PROOF', (await proofText()).includes('The marks'));
 
-	const clearKey = page.getByRole('button', { name: /Clear|Sure/ });
-	await clearKey.click();
-	await clearKey.click();
+	// CLEAR reaches the proof through the row's own menu — and it has to, because in PROOF there
+	// is no textarea at all: `putOnSheet` writes straight to `text` on that path, and this is the
+	// case that catches it going back to writing through a sheet that is not mounted.
+	await rows.filter({ hasText: 'Ephemeral 1' }).first().click();
+	await page.waitForTimeout(250);
+	const ephRow = rows.filter({ hasText: 'Ephemeral 1' }).first();
+	const clearItem = () =>
+		page.locator('.te-file-menu .popover-item', { hasText: /^(Clear|Sure\?)$/ });
+	await ephRow.click({ button: 'right' });
+	await page.waitForTimeout(200);
+	await clearItem().click();
+	await clearItem().click();
 	await page.waitForTimeout(250);
 	ok(
 		'and Clear empties it rather than only taking the name off',
@@ -1992,9 +2092,15 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	await page.getByRole('button', { name: 'Write' }).click();
 	await page.waitForSelector('.te-type');
 	await eq('the sheet comes back holding what the proof showed', value(), '');
+	// And the note is EMPTY rather than merely unset. Clear used to take the name off the sheet
+	// and leave the note's own words on its row; it empties the document it is opened on now, so
+	// the row it was pressed on is the one that lost its words — and only that one.
 	await rows.filter({ hasText: 'Ephemeral 1' }).first().click();
 	await page.waitForTimeout(250);
-	ok('and a note picked in proof kept its words', (await value()).includes('alpha'));
+	await eq('the cleared note is empty', value(), '');
+	await rows.filter({ hasText: 'Ephemeral 2' }).first().click();
+	await page.waitForTimeout(250);
+	ok('and the note beside it still has its words', (await value()).includes('bravo'));
 }
 
 await browser.close();

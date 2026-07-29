@@ -11,22 +11,26 @@
 		HEADING_LEVELS,
 		openHeadings,
 		holdInstall,
-		install,
+		openSettings,
 		type FolderEntry,
 		type LooseDoc,
 		type Ephemeral
 	} from '$lib/text-editor-state.svelte';
 	import FloatingKey from '$lib/FloatingKey.svelte';
+	import TextEditorSettings from '$lib/TextEditorSettings.svelte';
 	import { dev } from '$app/environment';
-	import { NIB_SVG, RULE_SVG, HOME_SVG, INFO_SVG, INSTALL_SVG } from '$lib/icons';
+	import { NIB_SVG, RULE_SVG, GEAR_SVG } from '$lib/icons';
 
 	/**
-	 * The door out, which is the PAGE's — closing the panel, restoring the map behind it and
-	 * pushing the URL are all things this component knows nothing about. It arrives as a prop for
-	 * the same reason the ranger's floating key takes one ($lib/RangerKey): on a phone the bar's
-	 * chrome corner empties into the flyout, and the flyout is drawn in here.
+	 * The door out, which is the PAGE's — closing the panel, showing what is behind it and pushing
+	 * the URL are all things this component knows nothing about. It arrives as a prop for the same
+	 * reason the ranger's floating key takes one ($lib/RangerKey): the key that calls it is in the
+	 * SETTINGS flyout, and that flyout is drawn in here.
+	 *
+	 * It leads to APPS rather than to the front of the site now — the place this app is in, one
+	 * level up. Somebody leaving an editor is usually going to another app rather than to the map.
 	 */
-	let { onHome }: { onHome?: () => void } = $props();
+	let { onApps }: { onApps?: () => void } = $props();
 
 	// TEXT EDITOR — a Markdown editor, written as a page of the manual it renders.
 	//
@@ -342,9 +346,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			prefix,
 			block,
 			link,
-			copy,
 			download,
-			clear: clearSheet,
 			openFile,
 			openFolder,
 			saveInPlace,
@@ -364,11 +366,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			editor.installable = false;
 			document.removeEventListener('selectionchange', onSelectionChange);
 			clearTimeout(saveTimer);
-			clearTimeout(copyTimer);
 			clearTimeout(armTimer);
+			clearTimeout(saidTimer);
 			editor.cmd = null;
-			editor.copied = false;
-			editor.armed = false;
+			editor.armed = '';
+			// The flyout is drawn by this component but its position is shared state — left set, a
+			// navigation back into the editor would open on a card nobody asked for.
+			editor.settingsAt = null;
 			editor.scrolled = false;
 			keyOpen = false;
 		};
@@ -859,34 +863,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 
 	// ── Getting it out ────────────────────────────────────────────────────────
-	// The two confirmation lamps live in $lib/text-editor-state rather than here, because the keys that
-	// show them are in the bar. The TIMERS stay here, with the verbs that set them.
-	let copyTimer = 0;
-
-	async function copy() {
-		try {
-			await navigator.clipboard.writeText(text);
-		} catch {
-			// Blocked clipboard (insecure context, denied permission) — the same fallback the
-			// Emoji Viewer keeps, so a tap still copies rather than silently failing.
-			const scratch = document.createElement('textarea');
-			scratch.value = text;
-			scratch.style.position = 'fixed';
-			scratch.style.opacity = '0';
-			document.body.appendChild(scratch);
-			scratch.select();
-			try {
-				document.execCommand('copy');
-			} catch {
-				scratch.remove();
-				return; // leave the lamp unset — no false confirmation
-			}
-			scratch.remove();
-		}
-		editor.copied = true;
-		clearTimeout(copyTimer);
-		copyTimer = window.setTimeout(() => (editor.copied = false), 1400);
-	}
+	// COPYING THE SHEET used to live here, behind a key in the bar. It is `copyDoc` now, on a
+	// document's own menu — the same clipboard write with a row in front of it, so it says which
+	// document it copied. The Save lamp's timer is still here, with the verb that sets it.
 
 	// ── Opening ───────────────────────────────────────────────────────────────
 	// Two hidden inputs, because the two pickers are genuinely different things. A single file is
@@ -1376,9 +1355,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.openHandle = handle;
 		editor.filename = name;
 		saySaved();
-		justRenamed = entry.path;
-		clearTimeout(renamedTimer);
-		renamedTimer = window.setTimeout(() => (justRenamed = ''), 1700);
+		flash(entry.path, 'Saved');
 	}
 
 	/**
@@ -1425,21 +1402,31 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	let savedTimer = 0;
 
 	/**
-	 * The path of a row that has just been renamed, for as long as it says so. Emerald, like the
-	 * Save key: a rename is the one thing in this pane that writes to disk without the sheet
-	 * changing at all, so without a word it is impossible to tell a rename that worked from one
-	 * the browser refused.
+	 * A ROW THAT HAS JUST ANSWERED — renamed, moved, copied, cleared — and the word it is saying.
+	 *
+	 * ONE mechanism, not one per verb. It began as two (`justRenamed`, `justMoved`), each with its
+	 * own state, its own timer, its own class and its own `content:` rule, and the third and fourth
+	 * verbs would have been the moment that arrangement became four of everything. The word is
+	 * carried on the row as a data attribute and drawn with `content: attr(...)`, so a new verb
+	 * costs a call rather than a stylesheet.
+	 *
+	 * Every one of these is a write you CANNOT otherwise see. A rename leaves the sheet untouched;
+	 * a move only shows if you were watching the part of the list it landed in; a copy goes to a
+	 * clipboard nothing on screen can show; a clear that the browser refused looks exactly like a
+	 * clear that worked.
+	 *
+	 * TWO TONES, and the split is the one this app already keeps between `.done` and `.on`:
+	 * `done` is emerald and means it happened (Saved, Copied); `here` is the accent and means look
+	 * where it is now (Moved, Cleared).
 	 */
-	let justRenamed = $state('');
-	let renamedTimer = 0;
-	/**
-	 * And the path of a row that has just MOVED. Same argument, different colour: a move is a
-	 * write you can see (the row is somewhere else now) but only if you were watching the part of
-	 * the list it landed in. Cobalt rather than emerald — the accent this manual uses for "here",
-	 * because that is what the answer is: here is where it went.
-	 */
-	let justMoved = $state('');
-	let movedTimer = 0;
+	let said = $state({ key: '', word: '', tone: 'done' as 'done' | 'here' });
+	let saidTimer = 0;
+
+	function flash(key: string, word: string, tone: 'done' | 'here' = 'done') {
+		said = { key, word, tone };
+		clearTimeout(saidTimer);
+		saidTimer = window.setTimeout(() => (said = { key: '', word: '', tone: 'done' }), 1700);
+	}
 
 	/** Rename an entry on disk, and follow it if it is the one on the sheet. */
 	async function rename(entry: FolderEntry, to: string) {
@@ -1462,9 +1449,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			editor.openPath = entry.path;
 			editor.filename = name;
 		}
-		justRenamed = entry.path;
-		clearTimeout(renamedTimer);
-		renamedTimer = window.setTimeout(() => (justRenamed = ''), 1700);
+		flash(entry.path, 'Saved');
 	}
 
 	// ── Moving a document ─────────────────────────────────────────────────────
@@ -1507,9 +1492,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.folder = [...editor.folder].sort((a, b) => a.path.localeCompare(b.path));
 		// The document on the sheet follows its own file, exactly as it does through a rename.
 		if (editor.openIn === 'tree' && editor.openPath === was) editor.openPath = entry.path;
-		justMoved = entry.path;
-		clearTimeout(movedTimer);
-		movedTimer = window.setTimeout(() => (justMoved = ''), 1700);
+		flash(entry.path, 'Moved', 'here');
 	}
 
 	/** Can this row be dragged at all? The same gate every other write in here keeps. */
@@ -1714,11 +1697,191 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		return doc ? { name: doc.name, list: at.list, id: doc.id } : null;
 	});
 
+	// ── What a menu can do to the document it belongs to ──────────────────────
+	// COPY, SAVE A COPY and CLEAR came off the bar and onto the row. In the bar all three read as
+	// document verbs and acted on the sheet, which is one document out of however many the
+	// workspace is holding; here they mean what they say.
+	//
+	// The three lists keep their documents in three different ways — a tree entry has a File or a
+	// handle, a shelf row has a handle, a scratch note has nothing but its own words — so they are
+	// flattened to this ONE shape and the verbs are written once against it. Without that the same
+	// three verbs would be written three times and the copy on the shelf would be the one that
+	// stopped matching.
+
+	type MenuDoc = {
+		/** Path or id — whatever `doomed` and `armed` compare against for this list. */
+		key: string;
+		name: string;
+		/** Its words, read from wherever they actually live. Null if they cannot be got at. */
+		read: () => Promise<string | null>;
+		/** Empty it, where that is possible at all. Null means Clear is not offered on this row. */
+		clear: (() => Promise<boolean>) | null;
+	};
+
+	/** Is this row the one on the sheet? Its words are then the sheet's, not the disk's. */
+	function isOnSheet(key: string, list: 'tree' | 'loose' | 'ephemeral') {
+		return editor.openIn === list && editor.openPath === key;
+	}
+
+	/** Empty a document that is open, through the sheet, so the emptying is UNDOABLE. */
+	function emptyTheSheet() {
+		putOnSheet('');
+	}
+
+	/** The tree entry, the shelf row or the scratch note the open menu belongs to, as one thing. */
+	const menuDoc: MenuDoc | null = $derived.by(() => {
+		const at = editor.fileMenu;
+		if (!at) return null;
+
+		if (at.list === 'tree') {
+			const entry = editor.folder.find((e) => e.path === at.path);
+			if (!entry) return null;
+			return {
+				key: entry.path,
+				name: entry.name,
+				read: async () => {
+					if (isOnSheet(entry.path, 'tree')) return text;
+					const file = entry.handle ? await entry.handle.getFile() : entry.file;
+					return file ? await file.text() : null;
+				},
+				// Only where the browser can write AND there is a handle to write through. A
+				// `webkitdirectory` workspace has neither, and a Clear that could not clear would be
+				// the one kind of key this app refuses to draw.
+				clear:
+					editor.canWrite && entry.handle
+						? async () => {
+								try {
+									const w = await entry.handle!.createWritable();
+									await w.write('');
+									await w.close();
+								} catch {
+									return false;
+								}
+								// It is still the open file, still named, still savable — it is empty now.
+								// So the sheet follows it rather than being detached from it.
+								if (isOnSheet(entry.path, 'tree')) emptyTheSheet();
+								return true;
+							}
+						: null
+			};
+		}
+
+		if (at.list === 'loose') {
+			const doc = editor.loose.find((d) => d.id === at.path);
+			if (!doc) return null;
+			return {
+				key: doc.id,
+				name: doc.name,
+				read: async () => {
+					if (isOnSheet(doc.id, 'loose')) return text;
+					try {
+						// A shelf row is a handle where the browser has them and a File where it does
+						// not — a `<input type=file>` pick carries no handle to store. Either can be
+						// read; only the first can be written, which is what the gate below is.
+						const file = doc.handle ? await doc.handle.getFile() : doc.file;
+						return file ? await file.text() : null;
+					} catch {
+						// A grant that has lapsed. Opening the row re-asks; a menu item is not the
+						// place to throw a permission dialog at somebody.
+						return null;
+					}
+				},
+				clear:
+					editor.canWrite && doc.handle
+						? async () => {
+								try {
+									const w = await doc.handle!.createWritable();
+									await w.write('');
+									await w.close();
+								} catch {
+									return false;
+								}
+								if (isOnSheet(doc.id, 'loose')) emptyTheSheet();
+								return true;
+							}
+						: null
+			};
+		}
+
+		const note = editor.ephemeral.find((d) => d.id === at.path);
+		if (!note) return null;
+		return {
+			key: note.id,
+			name: note.name,
+			// A scratch note that is on the sheet is being TYPED — the row's copy is only as fresh
+			// as the last debounce, and what the visitor means by "this note" is what they can see.
+			read: async () => (isOnSheet(note.id, 'ephemeral') ? text : note.text),
+			// Always. A scratch note has no file behind it and needs no permission — it is the one
+			// document in the pane this app holds outright.
+			clear: async () => {
+				note.text = '';
+				if (isOnSheet(note.id, 'ephemeral')) emptyTheSheet();
+				return true;
+			}
+		};
+	});
+
+	/** Copy a row's document to the clipboard, and say so on the row. */
+	async function copyDoc(doc: MenuDoc) {
+		const body = await doc.read();
+		if (body === null) return;
+		try {
+			await navigator.clipboard.writeText(body);
+		} catch {
+			// Blocked clipboard (insecure context, denied permission) — the same fallback the
+			// Emoji Viewer keeps, so a tap still copies rather than silently failing.
+			const pad = document.createElement('textarea');
+			pad.value = body;
+			pad.style.position = 'fixed';
+			pad.style.opacity = '0';
+			document.body.appendChild(pad);
+			pad.select();
+			try {
+				document.execCommand('copy');
+			} catch {
+				pad.remove();
+				return; // no false confirmation
+			}
+			pad.remove();
+		}
+		flash(doc.key, 'Copied', 'done');
+	}
+
+	/** Hand a row's document to the browser as a download, under the name it already has. */
+	async function saveCopy(doc: MenuDoc) {
+		const body = await doc.read();
+		if (body === null) return;
+		// The name it has, with `.md` on it if it has no extension of its own — a scratch note is
+		// called `Ephemeral 1`, and a download called that opens in nothing.
+		save(body, /\.[a-z0-9]+$/i.test(doc.name) ? doc.name : `${doc.name}.md`);
+		flash(doc.key, 'Saved', 'done');
+	}
+
+	/**
+	 * Empty a row's document. Two presses, like Delete and like the Clear key it replaces: this is
+	 * the one thing in the pane that destroys words without taking the row with them, so there is
+	 * nothing left on screen afterwards to say it happened by mistake.
+	 */
+	async function clearDoc(doc: MenuDoc) {
+		if (!doc.clear) return false;
+		if (editor.armed !== doc.key) {
+			editor.armed = doc.key;
+			clearTimeout(armTimer);
+			armTimer = window.setTimeout(() => (editor.armed = ''), 3000);
+			return false;
+		}
+		clearTimeout(armTimer);
+		editor.armed = '';
+		if (await doc.clear()) flash(doc.key, 'Cleared', 'here');
+		return true;
+	}
+
 	/** Where a menu stands, given the event that asked for it. Shared by all three lists. */
 	function placeMenu(event: MouseEvent, path: string, list: 'tree' | 'loose' | 'ephemeral') {
 		event.preventDefault();
 		editor.renaming = '';
 		editor.doomed = '';
+		editor.armed = '';
 		// The KEYBOARD opens this menu too — Shift+F10, or the menu key — and then there is no
 		// pointer behind the event. Chromium sends (0, 0) for those; fall back to the row's own
 		// box so the menu opens on the row rather than in the corner of the window.
@@ -1730,10 +1893,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 
 	function openFileMenu(event: MouseEvent, entry: FolderEntry) {
-		// No menu where neither verb would work. The browser's own menu is better than one of
-		// ours holding two keys that cannot do what they say — the rule this app already keeps
-		// for the picker and for Save.
-		if (!editor.canWrite || !entry.handle) return;
+		// IT OPENS EVERYWHERE NOW. It used to refuse where the browser could not write, because
+		// the only things on it were Rename and Delete and a menu of two keys that cannot do what
+		// they say is worse than the browser's own. Copy and Save a copy changed that: both only
+		// READ, both work in every engine, and a document you cannot copy because the app decided
+		// its folder was read-only is a worse answer than a short menu.
+		// What the platform will not take is still not drawn — see `menuDoc.clear`, and the Rename
+		// and Delete items, which are gated on the handle rather than on the menu.
 		placeMenu(event, entry.path, 'tree');
 	}
 
@@ -2017,29 +2183,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		save(text, `${name}.md`);
 	}
 
-	// Clearing the sheet is the one irreversible thing in here, so the key asks. It asks by
-	// BECOMING the question rather than by opening a dialog: a confirm() is a modal that stops
-	// the page, and the manual's answer to "are you sure" is a key that changes what it says.
+	// CLEARING is a DOCUMENT'S verb now — `clearDoc`, on the row's own menu, emptying the file it
+	// is opened on rather than detaching whatever happened to be on the sheet. This timer is what
+	// is left of the key that used to do it: the two-press question is unchanged (it asks by
+	// BECOMING the question rather than by opening a dialog — a confirm() is a modal that stops
+	// the page), and `editor.armed` now carries WHICH row is asking rather than a bare yes.
 	let armTimer = 0;
-
-	function clearSheet() {
-		if (!editor.armed) {
-			editor.armed = true;
-			clearTimeout(armTimer);
-			armTimer = window.setTimeout(() => (editor.armed = false), 3000);
-			return;
-		}
-		clearTimeout(armTimer);
-		editor.armed = false;
-		// Clear empties the SHEET. A scratch note it was showing keeps its words on its own row —
-		// Clear is not a way of destroying a list you cannot see the rest of.
-		stashEphemeral();
-		editor.filename = '';
-		editor.openPath = '';
-		editor.openIn = 'tree';
-		editor.openHandle = null;
-		putOnSheet('');
-	}
 
 	/**
 	 * Put the manual page back on the sheet — the document the editor opens with on a first visit,
@@ -2199,6 +2348,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						class:menu={editor.fileMenu?.list === row.list && editor.fileMenu.path === row.id}
 						class:dragging={row.list === 'ephemeral' && dragEph === row.id}
 						class:into={row.list === 'ephemeral' && dropEphOn === row.id}
+						class:said={said.key === row.id}
+						class:said-here={said.key === row.id && said.tone === 'here'}
+						data-said={said.key === row.id ? said.word : null}
 						aria-current={editor.openIn === row.list && editor.openPath === row.id
 							? 'true'
 							: undefined}
@@ -2278,57 +2430,24 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		aria-label="Hold the text to a reading measure"
 		onclick={() => (editor.measured = !editor.measured)}>{@html RULE_SVG}</button
 	>
-	<!-- THE PANEL'S CHROME, past the document keys — the same two that stand past the last rule
-	     in the bar's right-hand corner on a desk. They come DOWN here on a phone because the bar
-	     has one row: at 390px it was carrying two view keys, Home, About and the beta tag, and
-	     the tag is the only one of those that has to be seen rather than reached.
-	     They are not `DOC_KEYS` and never will be — that table is the document's verbs, published
-	     for the rack, and neither of these acts on the document as a document. About REPLACES it
-	     and Home leaves it.
-	     THIS PAIR IS THE ONE PLACE THE ORDER IS REVERSED. Everywhere else in this stack the first
-	     button written is nearest the thumb and matches the bar read left to right. Here About is
-	     written first and Home last, so Home ends furthest away: it is the only key in the app
-	     that leaves it, there is no second press to change your mind, and a stack of 40px discs
-	     under a thumb is exactly where a mis-tap happens. Read the stack downward instead and the
-	     bar's own order comes back — Home, About, then the document. -->
+	<!-- THE PANEL'S CHROME, past the document keys — and it is ONE key now. About, Install and the
+	     door out were three discs at the top of this stack, drawn among the marks and looking like
+	     three more marks; the Beta tag was a fourth thing in the bar beside them. All four are
+	     behind SETTINGS, here and in the bar's corner alike, which is the same surface opened from
+	     two keys (see `openSettings` in $lib/text-editor-state).
+	     LAST WRITTEN, so it lands furthest from the thumb: the stack is column-reverse, and the
+	     one key holding the door out of the app is the one a mis-tap must not find. It does not
+	     fold the flyout — the settings card opens over it, and folding the thing underneath would
+	     animate a stack nobody is looking at any more. -->
 	<button
 		type="button"
 		class="icon-btn"
-		title="About — the manual page (replaces the sheet; ⌘Z undoes it)"
-		aria-label="About Text Editor — put the manual page on the sheet"
-		onclick={() => {
-			readme();
-			keyOpen = false;
-		}}>{@html INFO_SVG}</button
+		class:on={!!editor.settingsAt}
+		aria-expanded={!!editor.settingsAt}
+		title="Settings — About, Install, Apps, and the version"
+		aria-label="Settings"
+		onclick={openSettings}>{@html GEAR_SVG}</button
 	>
-	<!-- INSTALL — offered only while there is an offer to make, which is Chromium, on a page it
-	     is willing to install, that is not already installed. It sits between About and Home for
-	     the reason the whole stack is ordered: it is rarer than About and it is not the door out,
-	     so it takes the middle. See `installable` in $lib/text-editor-state. -->
-	{#if editor.installable && !editor.installed}
-		<button
-			type="button"
-			class="icon-btn"
-			title="Install Text Editor as an app"
-			aria-label="Install Text Editor as an app"
-			onclick={() => {
-				install();
-				keyOpen = false;
-			}}>{@html INSTALL_SVG}</button
-		>
-	{/if}
-	{#if onHome}
-		<!-- Furthest from the thumb of anything in the stack, which is where the one key that
-		     leaves the app belongs. It does not fold the flyout: the panel is closing over it and
-		     folding first would animate a key nobody is looking at any more. -->
-		<button
-			type="button"
-			class="icon-btn"
-			title="Home"
-			aria-label="Close and go home"
-			onclick={onHome}>{@html HOME_SVG}</button
-		>
-	{/if}
 {/snippet}
 
 <!-- The KEYS are not here. They live in the panel's dense bar, drawn by the catch-all page from
@@ -2387,12 +2506,18 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				<header
 					class="te-work-head"
 					role="group"
-					aria-label="Folder {editor.folderName || ''}"
+					aria-label="Workspace {editor.folderName || ''}"
 					class:into={dropInto === ''}
 					ondragover={(e) => onDragOver(e, '')}
 					ondragleave={(e) => onDragLeave(e, '')}
 					ondrop={(e) => onDrop(e, '')}
 				>
+					<!-- The FOLDER'S OWN NAME once there is one, and the word `Folder` as the placeholder
+					     for the slot it goes in. Not `Workspace`, even though the pane IS the workspace
+					     and the bar's key says so now: this row holds a name, three keys and a tally in
+					     250px, and `WORKSPACE` came out as `WORKSP…` in the empty state — a placeholder
+					     that needs the hover reveal to be read is not a placeholder. The pane says
+					     workspace where it has the room: its aria-label, and the key that opens it. -->
 					<h2 class="te-work-name" bind:this={workNameEl}>{editor.folderName || 'Folder'}</h2>
 					<!-- New is offered EVERYWHERE now. It used to need a writable folder to create
 					     into, which made it a Chromium key; a scratch note needs nothing but a sheet. -->
@@ -2545,12 +2670,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 										class:menu={editor.fileMenu?.list === 'tree' &&
 											editor.fileMenu.path === entry.path}
 										class:dragging={dragging === entry.path}
-										class:saved={justRenamed === entry.path}
-										class:moved={justMoved === entry.path}
+										class:said={said.key === entry.path}
+										class:said-here={said.key === entry.path && said.tone === 'here'}
+										data-said={said.key === entry.path ? said.word : null}
 										aria-current={editor.openIn === 'tree' && editor.openPath === entry.path
 											? 'true'
 											: undefined}
-										aria-haspopup={editor.canWrite && entry.handle ? 'menu' : undefined}
+										aria-haspopup="menu"
 										title={entry.path}
 										draggable={canMove(entry)}
 										ondragstart={(e) => onDragStart(e, entry)}
@@ -2752,6 +2878,54 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		</div>
 	{/if}
 
+	<!-- THE THREE VERBS EVERY DOCUMENT HAS, wherever its row is. Rendered into both menus from
+	     one snippet: the tree, the shelf and the scratch list all hold documents, and three lists
+	     that offer the same three things in three copies of the markup is how one of them ends up
+	     offering two.
+	     Copy and Save a copy are offered EVERYWHERE — reading a document needs no permission, and
+	     a download is how a document leaves a browser that cannot write. Clear is not: it is a
+	     write, and `menuDoc.clear` is null where the platform will not take one. Not drawn, not
+	     disabled, which is this app's rule for every key the browser cannot honour.
+	     The menu closes on Copy and Save at once, because both have finished by the time the hand
+	     leaves the button and the row itself says which one happened. Clear keeps the menu up
+	     while it is asking. -->
+	{#snippet docVerbs()}
+		{#if menuDoc}
+			{@const doc = menuDoc}
+			<button
+				type="button"
+				role="menuitem"
+				class="popover-item"
+				onclick={() => {
+					closeFileMenu();
+					copyDoc(doc);
+				}}>Copy</button
+			>
+			<button
+				type="button"
+				role="menuitem"
+				class="popover-item"
+				onclick={() => {
+					closeFileMenu();
+					saveCopy(doc);
+				}}>Save a copy</button
+			>
+			{#if doc.clear}
+				<button
+					type="button"
+					role="menuitem"
+					class="popover-item"
+					class:on={editor.armed === doc.key}
+					onclick={async () => {
+						// The first press only arms it and the menu stays up holding the question; the
+						// second has done the emptying by the time this resolves, so the menu goes.
+						if (await clearDoc(doc)) closeFileMenu(true);
+					}}>{editor.armed === doc.key ? 'Sure?' : 'Clear'}</button
+				>
+			{/if}
+		{/if}
+	{/snippet}
+
 	{#if editor.fileMenu && shelfMenuRow}
 		<!-- A SHELF's menu. One verb, and on ELSEWHERE it acts on the LIST rather than on the
 		     disk: Close takes the row off and leaves the file where it is, which is why it is
@@ -2783,6 +2957,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			}}
 		>
 			<p class="popover-title">{shelfMenuRow.name}</p>
+			{@render docVerbs()}
 			<button
 				type="button"
 				role="menuitem"
@@ -2830,31 +3005,44 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			}}
 		>
 			<p class="popover-title">{fileMenuEntry.name}</p>
-			<button
-				type="button"
-				role="menuitem"
-				class="popover-item"
-				onclick={() => {
-					const path = fileMenuEntry.path;
-					closeFileMenu();
-					editor.renaming = path;
-				}}>Rename</button
-			>
-			<button
-				type="button"
-				role="menuitem"
-				class="popover-item te-file-del"
-				class:on={editor.doomed === fileMenuEntry.path}
-				onclick={() => {
-					const armed = editor.doomed === fileMenuEntry.path;
-					remove(fileMenuEntry);
-					// The first press only arms it, and the menu stays up holding the question. The
-					// second one has done the deleting by the time this runs, so the menu goes.
-					if (armed) closeFileMenu(true);
-				}}>{editor.doomed === fileMenuEntry.path ? 'Sure?' : 'Delete'}</button
-			>
+			{@render docVerbs()}
+			<!-- RENAME and DELETE are the two that need the file system, so they are gated where the
+			     menu itself used to be: it refused to open at all without a writable handle, which
+			     also took Copy and Save a copy away from every browser that cannot write. The menu
+			     opens everywhere now and these two simply are not in it. -->
+			{#if editor.canWrite && fileMenuEntry.handle}
+				<button
+					type="button"
+					role="menuitem"
+					class="popover-item"
+					onclick={() => {
+						const path = fileMenuEntry.path;
+						closeFileMenu();
+						editor.renaming = path;
+					}}>Rename</button
+				>
+				<button
+					type="button"
+					role="menuitem"
+					class="popover-item te-file-del"
+					class:on={editor.doomed === fileMenuEntry.path}
+					onclick={() => {
+						const armed = editor.doomed === fileMenuEntry.path;
+						remove(fileMenuEntry);
+						// The first press only arms it, and the menu stays up holding the question. The
+						// second one has done the deleting by the time this runs, so the menu goes.
+						if (armed) closeFileMenu(true);
+					}}>{editor.doomed === fileMenuEntry.path ? 'Sure?' : 'Delete'}</button
+				>
+			{/if}
 		</div>
 	{/if}
+
+	<!-- THE SETTINGS FLYOUT — About, Install, Apps and the version, behind the one gear key that
+	     stands in the bar's corner on a desk and at the foot of the floating stack on a phone.
+	     Drawn HERE, once, for the reason the heading menu is: two keys open it and neither of
+	     them can own it. It portals itself out to <body>. -->
+	<TextEditorSettings {onApps} />
 
 	<!-- The two pickers. Hidden rather than styled: a file input cannot be made to look like
 	     anything in this manual, and the keys that stand in for it already do. -->
@@ -3884,19 +4072,19 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	/* The WASH and the WORD are animated, never the row's opacity. Fading the row faded the
 	   filename with it — the cell whited out and the name reappeared at the end, which reads as
 	   the row being replaced rather than as an answer about it. */
-	.te-work-row.saved,
-	.te-work-row.moved {
+	.te-work-row.said {
 		position: relative;
 		animation: te-saved-wash 1.6s ease forwards;
 	}
-	/* MOVED is the same answer in the accent: a move is a write you can see, but only if you
-	   happened to be looking at the part of the list it landed in. */
-	.te-work-row.moved {
+	/* The ACCENT tone — Moved, Cleared. Emerald says it happened; the accent says look where it is
+	   now. Same split the keys keep between `.done` and `.on`. */
+	.te-work-row.said-here {
 		--te-said: var(--orange);
 	}
-	.te-work-row.saved::after,
-	.te-work-row.moved::after {
-		content: 'Saved';
+	/* The word is the ROW'S, carried as an attribute rather than as one rule per verb. Four verbs
+	   answer here now and a fifth should cost a call, not a stylesheet. */
+	.te-work-row.said::after {
+		content: attr(data-said);
 		position: absolute;
 		right: 0.75rem;
 		top: 50%;
@@ -3907,9 +4095,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		text-transform: uppercase;
 		color: var(--te-said, var(--emerald));
 		animation: te-saved-word 1.6s ease forwards;
-	}
-	.te-work-row.moved::after {
-		content: 'Moved';
 	}
 	@keyframes te-saved-wash {
 		0% {

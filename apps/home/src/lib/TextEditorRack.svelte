@@ -44,12 +44,15 @@
 </script>
 
 {#if !editor.narrow}
-	<!-- THE FILE KEYS lead the bar, at the far left, with a rule on their right. A document has
-	     to arrive before there is anything to mark up or anything to do with it, and reading the
-	     bar left to right now tells that order: bring one in, choose how to look at it, mark it
-	     up, then take it away. Pinned outside the scrolling strip for the same reason the
-	     document keys are — a file verb that can scroll out of reach is a file verb you cannot
-	     find. -->
+	<!-- THE FILE KEYS lead the bar, at the far left. A document has to arrive before there is
+	     anything to mark up or anything to do with it, and reading the bar left to right tells
+	     that order: bring one in, mark it up, choose how to look at it, then take it away. Pinned
+	     outside the scrolling strip for the same reason the document keys are — a file verb that
+	     can scroll out of reach is a file verb you cannot find.
+	     NO RULE after them. These two wear WORDS and the strip beside them is nothing but glyphs,
+	     which is already the whole of the difference; the rule was drawing a line between two
+	     things nobody was going to confuse. The tail keeps its one rule because the keys on both
+	     sides of THAT one look alike. -->
 	<div class="te-lead">
 		<div class="te-group" role="group" aria-label="Open">
 			{#each OPEN_KEYS as k (k.id)}
@@ -59,7 +62,6 @@
 				</button>
 			{/each}
 		</div>
-		<span class="te-sep" aria-hidden="true"></span>
 	</div>
 {/if}
 <div class="te-rack" role="toolbar" aria-label="Text Editor">
@@ -138,26 +140,37 @@
 		{/if}
 	</div>
 	{#if !editor.narrow}
-		<span class="te-sep" aria-hidden="true"></span>
-		<div class="te-group" role="group" aria-label="The document">
-			{#each DOC_KEYS.filter((k) => k.shown?.() ?? true) as k (k.id)}
-				<button
-					type="button"
-					class="tb"
-					class:on={k.on?.()}
-					class:done={k.done?.()}
-					onclick={k.run}
-					title={k.title()}
-				>
-					<span class="te-key-ico" aria-hidden="true">{@html k.svg}</span>
-					<!-- The word goes on a narrow bar and the glyph carries the key — EXCEPT while a
-					     key is saying something back. "Copied" and "Sure?" are state, not a label,
-					     and state that only shows on a wide window is state half the visitors never
-					     see. -->
-					<span class="te-key-word" class:te-say={k.on?.() || k.done?.()}>{k.label()}</span>
-				</button>
-			{/each}
-		</div>
+		<!-- A RULE SEPARATES TWO THINGS, so it is drawn only when there are two — and the GROUP goes
+		     with it. The document group can be EMPTY now: Save appears only when there is somewhere
+		     to save to, and `.md` only in a browser that cannot save at all. Empty, it still stood
+		     in the tail's flex row and still took a gap on either side, so the one rule left came
+		     with a hole in front of it. Rendering neither is what closes it. -->
+		{@const docKeys = DOC_KEYS.filter((k) => k.shown?.() ?? true)}
+		{#if docKeys.length}
+			<span class="te-sep" aria-hidden="true"></span>
+			<div class="te-group" role="group" aria-label="The document">
+				{#each docKeys as k (k.id)}
+					<button
+						type="button"
+						class="tb"
+						class:on={k.on?.()}
+						class:done={k.done?.()}
+						onclick={k.run}
+						title={k.title()}
+					>
+						<span class="te-key-ico" aria-hidden="true">{@html k.svg}</span>
+						<!-- The word goes on a narrow bar and the glyph carries the key — EXCEPT while
+						     a key is saying something back. "Saved" and "Sure?" are state, not a label,
+						     and state that only shows on a wide window is state half the visitors never
+						     see. -->
+						<span class="te-key-word" class:te-say={k.on?.() || k.done?.()}>{k.label()}</span>
+					</button>
+				{/each}
+			</div>
+		{/if}
+		<!-- The rule before the panel's own chrome. Always drawn: what stands past it is the
+		     SETTINGS key, which is not a document verb at all, and that boundary is there whether
+		     or not the document has any keys to its left. -->
 		<span class="te-sep" aria-hidden="true"></span>
 	{/if}
 </div>

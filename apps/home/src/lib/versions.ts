@@ -84,11 +84,20 @@ export const RELEASES: Record<string, AppRelease> = {
 	TEXT: {
 		major: 0,
 		minor: 9,
-		// Back to zero, by hand, because a feature landed — see the note on `fixes` above. The
-		// three repairs it counts were repairs to the app as it stood before this.
-		fixes: 0,
-		commits: 317,
+		// Two repairs since the install feature landed: a hover that cut instead of fading on
+		// every word key in the app, and a rule in the bar that doubled once the group between
+		// the two of them could be empty. The rearrangement they arrived with is not counted —
+		// nothing became possible that was not possible before, and the scheme counts what the
+		// app can DO rather than where it keeps it.
+		fixes: 2,
+		commits: 318,
 		recent: [
+			{ at: '0.9.2.318', what: 'One Settings key holds Apps, About, Install and the version' },
+			{
+				at: '0.9.2.318',
+				what: 'Copy, Save a copy and Clear moved onto a document’s own right-click menu'
+			},
+			{ at: '0.9.2.318', what: 'The bar’s word keys fade on hover, like the discs beside them' },
 			{
 				at: '0.9.0.317',
 				what: 'Install it as an app: its own window, offline, and .md files open in it'

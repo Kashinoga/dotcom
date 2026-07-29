@@ -18,10 +18,8 @@
 // hold a closure over a destroyed textarea. Every call site goes through `cmd?.`.
 
 import {
-	COPY_SVG,
 	DOWNLOAD_SVG,
 	SAVE_SVG,
-	TRASH_SVG,
 	BOLD_SVG,
 	ITALIC_SVG,
 	CODE_SVG,
@@ -117,7 +115,6 @@ export type Commands = {
 	/** Drop a block in on its own lines. */
 	block(body: string): void;
 	link(): void;
-	copy(): void;
 	download(): void;
 	/** Put a document on the sheet, replacing what is there. Undoable — see `load` in the editor. */
 	openFile(): void;
@@ -131,9 +128,11 @@ export type Commands = {
 	readme(): void;
 	/** Write the sheet back to the file it came from. Only when `canWrite` and a handle is open. */
 	saveInPlace(): void;
-	/** Two-step: the first call arms, the second clears. See `armed`. */
-	clear(): void;
 };
+// COPY and CLEAR are gone from this table, not renamed. They are a document's verbs now, offered
+// on a document's own row (see the note in DOC_KEYS), and the row menu is drawn INSIDE the editor
+// — so they never cross this seam and do not need publishing. The table is what the BAR can ask
+// for, and the bar no longer asks for either.
 
 export const editor = $state({
 	/** What the visitor last chose. `shownMode` is what is actually rendered. */
@@ -256,6 +255,16 @@ export const editor = $state({
 	 * scroller. Fixed, positioned from the key's measured rect, it escapes.
 	 */
 	headingAt: null as { x: number; y: number } | null,
+	/**
+	 * Where the SETTINGS flyout should stand, or null when it is shut. Carried rather than
+	 * anchored for the reason `headingAt` is — the key that opens it stands in a bar that scrolls
+	 * on a phone, and a popover parented into a scroller is clipped by it.
+	 *
+	 * The flyout is where the panel's own chrome went: Apps, About, Install, and the version. Four
+	 * things that are not the document, behind one key, so the bar's corner is one control wide
+	 * rather than four — which is what a one-row bar can afford.
+	 */
+	settingsAt: null as { x: number; y: number } | null,
 	/** Is the contents rail showing? On by default: it is the one column that costs nothing. */
 	contentsShown: true,
 	/** Which entry is being renamed, if any — the workspace swaps its row for a field. */
@@ -277,9 +286,17 @@ export const editor = $state({
 		y: number;
 		list: 'tree' | 'loose' | 'ephemeral';
 	} | null,
-	/** Confirmation lamps, owned by the editor's timers, read by the rack's keys. */
-	copied: false,
-	armed: false,
+	// `copied` was here, beside `armed`, and went with the Copy key: a row says "Copied" on the
+	// row itself now (see `flash` in the editor), which is the only place that can say WHICH
+	// document went to the clipboard. The Save key's own lamp is `saved`, further up.
+	/**
+	 * The row whose CLEAR is armed — a path or a scratch id, empty when nothing is asking.
+	 *
+	 * It was a bare boolean while Clear was one key acting on the sheet. Clear is now offered on
+	 * every document's own menu, so "armed" has to say WHICH: three lists can hold the same string
+	 * and a shared yes would have put `Sure?` on every row at once.
+	 */
+	armed: '',
 	/**
 	 * True once anything has scrolled under the bar. The BAR reads it, and it has to come from
 	 * here because the bar cannot see it any other way: the panel's own `scrolled` state is driven
@@ -383,6 +400,21 @@ export function openHeadings(event: MouseEvent) {
 	editor.headingAt = editor.headingAt ? null : { x: key.left, y: key.bottom + 4 };
 }
 
+/**
+ * Open the SETTINGS flyout under whatever key was pressed — the gear in the bar's corner on a
+ * desk, the gear in the flyout's stack on a phone. Same arrangement as the heading menu above and
+ * for the same two reasons: the key is drawn in two places that cannot share a component, and the
+ * surface it opens is drawn once, inside the editor, where it can be portalled clear of both.
+ *
+ * Right-ALIGNED, because the key it hangs from is in the right-hand corner: the card is laid out
+ * from its own right edge (the x carried here is the key's RIGHT) and pulled back inside the
+ * window by the effect in $lib/TextEditorSettings.
+ */
+export function openSettings(event: MouseEvent) {
+	const key = (event.currentTarget as HTMLElement).getBoundingClientRect();
+	editor.settingsAt = editor.settingsAt ? null : { x: key.right, y: key.bottom + 6 };
+}
+
 export const MARKS: MarkKey[] = [
 	{ svg: BOLD_SVG, title: 'Bold (⌘B)', run: () => editor.cmd?.surround('**') },
 	{ svg: ITALIC_SVG, title: 'Italic (⌘I)', run: () => editor.cmd?.surround('*') },
@@ -442,7 +474,11 @@ export const OPEN_KEYS: DocKey[] = [
 					? 'Hide the workspace'
 					: 'Show the workspace'
 				: 'Open a folder as a workspace',
-		label: () => 'Folder',
+		// WORKSPACE, not Folder. The key opens a folder, but what it MAKES is the workspace — the
+		// pane beside the sheet with the tree, the shelves and New in it — and that pane is what
+		// the key shows and hides every time after the first. Naming it for the thing it picks
+		// rather than the thing it builds described one press out of many.
+		label: () => 'Workspace',
 		run: () => editor.cmd?.openFolder(),
 		on: () => editor.folderShown,
 		folds: () => true
@@ -471,18 +507,27 @@ export const DOC_KEYS: DocKey[] = [
 			(!!editor.openHandle || (editor.openIn === 'ephemeral' && editor.folderWritable)),
 		folds: () => true
 	},
-	{
-		id: 'copy',
-		svg: COPY_SVG,
-		title: () => 'Copy the whole document',
-		label: () => (editor.copied ? 'Copied' : 'Copy'),
-		run: () => editor.cmd?.copy(),
-		// The same answer Save gives, so it is given the same way. These two sit side by side in
-		// the bar; one of them going emerald and the other staying plain would say the two events
-		// were different kinds of thing.
-		done: () => editor.copied,
-		folds: () => true
-	},
+	/*
+	 * COPY, .MD and CLEAR used to stand here, and they are now on a DOCUMENT'S OWN MENU — the
+	 * right-click menu in the workspace, beside Rename and Delete. Three keys came off the bar
+	 * for it, and the reason is that all three were lies of scope: they were drawn among the
+	 * document keys as though they acted on documents, and every one of them acted on whatever
+	 * happened to be on the sheet. There is one sheet and a workspace full of documents.
+	 *
+	 * On a row they mean exactly what they say — copy THIS, save THIS out, empty THIS — and they
+	 * cost no width in a one-row bar. SAVE stays, alone, because it is the one write that has to
+	 * be reachable without taking a hand off the document: it writes back what you are typing.
+	 *
+	 * The consequence, which is the price of the arrangement: a sheet with no row behind it (a
+	 * first visit, before anything is opened or made) has no Clear. New makes a scratch note and
+	 * that note has a row, so the way to a clearable document is one press.
+	 */
+	/*
+	 * ...and the one thing a document keeps in the bar is where it came IN. `.md` is not on the
+	 * menu below: it is offered per row (Save a copy), and it is the ONLY way out of a browser
+	 * that cannot write in place — so it must not be reachable only by right-clicking something.
+	 * Deliberately last, as it always was: it is how a document LEAVES.
+	 */
 	{
 		id: 'download',
 		svg: DOWNLOAD_SVG,
@@ -500,20 +545,7 @@ export const DOC_KEYS: DocKey[] = [
 					: 'Download it as a .md file',
 		label: () => '.md',
 		run: () => editor.cmd?.download(),
+		shown: () => !editor.canWrite,
 		folds: () => true
-	},
-	{
-		id: 'clear',
-		svg: TRASH_SVG,
-		title: () => (editor.armed ? 'Press again to clear the sheet' : 'Clear the sheet'),
-		label: () => (editor.armed ? 'Sure?' : 'Clear'),
-		run: () => editor.cmd?.clear(),
-		on: () => editor.armed,
-		// Clear ASKS first, so this is read INVERTED — and the inversion is the whole subtlety.
-		// `folds` is asked AFTER the key has run, and by then the arming press has just set
-		// `armed` to true: reading it straight folded the flyout on the very press that posed the
-		// question, hiding it. Armed means "still asking"; not armed, at this point, means the
-		// second press went through and the sheet is clear.
-		folds: () => !editor.armed
 	}
 ];

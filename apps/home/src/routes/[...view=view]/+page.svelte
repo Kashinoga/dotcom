@@ -21,11 +21,10 @@
 	// The editor's keys, rendered in the dense BAR rather than in the body — see the TEXT branch
 	// in the head-row below, and the note at the top of $lib/text-editor-state.
 	import TextEditorRack from '$lib/TextEditorRack.svelte';
-	import BetaTag from '$lib/BetaTag.svelte';
 	// The editor's own scroll state. The dense bar frosts when content goes under it, and this is
 	// the only way the bar can know: `surfScrolled` watches `.surface-body`, which in the editor
 	// never scrolls — its sheet and its proof scroll inside it instead.
-	import { editor as textEditor, install } from '$lib/text-editor-state.svelte';
+	import { editor as textEditor, openSettings } from '$lib/text-editor-state.svelte';
 	import { emojiSearch } from '$lib/emoji-search.svelte';
 	import StarMap from '$lib/StarMap.svelte';
 	import DocsShell from '$lib/DocsShell.svelte';
@@ -48,13 +47,10 @@
 		MAXIMIZE_SVG,
 		MINIMIZE_SVG,
 		PLAY_SVG,
-		PAUSE_SVG,
-		// The Text Editor's About key, next to Home in its bar — see the TEXT branch of the dense
-		// header. It belongs to the bar rather than to the editor's own rack because Home does too:
-		// the two are the panel's chrome, not the document's controls.
-		INFO_SVG,
-		// …and the Install key beside it, which offers the editor as an app of its own.
-		INSTALL_SVG
+		PAUSE_SVG
+		// The Text Editor's corner is one SETTINGS key, and it wears GEAR_SVG — already imported
+		// above for the Settings place. About, Install, Apps and the version are all behind it,
+		// in a flyout the editor draws ($lib/TextEditorSettings); this file draws only the key.
 	} from '$lib/icons';
 	import faviconSite from '$lib/assets/favicon.svg';
 	import faviconDev from '$lib/assets/favicon-dev.svg';
@@ -1851,7 +1847,10 @@
 							     foot inside it. The one thing it cannot do for itself is leave: on a phone the
 							     bar's chrome corner empties into the editor's floating key, and the door out is
 							     this page's (see `home`). Same bargain the ranger's key keeps. -->
-		<TextEditor onHome={() => home()} />
+		<!-- The door out leads to APPS, not to the map: this app sits under Apps, and somebody
+		     leaving an editor is usually going to another one. It is in the Settings flyout, which
+		     the editor draws — see $lib/TextEditorSettings. -->
+		<TextEditor onApps={() => board('APP')} />
 	{:else if v.code === 'DENS'}
 		<!-- Densette: The Curriculum, an in-universe RPG manual. A reading like Weather
 							     and the Court, but printed — it renders as a Pixelite technical manual under
@@ -2658,7 +2657,7 @@
 								     pause twin and its gear alongside, and on a phone the three of them
 								     leave the bar together for a floating key. -->
 											<div class="head-actions">
-												{#if v.code !== 'TEXT' || !textEditor.narrow}
+												{#if v.code !== 'TEXT'}
 													<button
 														type="button"
 														class="icon-btn"
@@ -2667,56 +2666,30 @@
 														title="Home">{@html HOME_SVG}</button
 													>
 												{/if}
-												{#if v.code === 'TEXT'}
-													<!-- ABOUT — the manual page the editor opens with, put back on the sheet.
-													     It reads as chrome rather than as a mark, which is why it stands with
-													     Home here instead of in the rack: the rack's keys all act on the
-													     document you are writing, and this one replaces it.
-													     Undoable (it goes through the editor's own write path), so unlike
-													     Clear it does not have to ask — hence a plain key, not a two-step.
-													     ON A PHONE this and Home BOTH leave the bar for the editor's floating
-													     key, the way the ranger's three do — a one-row bar cannot carry two
-													     view keys, two chrome keys and a tag at 390px. Gated on the editor's
-													     OWN `narrow`, not on this page's `isMobile`: the two thresholds are
-													     820px and 960px, and hand-writing the second one here is how a key
-													     ends up in neither place across a 140px band. -->
-													{#if !textEditor.narrow}
-														<button
-															type="button"
-															class="icon-btn"
-															onclick={() => textEditor.cmd?.readme()}
-															aria-label="About Text Editor — put the manual page on the sheet"
-															title="About — the manual page (replaces the sheet; ⌘Z undoes it)"
-															>{@html INFO_SVG}</button
-														>
-														<!-- INSTALL. The editor is the one app here that is offered as an app of
-														     its own — a window with no address bar, an icon in the Start menu, and
-														     `.md` files that open in it. It stands in the CHROME corner because
-														     that is what it is: it does nothing to the document, and everything to
-														     where the document is being written.
-														     Drawn only while there is an offer to make. Chromium is the only engine
-														     that will say so, and it says so once — so this key comes and goes, and
-														     it is not a setting. It goes to the flyout on a phone with Home and
-														     About, which is why the flag lives in $lib/text-editor-state and not
-														     in this file. -->
-														{#if textEditor.installable && !textEditor.installed}
-															<button
-																type="button"
-																class="icon-btn"
-																onclick={() => install()}
-																aria-label="Install Text Editor as an app"
-																title="Install Text Editor as an app">{@html INSTALL_SVG}</button
-															>
-														{/if}
-													{/if}
-													<!-- The editor says it is in beta, at the far end of the bar past Home.
-													     It was a SPAN — a label with nothing to press, on the argument that a
-													     button which does nothing is a promise to a keyboard and a screen reader
-													     the app cannot keep. It has something to say now — which version this is,
-													     what the four numbers mean, and what has just landed — so it is a button,
-													     and the promise is kept. $lib/BetaTag owns the tag and its card; the
-													     versions live in $lib/versions, keyed by the register’s own code. -->
-													<BetaTag code={v.code} title={port.title} accent={accent[v.code]} />
+												{#if v.code === 'TEXT' && !textEditor.narrow}
+													<!-- SETTINGS — and it is the whole of the editor's corner now. Four things
+													     stood here: Home, About, Install and the Beta tag. None of them acts on
+													     the document, all four cost width in a bar that is one row high, and on
+													     a phone three of them had already been pushed down into the floating
+													     key's stack, where they sat among the marks looking like more marks.
+													     They are behind this one key, in a flyout the EDITOR draws
+													     ($lib/TextEditorSettings) — the same surface this key and the phone's
+													     own gear both open, through `openSettings` in $lib/text-editor-state.
+													     ON A PHONE this corner empties like every other app's: the gear goes
+													     down to the floating key's stack, where the marks and the file keys
+													     already are, and the bar keeps nothing but the two view keys.
+													     The door out is in there too, and it leads to APPS rather than home —
+													     see `onApps` on the editor below. -->
+													<button
+														type="button"
+														class="icon-btn"
+														class:on={!!textEditor.settingsAt}
+														aria-expanded={!!textEditor.settingsAt}
+														onclick={openSettings}
+														aria-label="Settings"
+														title="Settings — About, Install, Apps, and the version"
+														>{@html GEAR_SVG}</button
+													>
 												{/if}
 											</div>
 										{/if}

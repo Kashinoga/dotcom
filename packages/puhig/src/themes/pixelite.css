@@ -265,6 +265,15 @@ html[data-look='pixelite'] .icon-btn {
 	border: 1px solid var(--pixel-key-border);
 	border-radius: 4px;
 	box-shadow: var(--pixel-bevel);
+	/* The base's transition covers colour, background and transform — but not BORDER-COLOR, which
+	   under Pixelite is half of what a hover does (the edge goes cobalt with the glyph). So the
+	   glyph faded and its edge snapped, on the same key, in the same 150ms. Restated in full
+	   because a transition list replaces rather than merges. */
+	transition:
+		color 0.15s ease,
+		border-color 0.15s ease,
+		background 0.15s ease,
+		transform 0.15s ease;
 }
 html[data-look='pixelite'] .icon-btn svg {
 	width: 1.05rem;
@@ -414,6 +423,17 @@ html[data-look='pixelite'] .pc-close {
 	font-family: var(--font-mono);
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
+	/* The hover FADES. It did not, and one bar showed both behaviours at once: the discs at the
+	   right-hand end of a dense bar are `.icon-btn`, which carries a transition from puhig's base,
+	   while the WORD keys beside them — the whole family listed above — had none and snapped from
+	   ink to cobalt. Two keys on one row, one easing and one cutting, reads as one of them being
+	   broken.
+	   Colour and edge only. The BEVEL is deliberately left out: it inverts on `:active` to say the
+	   key went down, and a press that eases into its own shadow is a press that feels late. */
+	transition:
+		color 0.15s ease,
+		border-color 0.15s ease,
+		background 0.15s ease;
 }
 html[data-look='pixelite'] .chip:hover:not(:disabled),
 html[data-look='pixelite'] .tb:hover:not(:disabled),
@@ -435,7 +455,12 @@ html[data-look='pixelite'] .tb.on,
 html[data-look='pixelite'] .mini.on,
 html[data-look='pixelite'] .swatch-btn.on,
 html[data-look='pixelite'] .legend-btn.on,
-html[data-look='pixelite'] .type-btn.on {
+html[data-look='pixelite'] .type-btn.on,
+/* The DISC selected, which it could not say until now. `.icon-btn.done` was here and `.on` was
+ * not, so a disc that holds a surface open — the Text Editor's settings gear — looked exactly
+ * the same open as shut, while the word keys beside it went cobalt. The tag it replaced said so
+ * with a rule of its own; a family member should not need one. */
+html[data-look='pixelite'] .icon-btn.on {
 	color: var(--orange);
 	border-color: var(--orange);
 	background: var(--pixel-key-on); /* cobalt-100 on paper, deep cobalt on dark stock */

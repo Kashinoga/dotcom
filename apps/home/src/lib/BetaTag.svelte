@@ -1,7 +1,14 @@
 <script lang="ts">
-	import { RELEASES, versionOf } from '$lib/versions';
+	import { versionOf } from '$lib/versions';
+	import VersionCard from '$lib/VersionCard.svelte';
 
 	// THE BETA TAG, and what is behind it.
+	//
+	// THE TEXT EDITOR NO LONGER WEARS ONE. Its version moved into the Settings flyout, with Apps
+	// and About — a one-row bar cannot spend four controls on chrome, and of the four the tag was
+	// the only one that was not even a control. What is left here is the TAG pattern itself: a
+	// word in a bar that opens the card. The card is $lib/VersionCard, shared with the flyout, so
+	// the next app to wear a tag gets the same one rather than a copy that has drifted.
 	//
 	// It used to be a <span>: a label with nothing to press, because a button that does nothing is
 	// a promise to a keyboard and a screen reader that the app cannot keep. It has something to
@@ -15,7 +22,6 @@
 
 	let { code, title, accent }: { code: string; title: string; accent?: string } = $props();
 
-	const release = $derived(RELEASES[code]);
 	const version = $derived(versionOf(code));
 
 	let open = $state(false);
@@ -80,7 +86,7 @@
 	onclick={toggle}>Beta</button
 >
 
-{#if open && release}
+{#if open}
 	<!-- The scrim is a button so a click anywhere shuts the card, the same way every other
 	     popover in this app closes. -->
 	<button
@@ -107,23 +113,7 @@
 			}
 		}}
 	>
-		<header class="beta-head">
-			<span class="beta-name">{title}</span>
-			<span class="beta-ver">{version}</span>
-		</header>
-		<!-- What the four numbers mean, said once. A version nobody can read is a serial number.
-		     One run of text with real spaces in it rather than four spans held apart by a flex
-		     gap: a gap is not a space, and a screen reader read the legend as one word. -->
-		<p class="beta-scheme">collections · features · fixes · commits</p>
-		<h3 class="beta-sub">Recently</h3>
-		<ul class="beta-list">
-			{#each release.recent.slice(0, 5) as feature (feature.what)}
-				<li class="beta-item">
-					<span class="beta-at">{feature.at}</span>
-					<span class="beta-what">{feature.what}</span>
-				</li>
-			{/each}
-		</ul>
+		<VersionCard {code} {title} />
 	</div>
 {/if}
 
@@ -170,88 +160,5 @@
 	.beta-card {
 		width: min(23rem, calc(100vw - 1rem));
 		padding: 0.7rem 0.85rem 0.8rem;
-	}
-	.beta-head {
-		display: flex;
-		align-items: baseline;
-		gap: 0.5rem;
-	}
-	.beta-name {
-		flex: 1 1 auto;
-		min-width: 0;
-		font-family: var(--font-mono, monospace);
-		font-size: 0.7rem;
-		font-weight: 700;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	/* The version is the one figure on this card, so it is set in the figure face the rest of
-	   the manual keeps for numbers — the section numerals, the listing tags, the workspace
-	   tallies. */
-	.beta-ver {
-		flex: none;
-		font-family: var(--font-pixel, var(--font-mono, monospace));
-		font-size: 1.05rem;
-		line-height: 1;
-		color: var(--orange);
-	}
-	/* The legend sits directly under the number and is spaced to read AGAINST it — one word per
-	   figure, in the figures' own order. It is not aligned to them character by character: the
-	   figures are proportional to their own values and any alignment would be a lie by the
-	   second release. A fourth word is why the letter-spacing came off — at four words the line
-	   wrapped inside `collections`, and a legend that breaks mid-word explains nothing. */
-	.beta-scheme {
-		margin: 0.2rem 0 0;
-		font-family: var(--font-mono, monospace);
-		font-size: 0.6rem;
-		letter-spacing: 0.02em;
-		text-transform: uppercase;
-		color: var(--sub);
-	}
-	.beta-sub {
-		margin: 0.7rem 0 0.35rem;
-		font-family: var(--font-mono, monospace);
-		font-size: 0.62rem;
-		font-weight: 700;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: var(--sub);
-	}
-	.beta-list {
-		margin: 0;
-		padding: 0;
-		list-style: none;
-		display: flex;
-		flex-direction: column;
-		gap: 0.35rem;
-	}
-	/* Each line carries the version it landed in, in the figure face, so the list reads as a
-	   short history rather than as a feature list — you can see where one release ends. */
-	.beta-item {
-		display: flex;
-		gap: 0.9rem;
-		align-items: baseline;
-	}
-	/* The version each line landed in, in its own column. Wide enough for ALL FOUR positions —
-	   `0.8.1.314`, not `0.8`: several features land in one minor, and a column of identical
-	   `0.8`s says nothing about which came first, which is the one thing this list is for. The
-	   gap to the text is the item's, and it is generous — these are two different kinds of thing
-	   and a tight gap read them as one wrapped sentence. */
-	.beta-at {
-		flex: none;
-		width: 4.6rem;
-		font-family: var(--font-pixel, var(--font-mono, monospace));
-		font-size: 0.8rem;
-		line-height: 1.3;
-		color: var(--sub);
-		font-variant-numeric: tabular-nums;
-	}
-	.beta-what {
-		flex: 1 1 auto;
-		font-size: 0.76rem;
-		line-height: 1.4;
 	}
 </style>
