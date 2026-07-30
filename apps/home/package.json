@@ -17,6 +17,7 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"gen:og": "node --experimental-strip-types --import ./test/register.mjs scripts/gen-og.mjs",
 		"test:unit": "node --experimental-strip-types --import ./test/register.mjs --test 'test/*.test.ts'",
+		"check:csp": "node scripts/csp-check.mjs",
 		"test:e2e": "node e2e/run.mjs",
 		"test:e2e:changed": "node e2e/run.mjs --changed",
 		"snap:sky": "node e2e/sky-snap.mjs"
