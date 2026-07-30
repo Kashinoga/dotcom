@@ -303,7 +303,7 @@ export const editor = $state({
 	 */
 	connections: [] as Connection[],
 	// ── THE DRIVE ─────────────────────────────────────────────────────────────
-	// A connected workspace is a FOURTH LIST in the pane, beside the tree, Elsewhere and Scratch —
+	// A connected workspace is a FOURTH LIST in the pane, beside the tree and the two shelves —
 	// not a replacement for the folder. The two are different kinds of place and somebody may
 	// reasonably have both open: a folder of work on the machine, and notes that follow them about.
 	//

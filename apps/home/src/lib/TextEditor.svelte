@@ -23,6 +23,7 @@
 		notWritten,
 		WROTE,
 		whyLocal,
+		type DetachedDoc,
 		type LocalStore,
 		type Store,
 		type WriteResult
@@ -39,7 +40,17 @@
 	import FloatingKey from '$lib/FloatingKey.svelte';
 	import TextEditorSettings from '$lib/TextEditorSettings.svelte';
 	import { dev } from '$app/environment';
-	import { NIB_SVG, RULE_SVG, GEAR_SVG, REFRESH_SVG } from '$lib/icons';
+	import {
+		NIB_SVG,
+		RULE_SVG,
+		GEAR_SVG,
+		REFRESH_SVG,
+		CHEVRON_EXPAND_Y_SVG,
+		SSD_SVG,
+		CLOUD_SVG,
+		GHOST_SVG,
+		FOLDER_FILES_SVG
+	} from '$lib/icons';
 
 	/**
 	 * The door out, which is the PAGE's — closing the panel, showing what is behind it and pushing
@@ -275,6 +286,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			// Whether the SCRATCH shelf is drawn at all. Only an explicit '0' hides it — an absent key
 			// is a first visit, and a first visit should see the list.
 			editor.scratchShown = localStorage.getItem(`${STORE}:scratch-shown`) !== '0';
+			// WHICH FOLDERS WERE SHUT. Held in a variable rather than put straight on `editor`,
+			// because the folder itself has not come back yet and `adopt` clears `collapsed` when it
+			// does — a tree that arrived a moment later would wipe this. `openHeldFolder` puts it on
+			// once the walk has landed; see the note there for why only the REMEMBERED folder gets it.
+			const shut = JSON.parse(localStorage.getItem(`${STORE}:collapsed`) || 'null');
+			if (Array.isArray(shut))
+				heldCollapsed = shut.filter((p): p is string => typeof p === 'string');
 		} catch {
 			// Private mode, a storage quota, a browser with storage switched off. The editor works
 			// perfectly well without persistence; it just forgets. Nothing to tell the visitor.
@@ -450,6 +468,29 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			localStorage.setItem(`${STORE}:scratch-shown`, editor.scratchShown ? '1' : '0');
 		} catch {
 			/* nothing to do */
+		}
+	});
+
+	// WHICH FOLDERS ARE SHUT, written whenever that changes — so a workspace comes back the way it
+	// was left rather than fully open every time, which on a deep tree is a fistful of twisties to
+	// press before the pane says anything useful.
+	//
+	// Gated on there BEING a tree, and that guard is load-bearing: at mount `folders` is empty for
+	// as long as the walk takes, and an ungated effect would write `[]` over the remembered list in
+	// that window — before `openHeldFolder` had a chance to spend it. Pruned to the tree for the
+	// same reason it is pruned on the way in: a path nothing answers to any more is dead weight.
+	//
+	// THE DRIVE IS NOT REMEMBERED, deliberately. Its folders arrive SHUT so that arriving costs no
+	// requests (see `twistBranch`), and restoring an opened remote tree would mean a PROPFIND per
+	// remembered folder at mount — the exact cost that rule exists to avoid.
+	$effect(() => {
+		const shut = editor.collapsed.filter((p) => editor.folders.includes(p));
+		if (!editor.folders.length || typeof localStorage === 'undefined') return;
+		try {
+			if (shut.length) localStorage.setItem(`${STORE}:collapsed`, JSON.stringify(shut));
+			else localStorage.removeItem(`${STORE}:collapsed`);
+		} catch {
+			/* nothing to do — the tree is on screen, it just will not come back this way */
 		}
 	});
 
@@ -1752,6 +1793,80 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	let nameClipped = $state(false);
 
 	/** What the drive's head says: the folder, and the server when the two differ. */
+	/**
+	 * WHERE A LIST LIVES, in one line, shown on its head's mark.
+	 *
+	 * Four lists stacked in a 15rem column, and the pane never says which of them is on the machine
+	 * and which is on a server — the marks say it in a glyph, and these say the same thing in words
+	 * with the ADDRESS attached where there is one to attach. The drive has a real address and
+	 * gives it; the folder has only a name, because a `FileSystemDirectoryHandle` does not carry a
+	 * path and no browser will tell you one. Saying "Local" and then the folder's name is the whole
+	 * of what this side can honestly report.
+	 */
+	const driveWhere = $derived.by(() => {
+		const c = editor.connections.find((k) => k.id === driveId);
+		if (!c) return editor.driveHost ? `Cloud · ${editor.driveHost}` : 'Cloud';
+		// The origin and the folder inside it — the address somebody would type to reach the same
+		// place in a browser, not the DAV path, which is an implementation detail of the transport.
+		return `Cloud · ${c.base}${c.root ? `/${c.root}` : ''}`;
+	});
+	/** The address of a connection, the way somebody would type it to reach the same place. */
+	function driveAddress(id: string): string {
+		const c = editor.connections.find((k) => k.id === id);
+		return c ? `${c.base}${c.root ? `/${c.root}` : ''}` : '';
+	}
+
+	/**
+	 * WHERE ONE DOCUMENT IS, for the row's own tooltip.
+	 *
+	 * A row shows a NAME, and a name is not a location — two `README.md` three folders apart are
+	 * the ordinary case here, and the shelves make it worse by holding documents from anywhere at
+	 * all beside each other. This is the answer to "which one is this".
+	 *
+	 * What it can say differs by list, and it says only what is true of each. A DRIVE row has a real
+	 * address and gives the whole of it. A LOCAL row cannot: the File System Access API does not
+	 * expose an absolute path anywhere — a handle carries `name`, the last segment and nothing
+	 * more, and `resolve()` answers with a path RELATIVE to the handle you picked. Chrome withholds
+	 * the rest deliberately. `webkitdirectory` is the same story through `webkitRelativePath`.
+	 *
+	 * So a local path is written under a LEADING ELLIPSIS — `Local · …/Syncthing/scratch.txt`. The
+	 * three characters are the honest part: they say there is more above this that the browser will
+	 * not hand over, which a bare `Syncthing/scratch.txt` reads as an absolute path and is not one.
+	 * Where the limit itself is worth stating in words it is stated ONCE, on the LOCAL head's own
+	 * card, rather than on every row — see `localWhere`.
+	 */
+	function whereIs(path: string, list: 'tree' | 'cloud'): string {
+		if (list === 'cloud') {
+			const at = driveAddress(driveId);
+			return at ? `Cloud · ${at}/${path}` : `Cloud · ${path}`;
+		}
+		return `Local · …/${editor.folderName ? `${editor.folderName}/` : ''}${path}`;
+	}
+
+	/** The same for a SHELF row, which knows where it came from and may have come from a drive. */
+	function looseWhere(d: DetachedDoc): string {
+		if (d.drive) {
+			const at = driveAddress(d.drive.connection);
+			return at ? `Cloud · ${at}/${d.drive.path}` : `Cloud · ${d.drive.path}`;
+		}
+		// A hand-picked FILE has no folder behind it at all — the picker hands back a handle and
+		// nothing else — so this is a name under a leading ellipsis and nothing more.
+		return `Local · …/${d.name}`;
+	}
+
+	/**
+	 * Keyed on whether a STORE is open, not on whether the folder has a name — those are two
+	 * different questions and only one of them is "is there a workspace here". A directory handle
+	 * can hand back an empty name (the Origin Private File System's root does, which is what the
+	 * suite picks), and reading that as "no folder open" told a visitor with a folder open that
+	 * they had none.
+	 */
+	const localWhere = $derived(
+		store
+			? `Local · …/${editor.folderName || 'the open folder'} — the browser does not reveal where this folder is on the disk`
+			: 'Local · no folder open'
+	);
+
 	const driveLabel = $derived(
 		(editor.driveName || 'Drive') +
 			(editor.driveHost && editor.driveHost !== editor.driveName ? ` (${editor.driveHost})` : '')
@@ -1815,8 +1930,15 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		  }
 		| { kind: 'file'; entry: FolderEntry; depth: number };
 
+	/**
+	 * How many DOCUMENTS are under a branch — not how many rows.
+	 *
+	 * The tree lists unopenable files too, greyed out, so a reader can see the folder as it really
+	 * is (see `openable` in the store). They are not counted here: the tally answers "how much is
+	 * in here for me", and a folder of forty photographs and one note is not a folder of forty-one.
+	 */
 	function countIn(branch: Branch): number {
-		let n = branch.files.length;
+		let n = branch.files.filter((f) => f.openable !== false).length;
 		for (const child of branch.dirs.values()) n += countIn(child);
 		return n;
 	}
@@ -1889,6 +2011,94 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.collapsed = editor.collapsed.includes(path)
 			? editor.collapsed.filter((p) => p !== path)
 			: [...editor.collapsed, path];
+	}
+
+	// ── Open or shut a whole branch at once ───────────────────────────────────
+	// The row twisty does one folder. This does everything under something — and "something" is
+	// either a SECTION (the key on the folder's head or the drive's, where the branch is the whole
+	// list) or a FOLDER ROW (where it is that folder and everything inside it). One pair of
+	// functions serves both, because they are one idea at two scales; writing the head's version
+	// and the row's version separately is how the two would come to disagree about what "all"
+	// means the first time either was touched.
+	//
+	// Only lists that HAVE folders get a key. The two SHELVES are flat by definition — one
+	// is notes with nowhere to be yet, the other a record of what was reached for — so a key there
+	// would be a control that cannot do anything. Nor does a folder with no folders inside it get
+	// one: its own twisty already IS the whole of what a branch key would do.
+	//
+	// ONE KEY, not two. It reads the branch and offers the move the branch is not already in: shut
+	// it all while anything is open, open it all once it is all shut. Two keys would mean one of
+	// them was always the no-op, on a row that has a name to protect and in a head that already
+	// carries a name, a key and a tally across 15rem.
+
+	/**
+	 * The folders one press acts on. At a section head (`path` is the root, '') that is every
+	 * folder in the list; at a folder row it is that folder AND everything inside it.
+	 *
+	 * The folder itself is in the branch on purpose. Opening the inside of a shut folder would
+	 * change nothing anybody can see, and shutting a branch without shutting the folder that names
+	 * it leaves the one row that says what just happened standing open.
+	 */
+	function branchOf(path: string, list: 'tree' | 'cloud'): string[] {
+		const dirs = list === 'cloud' ? editor.driveFolders : editor.folders;
+		return path === '' ? [...dirs] : dirs.filter((d) => d === path || d.startsWith(`${path}/`));
+	}
+
+	/**
+	 * Is there ANYTHING left to open in this branch — the state that flips the key.
+	 *
+	 * ANY, not ALL, and the drive is what settles it. Opening a remote branch reveals folders that
+	 * were not paths this app knew a moment ago, and every one of them arrives SHUT (see
+	 * `twistBranch`). Under an all-are-shut rule the key flipped to "Shut every folder" the instant
+	 * the first level landed — offering to undo the press you had just made, while the tree below
+	 * was still folded. Asking whether anything is shut keeps the key saying "Open" until the
+	 * revealed tree really is open, which is what a second press is for.
+	 * Locally it changes nothing: a local branch opens fully in one press, so all-shut and any-shut
+	 * are the same question one press apart.
+	 *
+	 * An EMPTY branch is not that state — `some` over nothing is false, so a list with no folders
+	 * correctly offers nothing.
+	 */
+	function branchShut(path: string, list: 'tree' | 'cloud'): boolean {
+		const shut = list === 'cloud' ? editor.driveCollapsed : editor.collapsed;
+		return branchOf(path, list).some((d) => shut.includes(d));
+	}
+
+	/**
+	 * Shut the branch, or open it where it is already all shut.
+	 *
+	 * ON A DRIVE IT CANNOT PROMISE AS MUCH, because that tree is lazy. Opening reaches the folders
+	 * the drive has REVEALED, which is not the whole of it: a folder nothing has been read from has
+	 * not said what is inside, so its children are not yet paths this app knows. Reading them is
+	 * what makes them known, and `fetchDriveDir` files everything fresh as SHUT (the drive's
+	 * standing rule) — so the press after this one goes a level deeper. That is why the key's word
+	 * on a drive is "read so far" rather than a flat "everything": a key that claims to have opened
+	 * the whole drive when it opened one level of it is a key that lies.
+	 *
+	 * The reads are SERIALISED, not fired off together. A branch somebody has browsed a way into
+	 * can be a dozen folders, and a dozen simultaneous PROPFINDs at somebody else's Nextcloud is a
+	 * thundering herd sent on one click. One at a time also makes the rows say what is happening —
+	 * `Fetching` walks down the tree instead of every row lighting up at once.
+	 */
+	async function twistBranch(path: string, list: 'tree' | 'cloud') {
+		const branch = branchOf(path, list);
+		if (!branch.length) return;
+		const open = branchShut(path, list);
+		const shut = list === 'cloud' ? editor.driveCollapsed : editor.collapsed;
+		const next = open
+			? shut.filter((p) => !branch.includes(p))
+			: [...new Set([...shut, ...branch])];
+		if (list === 'tree') {
+			editor.collapsed = next;
+			return;
+		}
+		// Opened first, so the tree unfolds as each answer lands rather than all at the end. The
+		// branch is captured ABOVE this line because `fetchDriveDir` appends what it finds to
+		// `editor.driveFolders` — walking a list that grows as it is walked would keep going until
+		// it had read the whole drive, which is the one thing a lazy tree exists not to do.
+		editor.driveCollapsed = next;
+		if (!open) return;
+		for (const p of branch) await fetchDriveDir(p);
 	}
 
 	/**
@@ -2515,9 +2725,28 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 */
 	let held: LocalStore | null = null;
 
+	/**
+	 * Which folders were shut when the pane was last closed, read at mount and spent here.
+	 *
+	 * Only the REMEMBERED folder gets it, which is why it is applied in `openHeldFolder` and not
+	 * in `adopt`: adopting a DIFFERENT folder clears `collapsed` on purpose (a different tree, and
+	 * what was shut in the last one means nothing here), and restoring a saved list there would
+	 * shut whatever folders happened to share a path with the old workspace.
+	 */
+	let heldCollapsed: string[] = [];
+
 	async function openHeldFolder() {
 		if (!held) return;
-		if (await adopt(held)) return;
+		if (await adopt(held)) {
+			// PRUNED TO THE TREE THAT ACTUALLY CAME BACK. A folder deleted or renamed while the app
+			// was closed leaves a path behind that matches nothing, and an unpruned list would carry
+			// it for ever. Spent once — a second call is a folder being re-opened by hand, and by
+			// then `collapsed` is whatever the visitor has since done.
+			const back = heldCollapsed.filter((p) => editor.folders.includes(p));
+			heldCollapsed = [];
+			if (back.length) editor.collapsed = back;
+			return;
+		}
 		// The folder moved, or was deleted, or the grant went away between the check and here.
 		editor.folderPending = false;
 		editor.folderName = '';
@@ -2974,6 +3203,30 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
      DRAGGING IS THE LOCAL TREE'S ALONE. A drive's rows are not draggable and its folders take no
      drop: a move between two stores is a read and a write and a delete, not a move, and offering it
      as the same gesture would be a lie about what is happening to somebody's document. -->
+<!-- OPEN OR SHUT A WHOLE TREE AT ONCE — the row twisty's job at the scale of everything under
+     something. Worn by the two section HEADS (the folder and the drive, where it means the whole
+     list) and by every folder ROW that has folders inside it (where it means that branch). Written
+     once for all of them: several copies is how they would stop agreeing about what the key does,
+     the same argument the tree snippet below is written once for.
+     THE MARK IS reicon's `chevron-expand-y` — two chevrons pointing apart — and its mirror for the
+     other direction. Not the row twisty doubled, which is what this wore first: the twisty is the
+     mark for ONE folder, and a control that acts on many should not be the one-folder mark
+     repeated. The chevrons point the way the rows will point AFTER the press, so the key shows its
+     result rather than its name; the title says the same thing in words. -->
+{#snippet twistAll(allShut: boolean, what: string, act: () => void, where: 'head' | 'row' = 'head')}
+	<button
+		type="button"
+		class="te-loose-sort te-twist-all"
+		class:te-twist-branch={where === 'row'}
+		class:shuts={!allShut}
+		title={allShut ? `Open ${what}` : `Shut ${what}`}
+		aria-label={allShut ? `Open ${what}` : `Shut ${what}`}
+		onclick={act}
+	>
+		{@html CHEVRON_EXPAND_Y_SVG}
+	</button>
+{/snippet}
+
 {#snippet tree(
 	rows: WorkRow[],
 	list: 'tree' | 'cloud',
@@ -3013,6 +3266,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						ondrop={(e) => onDrop(e, row.path, list)}
 						onclick={() => twist(row.path)}
 						oncontextmenu={(e) => canMoveIn(list) && openDirMenu(e, row.path, list)}
+						title={whereIs(row.path, list)}
 						onkeydown={(e) => {
 							// The arrow keys a tree is expected to answer to. Left shuts an open
 							// folder, right opens a shut one — the rest of the tree's keyboard is
@@ -3038,9 +3292,31 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 							<span class="te-work-tally">{row.count}</span>
 						{/if}
 					</button>
+					<!-- THE BRANCH KEY, a SIBLING of the row button and never a child: a button inside a
+					     button is not markup a browser keeps, which is the same rule the scratch row's ×
+					     follows. Held back until the row is reached for, like that × — a key drawn on
+					     every folder at rest is the arrangement Rename and Delete were taken OFF the rows
+					     for, and it would cover the end of the one thing on the row you cannot work out
+					     from anywhere else.
+					     Only where the folder HAS folders in it: with nothing nested, this key and the
+					     row's own twisty would do the identical thing, one of them invisibly. -->
+					{#if branchOf(row.path, list).length > 1}
+						{@render twistAll(
+							branchShut(row.path, list),
+							branchShut(row.path, list) && list === 'cloud'
+								? `everything in ${row.name} read so far`
+								: `everything in ${row.name}`,
+							() => twistBranch(row.path, list),
+							'row'
+						)}
+					{/if}
 				</li>
 			{:else}
 				{@const entry = row.entry}
+				<!-- LISTED BUT NOT OPENABLE: a picture, a PDF, anything this editor cannot set. The row
+				     is drawn so the folder looks like itself, and drawn plainly inert so nobody presses
+				     it twice wondering why nothing happened. -->
+				{@const inert = entry.openable === false}
 				<li class="te-work-item" role="none">
 					{#if editor.renaming === entry.path}
 						<!-- Renaming happens IN the row, not in a dialog. The row is where the name
@@ -3088,17 +3364,21 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 							aria-current={editor.openIn === list && editor.openPath === entry.path
 								? 'true'
 								: undefined}
-							aria-haspopup="menu"
-							title={entry.path}
-							draggable={canMoveIn(list)}
+							class:inert
+							aria-disabled={inert || undefined}
+							aria-haspopup={inert ? undefined : 'menu'}
+							title={inert
+								? `${entry.name} — this editor only opens text. ${whereIs(entry.path, list)}`
+								: whereIs(entry.path, list)}
+							draggable={canMoveIn(list) && !inert}
 							ondragstart={(e) => onDragStart(e, entry, list)}
 							ondragend={() => {
 								dragging = '';
 								dropInto = null;
 							}}
 							style:padding-left="calc(0.75rem + {row.depth} * 0.8rem)"
-							onclick={() => openEntry(entry, list)}
-							oncontextmenu={(e) => openFileMenu(e, entry, list)}
+							onclick={() => !inert && openEntry(entry, list)}
+							oncontextmenu={(e) => !inert && openFileMenu(e, entry, list)}
 						>
 							<span class="te-work-file">{entry.name}</span>
 							{#if busy}
@@ -3118,12 +3398,16 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 
 {#snippet shelf(
 	title: string,
+	mark: string,
+	tip: string,
 	rows: {
 		id: string;
 		name: string;
 		list: 'loose' | 'ephemeral';
 		open: () => void;
 		menu: (e: MouseEvent) => void;
+		/** Where this document is, for the row's tooltip. See `whereIs`. */
+		where: string;
 		/** Present where a row can be dismissed from the row itself. False while it asks. */
 		close?: () => boolean;
 	}[],
@@ -3137,6 +3421,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		     Four lists now, each with a head, and one of them set differently reads as a subheading
 		     of whatever is above it rather than as the top of its own list. -->
 		<div class="te-work-head te-loose-head">
+			<span class="te-work-mark" role="img" aria-label={tip}>{@html mark}</span>
+			<span class="popover te-work-where" aria-hidden="true">{tip}</span>
 			<h2 class="te-work-name">{title}</h2>
 			{#if add}
 				<!-- + on the Scratch head. New note is in the Workspace menu, which is the right place
@@ -3199,6 +3485,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						}}
 						onclick={row.open}
 						oncontextmenu={row.menu}
+						title={row.where}
 					>
 						<span class="te-work-file">{row.name}</span>
 					</button>
@@ -3348,12 +3635,17 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					{#if editor.scratchShown}
 						{@render shelf(
 							'Scratch',
+							GHOST_SVG,
+							'In this browser · these notes have no file behind them',
 							editor.ephemeral.map((d) => ({
 								id: d.id,
 								name: d.name,
 								list: 'ephemeral' as const,
 								open: () => openEphemeral(d),
 								menu: (e: MouseEvent) => openShelfMenu(e, d.id, 'ephemeral'),
+								// A scratch note has no location, and saying so IS the fact worth having:
+								// it is the one row in this pane whose words exist nowhere but here.
+								where: 'In this browser · not saved to disk',
 								close: () => closeShelfRow({ id: d.id, list: 'ephemeral' })
 							})),
 							sortEphemeral,
@@ -3362,13 +3654,16 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					{/if}
 					{#if editor.loose.length}
 						{@render shelf(
-							'Elsewhere',
+							'Local',
+							FOLDER_FILES_SVG,
+							'Opened from outside the workspace · usually local, and a drive row says so',
 							editor.loose.map((d) => ({
 								id: d.id,
 								name: d.name,
 								list: 'loose' as const,
 								open: () => openLoose(d),
-								menu: (e: MouseEvent) => openShelfMenu(e, d.id, 'loose')
+								menu: (e: MouseEvent) => openShelfMenu(e, d.id, 'loose'),
+								where: looseWhere(d)
 							}))
 						)}
 					{/if}
@@ -3402,6 +3697,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 							     drive open beside a local folder of the same name has two lists wearing one
 							     name. The host is left off when the drive was opened at its ROOT, because the
 							     name IS the host then and `host (host)` is a label arguing with itself. -->
+							<span class="te-work-mark" role="img" aria-label={driveWhere}>{@html CLOUD_SVG}</span>
+							<span class="popover te-work-where" aria-hidden="true">{driveWhere}</span>
 							<h2 class="te-work-name" bind:this={driveNameEl}>{driveLabel}</h2>
 							{#if driveClipped}
 								<!-- THE SAME REVEAL the folder's head keeps, and the drive needs it more: its label is a
@@ -3447,6 +3744,16 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 									onclick={newDriveDoc}>+</button
 								>
 							{/if}
+							<!-- The drive's own, in the same place in the row and saying LESS in its word: this
+							     tree is lazy, so opening it reaches what the drive has revealed rather than all
+							     of it. See `twistAllDrive`. -->
+							{#if editor.driveOpen && editor.driveFolders.length}
+								{@render twistAll(
+									branchShut('', 'cloud'),
+									branchShut('', 'cloud') ? 'every folder read so far' : 'every folder',
+									() => twistBranch('', 'cloud')
+								)}
+							{/if}
 							<!-- NO TALLY. The tree arrives one level at a time, so the number of documents
 							     in the drive is not a thing this app knows until every folder has been
 							     opened — and a figure that grows as you browse is worse than none. -->
@@ -3459,9 +3766,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 							</p>
 						{:else}
 							{@render tree(driveRows, 'cloud', 'Drive documents', toggleDriveDir)}
-							{#if !editor.drive.length}
-								<p class="te-work-note">Nothing here this editor can open.</p>
-							{/if}
 						{/if}
 					</section>
 				{/if}
@@ -3492,14 +3796,21 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						ondrop={(e) => onDrop(e, '', 'tree')}
 						oncontextmenu={(e) => openDirMenu(e, '', 'tree')}
 					>
-						<!-- THE FOLDER'S OWN NAME, and `LOCAL` when there is none. Not `Workspace`: the
+						<!-- THE FOLDER'S OWN NAME, and `FOLDER` when there is none. Not `Workspace`: the
 					     PANE is the workspace — four lists in it now — and this is the one of them that
 					     is on the machine. Naming the section for the whole pane was fine while it was
 					     the only section in it.
+					     It said `LOCAL` until the shelf below took that word. The shelf holds files
+					     picked off this machine, and calling it ELSEWHERE said the one thing about them
+					     that is not true — that they are not local. This section never needed the word:
+					     it is headed by the folder's own name whenever there is a folder, and this is
+					     only what stands in when there is not.
 					     The name is still the one thing in this row you cannot work out from anywhere
 					     else, which is why the verbs are on the row's right-click and not beside it. -->
+						<span class="te-work-mark" role="img" aria-label={localWhere}>{@html SSD_SVG}</span>
+						<span class="popover te-work-where" aria-hidden="true">{localWhere}</span>
 						<h2 class="te-work-name" bind:this={workNameEl}>
-							{editor.folderName || 'Local'}
+							{editor.folderName || 'Folder'}
 						</h2>
 						<!-- The folder's own tally comes LAST, past the keys, because it is one of a
 					     column: every folder row in the tree below carries the same figure at the
@@ -3518,7 +3829,19 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 							aria-label="Open a folder"
 							onclick={pickFolder}>+</button
 						>
-						<span class="te-work-count">{editor.folder.length}</span>
+						<!-- …then the whole tree's twisty, after the key that brings a tree in and before the
+						     tally that heads its column. Only where there is a folder to shut: the tree of a
+						     workspace with no sub-folders is one level deep and already as open as it goes. -->
+						{#if editor.folders.length}
+							{@render twistAll(branchShut('', 'tree'), 'every folder', () =>
+								twistBranch('', 'tree')
+							)}
+						{/if}
+						<!-- DOCUMENTS, not rows — the same count the folder rows carry, for the same
+						     reason. See `countIn`. -->
+						<span class="te-work-count"
+							>{editor.folder.filter((f) => f.openable !== false).length}</span
+						>
 						{#if nameClipped}
 							<!-- Drawn only when the name is ACTUALLY clipped — a reveal that repeats a name
 						     you can already read in full is a flicker with no information in it. It
@@ -4198,6 +4521,29 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		   IBM Plex is about 68 characters, which is the same reading comfort. */
 		/* The band of gutter round and between the columns. */
 		--te-gutter: 0.4rem;
+		/* THE RAILS' STOCK — the workspace on one side, the contents on the other. They used to be
+		   cut from the same --surface as the sheet and the proof, and four panes in one white made
+		   the desk read as one wide sheet with rules drawn on it: the thing you are WRITING stood
+		   level with the two lists that only say where it is. So the rails step BACK — the desk's
+		   own colour, carried a little further from the sheet, so they read as laid under it
+		   rather than beside it. The sheet is the only white left, which is the point.
+		   Off --page and --ink rather than a pair of hex values, so it follows the scheme and the
+		   theme: light, the desk is #fbfbfb under a #ffffff sheet and this lands near #f6f6f6;
+		   dark, the desk is #0e0e10 under a #202023 sheet and it lands near #1b1b1c — a step back
+		   toward the gutter in both, which is what "behind" means either way round. Nudged past
+		   the desk rather than stopped at it because the panes are objects ON the desk (see the
+		   4px corner below); at exactly --page the rails dissolve into the gutter and that corner
+		   has nothing left to round.
+		   TWO ARMS, and it needs them: the mix runs toward --ink, and --ink FLIPS with the scheme.
+		   More ink is darker on white stock and LIGHTER on dark stock, so a single percentage
+		   moves the two schemes in opposite directions — asked to lighten both, one knob can only
+		   lighten one. The arms are what let "a smidge lighter" mean the same thing in each: less
+		   ink in light, more of it in dark. Keep them in step by EFFECT (how far the rail sits off
+		   the sheet), never by matching the numbers, which are not comparable. */
+		--te-rail: light-dark(
+			color-mix(in srgb, var(--page) 98%, var(--ink)),
+			color-mix(in srgb, var(--page) 94.5%, var(--ink))
+		);
 		--te-measure: 52rem;
 		--te-proof-measure: 34rem;
 	}
@@ -4242,6 +4588,31 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-write .te-sheet,
 	.te-proof-only .te-proof-pane {
 		flex-basis: 100%;
+	}
+
+	/* THE DESK ARRIVES SHEETS FIRST, RAILS BEHIND THEM. The bar rides in on `btn-in` (see the
+	   entrance block in $lib/TextEditorRack) and the desk under it used to be simply there, so the
+	   app assembled from the top down and then stopped halfway.
+	   The order is the point, and it is the reading order rather than the layout order: the SHEET is
+	   what you came for, and the workspace and the contents rail are both about the sheet — one
+	   says where the document is, the other what is in it. Landing them first would put the
+	   apparatus on screen ahead of the thing it is apparatus for.
+	   `rise` is puhig's own (base.css), the vertical counterpart to the bar's `btn-in`: the two axes
+	   read as two groups arriving rather than one wall, which is the same argument the panel's
+	   chrome and its content column already settle this way. Both rails share ONE delay — they are
+	   a pair framing the writing, and stepping them left-to-right would make a frame arrive
+	   crookedly. */
+	@media (prefers-reduced-motion: no-preference) {
+		.te-sheet,
+		.te-proof-pane {
+			animation: rise 0.5s var(--spring) backwards;
+			animation-delay: var(--enter-lead);
+		}
+		.te-work,
+		.te-toc {
+			animation: rise 0.5s var(--spring) backwards;
+			animation-delay: calc(var(--enter-lead) + 0.12s);
+		}
 	}
 
 	/* ── The sheet ─────────────────────────────────────────────────────────────
@@ -4782,8 +5153,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		display: flex;
 		flex-direction: column;
 		min-height: 0;
-		/* No rule down its edge either: it is a sheet on the same gutter as the panes beside it. */
-		background: var(--surface);
+		/* No rule down its edge either: it is a pane on the same gutter as the ones beside it —
+		   but cut from the RAIL stock rather than the sheet's, so it stands behind the writing
+		   instead of level with it. See --te-rail. */
+		background: var(--te-rail);
 	}
 	/* THE HEAD IS ONE ROW: the name, its tally, then New / Change / Hide at the right. The keys
 	   act on the PANE rather than on the list, so they belong at the end of the head where a
@@ -4956,6 +5329,150 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-loose-add {
 		font-size: 0.85rem;
 		line-height: 1;
+	}
+	/* THE SECTION MARK — one reicon glyph per list, at the head of it: a disk for the folder on
+	   this machine, a cloud for the drive, a ghost for notes with no file behind them, a folder of
+	   loose sheets for what was opened from elsewhere. It says what KIND of list this is before the
+	   name is read, which is the one thing four stacked lists in a 15rem column cannot say for
+	   themselves — three of the four names are the app's own words and the fourth is whatever the
+	   folder happens to be called.
+	   SET IN THE MUTED INK, like the tally and the twisty. The name is the bold uppercase thing in
+	   this row and the mark must not compete with it: it is an aid to finding the row, not the
+	   row's subject. Every one of them is aria-hidden — the name beside it already says this. */
+	.te-work-mark {
+		flex: none;
+		display: inline-flex;
+		align-items: center;
+		color: var(--sub);
+		/* It carries a hover card, so it wants a pointer that says something is under it — but not
+		   a `pointer`, which promises a click that does nothing. `help` is the one cursor that
+		   means exactly "there is a note about this here". */
+		cursor: help;
+	}
+	/* WHERE THIS LIST LIVES — Local or Cloud, with the address where there is one. The section
+	   marks say it in a glyph; a glyph is quick to find and slow to learn, so the words stand
+	   behind it. Same box as the clipped-name reveal below and for the same reasons: the shared
+	   `.popover` surface, BELOW the row rather than over it (over the mark it would land under the
+	   pointer that opened it and take its own hover away), and wrapped, because an address is long
+	   and the point is to read the whole of it.
+	   Opened by the MARK's own hover, not the head's: the head is a drop target, a context menu and
+	   three keys, and a card that appeared whenever the pointer crossed any of that would be in the
+	   way constantly. */
+	.te-work-where {
+		position: absolute;
+		z-index: 6;
+		top: calc(100% - 0.25rem);
+		left: 0.75rem;
+		right: 0.75rem;
+		padding: 0.35rem 0.5rem;
+		font-family: var(--font-mono, monospace);
+		font-size: 0.68rem;
+		color: var(--ink);
+		white-space: normal;
+		overflow-wrap: anywhere;
+		line-height: 1.4;
+		opacity: 0;
+		pointer-events: none;
+		transition: opacity 0.1s ease;
+	}
+	.te-work-mark:hover + .te-work-where,
+	.te-work-mark:focus-visible + .te-work-where {
+		opacity: 1;
+	}
+	.te-work-mark :global(svg) {
+		width: 0.9rem;
+		height: 0.9rem;
+		display: block;
+	}
+	/* OPEN/SHUT EVERYTHING — reicon's chevron-expand-y, sized like the refresh glyph beside it
+	   rather than like the `A-Z` word, because it is a glyph among words and the two sizes are
+	   already settled (see .te-drive-refresh). */
+	.te-twist-all {
+		display: inline-flex;
+		align-items: center;
+		line-height: 1;
+		/* NO SIDE PADDING, unlike the word keys beside it. `.te-loose-sort` gives every key 0.25rem
+		   a side, which a WORD needs — its ink runs to its box. This icon's does not: two chevrons
+		   sit in the middle of a 24-unit viewBox with a quarter of the width empty each side, so
+		   the key's own padding lands on top of air the glyph already brought. On the drive's head,
+		   which is the one head with no tally after its keys, that stacked up as a visible hole
+		   between the last key and the pane's right edge — measured at 20px of box holding 6px of
+		   ink. The head's own 0.4rem gap is what parts this key from the `+`; it needs nothing of
+		   its own. */
+		padding: 0;
+	}
+	.te-twist-all :global(svg) {
+		/* A shade over the 0.8rem the refresh glyph takes, and no more. The chevrons fill about half
+		   their viewBox where the refresh path fills its own, so at a MATCHED box they read at half
+		   the weight — but sizing them so the ink matches exactly (1.15rem, tried) overshoots the
+		   other way and the mark reads as the biggest thing in the row. This is the middle: enough
+		   to stop it looking like a speck between the `+` and the tally, not enough to outrank
+		   either. The ink is what was tuned, by eye, against its neighbours. */
+		width: 0.95rem;
+		height: 0.95rem;
+	}
+	/* WHERE THIS KEY ENDS A HEAD it is pulled out by its own side bearing, so its INK lands on the
+	   right edge every tally in the pane lands on rather than four pixels inside it. The drive's
+	   head is the only one this catches — it is the one head with no tally after its keys (a lazy
+	   tree cannot count itself; see the note in the markup) — and a glyph that stops short of a
+	   column of numbers reads as a gap somebody forgot to close, which is exactly what it was
+	   reported as. The BOX overhangs into the pane's 12px padding, which costs nothing: it is
+	   transparent, and what a reader lines up is ink.
+	   `:last-child` and not a class, because "does anything follow me" is precisely the question.
+	   On the folder's head the tally follows, so this does not apply there. */
+	.te-work-head > .te-twist-all:last-child {
+		margin-right: -0.25rem;
+	}
+	/* THE COLLAPSE MARK, made from the expand one — chevrons pointing TOGETHER instead of apart.
+	   reicon has no `chevron-collapse-y` and this is how the pair is got without hand-cutting a
+	   second path: flip each chevron about ITS OWN centre.
+	   NOT `scaleY(-1)` on the svg, which was tried first and does nothing at all — measured, the
+	   transform applies and the picture does not change. `chevron-expand-y` is SYMMETRIC under a
+	   vertical mirror: turning it over maps the top chevron onto the bottom one and the bottom
+	   onto the top, so the icon comes back as itself. (180° is the same story — chevrons are
+	   symmetric left to right too.) What is wanted is each chevron reversed IN PLACE, which is a
+	   per-path transform, which is what `transform-box: fill-box` buys: the origin becomes the
+	   path's own bounding box rather than the whole viewBox. */
+	.te-twist-all :global(svg path) {
+		transform-box: fill-box;
+		transform-origin: center;
+		transition: transform 0.12s ease;
+	}
+	.te-twist-all.shuts :global(svg path) {
+		transform: scaleY(-1);
+	}
+	/* ON A FOLDER ROW the same key is held back until the row is reached for — the scratch row's ×
+	   exactly, and for its reason: a key drawn on every folder at rest is the arrangement Rename
+	   and Delete were taken off the rows for. Absolute, so appearing costs the name no width and
+	   the row does not reflow under the pointer. */
+	.te-twist-branch {
+		position: absolute;
+		/* THE LIST'S OWN INSET, less this glyph's side bearing — so the ink lands on the same right
+		   edge as the tally it replaces, and as every tally in the column. Written as the
+		   subtraction rather than as the 0.5rem it comes to: those are two independent numbers (the
+		   row's padding and the icon's empty margin), they only agree by arithmetic, and a bare
+		   0.5rem here would silently stop lining up the day either one moved. */
+		right: calc(0.75rem - 0.25rem);
+		top: 50%;
+		transform: translateY(-50%);
+		padding: 0;
+		opacity: 0;
+		transition: opacity 0.12s ease;
+	}
+	.te-work-item:hover .te-twist-branch,
+	.te-work-item:focus-within .te-twist-branch {
+		opacity: 1;
+	}
+	/* …and the TALLY steps aside while it shows. The two want the same corner, and the choice
+	   between them is easy: the tally is a standing fact you can come back for, the key is the
+	   thing you reached for just now. Hidden rather than moved — sliding the figure left would
+	   shuffle the one column in this pane that is meant to hold still. */
+	.te-work-item:has(.te-twist-branch):hover .te-work-tally,
+	.te-work-item:has(.te-twist-branch):focus-within .te-work-tally {
+		opacity: 0;
+	}
+	.te-work-tally {
+		transition: opacity 0.12s ease;
 	}
 	/* The × on a scratch row. Held back until the row is reached for, the way the tree's verbs
 	   once were — but there is only one of it and it is a glyph rather than a word, so it costs
@@ -5239,7 +5756,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   one wide band with a seam nobody can see. Counting them lets the folder take whichever shade
 	   is left. */
 	.te-band:nth-of-type(odd) {
-		background: color-mix(in srgb, var(--ink) 4%, var(--surface));
+		/* Over the RAIL, not over the sheet: this band is drawn inside the workspace, and shading
+		   4% of ink onto a stock the pane no longer uses put the shaded sections BRIGHTER than the
+		   unshaded ones the moment the rail stepped back. The shade is a relationship with the
+		   pane under it, so it has to name that pane. */
+		background: color-mix(in srgb, var(--ink) 4%, var(--te-rail));
 	}
 	.te-work-head.into {
 		outline: 1px dashed var(--orange);
@@ -5415,6 +5936,21 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-work-twist.shut {
 		transform: none;
 	}
+	/* AN INERT ROW — listed so the folder looks like itself, dimmed so it is plainly not a document
+	   you can open. Dimmed rather than struck through or badged: it is not an error and not a
+	   warning, it is simply not this app's kind of file, and the quietest possible treatment is the
+	   honest one. `default` cursor, because `not-allowed` scolds somebody for pointing at a
+	   photograph. The title says why — see the row's markup. */
+	.te-work-row.inert {
+		opacity: 0.45;
+		cursor: default;
+	}
+	/* …and it does not answer to the pointer the way a document does. The hover wash says "this
+	   opens"; there is nothing to open. */
+	.te-work-row.inert:hover {
+		background: none;
+	}
+
 	/* How many documents are under a shut folder. Set in the pixel voice, like the count in the
 	   header, because it is the same fact about a smaller thing. */
 	.te-work-tally {
@@ -5436,7 +5972,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	/* ── The contents rail ─────────────────────────────────────────────────────
 	   The docs shell's right rail, in an editor: a column of the document's own headings, stepped
 	   by level, the one under the caret marked. Same width and material as the workspace on the
-	   other side, so the desk reads as a spread with the writing in the middle. */
+	   other side, so the desk reads as a spread with the writing in the middle — and the material
+	   is the RAIL stock, not the sheet's, for the reason set out at --te-rail: both rails say
+	   where the writing is, and neither should stand level with it. */
 	.te-toc {
 		flex: none;
 		width: 13rem;
@@ -5445,7 +5983,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		min-height: 0;
 		overflow-y: auto;
 		border-radius: 4px;
-		background: var(--surface);
+		background: var(--te-rail);
 		/* No top inset — the head is a row and brings its own. */
 		padding: 0 0 0.75rem;
 	}
@@ -5498,8 +6036,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 	/* Levels step in. Only the first three earn a step — past that a rail indents further than it
 	   informs, and h4–h6 are the mono running-head voice in the proof anyway. */
+	/* A TOP-LEVEL heading is not BOLDER than the ones under it, only darker. The rail already says
+	   the hierarchy twice — by indent and by the numbering — and a third telling in weight made the
+	   H1s read as the important entries rather than as the outer ones. Full ink against the 80% the
+	   rest keep is the whole of the difference now, which is enough to find them by and quiet
+	   enough that the entry under the caret (`.on`, the accent) is still the loudest thing here. */
 	.te-toc-link.lvl-1 {
-		font-weight: 600;
 		color: var(--ink);
 	}
 	.te-toc-link.lvl-2 {
@@ -5624,6 +6166,19 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		gap: 0.5rem 1.1rem;
 		padding: 0.5rem clamp(0.75rem, 2vw, 1.25rem);
 		border-top: 1px solid var(--te-rule);
+	}
+	/* THE FOOT COMES IN LAST, after the desk it is a footnote to. The app arrives in the order it
+	   is read — the bar, the sheet, the rails that say where the sheet is and what is in it, and
+	   then the tally, which is the only thing on screen nobody opened the editor for.
+	   `rise` like the desk (a horizontal `btn-in` on a full-width strip would slide the whole row
+	   in from the left, which reads as a banner arriving rather than as a foot settling), and one
+	   delay for the whole strip: the counts are one fact in four parts, and dealing them out
+	   left to right would invite reading them as a sequence. */
+	@media (prefers-reduced-motion: no-preference) {
+		.te-foot {
+			animation: rise 0.5s var(--spring) backwards;
+			animation-delay: calc(var(--enter-lead) + 0.2s);
+		}
 	}
 	.te-tally {
 		display: flex;

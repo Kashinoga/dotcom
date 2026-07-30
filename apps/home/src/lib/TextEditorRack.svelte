@@ -49,13 +49,14 @@
 	     that order: bring one in, mark it up, choose how to look at it, then take it away. Pinned
 	     outside the scrolling strip for the same reason the document keys are — a file verb that
 	     can scroll out of reach is a file verb you cannot find.
-	     NO RULE after them. These two wear WORDS and the strip beside them is nothing but glyphs,
-	     which is already the whole of the difference; the rule was drawing a line between two
-	     things nobody was going to confuse. The tail keeps its one rule because the keys on both
-	     sides of THAT one look alike. -->
+	     A RULE AFTER THEM, restored. It was taken out once on the argument that these two wear
+	     WORDS and the strip beside them is nothing but glyphs, so the difference was already
+	     unmissable — but a rule is not only telling two things apart, it is saying where one job
+	     ends and the next begins, and this bar reads left to right in the order of the work. It
+	     matches the one in the tail, which parts the document keys from what stands past them. -->
 	<div class="te-lead">
 		<div class="te-group" role="group" aria-label="Open">
-			{#each OPEN_KEYS as k (k.id)}
+			{#each OPEN_KEYS as k, i (k.id)}
 				<!-- NO CARET on either of these any more. Workspace held a menu and wore one; it is a
 				     toggle now, and a caret on a key that opens nothing is a promise it cannot keep —
 				     it was also what made the word sit off-centre, because the caret took width on one
@@ -67,12 +68,19 @@
 					aria-pressed={k.on ? k.on() : undefined}
 					onclick={k.run}
 					title={k.title()}
+					style:--bn={i}
 				>
 					<span class="te-key-ico" aria-hidden="true">{@html k.svg}</span>
 					<span class="te-key-word">{k.label()}</span>
 				</button>
 			{/each}
 		</div>
+		<!-- Drawn only where there is something on the other side of it. In PROOF the strip is
+		     empty — nothing to mark up — and a rule with a whole empty bar past it parts one thing
+		     from nothing. -->
+		{#if shown !== 'proof'}
+			<span class="te-sep" aria-hidden="true"></span>
+		{/if}
 	</div>
 {/if}
 <div class="te-rack" role="toolbar" aria-label="Text Editor">
@@ -92,15 +100,17 @@
 				title="Heading level"
 				aria-label="Heading level"
 				aria-expanded={!!editor.headingAt}
+				style:--bn={1}
 				onclick={openHeadings}>H<span class="te-caret-down" aria-hidden="true"></span></button
 			>
-			{#each MARKS as mark (mark.title)}
+			{#each MARKS as mark, i (mark.title)}
 				<button
 					type="button"
 					class="tb te-mark-key"
 					title={mark.title}
 					aria-label={mark.title}
 					onclick={mark.run}
+					style:--bn={2 + i}
 				>
 					{#if mark.svg}
 						<span class="te-key-ico" aria-hidden="true">{@html mark.svg}</span>
@@ -122,7 +132,7 @@
      has to do from the bar. -->
 <div class="te-tail">
 	<div class="te-group" role="group" aria-label="View">
-		{#each MODES as m (m.id)}
+		{#each MODES as m, i (m.id)}
 			<!-- SPLIT simply is not offered on a narrow window; see shownMode. -->
 			{#if !(editor.narrow && m.id === 'split')}
 				<button
@@ -130,6 +140,7 @@
 					class="tb"
 					class:on={shown === m.id}
 					aria-pressed={shown === m.id}
+					style:--bn={2 + i}
 					onclick={() => (editor.mode = m.id)}>{m.label}</button
 				>
 			{/if}
@@ -146,6 +157,7 @@
 				title={editor.measured
 					? 'Let the text run the full width'
 					: 'Hold the text to a reading measure'}
+				style:--bn={5}
 				onclick={() => (editor.measured = !editor.measured)}>Measure</button
 			>
 		{/if}
@@ -160,7 +172,7 @@
 		{#if docKeys.length}
 			<span class="te-sep" aria-hidden="true"></span>
 			<div class="te-group" role="group" aria-label="The document">
-				{#each docKeys as k (k.id)}
+				{#each docKeys as k, i (k.id)}
 					<button
 						type="button"
 						class="tb"
@@ -169,6 +181,7 @@
 						class:lost={k.lost?.()}
 						onclick={k.run}
 						title={k.title()}
+						style:--bn={6 + i}
 					>
 						<span class="te-key-ico" aria-hidden="true">{@html k.svg}</span>
 						<!-- The word goes on a narrow bar and the glyph carries the key — EXCEPT while
@@ -262,6 +275,42 @@
 		background: var(--pixel-hairline, var(--line-edge, rgba(0, 0, 0, 0.2)));
 	}
 
+	/* THE BAR ARRIVES THE WAY IT READS. The page already rides the panel's chrome in on `btn-in`
+	   (`.surface-head .head-actions .icon-btn` in +page.svelte), but on this app's dense bar the
+	   only thing that rule reaches is the SETTINGS key in the corner — so the bar used to load with
+	   one button sliding in and sixteen simply being there. Everything else is the rack's, so the
+	   rack rides it in.
+	   The keyframe is puhig's, not a second copy: `btn-in` is declared globally in base.css exactly
+	   so the panel and any app's own bar draw the one definition. Same curve, same step token.
+	   `--bn` is set in the MARKUP, off each `{#each}`'s index, rather than as a wall of
+	   `:nth-child` rules — the clusters are three separate boxes, so no single nth-child series
+	   spans them, and the indices are chosen to run left to right ACROSS the three: the two lead
+	   keys, then the marks, then the view keys and the document keys. The tail's numbers overlap
+	   the marks' on purpose. Sixteen keys stepped end to end is over half a second of ripple on a
+	   toolbar somebody sees on every load; overlapping them reads as the bar arriving rather than
+	   as a queue forming.
+	   `backwards` fill, for the reason the page's rule spells out: these are buttons in the
+	   universal hover/press list, so the fill has to lift the moment the entrance ends or the
+	   animated translate would pin their scale(). */
+	@media (prefers-reduced-motion: no-preference) {
+		.te-lead .tb,
+		.te-rack .tb,
+		.te-tail .tb {
+			animation: btn-in 0.42s var(--spring) backwards;
+			animation-delay: calc(var(--enter-lead) + var(--bn, 0) * var(--btn-enter-step));
+		}
+		/* The rules come in with the keys they part, a beat behind the key on their left, so a
+		   cluster arrives as a cluster instead of the hairline standing there waiting for it. */
+		.te-lead .te-sep,
+		.te-tail .te-sep {
+			animation: btn-in 0.42s var(--spring) backwards;
+			animation-delay: calc(var(--enter-lead) + var(--bn, 2) * var(--btn-enter-step));
+		}
+		.te-tail .te-sep {
+			--bn: 6;
+		}
+	}
+
 	/* The shared control class at this app's measure. Everything about how a .tb LOOKS — face,
 	   border, bevel, the mono uppercase label, the cobalt hover and the sunken press — comes from
 	   the theme (pixelite.css dresses .tb globally at 0,2,1, which outranks these scoped rules). */
@@ -275,7 +324,12 @@
 		padding: 0 0.7rem;
 		font: inherit;
 		font-size: 0.78rem;
-		font-weight: 600;
+		/* REGULAR, not the 600 this carried. Every key in the bar was semibold, so nothing in the
+		   row was emphasised by being bold — the weight was just a heavier setting of the whole
+		   strip, and against the pane's own bold uppercase heads it made the chrome shout over the
+		   lists. The mono face, the uppercase and the letter-spacing are already what says "this is
+		   a key"; a key that is ON has the accent to say so. */
+		font-weight: 400;
 		line-height: 1;
 		color: var(--ink);
 		background: color-mix(in srgb, var(--ink) 5%, transparent);

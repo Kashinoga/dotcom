@@ -18,6 +18,40 @@ export const MINIMIZE_SVG =
 export const ARROW_LEFT_SVG =
 	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19 11H7.83l4.88-4.88c.39-.39.39-1.03 0-1.42-.39-.39-1.02-.39-1.41 0l-6.59 6.59c-.39.39-.39 1.02 0 1.41l6.59 6.59c.39.39 1.02.39 1.41 0 .39-.39.39-1.02 0-1.41L7.83 13H19c.55 0 1-.45 1-1s-.45-1-1-1z"/></svg>';
 
+// reicon "chevron-expand-y" (Filled) — two chevrons pointing APART, for the control that opens a
+// whole tree at once. Kept as reicon draws it, `<g transform="scale(1.33333)">` and all: the set
+// authors this one in an 18-unit box, and rescaling the path by hand to save a wrapper would
+// re-cut a shape whose whole value is that it is the set's.
+// There is no `chevron-collapse-y` to pair it with, and none is hand-cut here: the collapse mark is
+// this icon with each chevron turned over IN PLACE, done in CSS off the two paths below (see
+// `.te-twist-all.shuts` in TextEditor). One icon, two states, and they cannot drift apart the way
+// two hand-kept paths would.
+// Do NOT try to get there by mirroring the whole icon — this shape is symmetric under a vertical
+// flip, so `scaleY(-1)` on the svg returns it unchanged. Measured, after shipping it that way.
+// THE TWO PATHS ARE SEPARATE ON PURPOSE, and must stay separate: the per-chevron flip has nothing
+// to act on if they are ever merged into one `d`.
+export const CHEVRON_EXPAND_Y_SVG =
+	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><g transform="scale(1.33333)"><path d="M9.53,2.22c-.293-.293-.768-.293-1.061,0l-3.5,3.5c-.293,.293-.293,.768,0,1.061s.768,.293,1.061,0l2.97-2.97,2.97,2.97c.146,.146,.338,.22,.53,.22s.384-.073,.53-.22c.293-.293,.293-.768,0-1.061l-3.5-3.5Z" fill="currentColor"/><path d="M11.97,11.22l-2.97,2.97-2.97-2.97c-.293-.293-.768-.293-1.061,0s-.293,.768,0,1.061l3.5,3.5c.146,.146,.338,.22,.53,.22s.384-.073,.53-.22l3.5-3.5c.293-.293,.293-.768,0-1.061s-.768-.293-1.061,0Z" fill="currentColor"/></g></svg>';
+
+// -- The Text Editor's workspace section marks (reicon, Filled) --
+// One per list in the pane, so a head says what KIND of list it is before its name is read: the
+// machine's own disk, a ghost for notes with no file behind them, a folder of files brought in
+// from elsewhere. The fourth is CLOUD_SVG, already above — the Weather app's mark is reicon's
+// `cloud` exactly, and a second copy under a second name is how the two would drift.
+// reicon "ssd2" — the LOCAL folder: a disk, because that is what makes this list different from
+// the drive above it. Not a folder glyph; every list here holds files, and the question a mark
+// answers is WHERE they are.
+export const SSD_SVG =
+	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7.49991 3H16.4999C17.6045 3 18.4999 3.52941 18.9999 5.11765L21.2505 12.8823C20.9286 12.7426 20.5913 12.675 20.2502 12.6383C19.782 12.5878 19.2096 12.5879 18.5508 12.5879H5.44925C4.79042 12.5879 4.21798 12.5878 3.74983 12.6383C3.40865 12.675 3.07125 12.7427 2.74933 12.8824L4.99991 5.11765C5.49991 3.52941 6.39534 3 7.49991 3Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M21.6629 14.529C21.74 14.6512 21.7995 14.7844 21.8454 14.9348L21.8514 14.9557C21.9999 15.4616 21.9999 16.1626 21.9999 17.2941C21.9999 18.3241 21.9999 18.9974 21.8879 19.4915C21.8786 19.5324 21.8686 19.5721 21.8577 19.6107C21.8103 19.7786 21.7471 19.9251 21.6629 20.0585C21.517 20.2897 21.3295 20.4883 21.1111 20.6428C20.6067 20.9997 19.9045 20.9997 18.5 20.9997H5.5C4.09554 20.9997 3.39331 20.9997 2.88886 20.6428C2.67048 20.4883 2.48298 20.2897 2.33706 20.0585C2 19.5244 2 18.7809 2 17.2938C2 16.2196 2 15.5333 2.12707 15.0337L2.13491 15.0037C2.13926 14.9875 2.14385 14.9712 2.14849 14.9554L2.14905 14.9535C2.19564 14.7953 2.25679 14.6562 2.33706 14.529C2.48298 14.2978 2.67048 14.0993 2.88886 13.9448C3.39331 13.5879 4.09554 13.5879 5.5 13.5879H18.5C19.9045 13.5879 20.6067 13.5879 21.1111 13.9448C21.3295 14.0993 21.517 14.2978 21.6629 14.529ZM12.25 17C12.25 16.5858 11.9142 16.25 11.5 16.25C11.0858 16.25 10.75 16.5858 10.75 17V18C10.75 18.4142 11.0858 18.75 11.5 18.75C11.9142 18.75 12.25 18.4142 12.25 18V17ZM14 16.25C14.4142 16.25 14.75 16.5858 14.75 17V18C14.75 18.4142 14.4142 18.75 14 18.75C13.5858 18.75 13.25 18.4142 13.25 18V17C13.25 16.5858 13.5858 16.25 14 16.25ZM17.25 17C17.25 16.5858 16.9142 16.25 16.5 16.25C16.0858 16.25 15.75 16.5858 15.75 17V18C15.75 18.4142 16.0858 18.75 16.5 18.75C16.9142 18.75 17.25 18.4142 17.25 18V17ZM19.75 17C19.75 16.5858 19.4142 16.25 19 16.25C18.5858 16.25 18.25 16.5858 18.25 17V18C18.25 18.4142 18.5858 18.75 19 18.75C19.4142 18.75 19.75 18.4142 19.75 18V17Z" fill="currentColor"/></svg>';
+// reicon "ghost" — SCRATCH: notes with no file behind them. The one list in the pane whose rows
+// are not a record of something on a disk somewhere.
+export const GHOST_SVG =
+	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M22 19.2058V12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12V19.2058C2 20.4896 3.35098 21.3245 4.4992 20.7504C5.42726 20.2864 6.5328 20.3552 7.39614 20.9308C8.36736 21.5782 9.63264 21.5782 10.6039 20.9308L10.9565 20.6957C11.5884 20.2744 12.4116 20.2744 13.0435 20.6957L13.3961 20.9308C14.3674 21.5782 15.6326 21.5782 16.6039 20.9308C17.4672 20.3552 18.5727 20.2864 19.5008 20.7504C20.649 21.3245 22 20.4896 22 19.2058ZM16 10.5C16 11.3284 15.5523 12 15 12C14.4477 12 14 11.3284 14 10.5C14 9.67157 14.4477 9 15 9C15.5523 9 16 9.67157 16 10.5ZM9 12C9.55228 12 10 11.3284 10 10.5C10 9.67157 9.55228 9 9 9C8.44772 9 8 9.67157 8 10.5C8 11.3284 8.44772 12 9 12Z" fill="currentColor"/></svg>';
+// reicon "folder-files" — ELSEWHERE: documents opened from outside the open folder. A folder with
+// loose sheets in it, which is what that shelf is.
+export const FOLDER_FILES_SVG =
+	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 6.94975C2 6.06722 2 5.62595 2.06935 5.25839C2.37464 3.64031 3.64031 2.37464 5.25839 2.06935C5.62595 2 6.06722 2 6.94975 2C7.33642 2 7.52976 2 7.71557 2.01738C8.51665 2.09229 9.27652 2.40704 9.89594 2.92051C10.0396 3.03961 10.1763 3.17633 10.4497 3.44975L11 4C11.8158 4.81578 12.2237 5.22367 12.7121 5.49543C12.9804 5.64471 13.2651 5.7626 13.5604 5.84678C14.0979 6 14.6747 6 15.8284 6H16.2021C18.8345 6 20.1506 6 21.0062 6.76946C21.0849 6.84024 21.1598 6.91514 21.2305 6.99383C22 7.84935 22 9.16554 22 11.7979V14C22 17.7712 22 19.6569 20.8284 20.8284C19.6569 22 17.7712 22 14 22H10C6.22876 22 4.34315 22 3.17157 20.8284C2 19.6569 2 17.7712 2 14V6.94975Z" fill="currentColor"/><path fill-rule="evenodd" clip-rule="evenodd" d="M12.25 10C12.25 9.58579 12.5858 9.25 13 9.25H18C18.4142 9.25 18.75 9.58579 18.75 10C18.75 10.4142 18.4142 10.75 18 10.75H13C12.5858 10.75 12.25 10.4142 12.25 10Z" fill="currentColor"/><path d="M16.9856 3.02094C16.8321 3 16.6492 3 16.2835 3H12L12.3699 3.38312C13.0359 4.07299 13.2919 4.33051 13.5877 4.50096C13.7594 4.5999 13.9415 4.67804 14.1304 4.73383C14.4559 4.82993 14.8128 4.83538 15.7546 4.83538L16.089 4.83538C17.0914 4.83536 17.8995 4.83535 18.5389 4.91862C18.6984 4.93939 18.8521 4.96582 19 5C18.8144 3.96313 18.0043 3.15985 16.9856 3.02094Z" fill="currentColor"/></svg>';
+
 export const BACK_SVG =
 	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8.16485 11.6296L14.7953 5.1999C15.2091 4.79869 16 5.04189 16 5.5703L16 18.4297C16 18.9581 15.2091 19.2013 14.7953 18.8001L8.16485 12.3704C7.94505 12.1573 7.94505 11.8427 8.16485 11.6296Z" fill="currentColor"/></svg>';
 

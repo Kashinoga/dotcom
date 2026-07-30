@@ -30,7 +30,22 @@
  * field this used to carry (`file`, `handle`, `parent`) was the local store's own bookkeeping,
  * published to the whole editor because there was nowhere else to put it.
  */
-export type FolderEntry = { name: string; path: string };
+export type FolderEntry = {
+	name: string;
+	path: string;
+	/**
+	 * Can this editor open it? False for everything that is not text — a picture, a PDF, a zip.
+	 *
+	 * They are LISTED, and that is the point: a workspace that silently dropped them showed a
+	 * folder of eleven things as a folder of three, and the reader is left wondering whether the
+	 * app failed, the walk missed them, or they were never there. A row that is present and plainly
+	 * inert answers that; an absent row cannot.
+	 *
+	 * Optional, and absent means yes: every entry that existed before this flag did was openable by
+	 * construction, and a required field would have made each of them say so again.
+	 */
+	openable?: boolean;
+};
 
 /**
  * WHY A WRITE DID NOT HAPPEN. A write is the one verb in this app whose failure leaves NOTHING on
@@ -178,6 +193,15 @@ const SKIP_DIR = /^(node_modules|\.git|\.svn|\.hg|\.cache|dist|build|\.next|\.sv
 /** How much of a folder is worth walking. See the note in `walk`. */
 const MAX_FILES = 500;
 const MAX_DEPTH = 6;
+/**
+ * How many UNOPENABLE files a walk will list before it stops bothering.
+ *
+ * Its own budget, well under MAX_FILES, and the reason is the failure it prevents: these rows are
+ * context, not content, and a folder holding several hundred photographs would spend the whole
+ * document allowance on pictures nobody can open in a text editor — turning a feature that exists
+ * so a folder looks like itself into one that hides the notes.
+ */
+const MAX_INERT = 80;
 
 // ── The local store ───────────────────────────────────────────────────────────
 
@@ -202,6 +226,9 @@ export function localStore(root: FileSystemDirectoryHandle, openable: RegExp): L
 	let files = new Map<string, FileSystemFileHandle>();
 	let dirs = new Map<string, FileSystemDirectoryHandle>();
 
+	/** How many inert rows have been listed so far — see the note at MAX_INERT. */
+	let shown = 0;
+
 	async function walk(dir: FileSystemDirectoryHandle, prefix: string, out: FolderEntry[]) {
 		dirs.set(prefix, dir);
 		// A folder can be arbitrarily deep and arbitrarily large; a workspace that walked all of it
@@ -214,10 +241,25 @@ export function localStore(root: FileSystemDirectoryHandle, openable: RegExp): L
 				if (!SKIP_DIR.test(name) && !name.startsWith('.')) {
 					await walk(entry as FileSystemDirectoryHandle, path, out);
 				}
-			} else if (openable.test(name)) {
+				continue;
+			}
+			// A dot-file is not a document somebody forgot about, it is machinery — the same
+			// judgement the directory arm makes one line up. Listing `.DS_Store` greyed out would
+			// be answering a question nobody asked.
+			if (name.startsWith('.')) continue;
+			if (openable.test(name)) {
 				files.set(path, entry as FileSystemFileHandle);
 				out.push({ name, path });
+				continue;
 			}
+			// EVERYTHING ELSE IS LISTED BUT INERT, and it gets a budget of its own rather than
+			// sharing the documents'. MAX_FILES is 500; a folder with a few hundred photographs in
+			// it would otherwise spend the whole allowance on them and hide the notes underneath,
+			// which is the one outcome worse than not listing them at all. No handle is kept: the
+			// row cannot be opened, so nothing above needs a way to read it.
+			if (shown >= MAX_INERT) continue;
+			shown += 1;
+			out.push({ name, path, openable: false });
 		}
 	}
 
@@ -434,10 +476,18 @@ export function snapshotStore(name: string, picked: File[], openable: RegExp): S
 	// be a tree with one root node holding everything, indenting every document by a level to
 	// repeat what the heading above the list already says.
 	const root = picked[0]?.webkitRelativePath?.split('/')[0] ?? '';
+	let inert = 0;
 	for (const f of picked) {
-		if (!openable.test(f.name)) continue;
+		if (f.name.startsWith('.')) continue;
 		const full = f.webkitRelativePath || f.name;
 		const path = root && full.startsWith(`${root}/`) ? full.slice(root.length + 1) : full;
+		if (!openable.test(f.name)) {
+			// Listed and inert, on the same budget the handle-backed walk keeps — see MAX_INERT.
+			if (inert >= MAX_INERT) continue;
+			inert += 1;
+			out.push({ name: f.name, path, openable: false });
+			continue;
+		}
 		files.set(path, f);
 		out.push({ name: f.name, path });
 	}

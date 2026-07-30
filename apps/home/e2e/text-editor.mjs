@@ -373,7 +373,7 @@ await page.waitForTimeout(200);
 	{
 		const heads = page.locator('.te-loose-head');
 		ok(
-			'the Scratch head offers a + and Elsewhere does not',
+			'the Scratch head offers a + and the Local shelf does not',
 			(await page.locator('ul[aria-label="Scratch"]').count()) === 1 &&
 				(await heads.first().locator('.te-loose-add').count()) === 1,
 			`${await heads.count()} shelves`
@@ -774,7 +774,7 @@ await reset('first\n\n\nlast');
 	// draw `.te-work-file`, so every claim about the tree has to say which list it means.
 	// SCOPED ON THE POSITIVE CLASS. It used to be `.te-work-list:not(.te-loose-list)` — every list in
 	// the pane draws `.te-work-list`, so the tree had to be described by what it is not. Four lists
-	// draw it now (the folder, the drive, Scratch and Elsewhere) and a chain of exclusions is one
+	// draw it now (the folder, the drive and the two shelves) and a chain of exclusions is one
 	// list away from being wrong every time. Each says what it IS: `.te-local-list`, `.te-drive-list`,
 	// `.te-shelf-list`.
 	const TREE = '.te-local-list';
@@ -785,11 +785,38 @@ await reset('first\n\n\nlast');
 	await eq(
 		'a folder opens as a workspace tree, folders first',
 		page.$$eval(`${TREE} .te-work-file`, (ns) => ns.map((n) => n.textContent).join(',')),
-		'sub,gamma.md,alpha.md,beta.markdown,notes.txt'
+		'sub,gamma.md,alpha.md,beta.markdown,ignore.png,notes.txt'
+	);
+	// IT LISTS WHAT IT CANNOT OPEN, greyed out and inert — it used to drop those rows, and a folder
+	// of eleven things shown as a folder of three left the reader unable to tell whether the app
+	// had failed or the files were never there. The claim is no longer "it is absent" but "it is
+	// present and plainly does nothing".
+	ok(
+		'and shows what it cannot open, inert',
+		await page.evaluate((sel) => {
+			const row = [...document.querySelectorAll(`${sel} .te-work-row`)].find((r) =>
+				r.textContent.includes('ignore.png')
+			);
+			return (
+				!!row &&
+				row.classList.contains('inert') &&
+				row.getAttribute('aria-disabled') === 'true' &&
+				parseFloat(getComputedStyle(row).opacity) < 1
+			);
+		}, TREE)
 	);
 	ok(
-		'and leaves out what it cannot',
-		!(await page.locator('.te-work').textContent()).includes('ignore.png')
+		'saying why, on the row itself',
+		(await page.locator(`${TREE} .te-work-row.inert`).first().getAttribute('title')).includes(
+			'only opens text'
+		)
+	);
+	// …and it is not counted. The tally answers "how much is in here for me", and a folder of
+	// forty photographs and one note is not a folder of forty-one.
+	ok(
+		'and never counted in a tally',
+		(await page.locator('.te-local .te-work-count').textContent()).trim() === '4',
+		await page.locator('.te-local .te-work-count').textContent()
 	);
 	ok(
 		'a nested document is indented under its folder',
@@ -819,8 +846,12 @@ await reset('first\n\n\nlast');
 			[...document.querySelectorAll('.te-work-head')].map((head) => {
 				// By CENTRE, not by top edge: a word, a figure and a key are different heights, so a
 				// shared row shows as a shared middle.
+				// OUT-OF-FLOW CHILDREN ARE SKIPPED, and by POSITION rather than by class name. Two of
+				// them hang under a head now — the clipped-name reveal and the card saying where the
+				// list lives — and naming each one here meant the assertion broke the day a third
+				// arrived, reporting "the head is three rows tall" about a head that is 30px.
 				const mids = [...head.children]
-					.filter((e) => !e.classList.contains('te-work-full'))
+					.filter((e) => getComputedStyle(e).position !== 'absolute')
 					.map((e) => {
 						const r = e.getBoundingClientRect();
 						return Math.round(r.top + r.height / 2);
@@ -928,7 +959,7 @@ await reset('first\n\n\nlast');
 		await eq(
 			'a file opened by hand is still on the shelf, several acts later',
 			page
-				.locator('ul[aria-label="Elsewhere"] .te-work-file')
+				.locator('ul[aria-label="Local"] .te-work-file')
 				.allTextContents()
 				.then((t) => t.join(',')),
 			'alpha.md'
@@ -938,14 +969,14 @@ await reset('first\n\n\nlast');
 		await eq(
 			'a second one goes to the FRONT — the order is the order you reached for them',
 			page
-				.locator('ul[aria-label="Elsewhere"] .te-work-file')
+				.locator('ul[aria-label="Local"] .te-work-file')
 				.allTextContents()
 				.then((t) => t.join(',')),
 			'elsewhere.md,alpha.md'
 		);
 		ok(
 			'marked as the one on the sheet',
-			(await page.locator('ul[aria-label="Elsewhere"] .te-work-row.on').count()) === 1
+			(await page.locator('ul[aria-label="Local"] .te-work-row.on').count()) === 1
 		);
 		ok('and the tree marks nothing', (await page.locator(`${TREE} .te-work-row.on`).count()) === 0);
 		// Above the tree, and a shade off the sheet — that shading is the whole of how it says it
@@ -965,25 +996,22 @@ await reset('first\n\n\nlast');
 		await page.waitForTimeout(700);
 		ok(
 			'a tree row leaves the shelf standing',
-			(await page.locator('ul[aria-label="Elsewhere"]').count()) === 1
+			(await page.locator('ul[aria-label="Local"]').count()) === 1
 		);
 		ok(
 			'and takes the mark off it',
-			(await page.locator('ul[aria-label="Elsewhere"] .te-work-row.on').count()) === 0
+			(await page.locator('ul[aria-label="Local"] .te-work-row.on').count()) === 0
 		);
 		ok('marking the tree instead', (await page.locator(`${TREE} .te-work-row.on`).count()) === 1);
 		// A shelf row opens again by re-READING — the shelf holds where a document came from, not
 		// its text. There is one sheet in this editor and these are not buffers.
-		await page.locator('ul[aria-label="Elsewhere"] .te-work-row').first().click();
+		await page.locator('ul[aria-label="Local"] .te-work-row').first().click();
 		await page.waitForTimeout(700);
 		await eq('a shelf row opens again', value(), '# From elsewhere');
 		// Its menu holds the three verbs every document has, and then CLOSE — which acts on the
 		// LIST rather than on the disk, and is why it is offered in every browser where Rename and
 		// Delete are not.
-		await page
-			.locator('ul[aria-label="Elsewhere"] .te-work-row')
-			.first()
-			.click({ button: 'right' });
+		await page.locator('ul[aria-label="Local"] .te-work-row').first().click({ button: 'right' });
 		await page.waitForTimeout(300);
 		await eq(
 			'a shelf row offers Close, and nothing that touches the disk',
@@ -998,7 +1026,7 @@ await reset('first\n\n\nlast');
 		await eq(
 			'Close takes that row off and leaves the rest',
 			page
-				.locator('ul[aria-label="Elsewhere"] .te-work-file')
+				.locator('ul[aria-label="Local"] .te-work-file')
 				.allTextContents()
 				.then((t) => t.join(',')),
 			'alpha.md'
@@ -1013,7 +1041,7 @@ await reset('first\n\n\nlast');
 	await eq(
 		'shutting a folder hides what is inside it',
 		page.$$eval(`${TREE} .te-work-file`, (ns) => ns.map((n) => n.textContent).join(',')),
-		'sub,alpha.md,beta.markdown,notes.txt'
+		'sub,alpha.md,beta.markdown,ignore.png,notes.txt'
 	);
 	await eq(
 		'and says so',
@@ -1025,7 +1053,7 @@ await reset('first\n\n\nlast');
 	ok(
 		'opening it brings them back',
 		(await page.locator(`${TREE} .te-work-file`).allTextContents()).join(',') ===
-			'sub,gamma.md,alpha.md,beta.markdown,notes.txt'
+			'sub,gamma.md,alpha.md,beta.markdown,ignore.png,notes.txt'
 	);
 
 	await page.getByRole('treeitem', { name: 'beta.markdown' }).click();
@@ -1165,9 +1193,9 @@ await reset('first\n\n\nlast');
 	// in it, and a bare `.te-work-file` counts that too.
 	const TREE_FILES = '.te-local-list .te-work-file';
 	ok(
-		'a writable folder walks into its sub-folders and skips what it cannot read',
+		'a writable folder walks into its sub-folders and lists what it cannot read',
 		(await wp.locator(TREE_FILES).allTextContents()).join(',') ===
-			'drafts,gamma.md,alpha.md,beta.md,notes.txt',
+			'drafts,gamma.md,alpha.md,beta.md,notes.txt,skip.png',
 		JSON.stringify(await wp.locator(TREE_FILES).allTextContents())
 	);
 
@@ -1445,7 +1473,7 @@ await reset('first\n\n\nlast');
 		await wp.waitForTimeout(700);
 		await eq(
 			'a hand-picked file lands on the shelf',
-			wp.locator('ul[aria-label="Elsewhere"] .te-work-file').last().textContent(),
+			wp.locator('ul[aria-label="Local"] .te-work-file').last().textContent(),
 			'notes.txt'
 		);
 		ok(
@@ -1498,7 +1526,7 @@ await reset('first\n\n\nlast');
 	// It used to ask for a name and create a real file in the folder, which meant it only worked
 	// in Chromium, only with a folder open, and asked you to decide what a note was called before
 	// you had written a word of it. A new document is named for you and lives on a shelf of its
-	// own above Elsewhere — and it is the ONE kind of document this pane holds the text of,
+	// own above the Local shelf — and it is the ONE kind of document this pane holds the text of,
 	// because there is nowhere to read it back from.
 	{
 		await fromWorkspace('New note', wp);
@@ -1507,9 +1535,8 @@ await reset('first\n\n\nlast');
 		// `.te-loose .te-work-name`, not `.te-loose-name`: a shelf's title is set as every other head
 		// in this pane is now, so it wears the same class and is told apart by the block it is in.
 		ok(
-			'and puts a scratch document on a shelf of its own, above Elsewhere',
-			(await wp.locator('.te-loose .te-work-name').allTextContents()).join(',') ===
-				'Scratch,Elsewhere',
+			'and puts a scratch document on a shelf of its own, above the Local shelf',
+			(await wp.locator('.te-loose .te-work-name').allTextContents()).join(',') === 'Scratch,Local',
 			JSON.stringify(await wp.locator('.te-loose .te-work-name').allTextContents())
 		);
 		// The LAST row: the shelf opens with a standing `Ephemeral 0`, so what New made is the one
@@ -1825,10 +1852,13 @@ await reset('first\n\n\nlast');
 		// The whole path is on the row for the hover — indenting says where a document is only
 		// while the folder rows above it are still on screen, which stops being true the moment
 		// the list scrolls. Asked here because this is the first nested document the suite has.
+		// The whole path, under a LEADING ELLIPSIS and behind the word Local: the File System Access
+		// API exposes no absolute path, so `drafts/beta.md` alone read as one and was not. See
+		// `whereIs` in $lib/TextEditor.
 		await eq(
-			'a nested row carries its whole path for the hover',
+			'a nested row carries its whole location for the hover',
 			wp.getByRole('treeitem', { name: 'beta.md' }).getAttribute('title'),
-			'drafts/beta.md'
+			'Local · …/drafts/beta.md'
 		);
 		ok(
 			'dropping one on a folder moves it there on disk',
@@ -3079,10 +3109,8 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	await dp.waitForTimeout(900);
 	ok(
 		'changing the folder shelves the open drive document rather than losing its row',
-		(await dp.locator('ul[aria-label="Elsewhere"] .te-work-file').allTextContents()).includes(
-			'top.md'
-		),
-		JSON.stringify(await dp.locator('ul[aria-label="Elsewhere"] .te-work-file').allTextContents())
+		(await dp.locator('ul[aria-label="Local"] .te-work-file').allTextContents()).includes('top.md'),
+		JSON.stringify(await dp.locator('ul[aria-label="Local"] .te-work-file').allTextContents())
 	);
 	ok(
 		'and it is NOT a scratch note — it is still a document on a server',
@@ -3093,10 +3121,7 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	// The shelf holds where a document came from, never its words. Pressing the row re-reads.
 	await dp.locator('.te-type').fill('scribbled over');
 	await dp.waitForTimeout(200);
-	await dp
-		.locator('ul[aria-label="Elsewhere"] .te-work-file')
-		.filter({ hasText: 'top.md' })
-		.click();
+	await dp.locator('ul[aria-label="Local"] .te-work-file').filter({ hasText: 'top.md' }).click();
 	await dp.waitForTimeout(1800);
 	ok(
 		'and the row re-reads from the server, the way a handle row re-reads from disk',

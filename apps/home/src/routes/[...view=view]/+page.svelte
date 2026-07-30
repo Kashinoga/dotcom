@@ -3871,6 +3871,14 @@
 		.surface-head .head-actions .icon-btn {
 			--bn: 1;
 		}
+		/* …EXCEPT on the text editor's dense bar, where this corner is not second from the left but
+		   last on the right. Everything between is the rack's, and it rides in on this same ripple
+		   (see the entrance block in $lib/TextEditorRack) — so at --bn 1 the Settings key landed
+		   while the marks were still arriving, which read as the bar assembling out of order. Past
+		   the rack's last index, so the row finishes where it ends. */
+		.surface-head.bar.te-bar .head-actions .icon-btn {
+			--bn: 8;
+		}
 	}
 
 	/* Edit Mode — editable copy gets a dashed field; focus firms it up. */
