@@ -38,6 +38,9 @@ const probe = () => {
 		tops: lists.map((u) => +(box(u).top - wr.top).toFixed(1)),
 		xs: lists.map((u) => Math.round(box(u).left)),
 		counts: lists.map((u) => u.querySelectorAll(':scope > li').length),
+		// Every card the panel drew, however the columns divided them. Compared against the sum
+		// below so the claim is "none was lost", which is what this is actually about.
+		total: wrap.querySelectorAll('.app-card').length,
 		names: lists.map((u) => [...u.querySelectorAll('.app-name')].map((n) => n.textContent.trim())),
 		// The multicol that caused the bug. `auto` means we are not using it.
 		columnCount: getComputedStyle(wrap).columnCount,
@@ -67,6 +70,14 @@ for (const [name, engine] of ENGINES) {
 		const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
 		await page.goto(B + '/', { waitUntil: 'domcontentloaded' });
 		await page.evaluate(() => {
+			// AEROPALITE, and the seed is the whole reason this suite still means anything. What it
+			// guards is a WebKit PAINT bug in the Apps PANEL's two-column card split — and under
+			// Pixelite there is no panel: `/apps` is a docs sheet in the shell, where the same cards
+			// flow into one auto-fill grid with the two `.app-cards` lists set to `display: contents`
+			// (see `.app-page` in $lib/DocsBody). That layout has no second column to drop, so it
+			// cannot exercise the bug; asking it to would be testing a different thing under an old
+			// name. Pixelite's grid wants its own coverage, in its own suite.
+			localStorage.setItem('ksh-look', 'aeropalite');
 			localStorage.setItem('ksh-sky', 'off');
 			localStorage.setItem('ksh-theme', 'light');
 		});
@@ -93,10 +104,14 @@ for (const [name, engine] of ENGINES) {
 				new Set(g.xs).size === 2,
 				`x=${g.xs.join(', ')}`
 			);
+			// DERIVED, not written down. This said `=== 7` and the register has nine apps in it now —
+			// the number went stale the day one was added, and a hard-coded total has to be re-found
+			// by hand every time. What the assertion is really about is that the split lost none of
+			// them, so it counts the cards that are there and checks the columns add up to that.
 			ok(
 				`${name}: every card landed in a column`,
-				g.counts.reduce((a, b) => a + b, 0) === 7,
-				`counts=${g.counts.join('+')}`
+				g.counts.reduce((a, b) => a + b, 0) === g.total && g.total > 0,
+				`counts=${g.counts.join('+')} of ${g.total}`
 			);
 			// The cut is contiguous so the stacked phone order stays alphabetical (see cardSplit).
 			const flat = g.names.flat();
@@ -187,6 +202,14 @@ for (const [name, engine] of ENGINES) {
 		const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 		await page.goto(B + '/', { waitUntil: 'domcontentloaded' });
 		await page.evaluate(() => {
+			// AEROPALITE, and the seed is the whole reason this suite still means anything. What it
+			// guards is a WebKit PAINT bug in the Apps PANEL's two-column card split — and under
+			// Pixelite there is no panel: `/apps` is a docs sheet in the shell, where the same cards
+			// flow into one auto-fill grid with the two `.app-cards` lists set to `display: contents`
+			// (see `.app-page` in $lib/DocsBody). That layout has no second column to drop, so it
+			// cannot exercise the bug; asking it to would be testing a different thing under an old
+			// name. Pixelite's grid wants its own coverage, in its own suite.
+			localStorage.setItem('ksh-look', 'aeropalite');
 			localStorage.setItem('ksh-sky', 'off');
 			localStorage.setItem('ksh-theme', 'light');
 		});

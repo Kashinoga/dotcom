@@ -304,10 +304,19 @@ const openViaCard = async () => {
 	await page.waitForTimeout(1300);
 	await settle(page);
 };
+// LEAVING GOES THROUGH THE APP'S OWN "Close and go home", not a Back cap. A DENSE BAR DRAWS NO
+// BACK CAP — the ranger's bar is one row and the cap's 50px went to the app long ago — so
+// `.surface-head .icon-btn.back` matched nothing here and the click waited out its full timeout,
+// taking every case from F1 onward with it. What the bar does carry is Pause, Close and go home,
+// and Division settings.
+// It lands on the HOMEPAGE rather than on Apps, which is the honest behaviour of a full-viewport
+// app closing; the walk back to /apps is a step of its own now.
 const backToApps = async () => {
-	await page.locator('.surface-head .icon-btn.back').first().click();
-	await page.waitForURL(B + '/apps', { timeout: 6000 });
+	await page.getByRole('button', { name: 'Close and go home' }).click();
+	await page.waitForURL(B + '/', { timeout: 6000 });
 	await page.waitForTimeout(500);
+	await page.goto(B + '/apps', { waitUntil: 'networkidle' });
+	await page.waitForTimeout(700);
 };
 
 // F1 — closed MID-BOARDING (aboard/cabin raised, no crossing).

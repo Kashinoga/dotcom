@@ -43,15 +43,29 @@ const settle = async (p) => {
 	await p.waitForTimeout(150);
 };
 
-const HOVER = 1.05,
-	PRESS = 0.95;
+// THE POP IS THE THEME'S, and the two themes disagree about it. This suite used to hold one pair
+// of numbers and run them down a `ksh-ui` axis of flat/bubble — but nothing reads `ksh-ui` any more
+// (`static/preflight.js` sets `data-ui='bubble'` for Aeropalite and for nothing else), so both
+// passes rendered the same look and the flat pass was asserting Aeropalite's amounts against
+// Pixelite's chrome. The axis IS the two themes.
+//
+// Aeropalite keeps puhig's base (`base.css`: 1.05 / 0.95). Pixelite deliberately damps both
+// (`pixelite.css`: `--btn-hover-scale: 1`, `--btn-press-scale: 0.97`) — a plastic key does not
+// swell under the pointer, it goes down into its own bevel, and 5% on a 28px key reads as a wobble.
+// Written here as the numbers the THEME sets, so a change to either token fails this rather than
+// quietly re-baselining it.
+const POP = {
+	pixelite: { hover: 1, press: 0.97 },
+	aeropalite: { hover: 1.05, press: 0.95 }
+};
 
-for (const ui of ['flat', 'bubble']) {
+for (const ui of ['pixelite', 'aeropalite']) {
+	const { hover: HOVER, press: PRESS } = POP[ui];
 	const ctx = await b.newContext({ viewport: { width: 1500, height: 950 } });
 	const p = await ctx.newPage();
 	await p.goto(B + '/', { waitUntil: 'domcontentloaded' });
 	await p.evaluate((u) => {
-		localStorage.setItem('ksh-ui', u);
+		localStorage.setItem('ksh-look', u);
 		localStorage.setItem('ksh-sky', 'off');
 		localStorage.setItem('ksh-theme', 'light');
 	}, ui);
@@ -139,12 +153,13 @@ for (const ui of ['flat', 'bubble']) {
 	await p.goto(B + '/', { waitUntil: 'networkidle' });
 	await p.waitForTimeout(1500);
 
-	// ATFC board — the field pills live in the expanded super bar now (the compact panel uses a
-	// dropdown), so expand it first to reach a .field pill.
+	// ATFC board — the field pills live in its super bar. It used to take a click on the generic
+	// "Expand panel to fill" toggle to get there; THAT CONTROL IS GONE. Only the apps designed to
+	// fill the viewport do, and they open that way — measured, `/apps/air-traffic` arrives with
+	// `aside.surface.expanded` and eleven `.field` pills in both looks, and no button anywhere on
+	// the page matches /expand/i. Waiting for it was a 30s timeout that took the whole suite down.
 	await p.goto(B + '/apps/air-traffic', { waitUntil: 'networkidle' });
 	await p.waitForTimeout(2200);
-	await p.getByRole('button', { name: /Expand panel/i }).click();
-	await p.waitForTimeout(650);
 	await settle(p);
 	const fld = p.locator('button.field').first();
 	await fld.hover({ force: true });
@@ -270,12 +285,13 @@ const peakOnTap = async (p, sel) => {
 	await p.waitForTimeout(250);
 	return peak;
 };
-for (const ui of ['flat', 'bubble']) {
+for (const ui of ['pixelite', 'aeropalite']) {
+	const { press: PRESS } = POP[ui];
 	const ctx = await b.newContext({ viewport: { width: 1400, height: 950 } });
 	const p = await ctx.newPage();
 	await p.goto(B + '/', { waitUntil: 'domcontentloaded' });
 	await p.evaluate((u) => {
-		localStorage.setItem('ksh-ui', u);
+		localStorage.setItem('ksh-look', u);
 		localStorage.setItem('ksh-sky', 'off');
 		localStorage.setItem('ksh-theme', 'light');
 	}, ui);
@@ -286,10 +302,15 @@ for (const ui of ['flat', 'bubble']) {
 		(await peakOnTap(p, 'button.seg')) <= PRESS + 0.005,
 		String(await peakOnTap(p, 'button.seg'))
 	);
-	ok(
-		`${ui}: tapping Back squashes it`,
-		(await peakOnTap(p, 'button.icon-btn.back')) <= PRESS + 0.005
-	);
+	// THE PANEL'S BACK CAP IS AEROPALITE'S. Under Pixelite `/settings` is a docs page in the shell —
+	// there is no `aside.surface` and so no cap to tap; the door out is the superbar's crumb trail.
+	// Asked only where the control exists, rather than seeded into existence, because a Back cap
+	// forced onto a docs page would be testing a layout nobody ships.
+	if (ui === 'aeropalite')
+		ok(
+			`${ui}: tapping Back squashes it`,
+			(await peakOnTap(p, 'button.icon-btn.back')) <= PRESS + 0.005
+		);
 	await p.goto(B + '/apps', { waitUntil: 'networkidle' });
 	await p.waitForTimeout(1600);
 	// The Apps cards soften the amounts (0.99), so a tap must reach THEIR press scale, not 0.95 —
@@ -312,7 +333,7 @@ for (const ui of ['flat', 'bubble']) {
 	const p = await ctx.newPage();
 	await p.goto(B + '/', { waitUntil: 'domcontentloaded' });
 	await p.evaluate(() => {
-		localStorage.setItem('ksh-ui', 'flat');
+		localStorage.setItem('ksh-look', 'pixelite');
 		localStorage.setItem('ksh-sky', 'off');
 	});
 	await p.goto(B + '/settings', { waitUntil: 'networkidle' });
@@ -334,7 +355,7 @@ for (const ui of ['flat', 'bubble']) {
 	const p = await ctx.newPage();
 	await p.goto(B + '/', { waitUntil: 'domcontentloaded' });
 	await p.evaluate(() => {
-		localStorage.setItem('ksh-ui', 'flat');
+		localStorage.setItem('ksh-look', 'pixelite');
 		localStorage.setItem('ksh-sky', 'off');
 		localStorage.setItem('ksh-theme', 'light');
 		localStorage.setItem(
@@ -375,7 +396,10 @@ for (const ui of ['flat', 'bubble']) {
 	const p = await ctx.newPage();
 	await p.goto(B + '/', { waitUntil: 'domcontentloaded' });
 	await p.evaluate(() => {
-		localStorage.setItem('ksh-ui', 'flat');
+		// AEROPALITE, because this one is about the PANEL's Back cap and Pixelite draws no panel.
+		// The claim — reduced motion removes the hover scale — is puhig's and holds in both looks;
+		// this is simply the look that still has the control to ask it of.
+		localStorage.setItem('ksh-look', 'aeropalite');
 		localStorage.setItem('ksh-sky', 'off');
 	});
 	await p.goto(B + '/settings', { waitUntil: 'networkidle' });

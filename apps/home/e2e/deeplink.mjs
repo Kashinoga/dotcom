@@ -7,6 +7,13 @@ const ok = (name, pass, detail = '') => {
 	console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
 };
 
+// WHICH PLACE A URL NAMES, ignoring the query. The Air Traffic board renders its OWN expand
+// toggle (it is one of the four apps built to fill the viewport), and that choice is kept in the
+// URL as `?expanded=1` so a shared link arrives laid out the way it was sent. So the board's URL
+// is `/apps/air-traffic?expanded=1` and not `/apps/air-traffic` — every exact-string comparison
+// in here was really asking "and no app state came with it", which is not what any of them mean.
+const at = (u, path) => new URL(u).pathname === path;
+
 const browser = await firefox.launch();
 const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
 
@@ -18,13 +25,24 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 let loads = 0;
 page.on('load', () => loads++);
 
-// The home camera is zoomed onto the hub, so tier-2 stations (Air Traffic, …) sit off-frame.
-// Tap the masthead's "show full map" toggle to bring the whole network on screen before
-// clicking one. No-op if it's already showing the full map.
+// AEROPALITE, seeded before the first navigation. This suite is about SHALLOW ROUTING through the
+// MASTHEAD — it clicks the nav's "Apps" link, then a card, and asserts `aside.surface` opened
+// without a full page load. All three of those are Aeropalite's chrome: under Pixelite (the
+// default) the homepage is the docs shell, which draws no masthead nav and no panel at all, so the
+// link never appears and the suite spent 30s waiting for it before reaching assertion one.
+// The claim itself — a URL push renders the place without a reload — is true of both looks. The
+// docs shell's own way to it (the superbar's crumbs, the sidebar tree) is a different set of
+// controls and belongs in a Pixelite suite of its own.
+await page.goto(`${B}/`, { waitUntil: 'domcontentloaded' });
+await page.evaluate(() => {
+	localStorage.setItem('ksh-look', 'aeropalite');
+	localStorage.setItem('ksh-sky', 'off');
+	localStorage.setItem('ksh-theme', 'light');
+});
 
 // ── 1. Deep link renders the board directly ─────────────────────────────────
 await page.goto(`${B}/apps/air-traffic`, { waitUntil: 'networkidle' });
-ok('deep link /apps/air-traffic keeps its URL', page.url() === `${B}/apps/air-traffic`, page.url());
+ok('deep link /apps/air-traffic keeps its URL', at(page.url(), '/apps/air-traffic'), page.url());
 ok('deep link /apps/air-traffic renders panel', await page.locator('aside.surface').isVisible());
 ok(
 	'deep link /apps/air-traffic titles the tab',
@@ -42,36 +60,65 @@ ok('overview shows no panel', !(await page.locator('aside.surface').isVisible())
 const loadsBefore = loads;
 await page.getByRole('link', { name: 'Apps', exact: true }).click();
 await page.waitForURL(`${B}/apps`, { timeout: 5000 });
+
+// ── 3. Panel → panel keeps URL in step with the visible panel ───────────────
+// Via the masthead's nav. This used to click a "Connections" chip inside the ATFC panel, but the
+// Related rail is gone site-wide (onward destinations are body cards now, see PANEL_CARDS) and
+// ATFC — which owns its whole interior — carries no cards of its own.
+//
+// ASKED BETWEEN TWO COMPACT PANELS, and asked HERE rather than after the board opens. It used to
+// leave the board by clicking the nav, and an expanded full-viewport app COVERS the masthead — the
+// links are still in the DOM, so the locator resolves and then waits out its timeout on something
+// no pointer can reach. That is the app behaving correctly: an app built to fill the viewport
+// fills it. So the step runs while a compact panel is open and the chrome is still there.
+await page.waitForTimeout(600);
+ok('panel → panel: URL becomes /apps', page.url() === `${B}/apps`);
+ok('panel → panel: title is Apps', (await page.title()) === 'Apps — Kashinoga', await page.title());
+// SETTINGS, not About: on a desktop the masthead's Home and About are FLYOUTS under their own
+// buttons rather than panels (see navPop in +page.svelte), so clicking About opens a card and
+// navigates nowhere — the wait then sits on a URL that is never going to change.
+await page.getByRole('link', { name: 'Settings', exact: true }).click();
+await page.waitForURL(`${B}/settings`, { timeout: 5000 });
+await page.waitForTimeout(600);
+ok('panel → panel: and on to /settings', page.url() === `${B}/settings`, page.url());
+ok(
+	'panel → panel: title is Settings',
+	(await page.title()) === 'Settings — Kashinoga',
+	await page.title()
+);
+ok('panel → panel: no full page reload', loads === loadsBefore, `loads: ${loads - loadsBefore}`);
+// …then back to Apps and into the board, which is where the history cases below start from.
+await page.getByRole('link', { name: 'Apps', exact: true }).click();
+await page.waitForURL(`${B}/apps`, { timeout: 5000 });
 await page.locator('a.app-card[href="/apps/air-traffic"]').click();
-await page.waitForURL(`${B}/apps/air-traffic`, { timeout: 5000 });
-ok('click app card → URL becomes /apps/air-traffic', page.url() === `${B}/apps/air-traffic`);
+await page.waitForURL((u) => u.pathname === '/apps/air-traffic', { timeout: 5000 });
+ok(
+	'click app card → URL becomes /apps/air-traffic',
+	at(page.url(), '/apps/air-traffic'),
+	page.url()
+);
 ok('click app card → no full page reload', loads === loadsBefore, `loads: ${loads - loadsBefore}`);
 await page.waitForTimeout(600);
 ok('click app card → panel is open', await page.locator('aside.surface').isVisible());
 ok('click app card → title updates', (await page.title()) === 'Air Traffic — Kashinoga');
 
-// ── 3. Panel → panel keeps URL in step with the visible panel ───────────────
-// Panel → panel, via the masthead's nav. This used to click a "Connections" chip inside the
-// ATFC panel, but the Related rail is gone site-wide (onward destinations are body cards now,
-// see PANEL_CARDS) and ATFC — which owns its whole interior — carries no cards of its own. The
-// nav is how you leave one panel for another, so that's what's exercised.
-await page.getByRole('link', { name: 'Apps', exact: true }).click();
-await page.waitForURL(`${B}/apps`, { timeout: 5000 });
-await page.waitForTimeout(600);
-ok('panel → panel: URL becomes /apps', page.url() === `${B}/apps`);
-ok('panel → panel: title is Apps', (await page.title()) === 'Apps — Kashinoga', await page.title());
-
 // ── 4. Back / forward drive the panel ───────────────────────────────────────
+// The board is what is open here — the panel→panel step above no longer ends by navigating away
+// from it, so back leads to the Apps panel it was opened from and forward returns to the board.
 await page.goBack();
 await page.waitForTimeout(700);
-ok('back → URL is /apps/air-traffic', page.url() === `${B}/apps/air-traffic`, page.url());
-ok('back → panel shows Air Traffic', (await page.title()) === 'Air Traffic — Kashinoga');
+ok('back → URL is /apps', page.url() === `${B}/apps`, page.url());
+ok('back → panel shows Apps', (await page.title()) === 'Apps — Kashinoga', await page.title());
 ok('back → still no reload', loads === loadsBefore, `loads: ${loads - loadsBefore}`);
 
 await page.goForward();
 await page.waitForTimeout(700);
-ok('forward → URL is /app', page.url() === `${B}/apps`, page.url());
-ok('forward → panel shows Apps', (await page.title()) === 'Apps — Kashinoga');
+ok('forward → URL is the board', at(page.url(), '/apps/air-traffic'), page.url());
+ok(
+	'forward → panel shows Air Traffic',
+	(await page.title()) === 'Air Traffic — Kashinoga',
+	await page.title()
+);
 
 // ── 5. Back all the way to the homepage closes the panel ────────────────────
 // Walked, not counted: reaching an app now takes nav → card (two pushes), so hard-coding the
@@ -106,7 +153,7 @@ if (popup) {
 	await popup.waitForLoadState('domcontentloaded');
 	ok(
 		'ctrl-click opens /apps/air-traffic in a new tab',
-		popup.url() === `${B}/apps/air-traffic`,
+		at(popup.url(), '/apps/air-traffic'),
 		popup.url()
 	);
 	await popup.close();

@@ -34,45 +34,73 @@ async function firstVisit(seed) {
 	return { ctx, page };
 }
 
-/** Which option is checked inside a given radiogroup. */
+/** Which option is checked inside a given radiogroup, compared without regard to CASE.
+ *
+ * `innerText` reports text as RENDERED, and Pixelite uppercases these labels — so the same
+ * checked option reads "System" under Aeropalite and "SYSTEM" under Pixelite. That difference is
+ * a `text-transform`, not a different setting, and it is not what any assertion here is about. */
 const checkedIn = (page, group) =>
 	page
 		.locator(`[role="radiogroup"][aria-label="${group}"] [aria-checked="true"]`)
 		.first()
 		.innerText()
-		.then((t) => t.trim().split('\n')[0])
+		.then((t) => t.trim().split('\n')[0].toLowerCase())
 		.catch(() => '<none checked>');
+const groupsOn = (page) =>
+	page
+		.locator('[role="radiogroup"]')
+		.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+
+// WHAT SETTINGS OFFERS, PER THEME. Pixelite's is SPARSE by design — it draws no sky, so the two
+// sky controls have nothing to act on and are not rendered; and `Button style` is retired
+// site-wide, in both looks, with the flat/bubble axis it belonged to. Measured on this tree.
+const OFFERED = {
+	pixelite: { 'Display mode': 'system', Theme: 'pixelite' },
+	aeropalite: {
+		'Display mode': 'system',
+		Theme: 'aeropalite',
+		'Sky background': 'auto',
+		Stars: 'on'
+	}
+};
 
 // ── 1. A first-ever visitor sees the defaults ──────────────────────────────
-{
-	const { ctx, page } = await firstVisit();
-	const want = {
-		'Display mode': 'System',
-		'Site look': 'Lab',
-		'Button style': 'Bubble',
-		'Sky background': 'Auto',
-		Stars: 'On'
-	};
-	for (const [group, expected] of Object.entries(want)) {
+// Asked of BOTH looks. `Site look` is called `Theme` now and offers Pixelite or Aeropalite rather
+// than the single "Lab" it once did; `Button style` is gone with the flat/bubble axis.
+for (const look of ['pixelite', 'aeropalite']) {
+	const { ctx, page } = await firstVisit({ 'ksh-look': look });
+	for (const [group, expected] of Object.entries(OFFERED[look])) {
 		const got = await checkedIn(page, group);
-		ok(`default ${group} = ${expected}`, got === expected, got);
+		ok(`${look}: default ${group} = ${expected}`, got === expected, got);
 	}
 	await ctx.close();
 }
 
 // ── 2. The retired controls are really gone from the panel ─────────────────
 {
-	const { ctx, page } = await firstVisit();
-	const groups = await page
-		.locator('[role="radiogroup"]')
-		.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+	const { ctx, page } = await firstVisit({ 'ksh-look': 'pixelite' });
+	const groups = await groupsOn(page);
 	ok('no station-label group', !groups.includes('Station label style'), groups.join(','));
 	ok('no route-map group', !groups.includes('Route map style'), groups.join(','));
+	// BUTTON STYLE went with the flat/bubble axis it belonged to — the two button personalities
+	// are the two THEMES now, so a control choosing between them was choosing twice.
+	ok('no button-style group', !groups.includes('Button style'), groups.join(','));
+	// …and Pixelite's Settings is SPARSE: it draws no sky, so the two sky controls have nothing to
+	// act on. Their absence here is the deliberate part — this is not a control that failed to
+	// render, it is one that would have nothing to do.
+	ok('pixelite: no sky-background group', !groups.includes('Sky background'), groups.join(','));
+	ok('pixelite: no stars group', !groups.includes('Stars'), groups.join(','));
 
+	// THE THEME PICKER is what `Site look` became. Derived from the group rather than written
+	// down, so adding a third look is a change in one place.
 	const looks = await page
-		.locator('[role="radiogroup"][aria-label="Site look"] .seg-title')
+		.locator('[role="radiogroup"][aria-label="Theme"] .seg-title')
 		.allInnerTexts();
-	ok('Site look offers Lab only', looks.join(',') === 'Lab', looks.join(','));
+	ok(
+		'Theme offers both looks',
+		looks.map((t) => t.trim().toLowerCase()).join(',') === 'pixelite,aeropalite',
+		looks.join(',')
+	);
 
 	// The header's own bottom border draws the first divider; the first group must not add a second.
 	const firstBorder = await page
@@ -86,23 +114,41 @@ const checkedIn = (page, group) =>
 		.locator('.seg-lead')
 		.evaluate((e) => getComputedStyle(e).borderTopWidth);
 	ok('first group has no top rule', firstBorder === '0px', firstBorder);
-	ok('later groups keep theirs', secondBorder === '1px', secondBorder);
+	// The rule between groups is AEROPALITE's. Pixelite parts its groups by space instead — its
+	// Settings is a sheet of the manual, and a hairline under every heading is the table-with-rules
+	// look this theme retired. Measured: 0px in both places under Pixelite.
+	ok('later groups keep theirs', secondBorder === '0px', secondBorder);
+	await ctx.close();
+}
+
+// …and under Aeropalite the sky controls ARE there. The absences above only mean something
+// alongside the presences here; without this, deleting both controls outright would still pass.
+{
+	const { ctx, page } = await firstVisit({ 'ksh-look': 'aeropalite' });
+	const groups = await groupsOn(page);
+	ok(
+		'aeropalite: sky-background group is offered',
+		groups.includes('Sky background'),
+		groups.join(',')
+	);
+	ok('aeropalite: stars group is offered', groups.includes('Stars'), groups.join(','));
 	await ctx.close();
 }
 
 // ── 3. A saved preference still wins over the defaults ─────────────────────
 {
+	// AEROPALITE, because two of the three controls asked about here are only drawn there. `ksh-ui`
+	// is not seeded any more: nothing reads it, and `Button style` — the control it drove — is gone.
 	const { ctx, page } = await firstVisit({
+		'ksh-look': 'aeropalite',
 		'ksh-theme': 'dark',
-		'ksh-ui': 'flat',
 		'ksh-sky': 'off',
 		'ksh-stars': '0'
 	});
 	const want = {
-		'Display mode': 'Dark',
-		'Button style': 'Flat', // seeded 'flat' — the saved opt-out beats the Bubble default
-		'Sky background': 'Off', // seeded 'off' — the saved opt-out beats the Auto default
-		Stars: 'Off'
+		'Display mode': 'dark',
+		'Sky background': 'off', // seeded 'off' — the saved opt-out beats the Auto default
+		Stars: 'off'
 	};
 	for (const [group, expected] of Object.entries(want)) {
 		const got = await checkedIn(page, group);
@@ -136,7 +182,14 @@ const decoration = () => ({
 		.map((a) => a.animationName ?? '')
 });
 {
-	const { ctx, page } = await firstVisit({ 'ksh-theme': 'light', 'ksh-sky': 'noon' });
+	// AEROPALITE IS THE ONLY LOOK THAT DRAWS A SKY. Under Pixelite there are no clouds and no stars
+	// to build or withhold, so the whole claim below — that the decoration you cannot see is not in
+	// the DOM — has nothing to be about.
+	const { ctx, page } = await firstVisit({
+		'ksh-look': 'aeropalite',
+		'ksh-theme': 'light',
+		'ksh-sky': 'noon'
+	});
 	const seen = await page.evaluate(decoration);
 	ok('light: clouds drawn', seen.clouds > 0, String(seen.clouds));
 	ok('light: no stars in the DOM', seen.stars === 0, String(seen.stars));
@@ -153,7 +206,11 @@ const decoration = () => ({
 	await ctx.close();
 }
 {
-	const { ctx, page } = await firstVisit({ 'ksh-theme': 'dark', 'ksh-sky': 'night' });
+	const { ctx, page } = await firstVisit({
+		'ksh-look': 'aeropalite',
+		'ksh-theme': 'dark',
+		'ksh-sky': 'night'
+	});
 	const seen = await page.evaluate(decoration);
 	ok('dark: stars drawn', seen.stars > 0, String(seen.stars));
 	ok('dark: no clouds in the DOM', seen.clouds === 0, String(seen.clouds));

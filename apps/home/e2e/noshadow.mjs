@@ -40,15 +40,30 @@ const scanAll = new Function(
 		')'
 )();
 
+// THE AXIS IS THE TWO THEMES. It used to be a `ksh-ui` flat/bubble pair, and nothing reads
+// `ksh-ui` any more (`static/preflight.js` sets `data-ui='bubble'` for Aeropalite alone), so both
+// passes rendered the same look. Pixelite is what the old "flat" pass was really measuring — and
+// measuring correctly: on these three routes it paints no blurred shadow at all. Its bevels are
+// RINGS (`inset … 0 2px`, blur 0) and the scan already excludes those.
+//
+// WHAT THE BETA PILL WEARS DIFFERS, though, and that is the one thing this had wrong. Aeropalite
+// gives it the station accent; Pixelite gives it the plastic key's ON wash — `--pixel-key-on`,
+// #e6ebff — because under this theme a pill IS a key and the accent is what a key uses to say it
+// is pressed, not what a label uses to say it is a label.
+const PILL_FILL = {
+	pixelite: /^rgb\(230, 235, 255\)$/,
+	aeropalite: /^rgb\(240, 96, 48\)$/
+};
+
 for (const [ui, expectZero] of [
-	['flat', true],
-	['bubble', false]
+	['pixelite', true],
+	['aeropalite', false]
 ]) {
 	const ctx = await b.newContext({ viewport: { width: 1500, height: 900 } });
 	const p = await ctx.newPage();
 	await p.goto(B + '/', { waitUntil: 'domcontentloaded' });
 	await p.evaluate((u) => {
-		localStorage.setItem('ksh-ui', u);
+		localStorage.setItem('ksh-look', u);
 		localStorage.setItem('ksh-sky', 'off');
 		localStorage.setItem('ksh-theme', 'light');
 	}, ui);
@@ -63,14 +78,14 @@ for (const [ui, expectZero] of [
 		const found = await p.evaluate(scanAll);
 		if (expectZero)
 			ok(
-				`flat: ${path} rest has no shadow`,
+				`${ui}: ${path} rest has no shadow`,
 				found.length === 0,
 				found
 					.slice(0, 3)
 					.map((f) => f.sel + ' ' + f.bad[0].slice(0, 44))
 					.join(' | ')
 			);
-		else ok(`bubble: ${path} still has shadows`, found.length > 0, `${found.length} el`);
+		else ok(`${ui}: ${path} still has shadows`, found.length > 0, `${found.length} el`);
 	}
 
 	// ── The Beta pill wears the family's material in Bubble, and none of it in Flat ──────────
@@ -92,9 +107,9 @@ for (const [ui, expectZero] of [
 		const bad = await beta.evaluate(new Function('return ' + REAL_SHADOW)());
 		const fill = await beta.evaluate((e) => getComputedStyle(e).backgroundColor);
 		if (expectZero)
-			ok(`flat: ${label} Beta pill has no shadow`, bad.length === 0, bad.join('|').slice(0, 60));
-		else ok(`bubble: ${label} Beta pill is aeroified`, bad.length > 0, 'no gloss/drop');
-		ok(`${ui}: ${label} Beta pill keeps its accent fill`, /^rgb\(240, 96, 48\)$/.test(fill), fill);
+			ok(`${ui}: ${label} Beta pill has no shadow`, bad.length === 0, bad.join('|').slice(0, 60));
+		else ok(`${ui}: ${label} Beta pill is aeroified`, bad.length > 0, 'no gloss/drop');
+		ok(`${ui}: ${label} Beta pill keeps its own fill`, PILL_FILL[ui].test(fill), fill);
 	}
 
 	// hover + active states
@@ -114,8 +129,8 @@ for (const [ui, expectZero] of [
 			.first()
 			.evaluate(new Function('return ' + REAL_SHADOW)());
 		if (expectZero)
-			ok(`flat: ${label}:hover no shadow`, bad.length === 0, bad.join('|').slice(0, 60));
-		else ok(`bubble: ${label}:hover has shadow`, bad.length > 0);
+			ok(`${ui}: ${label}:hover no shadow`, bad.length === 0, bad.join('|').slice(0, 60));
+		else ok(`${ui}: ${label}:hover has shadow`, bad.length > 0);
 	}
 
 	// ── :active — the gap that let a blurred `inset 0 2px 4px` survive the shadow purge.
@@ -125,6 +140,11 @@ for (const [ui, expectZero] of [
 		['button.icon-btn.back', 'Back'],
 		['button.seg', '.seg']
 	]) {
+		// SKIPPED WHERE THE CONTROL IS NOT DRAWN — the same guard the :hover loop above already
+		// keeps, and it is needed here now for the same reason: under Pixelite `/settings` is a
+		// docs page in the shell, with no `aside.surface` and so no Back cap. Without it the
+		// locator waits its full 30s and takes the whole suite down with it.
+		if (!(await p.locator(sel).count())) continue;
 		const loc = p.locator(sel).first();
 		await loc.hover({ force: true });
 		await p.mouse.down();
@@ -133,8 +153,8 @@ for (const [ui, expectZero] of [
 		await p.mouse.move(5, 5);
 		await p.mouse.up();
 		if (expectZero)
-			ok(`flat: ${label}:active no blurred shadow`, bad.length === 0, bad.join('|').slice(0, 60));
-		else ok(`bubble: ${label}:active has shadow`, bad.length > 0);
+			ok(`${ui}: ${label}:active no blurred shadow`, bad.length === 0, bad.join('|').slice(0, 60));
+		else ok(`${ui}: ${label}:active has shadow`, bad.length > 0);
 	}
 	// toast
 	await p

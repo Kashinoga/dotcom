@@ -27,10 +27,24 @@ const AC = [
 
 const browser = await firefox.launch();
 
-// `ui` is PINNED by every caller, never left to the default. The close chip has two different
-// recipes — Flat gives it a solid face, Bubble a frosted one (see .pc-close in TrafficBoard) —
-// and the default is Bubble, so the solid-fill assertions below were quietly checking Flat's
-// rules against Bubble's rendering and failing on a chip that was doing exactly what it should.
+// THE LOOK IS PINNED by every caller, never left to the default. The close chip has a different
+// recipe per theme and the assertions below are specific to one.
+//
+// It used to pin `ksh-ui` — flat or bubble — and NOTHING READS `ksh-ui` any more
+// (`static/preflight.js` sets `data-ui='bubble'` for Aeropalite alone), so every pass rendered
+// Pixelite and the "flat" solid-fill assertions were being asked of a plastic key. The axis IS the
+// two themes.
+//
+// PIXELITE MAKES IT A KEY. `--pixel-key-face` is translucent on purpose — light-dark(rgba(255,255,
+// 255,0.5), rgba(255,255,255,0.1)) — and what separates it from the photograph underneath is its
+// BORDER and bevel, not an opaque fill. Aeropalite makes it glass and frosts what is behind it.
+// Measured values, from the CI run that caught this: light rgba(255,255,255,0.5), dark
+// rgba(255,255,255,0.1), no backdrop-filter in either.
+const KEY_FACE = {
+	light: 'rgba(255, 255, 255, 0.5)',
+	dark: 'rgba(255, 255, 255, 0.1)'
+};
+
 async function openCard({ w, h, dark = false, ui }) {
 	const ctx = await browser.newContext({
 		viewport: { width: w, height: h },
@@ -50,7 +64,7 @@ async function openCard({ w, h, dark = false, ui }) {
 		([d, u]) => {
 			localStorage.setItem('ksh-sky', d ? 'night' : 'noon');
 			localStorage.setItem('ksh-theme', d ? 'dark' : 'light');
-			if (u) localStorage.setItem('ksh-ui', u);
+			if (u) localStorage.setItem('ksh-look', u);
 		},
 		[dark, ui]
 	);
@@ -90,7 +104,7 @@ const geom = (page) =>
 
 // ── Phone: stacked card, button lands on the photo ────────────────────────────
 {
-	const { ctx, page } = await openCard({ w: 390, h: 844, ui: 'flat' });
+	const { ctx, page } = await openCard({ w: 390, h: 844, ui: 'pixelite' });
 	const g = await geom(page);
 	ok('phone: card is stacked', g.stacked);
 	ok('phone: button is a 42px touch target', g.w === 42 && g.h === 42, `${g.w}×${g.h}`);
@@ -110,9 +124,10 @@ const geom = (page) =>
 		!/rgba\(0, 0, 0, 0\)|transparent/.test(g.bg),
 		g.bg
 	);
-	ok('phone: backing is fully opaque', !/rgba\([^)]+,\s*0?\.\d+\)/.test(g.bg), g.bg);
-	// --panel-fill-solid is pure white in light now (every app surface is #fff / #000).
-	ok('phone: light theme uses the light panel fill', g.bg === 'rgb(255, 255, 255)', g.bg);
+	// NOT "fully opaque" — under Pixelite the chip is a plastic KEY, and a key's face is meant to
+	// be translucent. What keeps it off the photograph is the ring below plus the bevel, which is
+	// the same bargain every other key in this theme makes.
+	ok('phone: it wears the theme key face', g.bg === KEY_FACE.light, g.bg);
 	ok('phone: has a 1.5px ring', parseFloat(g.border) >= 1 && parseFloat(g.border) <= 2, g.border);
 	ok(
 		'phone: info column reserves no right padding when stacked',
@@ -129,7 +144,7 @@ const geom = (page) =>
 
 // ── Desktop: side-by-side card, button sits on the card background ─────────────
 {
-	const { ctx, page } = await openCard({ w: 1500, h: 950, ui: 'flat' });
+	const { ctx, page } = await openCard({ w: 1500, h: 950, ui: 'pixelite' });
 	const g = await geom(page);
 	ok('desktop: card is side-by-side', !g.stacked);
 	ok(
@@ -162,11 +177,11 @@ const geom = (page) =>
 
 // ── Flat, dark: the chip must still be opaque and legible ────────────────────
 {
-	const { ctx, page } = await openCard({ w: 390, h: 844, dark: true, ui: 'flat' });
+	const { ctx, page } = await openCard({ w: 390, h: 844, dark: true, ui: 'pixelite' });
 	const g = await geom(page);
-	ok('flat dark: chip is opaque', !/rgba\(0, 0, 0, 0\)/.test(g.bg), g.bg);
+	ok('pixelite dark: chip is not transparent', !/rgba\(0, 0, 0, 0\)/.test(g.bg), g.bg);
 	// --panel-fill-solid is pure black in dark now (every app surface is #fff / #000).
-	ok('flat dark: chip uses the dark panel fill', g.bg === 'rgb(0, 0, 0)', g.bg);
+	ok('pixelite dark: chip uses the dark key face', g.bg === KEY_FACE.dark, g.bg);
 	await page.screenshot({
 		path: artifact('pcclose-dark.png'),
 		clip: { x: 0, y: 100, width: 390, height: 420 }
@@ -182,7 +197,7 @@ const geom = (page) =>
 // arbitrary photograph. A translucent face with no backdrop-filter behind it would be the real
 // regression this guards: the × left floating on whatever the image happens to be.
 for (const dark of [false, true]) {
-	const { ctx, page } = await openCard({ w: 390, h: 844, dark, ui: 'bubble' });
+	const { ctx, page } = await openCard({ w: 390, h: 844, dark, ui: 'aeropalite' });
 	const g = await geom(page);
 	const mode = `bubble ${dark ? 'dark' : 'light'}`;
 	ok(`${mode}: chip still sits over the photo`, g.overImage);

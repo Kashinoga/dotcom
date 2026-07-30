@@ -93,7 +93,12 @@ const opCellFor = (page, callsign) =>
 
 const browser = await firefox.launch();
 
-async function board({ width = 1600, expand = true, reduce = false } = {}) {
+// THE BOARD OPENS EXPANDED. This used to take a `expand` flag and click "Expand panel to fill" to
+// widen the container — and THAT CONTROL IS GONE: only the apps designed to fill the viewport do,
+// and they arrive that way. Measured, `/apps/air-traffic` lands with `aside.surface.expanded` and
+// no button on the page matches /expand/i, so the click waited out its full timeout and took the
+// suite down before assertion one. The flag went with it; no caller ever passed false.
+async function board({ width = 1600, reduce = false } = {}) {
 	const ctx = await browser.newContext({
 		viewport: { width, height: 1000 },
 		reducedMotion: reduce ? 'reduce' : 'no-preference'
@@ -103,10 +108,7 @@ async function board({ width = 1600, expand = true, reduce = false } = {}) {
 	await page.route('**api.adsbdb.com/**', (r) => r.abort()); // no enrichment → raw ownOp path
 	await page.goto(`${B}/apps/air-traffic?field=dsm`, { waitUntil: 'networkidle' });
 	await page.waitForTimeout(1400);
-	if (expand) {
-		await page.getByRole('button', { name: 'Expand panel to fill' }).click();
-		await page.waitForTimeout(3000);
-	}
+	await page.waitForTimeout(3000);
 	return { ctx, page };
 }
 

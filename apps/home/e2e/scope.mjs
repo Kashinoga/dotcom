@@ -42,7 +42,20 @@ async function open(path) {
 	return { ctx, page, dists };
 }
 
-const url = (page) => page.url().slice(B.length);
+// THE PATH AND ITS SCOPE PARAMS — with `expanded` taken out.
+//
+// This suite is about the params that scope the BOARD: which field, how far the radar reaches, how
+// often it refreshes, and how they normalise. `expanded` is none of those — it is the panel's
+// layout, written by the app's own fill-the-viewport toggle so a shared link arrives laid out the
+// way it was sent, and the Air Traffic board opens expanded. It rode into every comparison here as
+// `&expanded=1` and made four of them fail while saying nothing about scope.
+// Removed rather than expected, because it is orthogonal: the day another panel state joins it,
+// these assertions should not have to be rewritten again.
+const url = (page) => {
+	const u = new URL(page.url());
+	u.searchParams.delete('expanded');
+	return u.pathname + (u.search || '');
+};
 // The range/refresh controls are <select>s in the board's control strip. Target them by
 // aria-label, not position: the compact panel also carries a hidden Airport <select> (the
 // mobile field dropdown), so `select` order is no longer Range-then-Refresh.
@@ -163,7 +176,11 @@ for (const [q, why] of [
 	await rangeSel(page).selectOption('250');
 	await page.waitForTimeout(700);
 	ok('range applied', url(page) === `${ATFC}?range=250`, url(page));
-	await page.getByRole('button', { name: 'Back to route map' }).click();
+	// "Close and go home", the board's own edge control. It was "Back to route map" — and the ROUTE
+	// MAP IS GONE, with the whole transit motif ($lib/network was deleted), so the old name matched
+	// nothing and the click waited out its timeout. Same control, same job, new words: the place it
+	// goes back to is the homepage now rather than a map of stations.
+	await page.getByRole('button', { name: 'Close and go home' }).click();
 	await page.waitForTimeout(900);
 	ok('closing the panel clears the query', url(page) === '/', url(page));
 	await ctx.close();
@@ -195,7 +212,7 @@ for (const [q, why] of [
 	const { ctx, page } = await open(ATFC);
 	await rangeSel(page).selectOption('100');
 	await page.waitForTimeout(700);
-	await page.getByRole('button', { name: 'Back to route map' }).click(); // pushes '/'
+	await page.getByRole('button', { name: 'Close and go home' }).click(); // pushes '/'
 	await page.waitForTimeout(900);
 	ok('at the map', url(page) === '/', url(page));
 	await page.goBack();
