@@ -412,7 +412,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			// The flyout is drawn by this component but its position is shared state — left set, a
 			// navigation back into the editor would open on a card nobody asked for.
 			editor.settingsAt = null;
-			editor.workspaceAt = null;
 			editor.scrolled = false;
 			keyOpen = false;
 		};
@@ -1752,15 +1751,28 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	let workNameEl: HTMLElement | null = $state(null);
 	let nameClipped = $state(false);
 
+	/** What the drive's head says: the folder, and the server when the two differ. */
+	const driveLabel = $derived(
+		(editor.driveName || 'Drive') +
+			(editor.driveHost && editor.driveHost !== editor.driveName ? ` (${editor.driveHost})` : '')
+	);
+	let driveNameEl: HTMLElement | null = $state(null);
+	let driveClipped = $state(false);
+
 	function measureName() {
 		const el = workNameEl;
 		// +1 for the sub-pixel: a name that exactly fits reports a scrollWidth a fraction over its
 		// clientWidth often enough to flash a reveal that shows the same characters back.
 		nameClipped = !!el && el.scrollWidth > el.clientWidth + 1;
+		// The drive's, measured the same way in the same pass — one observer and one effect for both,
+		// because they share a column and change width together.
+		const dv = driveNameEl;
+		driveClipped = !!dv && dv.scrollWidth > dv.clientWidth + 1;
 	}
 
 	$effect(() => {
 		editor.folderName;
+		driveLabel;
 		editor.folder.length;
 		editor.canWrite;
 		measureName();
@@ -1905,7 +1917,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	// thing that cannot be guessed — that this browser will not write at all — and nothing else.
 	let fileMenuEl: HTMLDivElement | null = $state(null);
 	/** The workspace menu's own element, so it can be pulled back inside the window. */
-	let workMenuEl: HTMLDivElement | null = $state(null);
 	let fileMenuAt = $state({ x: 0, y: 0 });
 	/** The TREE entry the open menu belongs to — null when the menu belongs to a shelf row. */
 	const fileMenuEntry = $derived(
@@ -2162,13 +2173,56 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 */
 	let dirCounts = $state<{ files: number; dirs: number } | null>(null);
 
-	/** The folder the open menu belongs to, and its name. */
+	/**
+	 * The folder the open menu belongs to, and its name. A HEAD counts: `path: ''` is the workspace's
+	 * own root, which is a folder row in all but name — it already takes a drop, and the two things a
+	 * root needs (put a folder in it, put it away) had nowhere else to live.
+	 */
 	const menuDir = $derived.by(() => {
 		const at = editor.fileMenu;
 		if (!at || at.kind !== 'dir') return null;
 		const list = at.list === 'cloud' ? ('cloud' as const) : ('tree' as const);
-		return { path: at.path, name: at.path.slice(at.path.lastIndexOf('/') + 1), list };
+		const root = at.path === '';
+		return {
+			path: at.path,
+			// A root has no last segment to be named by, so it borrows the head's own name.
+			name: root
+				? list === 'cloud'
+					? editor.driveName || 'Drive'
+					: editor.folderName || 'Workspace'
+				: at.path.slice(at.path.lastIndexOf('/') + 1),
+			list,
+			root
+		};
 	});
+
+	/**
+	 * PUT THE FOLDER AWAY. The workspace keeps its shelves and its scratch notes — those belong to
+	 * the pane, not to the folder — and everything the folder brought goes with it, including the
+	 * memory of it: a folder closed on purpose that came back on the next visit would be a key that
+	 * did not work.
+	 *
+	 * Whatever was open from it is SHELVED first, the same as when a folder is changed. It is still a
+	 * document somebody was reading and the sheet still holds it; losing its row because the list it
+	 * was in went away is the hole `strandTheOpenOne` exists to close.
+	 */
+	async function closeFolder() {
+		shelveTheOpenOne();
+		store = null;
+		held = null;
+		editor.folder = [];
+		editor.folders = [];
+		editor.folderName = '';
+		editor.folderWritable = false;
+		editor.folderPending = false;
+		editor.collapsed = [];
+		if (editor.openIn === 'tree') {
+			editor.openPath = '';
+			editor.openWritable = false;
+		}
+		closeFileMenu();
+		await rememberFolder(null);
+	}
 
 	function openDirMenu(event: MouseEvent, path: string, list: 'tree' | 'cloud') {
 		dirMode = 'verbs';
@@ -2345,22 +2399,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// A menu the pointer opened should still be a menu the keyboard can walk. Focusing the
 		// first item is also what closes the loop on Shift+F10: the event that opens it leaves
 		// focus on the row, and nothing else would move it in.
-		if (!el.contains(document.activeElement)) el.querySelector('button')?.focus();
-	});
-
-	$effect(() => {
-		const at = editor.workspaceAt;
-		const el = workMenuEl;
-		if (!at || !el) return;
-		// LEFT-aligned to its key and pulled back off the right edge if it overhangs — this key is
-		// at the far left of the bar on a desk and in the flyout's stack on a phone, and neither
-		// place is anywhere near the edge it could fall off. The clamp is for the phone, where the
-		// stack sits at the bottom and the menu opens upward into the window.
-		const box = el.getBoundingClientRect();
-		const left = Math.max(8, Math.min(at.x, window.innerWidth - box.width - 8));
-		const top = Math.max(8, Math.min(at.y, window.innerHeight - box.height - 8));
-		if (Math.abs(left - box.left) > 0.5) el.style.left = `${left}px`;
-		if (Math.abs(top - box.top) > 0.5) el.style.top = `${top}px`;
 		if (!el.contains(document.activeElement)) el.querySelector('button')?.focus();
 	});
 
@@ -3212,7 +3250,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			class:lost={k.lost?.()}
 			title={k.title()}
 			aria-label={k.label()}
-			aria-expanded={k.opens?.() ? !!editor.workspaceAt : undefined}
 			onclick={(e) => {
 				k.run(e);
 				if (k.folds()) keyOpen = false;
@@ -3303,7 +3340,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				     starting and then changing its mind. The block is the shading; the gap inside
 				     it is the same grey, and the one white gap is the one below, which is where
 				     the shelves actually end and the folder begins. -->
-				<div class="te-shelves">
+				<section class="te-band te-shelves">
 					<!-- SCRATCH IS ALWAYS DRAWN (unless it is switched off in Settings). It used to
 					     appear only once it had rows, which made the list you were about to add to
 					     invisible until you had added to it — and there is always a row now anyway,
@@ -3335,7 +3372,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 							}))
 						)}
 					{/if}
-				</div>
+				</section>
 				<!-- THE DRIVE — a fourth list, above the folder and below the shelves. It is not the
 				     folder and never replaces it: a folder on the machine and a folder on a server are
 				     different kinds of place, and somebody may reasonably keep both open.
@@ -3346,7 +3383,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				     token expired looks exactly like a workspace that was never there, and the visitor
 				     has no way to tell which. -->
 				{#if editor.driveOpen || editor.drivePending}
-					<section class="te-drive" aria-label="Drive: {editor.driveName}">
+					<section class="te-band te-drive" aria-label="Drive: {editor.driveName}">
 						<!-- ITS HEAD IS THE ROOT'S DROP TARGET, exactly as the folder's is. Without it a
 						     document dragged into a sub-folder has no way back to the top level, which
 						     makes the gesture one-way and therefore a trap. -->
@@ -3358,18 +3395,22 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 							ondragover={(e) => onDragOver(e, '', 'cloud')}
 							ondragleave={(e) => onDragLeave(e, '')}
 							ondrop={(e) => onDrop(e, '', 'cloud')}
+							oncontextmenu={(e) => editor.driveOpen && openDirMenu(e, '', 'cloud')}
 						>
 							<!-- NAMED FOR THE FOLDER AND THE SERVER BOTH — `Notes (nextcloud.kashinoga.com)`.
 							     A folder called `Notes` says nothing about where it is, and somebody with a
 							     drive open beside a local folder of the same name has two lists wearing one
 							     name. The host is left off when the drive was opened at its ROOT, because the
 							     name IS the host then and `host (host)` is a label arguing with itself. -->
-							<h2 class="te-work-name">
-								{editor.driveName || 'Drive'}{editor.driveHost &&
-								editor.driveHost !== editor.driveName
-									? ` (${editor.driveHost})`
-									: ''}
-							</h2>
+							<h2 class="te-work-name" bind:this={driveNameEl}>{driveLabel}</h2>
+							{#if driveClipped}
+								<!-- THE SAME REVEAL the folder's head keeps, and the drive needs it more: its label is a
+								     folder AND a host, so it is the longest name in this pane by some way and the one
+								     somebody most needs in full — two drives on two servers can hold a folder of one name.
+								     BELOW the row, never over it: over the name it lands under the pointer that opened it
+								     and takes its own hover away. -->
+								<span class="popover te-work-full" aria-hidden="true">{driveLabel}</span>
+							{/if}
 							{#if editor.driveOpen}
 								{@const busy = editor.driveFetching.includes('')}
 								<!-- FETCH UPDATES. A drive is somebody else's disk: another device, the web
@@ -3430,7 +3471,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				     inside it, and the row directly under its name belonged to something else.
 				     A head names the list it is on top of, or it is a title for the pane; this pane has
 				     four lists and no room for a title. -->
-				<section class="te-local" aria-label="Workspace: {editor.folderName || 'folder'}">
+				<section class="te-band te-local" aria-label="Workspace: {editor.folderName || 'folder'}">
 					<!-- ONE ROW: the folder's name, its tally, and the three keys that act on the pane.
 				     The name had the row to itself for a while, because sharing it with three keys
 				     ellipsised any long name after a few characters and the name is the one thing
@@ -3449,19 +3490,34 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						ondragover={(e) => onDragOver(e, '', 'tree')}
 						ondragleave={(e) => onDragLeave(e, '')}
 						ondrop={(e) => onDrop(e, '', 'tree')}
+						oncontextmenu={(e) => openDirMenu(e, '', 'tree')}
 					>
-						<!-- THE FOLDER'S OWN NAME, and now the whole of what this row is for. `Workspace`
-					     as the placeholder rather than `Folder`: the row has the width for it since New,
-					     Change and Hide left for the bar key's menu — that is what they were competing
-					     with, and the name is the one thing in this row you cannot work out from
-					     anywhere else. -->
+						<!-- THE FOLDER'S OWN NAME, and `LOCAL` when there is none. Not `Workspace`: the
+					     PANE is the workspace — four lists in it now — and this is the one of them that
+					     is on the machine. Naming the section for the whole pane was fine while it was
+					     the only section in it.
+					     The name is still the one thing in this row you cannot work out from anywhere
+					     else, which is why the verbs are on the row's right-click and not beside it. -->
 						<h2 class="te-work-name" bind:this={workNameEl}>
-							{editor.folderName || 'Workspace'}
+							{editor.folderName || 'Local'}
 						</h2>
 						<!-- The folder's own tally comes LAST, past the keys, because it is one of a
 					     column: every folder row in the tree below carries the same figure at the
 					     same right edge, and this one is the head of that column rather than a
 					     footnote to the name. -->
+						<!-- `+` HERE MEANS THE OS PICKER, and that is a different `+` from the drive's on purpose.
+						     Locally you BRING A FOLDER IN — the documents are already on the machine and what this
+						     section is short of is a way to point at them. On a drive the folder is already there and
+						     what is short is a document, so its `+` makes one.
+						     Making a document locally is what Save on a scratch note does, which is this app's own
+						     order of operations: write it, then decide where it lives. -->
+						<button
+							type="button"
+							class="te-loose-sort te-loose-add"
+							title={store ? 'Open a different folder' : 'Open a folder'}
+							aria-label="Open a folder"
+							onclick={pickFolder}>+</button
+						>
 						<span class="te-work-count">{editor.folder.length}</span>
 						{#if nameClipped}
 							<!-- Drawn only when the name is ACTUALLY clipped — a reveal that repeats a name
@@ -3805,23 +3861,54 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		>
 			<p class="popover-title">{dir.name}</p>
 			{#if dirMode === 'verbs'}
-				<button
-					type="button"
-					role="menuitem"
-					class="popover-item"
-					onclick={() => {
-						dirMode = 'new';
-						dirField = '';
-					}}>New folder…</button
-				>
-				<!-- DELETE IS LAST and it is the only item here that opens a question rather than doing
-				     something. The ellipsis is the promise that pressing it is not the end of it. -->
-				<button
-					type="button"
-					role="menuitem"
-					class="popover-item te-file-del"
-					onclick={() => askDeleteDir(dir.path, dir.list)}>Delete folder…</button
-				>
+				{#if storeOf(dir.list)?.createDir}
+					<button
+						type="button"
+						role="menuitem"
+						class="popover-item"
+						onclick={() => {
+							dirMode = 'new';
+							dirField = '';
+						}}>New folder…</button
+					>
+				{/if}
+				{#if dir.root && dir.list === 'tree'}
+					<!-- OPENING A FOLDER lives here now, and this is the ONLY way to it: the bar key held
+					     it and is a toggle again. So the head's menu opens whether or not a folder is
+					     open — a head that refused to talk until a folder was open would leave a first
+					     visit with no way to open one. The WORD changes with the state, because
+					     "different" is a lie when there is nothing to differ from. -->
+					<button
+						type="button"
+						role="menuitem"
+						class="popover-item"
+						onclick={() => {
+							closeFileMenu();
+							pickFolder();
+						}}>{store ? 'Open a different folder…' : 'Open a folder…'}</button
+					>
+					<!-- CLOSE, on the ROOT only, and it is not Delete: nothing on the disk is touched.
+					     The word is the difference — this pane already keeps `Close` for a shelf row,
+					     where it means the same thing, and `Forget` for a drive, where it means it about
+					     a password. -->
+					{#if store}
+						<button type="button" role="menuitem" class="popover-item" onclick={closeFolder}
+							>Close the folder</button
+						>
+					{/if}
+				{:else if !dir.root}
+					<!-- DELETE IS LAST and it is the only item here that opens a question rather than
+					     doing something. The ellipsis is the promise that pressing it is not the end of
+					     it. It is not offered on a ROOT: deleting the folder you are looking at from
+					     inside it is a gesture with nowhere to stand afterwards, and Close is what
+					     somebody reaching for it actually wants. -->
+					<button
+						type="button"
+						role="menuitem"
+						class="popover-item te-file-del"
+						onclick={() => askDeleteDir(dir.path, dir.list)}>Delete folder…</button
+					>
+				{/if}
 			{:else if dirMode === 'new'}
 				<!-- A FOLDER IS NAMED ON PURPOSE, so it is asked for. A document is not — `+` makes
 				     `Untitled 0.md` and Rename exists to replace it — and the difference is that a
@@ -3973,60 +4060,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	     that already means the workspace, which is where somebody looking for them will press.
 	     Drawn HERE for the reason every other popover in this app is: the key that opens it lives
 	     in a bar that scrolls, and a popover parented into a scroller is clipped by it. -->
-	{#if editor.workspaceAt}
-		<button
-			class="popover-scrim"
-			aria-label="Close the workspace menu"
-			onclick={() => (editor.workspaceAt = null)}
-		></button>
-		<div
-			class="popover te-work-menu"
-			role="menu"
-			aria-label="Workspace"
-			tabindex="-1"
-			bind:this={workMenuEl}
-			style:left="{editor.workspaceAt.x}px"
-			style:top="{editor.workspaceAt.y}px"
-			onkeydown={(e) => {
-				if (e.key === 'Escape') {
-					e.stopPropagation();
-					editor.workspaceAt = null;
-				}
-			}}
-		>
-			<!-- New is offered EVERYWHERE. It used to need a writable folder to create into, which
-			     made it a Chromium key; a scratch note needs nothing but a sheet. -->
-			<button
-				type="button"
-				role="menuitem"
-				class="popover-item"
-				onclick={() => {
-					editor.workspaceAt = null;
-					newEphemeral();
-				}}>New note</button
-			>
-			<button
-				type="button"
-				role="menuitem"
-				class="popover-item"
-				onclick={() => {
-					editor.workspaceAt = null;
-					pickFolder();
-				}}>{editor.folderName ? 'Change folder…' : 'Open a folder…'}</button
-			>
-			<!-- Hide and Show are ONE item that says which it will do, rather than two with one of
-			     them dead. The pane is the only thing in this app that a key both opens and closes. -->
-			<button
-				type="button"
-				role="menuitem"
-				class="popover-item"
-				onclick={() => {
-					editor.folderShown = !editor.folderShown;
-					editor.workspaceAt = null;
-				}}>{editor.folderShown ? 'Hide the workspace' : 'Show the workspace'}</button
-			>
-		</div>
-	{/if}
 
 	<!-- THE SETTINGS FLYOUT — About, Install, Apps and the version, behind the one gear key that
 	     stands in the bar's corner on a desk and at the foot of the floating stack on a phone.
@@ -4875,9 +4908,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		display: flex;
 		flex-direction: column;
 		/* NO SPACE anywhere on this block — not between the two shelves and not under it. A
-		   shelf's own HEAD is what parts it from whatever is above, and the shading is what parts
-		   the block from the tree; a margin as well is the same boundary drawn a third time. */
-		background: color-mix(in srgb, var(--ink) 4%, var(--surface));
+		   shelf's own HEAD is what parts it from whatever is above, and the SHADE is what parts one
+		   section from the next; a margin as well is the same boundary drawn a third time.
+		   The shade itself is `.te-band`'s now — two shelves are one band, because they are one
+		   kind of thing (lists of documents that are not a place) and shading them apart would say
+		   they are two. */
 	}
 	.te-loose {
 		flex: none;
@@ -5192,13 +5227,19 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-drive-head {
 		position: relative;
 	}
-	.te-drive,
-	.te-local {
-		border-top: 1px solid var(--pixel-hairline, rgba(0, 0, 0, 0.12));
-	}
-	/* Except at the very top, where a rule would be drawing the pane's own edge twice. */
-	.te-work > .te-local:first-child {
-		border-top: 0;
+	/* ── THE BANDS ─────────────────────────────────────────────────────────────
+	   Four lists in one pane, told apart by SHADE rather than by rules. A hairline between every
+	   section drew four lines down a 15rem column and read as a table; shade says "a different
+	   kind of list" with nothing added to the page at all — which is the argument the shelves were
+	   already making on their own, extended to the sections beside them.
+
+	   ALTERNATING, and computed rather than assigned. `nth-of-type` is why all three are
+	   `<section>`: the drive is conditional, so a hard-coded "shelves shaded, drive plain, folder
+	   shaded" would put two shaded bands against each other the moment no drive was connected —
+	   one wide band with a seam nobody can see. Counting them lets the folder take whichever shade
+	   is left. */
+	.te-band:nth-of-type(odd) {
+		background: color-mix(in srgb, var(--ink) 4%, var(--surface));
 	}
 	.te-work-head.into {
 		outline: 1px dashed var(--orange);
@@ -5529,9 +5570,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   its items are sentences rather than verbs — `Hide the workspace` says which way the toggle
 	   will go, and an item that wrapped to say it would be worse than the three keys this
 	   replaced. */
-	.te-work-menu {
-		min-width: 12rem;
-	}
 
 	/* ── The phone's flyout ────────────────────────────────────────────────────
 	   The card FloatingKey opens above its stack holds the marks as a grid. Five across is what

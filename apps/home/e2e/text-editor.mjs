@@ -55,11 +55,25 @@ const selectAll = () => key('ControlOrMeta+a');
  * The WORKSPACE MENU — New, a different folder, and the pane's own hide. All three were keys on
  * the pane's head; they are behind the bar key that already means the workspace.
  */
-const workMenu = (pg = page) => pg.locator('.te-work-menu .popover-item');
+/**
+ * Reach one of the folder's own verbs. They were behind the bar's Workspace key, which held a menu
+ * of three; that key is a TOGGLE for the pane now and the verbs are on the folder's own head, where
+ * a file manager keeps them — so this right-clicks the head instead of pressing a key.
+ *
+ * `New note` is the exception and no longer lives on a menu at all: it is the Scratch head's `+`.
+ */
 async function fromWorkspace(name, pg = page) {
-	await pg.getByRole('button', { name: 'Workspace', exact: true }).click();
+	if (/New note/i.test(name)) {
+		await pg.locator('ul[aria-label="Scratch"]').first().waitFor();
+		await pg.locator('.te-shelves .te-loose-add').first().click();
+		await pg.waitForTimeout(250);
+		return;
+	}
+	await pg.locator('.te-local .te-work-head').click({ button: 'right' });
 	await pg.waitForTimeout(250);
-	await workMenu(pg).filter({ hasText: name }).click();
+	// `/^Open a/` rather than `/folder/` at the call sites, because the root's menu holds THREE
+	// folder verbs now — open, make, close — and a loose match picks whichever is first in the DOM.
+	await pg.locator('.popover-item').filter({ hasText: name }).first().click();
 	await pg.waitForTimeout(250);
 }
 
@@ -1028,12 +1042,25 @@ await reset('first\n\n\nlast');
 		JSON.stringify((await page.locator('.te-lamp').textContent()).trim())
 	);
 
-	// The WORKSPACE key opens a menu, and hiding the pane is an item on it — one item that says
-	// which way it will go, rather than two with one of them dead.
-	await fromWorkspace('Hide the workspace');
-	ok('the menu hides the pane', (await page.locator('.te-work').count()) === 0);
-	await fromWorkspace('Show the workspace');
+	// THE WORKSPACE KEY IS A TOGGLE. It held a menu of three and every one of them had a better
+	// home: New is the Scratch head's `+`, and the folder's own verbs are on the folder's own row.
+	// What is left is the thing the key was named for, with no menu between the press and the result.
+	const workKey = page.getByRole('button', { name: 'Workspace', exact: true });
+	await workKey.click();
+	await page.waitForTimeout(250);
+	ok('the Workspace key hides the pane', (await page.locator('.te-work').count()) === 0);
+	await workKey.click();
+	await page.waitForTimeout(250);
 	ok('and shows it again', (await page.locator('.te-work').count()) === 1);
+	ok('and holds no menu at all', (await page.locator('.te-work-menu').count()) === 0);
+	ok(
+		'nor a caret, which would promise one',
+		(await page
+			.locator('.tb')
+			.filter({ hasText: 'Workspace' })
+			.locator('.te-caret-down')
+			.count()) === 0
+	);
 	ok(
 		'without forgetting which document is open',
 		(await page.locator('.te-work-row.on').count()) === 1
@@ -1124,11 +1151,13 @@ await reset('first\n\n\nlast');
 	await wp.goto(`${B}/apps/text-editor`, { waitUntil: 'networkidle' });
 	await wp.evaluate(() => window.__seed());
 	await wp.waitForTimeout(300);
-	await wp.getByRole('button', { name: 'Workspace', exact: true }).click();
+	// The folder's verbs are on the folder's own head now — the bar key is a toggle for the pane.
+	await wp.locator('.te-local .te-work-head').click({ button: 'right' });
 	await wp.waitForTimeout(200);
 	await wp
-		.locator('.te-work-menu .popover-item')
-		.filter({ hasText: /folder/ })
+		.locator('.popover-item')
+		.filter({ hasText: /^Open a/ })
+		.first()
 		.click();
 	await wp.waitForTimeout(700);
 
@@ -1708,7 +1737,7 @@ await reset('first\n\n\nlast');
 			const root = await navigator.storage.getDirectory();
 			await root.getDirectoryHandle('nothing-in-here', { create: true });
 		});
-		await fromWorkspace(/folder/, wp);
+		await fromWorkspace(/^Open a/, wp);
 		await wp.waitForTimeout(900);
 		ok(
 			'an empty folder gets a row of its own',
@@ -1838,7 +1867,7 @@ await reset('first\n\n\nlast');
 			await f.write('# the one already there');
 			await f.close();
 		});
-		await fromWorkspace(/folder/, wp);
+		await fromWorkspace(/^Open a/, wp);
 		await wp.waitForTimeout(900);
 		await wp.dragAndDrop(`${TREE} >> text=beta.md >> nth=1`, '.te-work-dir');
 		await wp.waitForTimeout(800);
@@ -2305,20 +2334,20 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	ok('a mark applies from the flyout', (await p.locator('.te-type').inputValue()) === '**word**');
 	ok('and leaves it standing', (await shown()) === 1);
 
-	// A key that OPENS something leaves the flyout standing, exactly as the gear does — its menu
-	// draws over the stack, and folding the thing underneath would animate a column nobody is
-	// looking at. Clear used to be the exception in this stack (it asks first, and folding would
-	// have hidden its own question); it is not here at all now, because clearing is a document's
-	// verb on its own row's menu.
-	// The stack labels its discs with the KEY'S OWN WORD (the flyout has no room for the bar's
-	// full title), so this asks for `Workspace` rather than for the folder-picker's tooltip.
+	// WORKSPACE FOLDS THE FLYOUT NOW, because it stopped holding a menu. A key that opens something
+	// leaves the stack standing (the gear still does, its card draws over the column); a key that
+	// simply acts has finished, and leaving the flyout up over the pane it just revealed would be
+	// covering the answer with the question.
+	// The stack labels its discs with the KEY'S OWN WORD — the flyout has no room for the bar's full
+	// title — so this asks for `Workspace` rather than for a tooltip.
 	const workspaceKey = p.locator('.fkey-stack .icon-btn[aria-label="Workspace"]');
 	await workspaceKey.click();
 	await p.waitForTimeout(350);
-	ok('the workspace menu opens from the flyout', (await p.locator('.te-work-menu').count()) === 1);
-	ok('and leaves the flyout standing under it', (await shown()) === 1);
-	await p.keyboard.press('Escape');
-	await p.waitForTimeout(250);
+	ok(
+		'Workspace opens no menu from the flyout either',
+		(await p.locator('.te-work-menu').count()) === 0
+	);
+	ok('and folds the flyout, having done the thing', (await shown()) === 0);
 	ok(
 		'and no Clear is left in the stack',
 		(await p.locator('.fkey-stack .icon-btn[aria-label^="Clear"]').count()) === 0
@@ -2573,6 +2602,29 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 		!tree.Deep && !tree['Deep/Inner'],
 		Object.keys(tree).join(',')
 	);
+	// A LONG LABEL REVEALS ITSELF, the same way the folder's head does — and the drive needs it more,
+	// because its label is a folder AND a host, so it is the longest name in this pane by some way.
+	{
+		const nm = fp.locator('.te-drive-head .te-work-name');
+		const clipped = await nm.evaluate((e) => e.scrollWidth > e.clientWidth + 1);
+		// Only asserted when the stub's own name is long enough to clip — `cloud.example.com` may
+		// not be, and a reveal that repeats a legible name is a flicker with no information in it.
+		if (clipped) {
+			await eq(
+				'a clipped drive label is shut until it is asked for',
+				fp.locator('.te-drive-head .te-work-full').evaluate((e) => getComputedStyle(e).opacity),
+				'0'
+			);
+			await nm.hover();
+			await fp.waitForTimeout(300);
+			await eq(
+				'and hovering the name opens it',
+				fp.locator('.te-drive-head .te-work-full').evaluate((e) => getComputedStyle(e).opacity),
+				'1'
+			);
+		}
+	}
+
 	// THE HEAD NAMES THE SERVER TOO, because a folder called `Notes` says nothing about where it is
 	// — and somebody with a drive open beside a local folder of the same name has two lists wearing
 	// one name.
@@ -3017,11 +3069,12 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	// the shelf held a File or a handle and a document on a server is neither, so changing the
 	// workspace under it took its row away. A row keeps `{ connection, path }` now — plain data, so
 	// it can be written down, and no credential, so it is safe to.
-	await dp.getByRole('button', { name: 'Workspace', exact: true }).click();
+	await dp.locator('.te-local .te-work-head').click({ button: 'right' });
 	await dp.waitForTimeout(200);
 	await dp
-		.locator('.te-work-menu .popover-item')
-		.filter({ hasText: /folder/ })
+		.locator('.popover-item')
+		.filter({ hasText: /^Open a/ })
+		.first()
 		.click();
 	await dp.waitForTimeout(900);
 	ok(

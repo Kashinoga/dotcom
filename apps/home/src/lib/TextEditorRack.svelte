@@ -56,22 +56,20 @@
 	<div class="te-lead">
 		<div class="te-group" role="group" aria-label="Open">
 			{#each OPEN_KEYS as k (k.id)}
-				<!-- A key that OPENS something wears the caret and says so — the same pair the heading
-				     key keeps (`H▾`). Workspace is one: it holds New, a different folder, and the
-				     pane's own hide. -->
+				<!-- NO CARET on either of these any more. Workspace held a menu and wore one; it is a
+				     toggle now, and a caret on a key that opens nothing is a promise it cannot keep —
+				     it was also what made the word sit off-centre, because the caret took width on one
+				     side of a row the browser was otherwise centring. -->
 				<button
 					type="button"
 					class="tb"
 					class:on={k.on?.()}
-					aria-expanded={k.opens?.() ? !!editor.workspaceAt : undefined}
+					aria-pressed={k.on ? k.on() : undefined}
 					onclick={k.run}
 					title={k.title()}
 				>
 					<span class="te-key-ico" aria-hidden="true">{@html k.svg}</span>
 					<span class="te-key-word">{k.label()}</span>
-					{#if k.opens?.()}
-						<span class="te-caret-down" aria-hidden="true"></span>
-					{/if}
 				</button>
 			{/each}
 		</div>

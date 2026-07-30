@@ -374,13 +374,7 @@ export const editor = $state({
 	 * rather than four — which is what a one-row bar can afford.
 	 */
 	settingsAt: null as { x: number; y: number } | null,
-	/**
-	 * Where the WORKSPACE menu should stand, or null when it is shut — New, Change and Hide, the
-	 * three keys the pane's head used to carry. Carried rather than anchored for the reason
-	 * `headingAt` is: the key that opens it is in a bar that scrolls on a phone, and a popover
-	 * parented into a scroller is clipped by it.
-	 */
-	workspaceAt: null as { x: number; y: number } | null,
+
 	/** Is the contents rail showing? On by default: it is the one column that costs nothing. */
 	contentsShown: true,
 	/** Which entry is being renamed, if any — the workspace swaps its row for a field. */
@@ -549,15 +543,11 @@ export function openHeadings(event: MouseEvent) {
  * from its own right edge (the x carried here is the key's RIGHT) and pulled back inside the
  * window by the effect in $lib/TextEditorSettings.
  */
-/**
- * Open the WORKSPACE menu under the key that was pressed — the word key in the bar on a desk, the
- * disc in the flyout's stack on a phone. LEFT-aligned, unlike the settings card: this key is at
- * the far left of the bar, and a menu laid out from its right edge would open off the screen.
+/*
+ * `openWorkspaceMenu` stood here and is gone with the menu it opened. The Workspace key is a toggle
+ * again — see the note in OPEN_KEYS — and the three things that menu held are on the Scratch head's
+ * `+` and on the folder row's own right-click. `editor.workspaceAt` went with it.
  */
-export function openWorkspaceMenu(event: MouseEvent) {
-	const key = (event.currentTarget as HTMLElement).getBoundingClientRect();
-	editor.workspaceAt = editor.workspaceAt ? null : { x: key.left, y: key.bottom + 6 };
-}
 
 export function openSettings(event: MouseEvent) {
 	const key = (event.currentTarget as HTMLElement).getBoundingClientRect();
@@ -631,20 +621,25 @@ export const OPEN_KEYS: DocKey[] = [
 	{
 		id: 'folder',
 		svg: FOLDER_OPEN_SVG,
-		title: () => 'The workspace — a new note, a different folder, or hide the pane',
+		title: () => (editor.folderShown ? 'Hide the workspace' : 'Show the workspace'),
 		// WORKSPACE, not Folder. The key opens a folder, but what it MAKES is the workspace — the
 		// pane beside the sheet with the tree, the shelves and New in it — and that pane is what
 		// the key acts on every time after the first. Naming it for the thing it picks rather than
 		// the thing it builds described one press out of many.
 		label: () => 'Workspace',
-		// IT OPENS A MENU rather than doing one of the three things. The pane's own head used to
-		// carry New, Change and Hide as three keys on the row with the folder's name, which is
-		// three controls in 250px competing with the one thing in that row you cannot work out
-		// from anywhere else. They are here, behind the key that already means the workspace.
-		run: openWorkspaceMenu,
+		/*
+		 * IT IS A TOGGLE AGAIN. It held a menu of three — New note, a different folder, hide the pane
+		 * — and every one of them has a better home: New is the Scratch head's `+`, and the folder's
+		 * own verbs (open a different one, make a folder in it, close it) are on the folder's own
+		 * ROW, where a file manager keeps them and where Rename and Delete already were.
+		 *
+		 * What is left is the one thing the key was named for. A key that means the workspace and
+		 * shows or hides the workspace needs no menu between the press and the result — and it stops
+		 * being the only key in this bar whose press is a question rather than an answer.
+		 */
+		run: () => (editor.folderShown = !editor.folderShown),
 		on: () => editor.folderShown,
-		opens: () => true,
-		folds: () => false
+		folds: () => true
 	}
 ];
 
