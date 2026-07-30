@@ -58,6 +58,10 @@ export default defineConfig({
 			// can know its hash. Measured: a hand-written `script-src 'self'` in a header blocked
 			// hydration on all sixteen routes, with two distinct hashes across them.
 			//
+			// THIS APPLIES IN `pnpm dev` AS WELL AS IN A BUILD, which is worth knowing and was assumed
+			// otherwise: it means the browser suites enforce it while they click things, and it is how
+			// two real faults in the Presentation Builder were found on the day it landed.
+			//
 			// Every entry below is here because something in this repo needs it, and the note says
 			// which. An allow-list nobody can account for is an allow-list that only grows.
 			csp: {

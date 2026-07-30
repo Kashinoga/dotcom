@@ -1,15 +1,18 @@
 // Walk every route this site has and prove the Content Security Policy is both PRESENT and QUIET.
 //
-// WHY THIS IS NOT IN THE e2e SUITE, which is the obvious place for it: the suite drives `vite dev`,
-// and the policy is deliberately switched off there — Vite's dev server needs `unsafe-eval` and
-// `unsafe-inline` for HMR, so a policy strict enough to be worth having is strict enough to break
-// `pnpm dev`, and a CSP that breaks the dev server is a CSP somebody deletes by Thursday. The only
-// place the real policy exists is a production build, so that is what this builds and serves.
+// WHAT IT IS FOR, and it is NOT "the suite cannot do this". `kit.csp` applies under `pnpm dev` too,
+// so the browser suites already enforce the policy while they click things — that is how the
+// Presentation Builder's `new Function` and its one inline `onclick` were caught, by `ticker`, in
+// shipped code that predated the policy. Interaction is their job and they are better at it.
 //
-// WHAT IT IS FOR is the failure mode a CSP has that most things do not: it can be quietly WRONG in
-// both directions and look fine either way. Too strict and a page breaks somewhere nobody clicked;
-// too loose — or accidentally deleted, which is exactly what `headers.set` did to it once in this
-// repo — and it restricts nothing while still appearing in the response. Neither shows up in a diff.
+// What they cannot see is the PRODUCTION response. Three things only exist there: the policy as a
+// real header rather than a dev-server one, `frame-ancestors` (which a `<meta>` silently ignores, so
+// it can only have come from the header), and whatever a `handle` hook does to both. `headers.set`
+// deleted the entire policy in this repo once, in a build, and nothing complained — because what was
+// left restricted nothing that anything was doing. A CSP that has been quietly deleted looks exactly
+// like a CSP that is working, and that is the one failure mode a passing suite cannot rule out.
+//
+// So: the suites prove the policy does not break the app. This proves the policy is THERE.
 //
 // THE ROUTE LIST IS THE APP'S OWN SITEMAP, not a list kept here. A hand-written list of pages goes
 // stale the first time somebody adds one, and the page it misses is the page that breaks.

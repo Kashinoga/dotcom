@@ -1,4 +1,3 @@
-import { dev } from '$app/environment';
 import type { Handle } from '@sveltejs/kit';
 
 // THE CONTENT SECURITY POLICY — a list of what a page on this site is allowed to do, enforced by
@@ -36,10 +35,21 @@ import type { Handle } from '@sveltejs/kit';
 //
 // It also reaches responses that are not HTML (the API routes, the manifest, the worker), which a
 // meta tag by definition does not.
+//
+// ── AND `kit.csp` IS LIVE IN DEV, which was assumed otherwise and is worth writing down ────────
+//
+// The first version of this file gated the whole thing on `!dev`, on the reasoning that Vite needs
+// `unsafe-eval` for HMR. That reasoning was about a policy this file no longer sets — `kit.csp`
+// applies in `pnpm dev` exactly as it does in a build, and the dev server is fine with it.
+//
+// Which is much better news than the assumption was: the browser suites drive `vite dev`, so THEY
+// enforce the policy. That is how the Presentation Builder's `new Function` and its one inline
+// `onclick` were found — by the `ticker` suite, on the branch that introduced the policy, in shipped
+// code that predated it. A CSP nothing exercises is a CSP that is wrong in one direction or the
+// other and looks fine either way.
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const response = await resolve(event);
-	if (dev) return response;
 	// APPEND, NEVER SET, and this one very nearly shipped wrong. SvelteKit delivers `kit.csp` as a
 	// HEADER on a server-rendered page (the `<meta>` is its fallback for prerendered ones), so
 	// `headers.set` replaced the entire page policy with this one directive — and nothing complained,

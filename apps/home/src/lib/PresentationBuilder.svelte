@@ -271,13 +271,16 @@
 
 		let labels: string[] = [];
 		const m = text.match(/const\s+stationLabels\s*=\s*\[([\s\S]*?)\]/);
-		if (m) {
-			try {
-				labels = new Function('"use strict";return [' + m[1] + ']')();
-			} catch {
-				labels = (m[1].match(/'([^']*)'|"([^"]*)"/g) || []).map((s) => s.slice(1, -1));
-			}
-		}
+		// THE STRINGS ARE READ OUT, NEVER RUN. This used to hand the matched text to `new Function`
+		// and fall back to this regex only if that threw — which means opening somebody's deck
+		// EXECUTED a piece of their file. A deck is a document from wherever it came from; the one
+		// thing this app must not do with one is run it.
+		//
+		// Nothing is lost by deleting the clever path: the labels are a list of string literals, and
+		// the fallback that already handled the awkward cases handles all of them. It was found by a
+		// Content Security Policy refusing the eval, which is the CSP earning its keep on its first
+		// day — the flaw was in shipped code and predates it.
+		if (m) labels = (m[1].match(/'([^']*)'|"([^"]*)"/g) || []).map((q) => q.slice(1, -1));
 
 		const parsedSlides: Slide[] = slideEls.map((el, i) => ({
 			classes: Array.from(el.classList).filter((c) => c !== 'slide' && c !== 'active'),
