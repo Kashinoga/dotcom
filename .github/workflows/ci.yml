@@ -49,6 +49,15 @@ jobs:
       # The build catches what neither of the above can: an adapter that cannot bundle a route.
       - run: pnpm build
 
+      # THE CONTENT SECURITY POLICY, which only exists in a production build — see
+      # apps/home/scripts/csp-check.mjs for why it cannot live in the browser suites. It runs HERE,
+      # after `pnpm build`, because the build is what it needs and this job already has one.
+      #
+      # It needs one browser and installs one. The full three-engine install belongs to the other
+      # job; a policy is a header and a header is not an engine's opinion.
+      - run: pnpm --filter home exec playwright install --with-deps chromium
+      - run: pnpm --filter home check:csp
+
   e2e:
     name: browser suites
     runs-on: ubuntu-latest
