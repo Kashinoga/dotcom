@@ -32,7 +32,7 @@ import {
 	FOLDER_OPEN_SVG
 } from '$lib/icons';
 import type { FolderEntry, WriteError } from '$lib/text-editor-store';
-import type { Connection } from '$lib/dav-connections';
+import type { Connection } from '$lib/nextcloud-connections';
 
 export type Mode = 'write' | 'split' | 'proof';
 
@@ -293,7 +293,7 @@ export const editor = $state({
 	 */
 	headingAt: null as { x: number; y: number } | null,
 	/**
-	 * THE DRIVES this editor knows about — see $lib/dav-connections. Kept apart from the store
+	 * THE DRIVES this editor knows about — see $lib/nextcloud-connections. Kept apart from the store
 	 * because a connection OUTLIVES the workspace it opens: it is what a shelf row will point at
 	 * once a row can name a document on a server, and it is what Settings lists and forgets.
 	 *

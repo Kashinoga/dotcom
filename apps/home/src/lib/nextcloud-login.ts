@@ -27,7 +27,7 @@
 // So direct mode keeps the paste, which costs somebody who owns their server about twenty seconds
 // in a settings page they already know. The button is offered where it is certain to work.
 
-import { DAV_PROXY } from '$lib/dav';
+import { NEXTCLOUD_PROXY } from '$lib/nextcloud';
 
 /** What step 1 hands back, once it has been read and checked. */
 export type LoginFlow = {
@@ -87,7 +87,7 @@ export const POLL_FOR_MS = 5 * 60 * 1000;
  */
 async function viaProxy(target: string, body?: string): Promise<Response | null> {
 	try {
-		return await fetch(DAV_PROXY, {
+		return await fetch(NEXTCLOUD_PROXY, {
 			method: 'POST',
 			headers: {
 				'x-dav-target': target,

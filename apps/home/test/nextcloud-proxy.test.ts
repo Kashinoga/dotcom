@@ -10,7 +10,14 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { checkTarget, checkDestination, METHODS, MAX_BODY } from '../src/lib/dav-proxy.ts';
+import {
+	checkTarget,
+	checkDestination,
+	METHODS,
+	MAX_BODY,
+	FORWARD_REQ,
+	FORWARD_RES
+} from '../src/lib/nextcloud-proxy.ts';
 
 const OK = 'https://cloud.example.com/remote.php/dav/files/andrew/Notes/one.md';
 
@@ -104,14 +111,22 @@ describe('what it refuses, and why each one is here', () => {
 		assert.equal(why('https://u:p@cloud.example.com/remote.php/dav/'), 'credentials in the URL');
 	});
 
-	test('any path that is not the DAV tree or the login flow', () => {
+	test('any path that is not the FILES tree or the login flow', () => {
+		// `/remote.php/dav/files/`, not `/remote.php/dav/`. Nextcloud puts calendars, contacts,
+		// system tags, versions and trash under that prefix too; this app touches one tree, so the
+		// relay reaches one tree. An allow-list that permits five because the app uses one is an
+		// allow-list doing four fifths of nothing.
 		for (const path of [
 			'/',
 			'/index.php/apps/files',
 			'/ocs/v2.php/cloud/users',
 			'/remote.php/webdav/',
 			'/index.php/login/v2/other',
-			'/remote.php/dav'
+			'/remote.php/dav',
+			'/remote.php/dav/',
+			'/remote.php/dav/calendars/andrew/personal',
+			'/remote.php/dav/systemtags/',
+			'/remote.php/dav/trashbin/andrew/trash'
 		]) {
 			assert.equal(
 				why(`https://cloud.example.com${path}`),
@@ -167,5 +182,28 @@ describe('the other limits', () => {
 
 	test('and a body cap that is generous for a note and useless for a relay', () => {
 		assert.equal(MAX_BODY, 4 * 1024 * 1024);
+	});
+
+	test('the forwarded headers are exactly what this app sends', () => {
+		// An allow-list with entries nobody sends is an allow-list somebody else is welcome to use.
+		// `accept` and `ocs-apirequest` were both in here and neither was ever set by this app.
+		assert.deepEqual(FORWARD_REQ, [
+			'depth',
+			'destination',
+			'overwrite',
+			'if-match',
+			'if-none-match',
+			'content-type'
+		]);
+		// And the ones that come back are the ones something reads. `www-authenticate` was here and
+		// nothing read it: a 401 is already the whole answer.
+		assert.deepEqual(FORWARD_RES, ['etag', 'content-type', 'dav', 'last-modified']);
+	});
+
+	test('and neither list carries a credential or a cookie', () => {
+		for (const name of ['authorization', 'cookie', 'set-cookie', 'x-dav-authorization']) {
+			assert.ok(!FORWARD_REQ.includes(name), `${name} is forwarded up`);
+			assert.ok(!FORWARD_RES.includes(name), `${name} is forwarded back`);
+		}
 	});
 });

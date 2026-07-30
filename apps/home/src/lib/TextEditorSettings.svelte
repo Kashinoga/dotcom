@@ -3,7 +3,7 @@
 	import { places } from '$lib/places';
 	import VersionCard from '$lib/VersionCard.svelte';
 	import TextEditorConnect from '$lib/TextEditorConnect.svelte';
-	import type { Connection } from '$lib/dav-connections';
+	import type { Connection } from '$lib/nextcloud-connections';
 
 	// THE SETTINGS FLYOUT — everything in this app that is not the document.
 	//

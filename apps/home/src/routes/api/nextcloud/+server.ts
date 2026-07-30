@@ -7,10 +7,10 @@ import {
 	MAX_BODY,
 	METHODS,
 	TIMEOUT_MS
-} from '$lib/dav-proxy';
+} from '$lib/nextcloud-proxy';
 
 // The Text Editor's PROXIED Nextcloud mode — one hop to a WebDAV server the browser cannot reach
-// on its own. See $lib/dav-proxy for what it is allowed to do and why each rule is there; this
+// on its own. See $lib/nextcloud-proxy for what it is allowed to do and why each rule is there; this
 // file applies those rules and forwards, and holds no policy of its own.
 //
 // UNLIKE THE OTHER API ROUTES HERE, THIS ONE CARRIES A SECRET. `weather`, `traffic`, `places`,

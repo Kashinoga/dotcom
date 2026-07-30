@@ -5,7 +5,7 @@
 // for a third-party origin, and PROPFIND with a `Depth` header is preflighted — so a browser cannot
 // reach it from this site unless the server's owner installs something. That is a fine thing to ask
 // of somebody who runs their own instance and an impossible thing to ask of anybody else, which is
-// why there are two modes and why this one exists. See `via` in $lib/dav.
+// why there are two modes and why this one exists. See `via` in $lib/nextcloud.
 //
 // AND IT IS A RELAY WITH THIS SITE'S NAME ON IT. That is the honest description and the whole
 // reason this file is separate: an endpoint that forwards to whatever URL a header names can be
@@ -17,7 +17,13 @@
 // they already had. What they cannot do is reach a private network, probe an arbitrary port, use it
 // as a general HTTP relay, or get a response cached anywhere.
 //
-// A CHECK THE CLIENT MAKES IS A CHECK AN ATTACKER SKIPS. Nothing here may move into $lib/dav.
+// NEXTCLOUD AND OWNCLOUD, and nothing else, ON PURPOSE. The two share one URL layout
+// (`/remote.php/dav/files/<user>`), and that layout being FIXED is what lets the path rule below
+// exist at all. Supporting WebDAV generally would mean a configurable root, which would mean
+// forwarding to any path on any https host — and that is not a control you can tighten later, it
+// is the control. See the note on ALLOWED_PATHS.
+//
+// A CHECK THE CLIENT MAKES IS A CHECK AN ATTACKER SKIPS. Nothing here may move into $lib/nextcloud.
 
 /** How large a document this will carry. These are Markdown notes; a cap is not a hardship. */
 export const MAX_BODY = 4 * 1024 * 1024;
@@ -34,9 +40,13 @@ export const TIMEOUT_MS = 20_000;
 export const METHODS = new Set(['PROPFIND', 'GET', 'HEAD', 'PUT', 'MOVE', 'DELETE', 'POST']);
 
 /**
- * Request headers that go upstream. An allow-list, so a header this app does not send cannot be
- * relayed through it — `authorization` is NOT in the list because it does not travel under its own
- * name (see the route), and `cookie` is not in it for the reason you would hope.
+ * Request headers that go upstream. An allow-list of exactly what this app SENDS — `authorization`
+ * is not in it because the credential does not travel under its own name (see the route), and
+ * `cookie` is not in it for the reason you would hope.
+ *
+ * `accept` and `ocs-apirequest` were here and are gone: nothing in this app ever set either, so
+ * they were two headers a caller could push through the relay that the relay had no use for. An
+ * allow-list with entries nobody sends is an allow-list somebody else is welcome to use.
  */
 export const FORWARD_REQ = [
 	'depth',
@@ -44,20 +54,33 @@ export const FORWARD_REQ = [
 	'overwrite',
 	'if-match',
 	'if-none-match',
-	'content-type',
-	'accept',
-	'ocs-apirequest'
+	'content-type'
 ];
 
-/** Response headers that come back. `etag` is the one that matters — see `write` in $lib/dav. */
-export const FORWARD_RES = ['etag', 'content-type', 'dav', 'last-modified', 'www-authenticate'];
+/**
+ * Response headers that come back. `etag` is the one that matters — see `write` in $lib/nextcloud.
+ * `www-authenticate` was here and nothing read it: a 401 is already the whole answer, and a header
+ * that reaches the page unread is a header that did not need to.
+ */
+export const FORWARD_RES = ['etag', 'content-type', 'dav', 'last-modified'];
 
 /**
- * Paths this will forward to. The DAV tree is the workspace; the two login paths are how the
- * proxied mode gets a token in the first place (Login Flow v2), which cannot itself be done
- * directly for the same CORS reason everything else here exists for.
+ * Paths this will forward to, and the list is deliberately NARROWER than "a DAV path".
+ *
+ * `/remote.php/dav/FILES/` — not `/remote.php/dav/`. Nextcloud puts several trees under that
+ * prefix: calendars, contacts, system tags, versions, trash. This app touches exactly one of them,
+ * and an allow-list that permits five trees because the app uses one is an allow-list doing four
+ * fifths of nothing. The narrower it is, the less an app password borrowed through here can reach.
+ *
+ * The two login paths are how the proxied mode gets a token at all (Login Flow v2), which cannot
+ * itself be done directly for the same CORS reason everything else here exists for.
+ *
+ * THIS IS THE CONTROL THAT MATTERS. It is what makes the route a Nextcloud relay rather than a
+ * general HTTP relay with this site's name on it, and it is the reason support is Nextcloud and
+ * ownCloud rather than "WebDAV": a configurable DAV root would mean forwarding to any path on any
+ * https host, which is not a check that can be tightened afterwards.
  */
-const ALLOWED_PATHS = [/^\/remote\.php\/dav\//, /^\/index\.php\/login\/v2(\/poll)?$/];
+const ALLOWED_PATHS = [/^\/remote\.php\/dav\/files\//, /^\/index\.php\/login\/v2(\/poll)?$/];
 
 /**
  * Hostnames that are not somebody's cloud.

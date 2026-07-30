@@ -2393,7 +2393,7 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	await cp.waitForTimeout(150);
 	ok(
 		'http is refused OUT LOUD rather than upgraded to https',
-		(await cp.locator('.te-conn-note').first().textContent()).includes('https only')
+		(await cp.locator('.te-conn-warn').textContent()).includes('https only')
 	);
 
 	await field(0).fill('nx-nope-9f2a.example');

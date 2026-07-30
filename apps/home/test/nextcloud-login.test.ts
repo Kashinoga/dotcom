@@ -8,7 +8,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { readFlow, readGranted, POLL_EVERY_MS, POLL_FOR_MS } from '../src/lib/dav-login.ts';
+import { readFlow, readGranted, POLL_EVERY_MS, POLL_FOR_MS } from '../src/lib/nextcloud-login.ts';
 
 const BASE = 'https://cloud.example.com';
 const GOOD = {

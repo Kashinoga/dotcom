@@ -15,7 +15,7 @@ import {
 	normaliseBase,
 	normaliseRoot,
 	type Connection
-} from '../src/lib/dav-connections.ts';
+} from '../src/lib/nextcloud-connections.ts';
 
 describe('the server address somebody typed', () => {
 	test('is reduced to an origin, however it arrived', () => {
@@ -121,6 +121,12 @@ describe('the config a store is built from', () => {
 		// is written to IndexedDB and held in reactive state; a token is neither.
 		assert.equal('token' in c, false);
 		assert.equal(configFor(c, 'app-password').token, 'app-password');
+	});
+
+	test('and Basic is the only kind of credential there is', () => {
+		// The `'bearer'` variant and its branch in `authHeader` were both dead — `configFor` writes
+		// this and nothing else ever set it. It read as though OIDC tokens were supported.
+		assert.equal(configFor(c, 't').auth, 'basic');
 	});
 
 	test('and carries the transport across unchanged', () => {

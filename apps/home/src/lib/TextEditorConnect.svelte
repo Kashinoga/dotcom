@@ -7,9 +7,9 @@
 		normaliseRoot,
 		seal,
 		type Connection
-	} from '$lib/dav-connections';
-	import { probe, type Probe } from '$lib/dav';
-	import { POLL_EVERY_MS, POLL_FOR_MS, pollOnce, startLogin } from '$lib/dav-login';
+	} from '$lib/nextcloud-connections';
+	import { probe, type Probe } from '$lib/nextcloud';
+	import { POLL_EVERY_MS, POLL_FOR_MS, pollOnce, startLogin } from '$lib/nextcloud-login';
 
 	// CONNECTING A DRIVE — the form, and the one choice in it that is not a preference.
 	//
@@ -29,7 +29,7 @@
 	// AN APP PASSWORD, NEVER AN ACCOUNT PASSWORD. Nextcloud makes them under Settings → Security,
 	// they are named, and the name is what makes the Devices & sessions list a control rather than
 	// a list. That is the real protection on this credential; see the note at the head of
-	// $lib/dav-connections for what this app does and — more usefully — does not add to it.
+	// $lib/nextcloud-connections for what this app does and — more usefully — does not add to it.
 
 	let {
 		onConnected,
@@ -78,7 +78,7 @@
 
 	/**
 	 * LOGIN FLOW V2 — the server makes the app password and hands it over, so nobody types one.
-	 * Proxied mode only; the note at the head of $lib/dav-login says why at length.
+	 * Proxied mode only; the note at the head of $lib/nextcloud-login says why at length.
 	 *
 	 * THE TAB IS OPENED FIRST, EMPTY, and pointed at the URL once there is one. `window.open` is
 	 * only allowed to make a tab during a real gesture, and starting the flow is a round trip — open
@@ -175,7 +175,7 @@
 					: SAYS[said];
 			return;
 		}
-		// Only now, and only if asked. See the head of $lib/dav-connections for what keeping it does
+		// Only now, and only if asked. See the head of $lib/nextcloud-connections for what keeping it does
 		// and does not buy.
 		if (keep) await seal(conn.id, secret);
 		// The field is cleared BEFORE the handover, not after. `onConnected` closes the flyout, which
@@ -190,6 +190,12 @@
 
 <div class="te-conn">
 	<p class="te-conn-head">Connect a drive</p>
+	<!-- IT SAYS WHICH SERVERS, and it says it first. This app knows one URL layout —
+	     `/remote.php/dav/files/<user>` — which Nextcloud and ownCloud share and nothing else uses, so
+	     a WebDAV server of any other kind fails at the first request with nothing on screen to
+	     explain why. Somebody who runs Apache's mod_dav should find that out here rather than after
+	     typing a password. See the head of $lib/nextcloud for why it is those two and not WebDAV. -->
+	<p class="te-conn-note">Nextcloud or ownCloud.</p>
 
 	<label class="te-conn-row">
 		<span>Server</span>
@@ -207,7 +213,7 @@
 		     REFUSAL rather than a typo: http is not upgraded to https quietly. A password travels
 		     through this, and silently changing what somebody asked for is how one ends up
 		     somewhere it was not meant to go. -->
-		<p class="te-conn-note">
+		<p class="te-conn-note te-conn-warn">
 			{typedHttp
 				? 'https only — a password travels through this.'
 				: 'That is not a server address.'}
@@ -262,7 +268,7 @@
 			: 'Needs nothing on your server. Your password and your documents pass through this site on every request.'}
 	</p>
 
-	<!-- SIGN IN, where it is certain to work. Proxied only — see $lib/dav-login: both of the flow's
+	<!-- SIGN IN, where it is certain to work. Proxied only — see $lib/nextcloud-login: both of the flow's
 	     own requests need CORS, and routing them through the proxy in DIRECT mode would break that
 	     mode's one promise at the exact moment the credential is created. -->
 	{#if via === 'proxy'}
@@ -381,7 +387,11 @@
 	}
 	/* The refusal ink, the same one a key wears when a write did not happen — see `.lost` in
 	   pixelite.css. This is the same kind of news. */
-	.te-conn-bad {
+	.te-conn-bad,
+	/* A warning about the FIELD above it, which is a different thing from the notes that explain a
+	   choice — and now that the form opens with one of those, it needs to be told apart by more than
+	   being the first one. */
+	.te-conn-warn {
 		color: var(--ruby);
 	}
 </style>

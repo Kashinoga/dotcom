@@ -33,8 +33,8 @@
 		objectStore,
 		unseal,
 		type Connection
-	} from '$lib/dav-connections';
-	import { davStore } from '$lib/dav';
+	} from '$lib/nextcloud-connections';
+	import { nextcloudStore } from '$lib/nextcloud';
 	import FloatingKey from '$lib/FloatingKey.svelte';
 	import TextEditorSettings from '$lib/TextEditorSettings.svelte';
 	import { dev } from '$app/environment';
@@ -2241,7 +2241,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	// grant has lapsed to 'prompt', and a browser will only re-ask during a user gesture — so the
 	// workspace comes back as a NAMED, unopened folder with one key to reconnect it, rather than
 	// popping a permission dialog at somebody who has just loaded a page.
-	// The DATABASE is opened in $lib/dav-connections, which owns its version — there are two stores
+	// The DATABASE is opened in $lib/nextcloud-connections, which owns its version — there are two stores
 	// in it now (the folder handles here, a connection's sealed token there) and only one of them
 	// can decide what version the database is at. `indexedDB.open` at a version BELOW the one on
 	// disk fails outright, so two openers asking for different numbers is a remembered folder that
@@ -2417,7 +2417,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			editor.drivePending = true;
 			return false;
 		}
-		const next = davStore(configFor(c, secret), OPENABLE);
+		const next = nextcloudStore(configFor(c, secret), OPENABLE);
 		const listing = await next.list();
 		if (!listing) {
 			editor.driveName = c.name;

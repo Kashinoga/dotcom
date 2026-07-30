@@ -1,4 +1,21 @@
-// WEBDAV — a workspace that lives on a server. Nextcloud is the one this was written against.
+// NEXTCLOUD (and ownCloud) — a workspace that lives on a server.
+//
+// WHAT IS AND IS NOT GENERIC HERE, stated because the answer is not what the word DAV suggests.
+// Almost everything below is RFC 4918 and would work against any compliant server: the multistatus
+// reader, PROPFIND at Depth 1, GET, PUT, DELETE, MOVE with `Overwrite: F`, `If-Match` on an ETag,
+// `If-None-Match: *` to create only if the name is free.
+//
+// What is NOT generic is WHERE THE FILES ARE — `/remote.php/dav/files/<user>`, in `filesUrl` and
+// `rootSegments` below. Nextcloud and ownCloud share that layout; nothing else does, and it is not a
+// field anybody can type. So this supports those two and says so: in the filename, in the type
+// names, and here.
+//
+// That is a decision rather than a gap. The path being FIXED is what lets `/api/nextcloud` keep a
+// path allow-list (see $lib/nextcloud-proxy), and that allow-list is the whole of what makes the
+// proxied mode a Nextcloud relay rather than a general HTTP relay with this site's name on it. A
+// configurable DAV root would buy a handful of other servers at the cost of the one control that
+// matters. If generic WebDAV is ever wanted, the honest shape is DIRECT MODE ONLY, where nothing
+// passes through this site at all.
 //
 // It is a `Store` (see $lib/text-editor-store) and nothing else: the editor cannot tell one of
 // these from a folder on the disk, because the seam it goes through was extracted for exactly this.
@@ -172,9 +189,9 @@ export function parseMultistatus(xml: string, root: string[]): DavEntry[] {
 
 // ── Reaching the server ───────────────────────────────────────────────────────
 
-export type DavConfig = {
+export type NextcloudConfig = {
 	/**
-	 * The id of the connection this config came from — see $lib/dav-connections. Carried so a
+	 * The id of the connection this config came from — see $lib/nextcloud-connections. Carried so a
 	 * document taken out of this store can NAME the drive it belongs to without carrying the store
 	 * itself, which holds a token and cannot be written down. See `detach` below.
 	 */
@@ -183,9 +200,17 @@ export type DavConfig = {
 	base: string;
 	/** Whose files. It is a path segment in the DAV URL, not only a login. */
 	user: string;
-	/** An app password (`basic`) or an access token (`bearer`). */
+	/** The app password. */
 	token: string;
-	auth: 'basic' | 'bearer';
+	/**
+	 * An APP PASSWORD, over HTTP Basic, and that is the only kind there is here.
+	 *
+	 * A `'bearer'` variant stood in this union with a branch in `authHeader` to match, and neither had
+	 * ever run: `configFor` writes `'basic'` and nothing else ever set it. A code path with no caller
+	 * is a claim nobody has tested, and it read as though OIDC tokens were supported. When one is
+	 * wanted it can come back with something calling it.
+	 */
+	auth: 'basic';
 	/**
 	 * WHICH WAY THE REQUEST GOES, and it is a CHOICE the visitor makes rather than something this
 	 * code works out.
@@ -208,27 +233,26 @@ export type DavConfig = {
 };
 
 /** This site's own proxy. See the note on `via`, and the one on `target` below. */
-export const DAV_PROXY = '/api/nextcloud';
+export const NEXTCLOUD_PROXY = '/api/nextcloud';
 
 const enc = (s: string) => encodeURIComponent(s);
 const encPath = (p: string) => p.split('/').filter(Boolean).map(enc).join('/');
 
 /** Where the user's files begin, as a URL. */
-export const filesUrl = (cfg: DavConfig) =>
+export const filesUrl = (cfg: NextcloudConfig) =>
 	`${cfg.base.replace(/\/+$/, '')}/remote.php/dav/files/${enc(cfg.user)}`;
 
 /** The absolute URL of a path in the workspace. Also what a MOVE's `Destination` has to be. */
-export const target = (cfg: DavConfig, path = '') => {
+export const target = (cfg: NextcloudConfig, path = '') => {
 	const under = join(cfg.root, path);
 	return under ? `${filesUrl(cfg)}/${encPath(under)}` : filesUrl(cfg);
 };
 
 /** The segments the workspace root sits at, for reading hrefs against. */
-export const rootSegments = (cfg: DavConfig) =>
+export const rootSegments = (cfg: NextcloudConfig) =>
 	hrefSegments(`/remote.php/dav/files/${enc(cfg.user)}/${encPath(cfg.root)}`);
 
-function authHeader(cfg: DavConfig): string {
-	if (cfg.auth === 'bearer') return `Bearer ${cfg.token}`;
+function authHeader(cfg: NextcloudConfig): string {
 	// btoa is Latin-1 only, and both a username and an app password can hold anything. Encode the
 	// pair as UTF-8 bytes first, which is what every server expects and what btoa cannot do alone.
 	const bytes = new TextEncoder().encode(`${cfg.user}:${cfg.token}`);
@@ -248,7 +272,7 @@ function authHeader(cfg: DavConfig): string {
  * path. None of those checks can live here — a check the client makes is a check an attacker skips.
  */
 async function dav(
-	cfg: DavConfig,
+	cfg: NextcloudConfig,
 	method: string,
 	url: string,
 	init: { headers?: Record<string, string>; body?: string } = {}
@@ -261,7 +285,7 @@ async function dav(
 		}
 		headers['x-dav-target'] = url;
 		headers['x-dav-authorization'] = authHeader(cfg);
-		return await fetch(DAV_PROXY, { method, headers, body: init.body });
+		return await fetch(NEXTCLOUD_PROXY, { method, headers, body: init.body });
 	} catch {
 		// Offline, blocked by CORS, DNS gone, certificate refused — one TypeError for all of them,
 		// with nothing in it worth reading. Null is "the request did not happen".
@@ -297,7 +321,7 @@ const MAX_DEPTH = 8;
 export type Probe = 'ok' | 'refused' | 'no-such-user' | 'blocked' | 'failed';
 
 /** One PROPFIND at the workspace root, to find out whether any of this works. */
-export async function probe(cfg: DavConfig): Promise<Probe> {
+export async function probe(cfg: NextcloudConfig): Promise<Probe> {
 	const res = await dav(cfg, 'PROPFIND', target(cfg), {
 		headers: { depth: '0', 'content-type': 'application/xml; charset=utf-8' },
 		body: PROPS
@@ -343,7 +367,7 @@ function whyStatus(status: number): WriteError {
  * trip per folder, so the shallow rows (which are the ones somebody is most likely to want) should
  * not wait behind a deep branch.
  */
-export function davStore(cfg: DavConfig, openable: RegExp): Store {
+export function nextcloudStore(cfg: NextcloudConfig, openable: RegExp): Store {
 	const root = rootSegments(cfg);
 	/** The last etag seen for a path — what makes a save able to notice it would clobber someone. */
 	const etags = new Map<string, string>();

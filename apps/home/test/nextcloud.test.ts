@@ -18,8 +18,8 @@ import {
 	filesUrl,
 	target,
 	rootSegments,
-	type DavConfig
-} from '../src/lib/dav.ts';
+	type NextcloudConfig
+} from '../src/lib/nextcloud.ts';
 
 const ROOT = ['remote.php', 'dav', 'files', 'andrew', 'Notes'];
 
@@ -167,7 +167,7 @@ describe('hrefs', () => {
 });
 
 describe('where a request goes', () => {
-	const cfg: DavConfig = {
+	const cfg: NextcloudConfig = {
 		connection: 'https://cloud.example.com andrew@example.com',
 		base: 'https://cloud.example.com/',
 		user: 'andrew@example.com',
