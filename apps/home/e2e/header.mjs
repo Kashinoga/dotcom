@@ -41,8 +41,12 @@ const BAR = {
 // off the model — the Traffic board wears it in its own chrome when UNEXPANDED: badge beside
 // Back, title in its own scroller (.tfc-body), same handover. The Builder and the Star Map are
 // always full-viewport, so they have no unexpanded header to put a badge in at all.
+// A place with its OWN header wears NO badge either — decided, alongside the dense bar's. The
+// Traffic board's unexpanded head used to carry one and the suite went on expecting it; a panel that
+// builds its own chrome is not on the shared model at all, and half-wearing it was the confusing
+// state rather than the useful one.
 const OWN_HEADER = {
-	'/apps/air-traffic': { head: '.tfc-head', body: '.tfc-body', model: true, title: 'Air Traffic' },
+	'/apps/air-traffic': { head: '.tfc-head', body: '.tfc-body', model: false, title: 'Air Traffic' },
 	'/apps/star-map': { head: null, body: null, model: false }
 };
 
@@ -131,6 +135,18 @@ for (const vp of [
 	const page = await ctx.newPage();
 	await page.goto(B + '/', { waitUntil: 'domcontentloaded' });
 	await page.evaluate(() => {
+		// AEROPALITE, ON PURPOSE. Everything this suite measures is Aeropalite's: the masthead and
+		// its menubar, the panel's `aside.surface` with its head, badge and body title. Pixelite is
+		// the site's default and draws a DOCS SHELL instead — measured, not assumed: under Pixelite
+		// the homepage renders `.docs-wordmark` and `.docs-leaf` with no `.menubar` at all, and a
+		// panel renders no `aside.surface` at all. So every `querySelector` in here came back null
+		// and the suite died inside a `page.evaluate` before reaching its first assertion.
+		//
+		// That is why it read as a stale suite and was not one. It tests something the site still
+		// does; it had simply stopped saying which theme it does it in. The DEFAULT look's chrome is
+		// covered by e2e/pixelite.mjs instead — a suite about the docs shell, not this one bent to
+		// fit two themes at once.
+		localStorage.setItem('ksh-look', 'aeropalite');
 		localStorage.setItem('ksh-sky', 'off');
 		localStorage.setItem('ksh-theme', 'light');
 	});
@@ -205,7 +221,12 @@ for (const vp of [
 			};
 		});
 		ok(`${path}: wears the dense bar`, g.bar === true);
-		ok(`${path}: badge beside Back`, g.badge);
+		// NO BADGE, and that is the decision rather than an omission. A dense bar is one row; with
+		// the Back cap gone the title takes the left end outright, and a badge there competes with
+		// the only thing in the row you cannot work out from anywhere else. This asserted the badge
+		// for as long as the app drew one, and the source carried an `Action TBD` beside the gate —
+		// both settled. A badge coming back here is a regression, so it is asserted, not skipped.
+		ok(`${path}: no badge — the dense bar wears none`, !g.badge);
 		ok(
 			`${path}: the bar carries the name outright`,
 			g.headTitle === title,

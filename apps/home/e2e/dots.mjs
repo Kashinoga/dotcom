@@ -28,11 +28,15 @@ const want = {
 	'/apps/weather': { accent: ORANGE, model: 'badge' },
 	'/apps/emoji-viewer': { accent: ORANGE, model: 'badge' },
 	'/apps/court-of-public-opinion': { accent: ORANGE, model: 'badge' },
-	// The Park Ranger is on the badge model too, but its bar is DENSE (BAR_HEADER): a full-viewport
-	// app spends its vertical room on content, so the title sits IN the bar (.head-title) beside the
-	// badge — there's no big body title to scroll away. `bar: true` swaps the body-title assertion
-	// for "the bar carries the name", the same split header.mjs makes.
-	'/apps/intergalactic-park-ranger': { accent: ORANGE, model: 'badge', bar: true }
+	// The Park Ranger's bar is DENSE, and A DENSE BAR WEARS NO BULLET AT ALL — decided, not
+	// pending. A full-viewport app spends its vertical room on content, the bar is one row, and with
+	// the Back cap gone as well the title takes the left end outright; a badge there is the one
+	// control competing with the only thing in that row you cannot work out from anywhere else.
+	//
+	// This used to say `model: 'badge', bar: true`, where `bar` swapped only the body-title
+	// assertion — so the suite went on asserting a badge the app had stopped drawing, and the source
+	// carried an `Action TBD` beside the gate. Both are settled now: `model: 'none'`.
+	'/apps/intergalactic-park-ranger': { accent: ORANGE, model: 'none', bar: true }
 };
 
 /** Computed colours come back as `rgb(r, g, b)` or `color(srgb r g b / a)` — normalise to 0-255. */
@@ -67,6 +71,18 @@ for (const vp of [
 	const p = await ctx.newPage();
 	await p.goto(B + '/', { waitUntil: 'domcontentloaded' });
 	await p.evaluate(() => {
+		// AEROPALITE, ON PURPOSE. Everything this suite measures is Aeropalite's: the masthead and
+		// its menubar, the panel's `aside.surface` with its head, badge and body title. Pixelite is
+		// the site's default and draws a DOCS SHELL instead — measured, not assumed: under Pixelite
+		// the homepage renders `.docs-wordmark` and `.docs-leaf` with no `.menubar` at all, and a
+		// panel renders no `aside.surface` at all. So every `querySelector` in here came back null
+		// and the suite died inside a `page.evaluate` before reaching its first assertion.
+		//
+		// That is why it read as a stale suite and was not one. It tests something the site still
+		// does; it had simply stopped saying which theme it does it in. The DEFAULT look's chrome is
+		// covered by e2e/pixelite.mjs instead — a suite about the docs shell, not this one bent to
+		// fit two themes at once.
+		localStorage.setItem('ksh-look', 'aeropalite');
 		localStorage.setItem('ksh-sky', 'off');
 		localStorage.setItem('ksh-theme', 'light');
 	});
@@ -116,21 +132,33 @@ for (const vp of [
 		});
 
 		const tag = `${path} [${exp.model}]`;
-		// The two models are mutually exclusive — asserting BOTH sides catches a half-migration.
-		ok(
-			`${tag} wears the right bullet`,
-			exp.model === 'badge' ? g.hasBadge && !g.hasDot : g.hasDot && !g.hasBadge,
-			`badge=${g.hasBadge} dot=${g.hasDot}`
-		);
-		ok(`${tag} bullet holds the place's mark`, g.hasMark);
-		ok(`${tag} bullet washes the accent`, sameColor(g.wash, exp.accent), g.wash ?? 'none');
-		ok(
-			`${tag} mark carries the solid accent`,
-			sameColor(g.markColor, exp.accent),
-			g.markColor ?? 'none'
-		);
-		ok(`${tag} bullet stays inside the panel`, g.inside === true && g.titleFits);
-		if (exp.model === 'badge') {
+		if (exp.model === 'none') {
+			// NO BULLET, and asserted as its own claim rather than as five absences. A dense bar that
+			// grew a badge back would be taking the room the dense bar exists to reclaim, so this is
+			// the assertion that matters — and the title still has to fit, which is the reason.
+			ok(
+				`${tag} wears no bullet at all`,
+				!g.hasBadge && !g.hasDot,
+				`badge=${g.hasBadge} dot=${g.hasDot}`
+			);
+			ok(`${tag} and the title still fits the panel`, g.titleFits);
+		} else {
+			// The two models are mutually exclusive — asserting BOTH sides catches a half-migration.
+			ok(
+				`${tag} wears the right bullet`,
+				exp.model === 'badge' ? g.hasBadge && !g.hasDot : g.hasDot && !g.hasBadge,
+				`badge=${g.hasBadge} dot=${g.hasDot}`
+			);
+			ok(`${tag} bullet holds the place's mark`, g.hasMark);
+			ok(`${tag} bullet washes the accent`, sameColor(g.wash, exp.accent), g.wash ?? 'none');
+			ok(
+				`${tag} mark carries the solid accent`,
+				sameColor(g.markColor, exp.accent),
+				g.markColor ?? 'none'
+			);
+			ok(`${tag} bullet stays inside the panel`, g.inside === true && g.titleFits);
+		}
+		if (exp.model === 'badge' || exp.model === 'none') {
 			// A dense-bar panel names itself in the bar (.head-title) with no body title to scroll
 			// away; every other badge panel moves its big title into the body. Assert the right one.
 			if (exp.bar)

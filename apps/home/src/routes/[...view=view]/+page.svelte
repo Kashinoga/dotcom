@@ -2499,8 +2499,16 @@
 											<!-- NEW HEADER MODEL: the accent bullet leaves the title and becomes a
 								     badge here, right of Back — the app's mark in its accent circle,
 								     arriving solid then settling to the marked light wash (see
-								     .app-badge). Action TBD. (A dense BAR_HEADER bar carries no badge:
-								     with its Back cap gone too, the title takes the left end outright.) -->
+								     .app-badge).
+								     A DENSE BAR CARRIES NO BADGE, and neither does a place that builds
+								     its OWN header. Both were `Action TBD` and both are settled: a dense
+								     bar is one row, and with the Back cap gone the title takes the left
+								     end outright — a badge there is a control competing with the one
+								     thing in that row you cannot work out from anywhere else. A panel
+								     with its own chrome is not on this model at all, and half-wearing it
+								     read as a misalignment rather than as a choice.
+								     Both absences are ASSERTED, in e2e/dots and e2e/header, so a badge
+								     drifting back into either place is a failure rather than a surprise. -->
 											<button
 												type="button"
 												class="app-badge"

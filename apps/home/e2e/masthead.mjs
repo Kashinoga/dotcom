@@ -29,6 +29,18 @@ const open = async (vp) => {
 	const page = await ctx.newPage();
 	await page.goto(B + '/', { waitUntil: 'domcontentloaded' });
 	await page.evaluate(() => {
+		// AEROPALITE, ON PURPOSE. Everything this suite measures is Aeropalite's: the masthead and
+		// its menubar, the panel's `aside.surface` with its head, badge and body title. Pixelite is
+		// the site's default and draws a DOCS SHELL instead — measured, not assumed: under Pixelite
+		// the homepage renders `.docs-wordmark` and `.docs-leaf` with no `.menubar` at all, and a
+		// panel renders no `aside.surface` at all. So every `querySelector` in here came back null
+		// and the suite died inside a `page.evaluate` before reaching its first assertion.
+		//
+		// That is why it read as a stale suite and was not one. It tests something the site still
+		// does; it had simply stopped saying which theme it does it in. The DEFAULT look's chrome is
+		// covered by e2e/pixelite.mjs instead — a suite about the docs shell, not this one bent to
+		// fit two themes at once.
+		localStorage.setItem('ksh-look', 'aeropalite');
 		localStorage.setItem('ksh-sky', 'off');
 		localStorage.setItem('ksh-theme', 'light');
 	});
