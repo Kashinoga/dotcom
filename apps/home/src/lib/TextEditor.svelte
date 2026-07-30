@@ -3405,13 +3405,22 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	{#snippet docVerbs()}
 		{#if menuDoc}
 			{@const doc = menuDoc}
+			<!-- READ THE DOCUMENT BEFORE CLOSING THE MENU, and it is not a style choice.
+			     `{@const}` is a DERIVATION, not a snapshot: `doc` re-reads `menuDoc` every time it is
+			     touched, and `menuDoc` is derived from `editor.fileMenu`. So `closeFileMenu()` first
+			     and `copyDoc(doc)` second handed the verb a NULL — Copy put nothing on the clipboard,
+			     Save a copy downloaded nothing, the row said nothing, and the only trace was a
+			     TypeError in a console nobody had open. It was true of every list.
+			     The local is taken deliberately rather than the two lines being swapped, so that
+			     swapping them back cannot break it again. -->
 			<button
 				type="button"
 				role="menuitem"
 				class="popover-item"
 				onclick={() => {
+					const it = doc;
 					closeFileMenu();
-					copyDoc(doc);
+					copyDoc(it);
 				}}>Copy</button
 			>
 			<button
@@ -3419,8 +3428,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				role="menuitem"
 				class="popover-item"
 				onclick={() => {
+					const it = doc;
 					closeFileMenu();
-					saveCopy(doc);
+					saveCopy(it);
 				}}>Save a copy</button
 			>
 			{#if doc.clear}

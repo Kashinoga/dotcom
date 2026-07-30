@@ -1094,7 +1094,12 @@ await reset('first\n\n\nlast');
 // Every claim below is checked by READING BACK from that filesystem afterwards, not by trusting
 // what the list says. A rename that updated the sidebar and not the disk would pass otherwise.
 {
-	const w = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+	// Clipboard permission, because the Copy assertion below READS the clipboard back rather than
+	// trusting the row's word for it.
+	const w = await browser.newContext({
+		viewport: { width: 1400, height: 900 },
+		permissions: ['clipboard-read', 'clipboard-write']
+	});
 	const wp = await w.newPage();
 	await wp.addInitScript(() => {
 		window.__seed = async () => {
@@ -1177,6 +1182,49 @@ await reset('first\n\n\nlast');
 			return pane.scrollTop > 0;
 		})
 	);
+
+	// PRESSING the verbs, not only counting them. Every assertion about this menu checked what it
+	// OFFERED, and none of them pressed anything — so Copy and Save a copy were both broken for as
+	// long as they have existed and the suite was green throughout. `{@const doc = menuDoc}` is a
+	// derivation rather than a snapshot, so closing the menu before calling the verb handed it a
+	// null: nothing on the clipboard, nothing downloaded, nothing said on the row, and a TypeError
+	// in a console nobody had open.
+	{
+		await wp.getByRole('treeitem', { name: 'alpha.md' }).click({ button: 'right' });
+		await wp.waitForTimeout(250);
+		await wp
+			.locator('.popover-item')
+			.filter({ hasText: /^Copy$/ })
+			.click();
+		await wp.waitForTimeout(600);
+		await eq(
+			'Copy says so on the row it acted on',
+			wp.locator('.te-local-list .te-work-row[data-said]').getAttribute('data-said'),
+			'Copied'
+		);
+		// READ BACK, not taken on the row's word: what the seed wrote into that file, which is also
+		// proof the verb went to the STORE rather than to whatever happened to be on the sheet.
+		await eq(
+			'and the document is actually on the clipboard',
+			wp.evaluate(() => navigator.clipboard.readText()),
+			'# alpha.md'
+		);
+		// SAVE A COPY hands the browser a download. It is the only way out of an engine that cannot
+		// write in place, so "it fired at all" is the whole assertion.
+		await wp.getByRole('treeitem', { name: 'alpha.md' }).click({ button: 'right' });
+		await wp.waitForTimeout(250);
+		const falling = wp.waitForEvent('download', { timeout: 6000 }).catch(() => null);
+		await wp
+			.locator('.popover-item')
+			.filter({ hasText: /Save a copy/ })
+			.click();
+		const got = await falling;
+		ok(
+			'Save a copy hands the browser a file',
+			!!got && got.suggestedFilename() === 'alpha.md',
+			got ? got.suggestedFilename() : 'no download'
+		);
+	}
 
 	// THE HEAD BELONGS TO ITS LIST. It used to be pinned to the top of the pane, above the shelves
 	// and above the drive, while the rows it heads sat at the bottom — so a folder announced itself
