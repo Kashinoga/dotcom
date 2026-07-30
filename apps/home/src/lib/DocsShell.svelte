@@ -222,7 +222,13 @@
 	// the scrollbar lane, matching the traffic and ranger bars. A window scrollbar can never
 	// do this: nothing paints over browser chrome.
 	let scrollEl = $state<HTMLElement | undefined>(undefined);
-	const onDocsScroll = () => (scrolled = (scrollEl?.scrollTop ?? 0) > 4);
+	const onDocsScroll = () => {
+		scrolled = (scrollEl?.scrollTop ?? 0) > 4;
+		// The rail's mark is recomputed HERE as well as from the observer. An IntersectionObserver
+		// only reports crossings it actually samples, and a jump takes a heading from below the
+		// band to above it between frames without ever being seen inside it — see `pickActive`.
+		pickActive();
+	};
 
 	onMount(() => {
 		onDocsScroll();
@@ -250,6 +256,50 @@
 	let toc = $state<TocItem[]>([]);
 	let activeId = $state<string | null>(null);
 	let observer: IntersectionObserver | null = null;
+	/** The heading elements the rail lists, in document order — see `pickActive`. */
+	let railNodes: HTMLElement[] = [];
+
+	/**
+	 * WHICH HEADING YOU ARE UNDER: the last one whose top has passed the reading line.
+	 *
+	 * Recomputed from ALL the headings rather than read off whichever one last crossed a band.
+	 * Two separate things made the older, cheaper answer wrong, and both had to go:
+	 *
+	 * 1. It recorded the last heading to ENTER the top-third band, which is only the right answer
+	 *    while a heading is inside that band. The band is 30% of the scroller, so on any page whose
+	 *    headings are further apart than that, nothing is in it at rest and the mark STICKS.
+	 * 2. An IntersectionObserver samples at frame boundaries, so a heading that goes from BELOW the
+	 *    band to ABOVE it between two samples — any jump, any programmatic scroll — is never seen
+	 *    as intersecting and generates NO ENTRY AT ALL. The observer cannot be the only trigger.
+	 *
+	 * Measured on Densette, the longest page here: the rail lit "3.1 The Year is 2172" at scrollTop
+	 * 1200 and still said so at 2000, 3500, 5000 and 7000 — the whole document scrolled past under
+	 * a mark that never moved.
+	 */
+	function pickActive() {
+		const sc = scrollEl;
+		if (!railNodes.length || !sc) return;
+		// AT THE BOTTOM, THE LAST HEADING WINS. The final section can never be scrolled to the
+		// reading line — there is no page left below it to scroll — so without this it is the one
+		// heading in the document that can never be marked, however long you sit reading it.
+		if (sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 2) {
+			activeId = railNodes[railNodes.length - 1].id;
+			return;
+		}
+		// THE READING LINE IS WHERE A JUMP LANDS A HEADING, not the scroller's own top. The superbar
+		// overlays the scroller and a view may stick its own bar under it, so `tocJump` seats a
+		// heading that far down (see the offset it computes). Measuring from the top instead put
+		// the line ABOVE the heading somebody had just jumped to, so the rail marked the section
+		// before it — the click appeared to select the wrong entry.
+		const sub = contentEl?.querySelector<HTMLElement>('[data-docs-substick]');
+		const y =
+			sc.getBoundingClientRect().top + superbarH + (sub?.getBoundingClientRect().height ?? 0) + 16;
+		let current: string | null = null;
+		for (const n of railNodes) if (n.getBoundingClientRect().top <= y) current = n.id;
+		// Above the first heading the first one leads: a rail with nothing marked reads as a rail
+		// that has lost track of the page.
+		activeId = current ?? railNodes[0].id;
+	}
 
 	// The page's own heading, listed FIRST at level 1 so the rail is never empty — a prose page,
 	// a bleed reading, or the homepage cover all lead with their title even when nothing sits
@@ -307,14 +357,17 @@
 			items.push({ id, text, level });
 		}
 		toc = items;
+		railNodes = nodes as HTMLElement[];
+		pickActive();
 		if (items.length && typeof IntersectionObserver !== 'undefined') {
-			// A heading is "current" once it reaches the top third of the scroller.
-			observer = new IntersectionObserver(
-				(entries) => {
-					for (const e of entries) if (e.isIntersecting) activeId = (e.target as HTMLElement).id;
-				},
-				{ root: scrollEl ?? null, rootMargin: '0px 0px -70% 0px', threshold: 0 }
-			);
+			// The observer is a TRIGGER, not the answer — every crossing re-asks the question, and
+			// the scroll handler asks it again for the jumps the observer cannot see (see
+			// `pickActive`, and `onDocsScroll` where the other half of this lives).
+			observer = new IntersectionObserver(pickActive, {
+				root: scrollEl ?? null,
+				rootMargin: '0px 0px -70% 0px',
+				threshold: 0
+			});
 			for (const n of nodes) observer.observe(n);
 		}
 	}

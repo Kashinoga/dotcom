@@ -57,6 +57,7 @@ const SUITES = [
 	'settings', // the settings panel
 	'ranger', // the Park Ranger's Location/Shuttle system — board, cross, re-theme, reopen, pause
 	'text-editor', // the Markdown editor — the mark keys, undo, the margin mirror, the proof
+	'pixelite', // the DEFAULT theme's shell — sidebar, crumbs, the on-this-page rail, the phone
 	'reset', // reset to defaults
 	'masthead', // the homepage chrome: wordmark, bullets, tagline, the station nav
 	'dots', // the accent bullet: a badge on the header model, beside the title off it
@@ -118,7 +119,9 @@ const NARROW = [
 	// than in the 680px side panel) is the one that notices.
 	{
 		re: /^src\/lib\/places\.ts$/,
-		suites: ['masthead', 'dots', 'deeplink', 'cards', 'text-editor']
+		// `pixelite` too: the docs sidebar IS this register drawn — its sections, their order, the
+		// alphabetical Apps shelf and which places escape the shell all derive from these entries.
+		suites: ['masthead', 'dots', 'deeplink', 'cards', 'text-editor', 'pixelite']
 	},
 	{ re: /^src\/lib\/views\.ts$/, suites: ['deeplink', 'dots'] },
 	// The editor and the Markdown engine behind it. The engine's own grammar and its escaping are
@@ -137,6 +140,11 @@ const NARROW = [
 	// replaces the deleted `hubsize`. `deeplink` and `field` come along because both click this
 	// component to reach a panel, so a broken nav fails them too.
 	{ re: /^src\/lib\/Masthead\.svelte$/, suites: ['masthead', 'deeplink', 'field'] },
+	// The DEFAULT theme's chrome and the paper inside it. Neither had an entry, so a change to
+	// either fell to "unclassified" and forced all nineteen — safe, and far more than it needs.
+	// `pixelite` drives the shell; `docs-snap` guards the sheet's cascade but is run by hand.
+	{ re: /^src\/lib\/DocsShell\.svelte$/, suites: ['pixelite'] },
+	{ re: /^src\/lib\/DocsBody\.svelte$/, suites: ['pixelite'] },
 	{ re: /^src\/lib\/PresentationBuilder\.svelte$/, suites: ['ticker', 'ticker-edge', 'repeat'] },
 	// The Park Ranger's dashboard, its Location/Shuttle module, the boarding stage, and the two
 	// Location backdrops. `ranger` drives the whole board/cross/reopen choreography; `buttons`
