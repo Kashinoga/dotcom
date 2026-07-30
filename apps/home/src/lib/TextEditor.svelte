@@ -46,6 +46,8 @@
 		GEAR_SVG,
 		REFRESH_SVG,
 		CHEVRON_EXPAND_Y_SVG,
+		EDIT_SVG,
+		GLASSES_SVG,
 		SSD_SVG,
 		CLOUD_SVG,
 		GHOST_SVG,
@@ -236,6 +238,23 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	// $lib/text-editor-state, because the rack in the bar has to apply the same one to decide whether to
 	// draw the SPLIT key at all.
 	const shown = $derived(shownMode());
+
+	/**
+	 * THE VIEW KEYS AS THE FLYOUT WANTS THEM — a mark, a word and a mode.
+	 *
+	 * They are the RACK's in the bar (`MODES` there, words in a row of words) and this is not that
+	 * table re-declared: the bar offers three and the phone offers two. SPLIT is not among them for
+	 * the same reason the rack drops it at this width — two panes side by side on 390px is two
+	 * columns of four words each.
+	 *
+	 * The marks are the flyout's own need. In the bar these keys are words in a row of words and
+	 * want nothing else; here every control is a mark beside its name, and a key with no mark in
+	 * that column reads as one that failed to load.
+	 */
+	const VIEW_KEYS: { id: 'write' | 'proof'; label: string; title: string; svg: string }[] = [
+		{ id: 'write', label: 'Write', title: 'Type on the sheet', svg: EDIT_SVG },
+		{ id: 'proof', label: 'Proof', title: 'Read it set as a page of the manual', svg: GLASSES_SVG }
+	];
 
 	// ── Persistence ───────────────────────────────────────────────────────────
 	// Written on a trailing debounce: a keystroke is cheap, a localStorage write is a synchronous
@@ -3520,38 +3539,57 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 
 {#snippet docKeys()}
 	<!-- `icon-btn` is the class FloatingKey's stack dresses: it gives these the touch-sized
-	     frosted face the other apps' flyout controls wear.
+	     frosted face the other apps' flyout controls wear. `te-fkey` is this app's own, and it
+	     turns each disc into a NAMED key — see the note by its CSS.
 	     ORDER MATTERS and reads backwards: the stack is column-reverse so that the FIRST button
-	     here lands nearest the thumb. The document keys, then the file keys — the bar's own
-	     left-to-right — and the measure last, furthest away, because it is the one you set once
-	     and forget.
+	     here lands nearest the thumb. The VIEW keys lead, because the bar that used to hold them
+	     is gone at this width and switching between the sheet and the proof is the thing a phone
+	     does most; then the document keys, then the file keys — the bar's own left-to-right — and
+	     the measure last, furthest away, because it is the one you set once and forget.
 	     THE EVENT IS PASSED ON. Most of these want nothing to do with it; Workspace opens a menu
 	     and has to measure the disc it opens from, and on a phone that disc is the only thing that
 	     knows where the bottom-left of the screen is. -->
+	{#each VIEW_KEYS as m (m.id)}
+		<button
+			type="button"
+			class="icon-btn te-fkey"
+			class:on={shown === m.id}
+			aria-pressed={shown === m.id}
+			title={m.title}
+			onclick={() => {
+				editor.mode = m.id;
+				keyOpen = false;
+			}}
+		>
+			{@html m.svg}<span class="te-fkey-word">{m.label}</span>
+		</button>
+	{/each}
 	{#each [...DOC_KEYS, ...OPEN_KEYS].filter((k) => k.shown?.() ?? true) as k (k.id)}
 		<button
 			type="button"
-			class="icon-btn"
+			class="icon-btn te-fkey"
 			class:on={k.on?.()}
 			class:done={k.done?.()}
 			class:lost={k.lost?.()}
 			title={k.title()}
-			aria-label={k.label()}
 			onclick={(e) => {
 				k.run(e);
 				if (k.folds()) keyOpen = false;
-			}}>{@html k.svg}</button
+			}}
 		>
+			{@html k.svg}<span class="te-fkey-word">{k.label()}</span>
+		</button>
 	{/each}
 	<button
 		type="button"
-		class="icon-btn"
+		class="icon-btn te-fkey"
 		class:on={editor.measured}
 		aria-pressed={editor.measured}
 		title={editor.measured ? 'Let the text run the full width' : 'Hold the text to a measure'}
-		aria-label="Hold the text to a reading measure"
-		onclick={() => (editor.measured = !editor.measured)}>{@html RULE_SVG}</button
+		onclick={() => (editor.measured = !editor.measured)}
 	>
+		{@html RULE_SVG}<span class="te-fkey-word">Measure</span>
+	</button>
 	<!-- THE PANEL'S CHROME, past the document keys — and it is ONE key now. About, Install and the
 	     door out were three discs at the top of this stack, drawn among the marks and looking like
 	     three more marks; the Beta tag was a fourth thing in the bar beside them. All four are
@@ -3563,13 +3601,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	     animate a stack nobody is looking at any more. -->
 	<button
 		type="button"
-		class="icon-btn"
+		class="icon-btn te-fkey"
 		class:on={!!editor.settingsAt}
 		aria-expanded={!!editor.settingsAt}
 		title="Settings — About, Install, Apps, and the version"
-		aria-label="Settings"
-		onclick={openSettings}>{@html GEAR_SVG}</button
+		onclick={openSettings}
 	>
+		{@html GEAR_SVG}<span class="te-fkey-word">Settings</span>
+	</button>
 {/snippet}
 
 <!-- The KEYS are not here. They live in the panel's dense bar, drawn by the catch-all page from
@@ -5961,6 +6000,48 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		color: var(--sub);
 	}
 
+	/* THE FLYOUT'S KEYS ARE NAMED, not bare discs. FloatingKey dresses its stack's children as
+	   40px circles — right for the Emoji Viewer's four controls and the ranger's two, wrong for a
+	   column of ELEVEN that now includes both view keys: a stack of eleven identical circles is a
+	   puzzle, and the marks alone cannot tell Save from Copy from Save-a-copy.
+	   DOUBLED CLASS (`.icon-btn.te-fkey`), and it has to be. FloatingKey's rule is
+	   `.fkey-stack :global(.icon-btn)` — (0,2,0) — and a scoped `.te-fkey` here compiles to
+	   `.te-fkey.svelte-hash`, also (0,2,0), so which one won would come down to the order two
+	   components' stylesheets happened to land in. Naming both classes takes it to (0,3,0) and
+	   settles it.
+	   `min-width` rather than a stretched stack: `.fkey-flyout` is `align-items: flex-start`, so
+	   pills take their own widths and a column of ragged right edges reads as a list that failed
+	   to lay out. The floor lines them up without this file reaching into a component it does not
+	   own. */
+	.icon-btn.te-fkey {
+		/* FLEX, and that is the load-bearing line. puhig's `.icon-btn` is `inline-grid` with
+		   `place-items: center` — right for one glyph in a square, and with TWO children it laid
+		   the mark and the word out as two grid ROWS that overflowed a 40px box and printed the
+		   word across the sheet behind. Nothing about the widths was wrong; the box was never a
+		   flex row to begin with. */
+		display: inline-flex;
+		align-items: center;
+		justify-content: flex-start;
+		width: auto;
+		min-width: 11rem;
+		height: 40px;
+		padding: 0 1rem;
+		gap: 0.65rem;
+		border-radius: 20px;
+	}
+	.te-fkey-word {
+		font-family: var(--font-mono, monospace);
+		font-size: 0.78rem;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		white-space: nowrap;
+	}
+	/* The mark keeps its size while the key grows around it — without this the flex row would
+	   stretch an svg with no intrinsic width across whatever the word left over. */
+	.icon-btn.te-fkey :global(svg) {
+		flex: none;
+	}
+
 	/* THE FLOATING KEY takes FloatingKey's own 1.25rem inset and needs nothing from this file.
 	   It used to be lifted by the running foot's measured height, because the key was landing on
 	   the tally — the two shared the bottom of a phone. The foot is a desk affordance now, so on
@@ -6230,19 +6311,42 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			--te-margin: 2.2rem;
 			--te-pad: 1rem;
 		}
+		/* NO GUTTER AND NO GAP. The desk's band of grey is what makes four columns read as four
+		   objects laid on a field — and at this width there are no four columns: there is one pane,
+		   and the field around it is a frame drawn around a single sheet of paper. On a 390px
+		   screen that frame costs 13px of width and 13px of height off the one surface somebody
+		   came here to write on, to say something ("these are separate") that is not true when
+		   there is only one of them.
+		   The words keep their own breathing room either way — that is --te-pad, inside the pane,
+		   and it is untouched. What goes is only the space OUTSIDE the paper. */
 		.te-desk {
 			flex-direction: column;
+			padding: 0;
+			gap: 0;
+		}
+		/* …and with no field left to be an object on, the pane stops being a card. The 4px corner
+		   is the manual's plastic radius, right for a sheet lying on a grey desk and wrong for one
+		   that IS the screen: rounded corners against the panel's own straight edge read as a
+		   rendering fault rather than as a shape. Same for the workspace over it. */
+		.te-pane,
+		.te-work {
+			border-radius: 0;
 		}
 		.te-pane + .te-pane {
 			border-left: 0;
 			border-top: 1px solid var(--te-rule);
 		}
 		/* The workspace cannot be a column on a phone — there is only room for one. It becomes a
-		   sheet over the desk instead, and closes when you pick from it (see `load`). */
+		   sheet over the desk instead, and closes when you pick from it (see `load`).
+		   INSET 0, ALL FOUR SIDES. It used to start at `var(--bar-h, 60px)`, clearing the dense bar
+		   it opened under — and at this width there is no bar any more (the page stops drawing the
+		   head below 820px; the keys are in the flyout). The variable is not merely unnecessary
+		   now, it is WRONG: it holds whatever the bar last measured before it unmounted, so the
+		   pane opened with a band of sheet showing above it and nothing to explain the gap. */
 		.te-work {
 			position: absolute;
 			z-index: 5;
-			inset: var(--bar-h, 60px) 0 0 0;
+			inset: 0;
 			width: auto;
 			padding-top: 0;
 		}

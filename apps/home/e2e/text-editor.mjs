@@ -2253,40 +2253,78 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 
 	// ── The phone's flyout ─────────────────────────────────────────────────────
 	// Seventeen keys will not sit in a 390px bar without becoming a strip you swipe to reach
-	// anything. The bar keeps the VIEW keys; the rest go to the shared floating key at the
-	// bottom-left, where every other app on the site puts its phone controls.
-	// Counted by class: the strip is EMPTY on a phone (the marks are in the flyout), and the two
-	// view keys live in the fixed tail beside Home.
+	// anything, so they all go to the shared floating key at the bottom-left where every other app
+	// on the site puts its phone controls.
+	// THERE IS NO BAR AT ALL AT THIS WIDTH. It kept the two view keys for a while, which spent the
+	// row furthest from the thumbs — with the software keyboard at the opposite end — on two words;
+	// they are in the flyout with everything else now, and the sheet has the row back.
+	ok('a phone draws no bar at all', (await p.locator('.surface-head').count()) === 0);
+	ok('and no rack in one', (await p.locator('.te-rack').count()) === 0);
+	ok('and a floating key holds everything', (await p.locator('.fkey').count()) === 1);
+	// The desk starts at the very top: with no head there is no adjacent sibling for the body's
+	// reserve to match, so the height comes back on its own rather than by a second rule.
+	const top = await p.evaluate(() =>
+		Math.round(document.querySelector('.te-desk').getBoundingClientRect().top)
+	);
+	ok('and the desk starts at the top of the app', top <= 1, `${top}px`);
+	// EVERY FLYOUT KEY IS NAMED. A column of eleven identical discs is a puzzle, and the marks
+	// alone cannot tell Save from Copy from Save a copy. They line up on one floor, so the stack
+	// reads as a menu rather than as a ragged pile.
+	await p.locator('.fkey').first().click();
+	await p.waitForTimeout(400);
+	const pills = await p.evaluate(() =>
+		[...document.querySelectorAll('.fkey-stack .icon-btn')].map((e) => ({
+			word: (e.querySelector('.te-fkey-word')?.textContent ?? '').trim(),
+			w: Math.round(e.getBoundingClientRect().width),
+			h: Math.round(e.getBoundingClientRect().height)
+		}))
+	);
 	ok(
-		'the phone bar keeps only the view keys',
-		(await p.locator('.head-row .tb').count()) === 2,
-		`${await p.locator('.head-row .tb').count()}`
+		'every key in the flyout carries its name',
+		pills.length > 0 && pills.every((b) => b.word.length > 0),
+		JSON.stringify(pills)
 	);
-	ok('and a floating key holds the rest', (await p.locator('.fkey').count()) === 1);
-	// THE BAR'S CHROME CORNER EMPTIES ENTIRELY on a phone. It is one key on a desk — Settings —
-	// and on a phone even that goes down to the flyout, where everything else already is.
-	const corner = await p.evaluate(() =>
-		[...document.querySelectorAll('.surface-head .head-actions > *')].map(
-			(el) => el.getAttribute('aria-label') ?? el.className.split(' ')[0]
-		)
+	ok(
+		'and they share one width and one row height',
+		new Set(pills.map((b) => b.w)).size === 1 && pills.every((b) => b.h === 40),
+		JSON.stringify(pills)
 	);
-	ok('the phone bar keeps nothing in its corner', corner.length === 0, JSON.stringify(corner));
+	// THE VIEW KEYS ARE AMONG THEM, and NEAREST THE THUMB. Asserted in DOM order, which is not
+	// the order they are seen in: the stack is `column-reverse`, so the first child is drawn at
+	// the BOTTOM, closest to the key that opened it. Switching between the sheet and the proof is
+	// what a phone does most, so it gets the shortest reach.
+	ok(
+		'the view keys came down into the flyout, nearest the thumb',
+		pills
+			.slice(0, 2)
+			.map((b) => b.word)
+			.join(',') === 'Write,Proof',
+		JSON.stringify(pills.map((b) => b.word))
+	);
+	// Folded by pressing the KEY again, not the scrim: the scrim runs under the whole flyout, so a
+	// click at its centre lands on whatever mark of the card happens to be there — measured, it hit
+	// Italic and Playwright waited thirty seconds for a scrim that was never going to receive it.
+	await p.locator('.fkey').first().click();
+	await p.waitForTimeout(300);
 	// Nothing may be drawn TWICE — the bar dropping a key and the flyout adding it is one move,
 	// and a stale copy left in the bar is the failure this catches. Counted in the DOM rather
 	// than by role: the flyout is parked and hidden while it is shut, and an accessibility query
 	// cannot see anything in it until it opens.
+	// Matched on the ACCESSIBLE NAME, which is the visible word now that every flyout key carries
+	// one — an aria-label beside visible text is a second name for the same control, and the two
+	// drift. So this reads whichever the button actually has.
 	const drawn = (label) =>
 		p.evaluate(
 			(l) =>
 				[...document.querySelectorAll('button')].filter((el) =>
-					(el.getAttribute('aria-label') || '').startsWith(l)
+					(el.getAttribute('aria-label') || el.textContent || '').trim().startsWith(l)
 				).length,
 			label
 		);
 	ok('Settings is drawn once, in the flyout', (await drawn('Settings')) === 1);
 	ok(
 		'inside the stack rather than the bar',
-		(await p.locator('.fkey-stack .icon-btn[aria-label^="Settings"]').count()) === 1
+		(await p.locator('.fkey-stack .icon-btn', { hasText: /^Settings$/ }).count()) === 1
 	);
 
 	// The flyout is PARKED rather than unmounted when shut (FloatingKey keeps it in the DOM and
@@ -2299,26 +2337,19 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	await p.waitForTimeout(350);
 	ok('it opens', (await shown()) === 1);
 	ok('the marks are a grid', (await p.locator('.te-fly-mark').count()) === 9);
-	// FOUR discs where the browser can write — Open, Workspace, the measure and Settings — and
-	// five where it cannot, which is where `.md` is still a bar key. Copy, .md and Clear left for
-	// the row menu; About, Install and the door out went behind the gear.
+	// SIX keys where the browser can write — the two view keys, Open, Workspace, the measure and
+	// Settings — and seven where it cannot, which is where `.md` joins them. Copy, .md and Clear
+	// left for the row menu; About, Install and the door out went behind the gear.
 	const discCount = await p.locator('.fkey-stack .icon-btn').count();
-	ok('with the document keys as a stack', discCount === 4 || discCount === 5, `${discCount} discs`);
-	// Everything but the two view keys is in the flyout, which is the point of the exercise. The
-	// TOTAL is what is asserted rather than a written-down number: the stack lost three discs to
-	// the settings gear and the document keys lost three to the row menu, and a hard-coded count
-	// here would have to be re-derived by hand every time the bar changes shape.
-	ok(
-		'so all but the view keys are in the flyout',
-		(await p.locator('.head-row .tb').count()) === 2,
-		`${await p.locator('.head-row .tb').count()} keys left in the bar`
-	);
-	// ORDER. The stack is column-reverse, so the LAST disc written is the top one — and Settings
+	ok('with every key as a stack', discCount === 6 || discCount === 7, `${discCount} discs`);
+	// ORDER. The stack is column-reverse, so the LAST key written is the top one — and Settings
 	// is last on purpose: it holds the one key in the app that leaves it, which asks nothing
 	// first, and the bottom of the stack is where a thumb lands.
 	const discs = await p.evaluate(() =>
-		[...document.querySelectorAll('.fkey-stack .icon-btn')].map(
-			(el) => (el.getAttribute('aria-label') || '').split(' —')[0]
+		[...document.querySelectorAll('.fkey-stack .icon-btn')].map((el) =>
+			(el.querySelector('.te-fkey-word')?.textContent || el.getAttribute('aria-label') || '')
+				.split(' —')[0]
+				.trim()
 		)
 	);
 	ok('Settings is furthest from the thumb', discs.at(-1) === 'Settings', JSON.stringify(discs));
@@ -2336,7 +2367,7 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	// pressed in this suite: it would close the panel and take the rest of the phone cases with
 	// it.
 	await p.locator('.te-type').fill('scribble');
-	await p.locator('.icon-btn[aria-label="Settings"]').click();
+	await p.locator('.fkey-stack .icon-btn', { hasText: /^Settings$/ }).click();
 	await p.waitForTimeout(300);
 	ok('the gear opens the card on a phone too', (await p.locator('.te-set-card').count()) === 1);
 	await p.locator('.te-set-card .popover-item', { hasText: /^About$/ }).click();
@@ -2370,7 +2401,9 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	// covering the answer with the question.
 	// The stack labels its discs with the KEY'S OWN WORD — the flyout has no room for the bar's full
 	// title — so this asks for `Workspace` rather than for a tooltip.
-	const workspaceKey = p.locator('.fkey-stack .icon-btn[aria-label="Workspace"]');
+	// By its WORD, not an aria-label: the flyout's keys carry their names visibly now, so the
+	// visible text IS the accessible name and a separate label would be a second one.
+	const workspaceKey = p.locator('.fkey-stack .icon-btn', { hasText: /^Workspace$/ });
 	await workspaceKey.click();
 	await p.waitForTimeout(350);
 	ok(
@@ -2380,7 +2413,7 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	ok('and folds the flyout, having done the thing', (await shown()) === 0);
 	ok(
 		'and no Clear is left in the stack',
-		(await p.locator('.fkey-stack .icon-btn[aria-label^="Clear"]').count()) === 0
+		(await p.locator('.fkey-stack .icon-btn', { hasText: /^Clear/ }).count()) === 0
 	);
 
 	await phone.close();

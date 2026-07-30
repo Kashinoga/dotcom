@@ -2404,45 +2404,56 @@
 						     space at the top of a full-viewport app. Measured, the body sits exactly
 						     under the bar whatever the bar turns out to hold. The hard-coded calc stays
 						     as the fallback for the first paint, before the bind has a number. -->
-								<div
-									class="surface-head csb"
-									class:head-collapsed={surfHeadCollapsed}
-									class:csb-on={surfHeadCollapsed}
-									class:bar={BAR_HEADER.includes(v.code)}
-									class:te-bar={v.code === 'TEXT'}
-									class:orbit={ranger.deployment === 'orbit'}
-									class:court={v.code === 'AITA'}
-									class:scrolled={surfScrolled || (v.code === 'TEXT' && textEditor.scrolled)}
-									bind:offsetHeight={barHeight}
-								>
-									<div class="head-row csb-fold">
-										{#if BAR_HEADER.includes(v.code)}
-											<!-- A dense bar draws NO Back cap at all now (it was already gone on
+								<!-- NO BAR AT ALL FOR THE TEXT EDITOR ON A PHONE. It kept the two view keys and
+							     nothing else there, which spent a whole row of a 390px screen — the row
+							     furthest from the thumbs, with the keyboard at the opposite end — on two
+							     words that now sit in the flyout with everything else. The body reclaims the
+							     height on its own: the reserve comes from `.surface-head.bar + .surface-body`,
+							     and with no head there is no adjacent sibling for it to match.
+							     GATED ON `textEditor.narrow`, NEVER ON `isMobile`. Those are 820px and 960px,
+							     and the flyout that has to catch the keys is narrow-only — crossing the two
+							     thresholds would leave a 140px band with no bar AND no flyout, which is an
+							     editor with no controls at all. -->
+								{#if !(v.code === 'TEXT' && textEditor.narrow)}
+									<div
+										class="surface-head csb"
+										class:head-collapsed={surfHeadCollapsed}
+										class:csb-on={surfHeadCollapsed}
+										class:bar={BAR_HEADER.includes(v.code)}
+										class:te-bar={v.code === 'TEXT'}
+										class:orbit={ranger.deployment === 'orbit'}
+										class:court={v.code === 'AITA'}
+										class:scrolled={surfScrolled || (v.code === 'TEXT' && textEditor.scrolled)}
+										bind:offsetHeight={barHeight}
+									>
+										<div class="head-row csb-fold">
+											{#if BAR_HEADER.includes(v.code)}
+												<!-- A dense bar draws NO Back cap at all now (it was already gone on
 								     phones, where the cap's 50px squeezed everything to its right) —
 								     and no badge either, so the TITLE takes the left end outright.
 								     Leaving goes through the bar's Home key (see the PUD head-actions)
 								     or the browser's own back gesture, which works because every panel
 								     is a real URL (pushState, see applyView). -->
-										{:else if v.code === 'AITA' && panelExpanded}
-											<!-- E-COPO trades Back for Home, like the other full-viewport apps:
+											{:else if v.code === 'AITA' && panelExpanded}
+												<!-- E-COPO trades Back for Home, like the other full-viewport apps:
 								     expanded has nowhere to peel back to mid-thought, so the left cap
 								     goes straight home (the right cap already collapses). -->
-											<button
-												class="icon-btn back"
-												onclick={() => home()}
-												aria-label="Close and go home"
-												title="Home">{@html HOME_SVG}</button
-											>
-										{:else}
-											<button
-												class="icon-btn back"
-												onclick={goBack}
-												aria-label={ownPushes > 0 ? 'Back' : 'Back to home'}
-												title={ownPushes > 0 ? 'Back' : 'Home'}>{@html ARROW_LEFT_SVG}</button
-											>
-										{/if}
-										{#if NEW_HEADER.includes(v.code) && !BAR_HEADER.includes(v.code)}
-											<!-- NEW HEADER MODEL: the accent bullet leaves the title and becomes a
+												<button
+													class="icon-btn back"
+													onclick={() => home()}
+													aria-label="Close and go home"
+													title="Home">{@html HOME_SVG}</button
+												>
+											{:else}
+												<button
+													class="icon-btn back"
+													onclick={goBack}
+													aria-label={ownPushes > 0 ? 'Back' : 'Back to home'}
+													title={ownPushes > 0 ? 'Back' : 'Home'}>{@html ARROW_LEFT_SVG}</button
+												>
+											{/if}
+											{#if NEW_HEADER.includes(v.code) && !BAR_HEADER.includes(v.code)}
+												<!-- NEW HEADER MODEL: the accent bullet leaves the title and becomes a
 								     badge here, right of Back — the app's mark in its accent circle,
 								     arriving solid then settling to the marked light wash (see
 								     .app-badge).
@@ -2455,163 +2466,134 @@
 								     read as a misalignment rather than as a choice.
 								     Both absences are ASSERTED, in e2e/dots and e2e/header, so a badge
 								     drifting back into either place is a failure rather than a surprise. -->
-											<button
-												type="button"
-												class="app-badge"
-												style:--accent={accent[v.code]}
-												aria-label={port.title}
-												title={port.title}
-											>
-												<span class="app-badge-mark">{@html PORT_ICONS[v.code] ?? ''}</span>
-											</button>
-										{/if}
-										{#if v.code === 'TEXT'}
-											<!-- THE TEXT EDITOR spends the whole bar on its KEYS, and carries no name in it.
+												<button
+													type="button"
+													class="app-badge"
+													style:--accent={accent[v.code]}
+													aria-label={port.title}
+													title={port.title}
+												>
+													<span class="app-badge-mark">{@html PORT_ICONS[v.code] ?? ''}</span>
+												</button>
+											{/if}
+											{#if v.code === 'TEXT'}
+												<!-- THE TEXT EDITOR spends the whole bar on its KEYS, and carries no name in it.
 								     A dense bar is one row wide and this app has sixteen controls; the
 								     name was the only thing standing between them and the room they
 								     needed, and it was the one piece of the bar saying something the tab,
 								     the URL and the favicon already say. The rack is $lib/TextEditorRack —
 								     it lives out here because the bar is the page's, and it reaches the
 								     editor below through the command table in $lib/text-editor-state. -->
-											<TextEditorRack />
-										{:else if BAR_HEADER.includes(v.code)}
-											<!-- A dense bar names itself outright: no big title below to hand over
+												<TextEditorRack />
+											{:else if BAR_HEADER.includes(v.code)}
+												<!-- A dense bar names itself outright: no big title below to hand over
 								     FROM, so the title simply sits here beside the badge. -->
-											<span class="head-title">{port.title}</span>
-											{#if v.code === 'PUD'}
-												<!-- The beta tag reads as part of the NAME — "Intergalactic Park Ranger ‹Beta›"
+												<span class="head-title">{port.title}</span>
+												{#if v.code === 'PUD'}
+													<!-- The beta tag reads as part of the NAME — "Intergalactic Park Ranger ‹Beta›"
 									     — so it sits right after the title rather than off in the corner with the
 									     global controls, where it looked like one more thing to press. Still
 									     puhig's .beta, twin of the Presentation Builder's; the head-row's 0.5rem
 									     gap sets the space to the title. -->
-												<button
-													type="button"
-													class="beta"
-													aria-label="Intergalactic Park Ranger is in beta"
-													title="This app is in beta — expect it to change">Beta</button
-												>
-											{/if}
-										{:else if NEW_HEADER.includes(v.code) && headTitleShown && !(v.code === 'EMOJ' && emojiSearch.open && isMobile)}
-											<!-- The compact title flies in beside the badge once the big title (in the
+													<button
+														type="button"
+														class="beta"
+														aria-label="Intergalactic Park Ranger is in beta"
+														title="This app is in beta — expect it to change">Beta</button
+													>
+												{/if}
+											{:else if NEW_HEADER.includes(v.code) && headTitleShown && !(v.code === 'EMOJ' && emojiSearch.open && isMobile)}
+												<!-- The compact title flies in beside the badge once the big title (in the
 								     scrolling body) has gone by — but yields when the Emoji Viewer's grown
 								     search would crowd it (on a phone, the field takes most of the row). -->
-											<span
-												class="head-title"
-												in:fly={{ x: -14, duration: 380, easing: backOut }}
-												out:fly={{ x: -10, duration: 150 }}>{port.title}</span
-											>
-										{/if}
-										{#if v.code === 'EMOJ'}
-											<!-- The Emoji Viewer's search rides the super bar's right edge, Weather's
+												<span
+													class="head-title"
+													in:fly={{ x: -14, duration: 380, easing: backOut }}
+													out:fly={{ x: -10, duration: 150 }}>{port.title}</span
+												>
+											{/if}
+											{#if v.code === 'EMOJ'}
+												<!-- The Emoji Viewer's search rides the super bar's right edge, Weather's
 								     arrangement: a disc that grows into a field, sharing its query with the
 								     wall below through $lib/emoji-search. -->
-											<div class="head-actions">
-												<EmojiSearch />
-											</div>
-										{/if}
-										{#if v.code === 'WTHR'}
-											<!-- Weather's search lives up here, on the Back row: it acts on the whole panel, so
+												<div class="head-actions">
+													<EmojiSearch />
+												</div>
+											{/if}
+											{#if v.code === 'WTHR'}
+												<!-- Weather's search lives up here, on the Back row: it acts on the whole panel, so
 								     it belongs with the panel's own controls. It's a disc that GROWS into a field —
 								     see CitySearch — and it shares the app's cities with the body through
 								     $lib/weather-state, since neither half can own state the other needs. -->
-											<!-- …clustered with refresh-now at its left, the same corner ATFC keeps.
+												<!-- …clustered with refresh-now at its left, the same corner ATFC keeps.
 								     The reading lives in $lib/weather-state, so the header (the page's) can
 								     drive it exactly the way the search does. -->
-											<div class="head-actions">
-												<!-- Refresh and the unit fold away while the search is open — the
+												<div class="head-actions">
+													<!-- Refresh and the unit fold away while the search is open — the
 									     grown field wants the whole row, and neither is a thing you do
 									     mid-typing. They return when the field folds back to its disc. -->
-												{#if !weather.searchOpen}
+													{#if !weather.searchOpen}
+														<button
+															type="button"
+															class="icon-btn"
+															onclick={() => wxLoad(wxCurrent())}
+															aria-label="Refresh now"
+															title="Refresh now">{@html REFRESH_SVG}</button
+														>
+														<!-- ONE disc, not a segmented pair: it shows the unit you're on and
+										     flips to the other — there are only two, so the toggle IS the
+										     picker. Lives here so the whole reading (body + rail) follows. -->
+														<button
+															type="button"
+															class="icon-btn unit-btn"
+															onclick={() => wxSetUnit(weather.unit === 'F' ? 'C' : 'F')}
+															aria-label={`Showing °${weather.unit} — switch to °${weather.unit === 'F' ? 'C' : 'F'}`}
+															title={`Switch to °${weather.unit === 'F' ? 'C' : 'F'}`}
+															>°{weather.unit}</button
+														>
+													{/if}
+													<CitySearch />
+												</div>
+											{/if}
+											{#if v.code === 'AITA'}
+												<!-- The Court can be taken full-viewport — a long docket is a reading,
+								     and E-COPO centres it as a column (see .surface-body.court). Same
+								     corner the other panels keep their global controls in. -->
+												<div class="head-actions">
 													<button
 														type="button"
 														class="icon-btn"
-														onclick={() => wxLoad(wxCurrent())}
-														aria-label="Refresh now"
-														title="Refresh now">{@html REFRESH_SVG}</button
+														onclick={toggleExpand}
+														aria-label={panelExpanded ? 'Collapse panel' : 'Expand panel'}
+														title={panelExpanded ? 'Collapse' : 'Expand'}
+														>{@html panelExpanded ? MINIMIZE_SVG : MAXIMIZE_SVG}</button
 													>
-													<!-- ONE disc, not a segmented pair: it shows the unit you're on and
-										     flips to the other — there are only two, so the toggle IS the
-										     picker. Lives here so the whole reading (body + rail) follows. -->
-													<button
-														type="button"
-														class="icon-btn unit-btn"
-														onclick={() => wxSetUnit(weather.unit === 'F' ? 'C' : 'F')}
-														aria-label={`Showing °${weather.unit} — switch to °${weather.unit === 'F' ? 'C' : 'F'}`}
-														title={`Switch to °${weather.unit === 'F' ? 'C' : 'F'}`}
-														>°{weather.unit}</button
-													>
-												{/if}
-												<CitySearch />
-											</div>
-										{/if}
-										{#if v.code === 'AITA'}
-											<!-- The Court can be taken full-viewport — a long docket is a reading,
-								     and E-COPO centres it as a column (see .surface-body.court). Same
-								     corner the other panels keep their global controls in. -->
-											<div class="head-actions">
-												<button
-													type="button"
-													class="icon-btn"
-													onclick={toggleExpand}
-													aria-label={panelExpanded ? 'Collapse panel' : 'Expand panel'}
-													title={panelExpanded ? 'Collapse' : 'Expand'}
-													>{@html panelExpanded ? MINIMIZE_SVG : MAXIMIZE_SVG}</button
-												>
-											</div>
-										{/if}
-										{#if v.code === 'PUD' && !isMobile}
-											<!-- DESKTOP: the bar's right-hand corner keeps the GLOBAL controls, the same
+												</div>
+											{/if}
+											{#if v.code === 'PUD' && !isMobile}
+												<!-- DESKTOP: the bar's right-hand corner keeps the GLOBAL controls, the same
 								     corner every other panel uses: the pause twin, Home, and the gear. On a
 								     PHONE these leave the bar for the floating controls key at the bottom-left
 								     (see .pud-fab below) — the narrow bar keeps only the name. (The beta tag
 								     used to ride here too; it reads as part of the name, so it moved up beside
 								     the title — see the BAR_HEADER block above.) -->
-											<div class="head-actions">
-												<!-- The global twin of the shop's pause disc — the game's one verb you
+												<div class="head-actions">
+													<!-- The global twin of the shop's pause disc — the game's one verb you
 									     might reach for mid-scroll, when the requisitions head has slid away.
 									     So it rides the bar (shared .icon-btn) beside the gear, driving the
 									     same ranger.paused bit the header switch does. -->
-												<button
-													type="button"
-													class="icon-btn"
-													aria-pressed={ranger.paused}
-													aria-label={ranger.paused ? 'Resume the works' : 'Pause the works'}
-													title={ranger.paused ? 'Resume the works' : 'Pause the works'}
-													onclick={togglePaused}
-													>{@html ranger.paused ? PLAY_SVG : PAUSE_SVG}</button
-												>
-												<!-- Home rides between the verbs and the gear: with the Back cap gone
+													<button
+														type="button"
+														class="icon-btn"
+														aria-pressed={ranger.paused}
+														aria-label={ranger.paused ? 'Resume the works' : 'Pause the works'}
+														title={ranger.paused ? 'Resume the works' : 'Pause the works'}
+														onclick={togglePaused}
+														>{@html ranger.paused ? PLAY_SVG : PAUSE_SVG}</button
+													>
+													<!-- Home rides between the verbs and the gear: with the Back cap gone
 									     from the dense bar (see the head-row above), this is the one door
 									     out of the ranger's full-viewport world. -->
-												<button
-													type="button"
-													class="icon-btn"
-													onclick={() => home()}
-													aria-label="Close and go home"
-													title="Home">{@html HOME_SVG}</button
-												>
-												<button
-													type="button"
-													class="icon-btn"
-													data-pud-settings
-													aria-expanded={pudSettings}
-													onclick={() => (pudSettings = !pudSettings)}
-													aria-label={pudSettings ? 'Close division settings' : 'Division settings'}
-													title="Division settings">{@html GEAR_SVG}</button
-												>
-											</div>
-										{/if}
-										{#if BAR_HEADER.includes(v.code) && v.code !== 'PUD'}
-											<!-- EVERY OTHER dense panel gets Home in the bar's right-hand corner, on
-								     every viewport. A dense bar draws no Back cap (see the head-row above),
-								     so without this there is no door out of a full-viewport app except the
-								     browser's own back gesture — which works, because every panel is a real
-								     URL, but it is not something a control on screen should rely on.
-								     The ranger is the exception above rather than a case here: it needs its
-								     pause twin and its gear alongside, and on a phone the three of them
-								     leave the bar together for a floating key. -->
-											<div class="head-actions">
-												{#if v.code !== 'TEXT'}
 													<button
 														type="button"
 														class="icon-btn"
@@ -2619,9 +2601,40 @@
 														aria-label="Close and go home"
 														title="Home">{@html HOME_SVG}</button
 													>
-												{/if}
-												{#if v.code === 'TEXT' && !textEditor.narrow}
-													<!-- SETTINGS — and it is the whole of the editor's corner now. Four things
+													<button
+														type="button"
+														class="icon-btn"
+														data-pud-settings
+														aria-expanded={pudSettings}
+														onclick={() => (pudSettings = !pudSettings)}
+														aria-label={pudSettings
+															? 'Close division settings'
+															: 'Division settings'}
+														title="Division settings">{@html GEAR_SVG}</button
+													>
+												</div>
+											{/if}
+											{#if BAR_HEADER.includes(v.code) && v.code !== 'PUD'}
+												<!-- EVERY OTHER dense panel gets Home in the bar's right-hand corner, on
+								     every viewport. A dense bar draws no Back cap (see the head-row above),
+								     so without this there is no door out of a full-viewport app except the
+								     browser's own back gesture — which works, because every panel is a real
+								     URL, but it is not something a control on screen should rely on.
+								     The ranger is the exception above rather than a case here: it needs its
+								     pause twin and its gear alongside, and on a phone the three of them
+								     leave the bar together for a floating key. -->
+												<div class="head-actions">
+													{#if v.code !== 'TEXT'}
+														<button
+															type="button"
+															class="icon-btn"
+															onclick={() => home()}
+															aria-label="Close and go home"
+															title="Home">{@html HOME_SVG}</button
+														>
+													{/if}
+													{#if v.code === 'TEXT' && !textEditor.narrow}
+														<!-- SETTINGS — and it is the whole of the editor's corner now. Four things
 													     stood here: Home, About, Install and the Beta tag. None of them acts on
 													     the document, all four cost width in a bar that is one row high, and on
 													     a phone three of them had already been pushed down into the floating
@@ -2634,33 +2647,34 @@
 													     already are, and the bar keeps nothing but the two view keys.
 													     The door out is in there too, and it leads to APPS rather than home —
 													     see `onApps` on the editor below. -->
-													<button
-														type="button"
-														class="icon-btn"
-														class:on={!!textEditor.settingsAt}
-														aria-expanded={!!textEditor.settingsAt}
-														onclick={openSettings}
-														aria-label="Settings"
-														title="Settings — About, Install, Apps, and the version"
-														>{@html GEAR_SVG}</button
-													>
-												{/if}
-											</div>
-										{/if}
-									</div>
-									{#if !NEW_HEADER.includes(v.code)}
-										<!-- Panels off the model keep the old arrangement: the title sits in the
+														<button
+															type="button"
+															class="icon-btn"
+															class:on={!!textEditor.settingsAt}
+															aria-expanded={!!textEditor.settingsAt}
+															onclick={openSettings}
+															aria-label="Settings"
+															title="Settings — About, Install, Apps, and the version"
+															>{@html GEAR_SVG}</button
+														>
+													{/if}
+												</div>
+											{/if}
+										</div>
+										{#if !NEW_HEADER.includes(v.code)}
+											<!-- Panels off the model keep the old arrangement: the title sits in the
 							     header, with the accent bullet beside it. On the model the title moves
 							     to the BODY (below) so it scrolls away, and the bullet becomes the
 							     badge on the row above. -->
-										<div class="title-row csb-row">
-											<h2 class="dest csb-title" style:font-size={destSize(port.title)}>
-												<SplitFlap text={port.title} base={160} stagger={45} />
-											</h2>
-											{@render accentDot(v.code, destSize(port.title))}
-										</div>
-									{/if}
-								</div>
+											<div class="title-row csb-row">
+												<h2 class="dest csb-title" style:font-size={destSize(port.title)}>
+													<SplitFlap text={port.title} base={160} stagger={45} />
+												</h2>
+												{@render accentDot(v.code, destSize(port.title))}
+											</div>
+										{/if}
+									</div>
+								{/if}
 								<div
 									class="surface-body"
 									class:settings={v.code === 'STG'}
@@ -3420,7 +3434,19 @@
 	   The top reserve is the MEASURED bar rather than the 44px guess above it: this bar holds a row
 	   of 28px keys, not a 42px cap, and the difference was a visible strip of dead paper between
 	   the keys and the first line of the document. */
-	.surface-head.bar + .surface-body.editor {
+	/* KEYED ON THE BODY, NOT ON THE BAR BEING ITS SIBLING. It was `.surface-head.bar + …`, and that
+	   held only while a bar was drawn — below 820px the editor's head is not rendered at all now,
+	   the adjacent-sibling never matched, and the editor quietly fell back to the panel's own
+	   `0 24px 48px`. On a 390px screen that is 48px of width taken off a working surface and 48px
+	   of dead paper under it, which is precisely what this rule exists to prevent. The top reserve
+	   below still needs the bar, so IT keeps the sibling and this does not.
+	   BOTH SELECTORS, and that is not belt-and-braces. `.surface-head.bar + .surface-body` above is
+	   (0,3,0) and sets the very padding this is undoing, so the bare `.surface-body.editor` at
+	   (0,2,0) loses to it wherever a bar IS drawn — measured, the wide editor came back inset by
+	   44px. The sibling form wins there at (0,4,0); the bare form is for the case where no bar is
+	   rendered, and there the rule it has to beat does not match either. */
+	.surface-head.bar + .surface-body.editor,
+	.surface-body.editor {
 		padding-inline: 0;
 		padding-bottom: 0;
 		/* The bar's MEASURED height, reserved. This went back and forth and the reasoning is worth
@@ -3432,6 +3458,12 @@
 		   framed alike. The trade is that nothing passes beneath the glass any more: the frost
 		   now sits over the gutter rather than over moving text. Even framing was the ask; the
 		   frost is what was given up for it. */
+	}
+	/* …and the top reserve is the BAR'S, so it is the one thing here that still asks whether there
+	   is a bar. With no head there is no sibling to match, the editor starts at the top of the
+	   panel, and the desk gets the row back — which is the whole point of dropping the bar at this
+	   width. */
+	.surface-head.bar + .surface-body.editor {
 		padding-top: var(--bar-h, calc(44px + 2 * var(--bar-inset)));
 	}
 	/* The header's control row: Back at the left, a panel's own action (Weather's search) at the
