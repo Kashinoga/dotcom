@@ -535,6 +535,33 @@ export function nextcloudStore(cfg: NextcloudConfig, openable: RegExp): Store {
 		 * not go on the shelf and lost its row when the workspace changed. `DetachedDoc.drive` is the
 		 * field that closes that; see the note on it.
 		 */
+		/**
+		 * MKCOL, which is WebDAV's "make a collection" and takes no body. 405 is the server saying
+		 * one is already there — refused rather than reported as made, for the reason the local
+		 * store checks first: a verb that answers yes without doing anything is worse than a no.
+		 */
+		async createDir(dir, name) {
+			if (!name || /[/\\]/.test(name)) return null;
+			const path = join(dir, name);
+			const res = await dav(cfg, 'MKCOL', target(cfg, path));
+			return res?.ok ? path : null;
+		},
+
+		/**
+		 * DELETE on a collection, which the protocol defines as taking everything under it. There is
+		 * no lighter form and no confirmation at this layer — see `removeDir` in the Store type for
+		 * why the asking happens where somebody can read it, and why this app cannot offer a restore.
+		 */
+		async removeDir(path) {
+			if (!path) return false;
+			const res = await dav(cfg, 'DELETE', target(cfg, path));
+			if (!res || (!res.ok && res.status !== 404)) return false;
+			for (const key of [...etags.keys()]) {
+				if (key === path || key.startsWith(`${path}/`)) etags.delete(key);
+			}
+			return true;
+		},
+
 		detach: (path) => {
 			const name = path.slice(path.lastIndexOf('/') + 1);
 			if (!name) return null;

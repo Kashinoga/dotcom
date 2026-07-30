@@ -1628,8 +1628,18 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	// fact about the File System Access API — every backing store this app ever grows will have
 	// some way of silently overwriting, and the check belongs beside the write it guards.
 
-	/** The path being dragged, and the folder path under the pointer. Both '' for none. */
+	/**
+	 * The path being dragged, WHICH TREE it came out of, and the folder path under the pointer.
+	 *
+	 * The list travels with the path because both trees draw the same rows and a drag has to be
+	 * refused across them. Dragging a document from the folder onto a drive folder is not a move at
+	 * all — it is a read, a write and a delete, three requests with two different outcomes if the
+	 * second fails — and offering it as the same gesture that shuffles a file inside one folder would
+	 * lie about what is happening to somebody's document, at the exact moment it is in neither place.
+	 * When there is an upload it will be its own gesture with its own word on it.
+	 */
 	let dragging = $state('');
+	let dragList = $state<'tree' | 'cloud'>('tree');
 	let dropInto = $state<string | null>(null);
 
 	async function moveTo(entry: FolderEntry, destPath: string, list: 'tree' | 'cloud' = 'tree') {
@@ -1644,21 +1654,31 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 
 	/**
-	 * Can rows be dragged at all? It stopped being a question about the ROW when the row stopped
-	 * carrying a handle: what it asks is whether the workspace can be written to, and that is one
-	 * answer for the whole tree.
+	 * Can rows in THIS tree be dragged? One answer per tree, not per row — it stopped being a
+	 * question about the row when the row stopped carrying a handle, and what it asks is whether that
+	 * workspace can be written to.
+	 *
+	 * The drive can, which is new. Inside one store a move IS a move: `MOVE` with `Overwrite: F`,
+	 * one request, refused by the server rather than by a check here. The rule that kept the drive
+	 * undraggable was about crossing BETWEEN stores, and it still holds — see `dragging`.
 	 */
-	const canMove = () => editor.folderWritable;
+	const canMoveIn = (list: 'tree' | 'cloud') =>
+		list === 'cloud' ? !!drive?.writable : editor.folderWritable;
 
-	function onDragStart(event: DragEvent, entry: FolderEntry) {
-		if (!canMove()) return event.preventDefault();
+	function onDragStart(event: DragEvent, entry: FolderEntry, list: 'tree' | 'cloud' = 'tree') {
+		if (!canMoveIn(list)) return event.preventDefault();
 		dragging = entry.path;
+		dragList = list;
 		event.dataTransfer?.setData('text/plain', entry.path);
 		if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
 	}
 
-	function onDragOver(event: DragEvent, destPath: string) {
+	function onDragOver(event: DragEvent, destPath: string, list: 'tree' | 'cloud' = 'tree') {
 		if (!dragging) return;
+		// NOT ACROSS THE TWO TREES. Refused by saying nothing — no `preventDefault`, so the pointer
+		// keeps the browser's own "you cannot drop that here" cursor, which is the truthful answer and
+		// costs no copy. Highlighting the row and then declining on release would be worse.
+		if (list !== dragList) return;
 		const from = dragging.includes('/') ? dragging.slice(0, dragging.lastIndexOf('/')) : '';
 		// A folder will not take what it already holds. Without this every row lights up as a
 		// target for the file directly above it, which reads as an offer to do nothing.
@@ -1680,13 +1700,18 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		if (dropInto === destPath) dropInto = null;
 	}
 
-	async function onDrop(event: DragEvent, destPath: string) {
+	async function onDrop(event: DragEvent, destPath: string, list: 'tree' | 'cloud' = 'tree') {
 		event.preventDefault();
 		const path = event.dataTransfer?.getData('text/plain') || dragging;
+		const from = dragList;
 		dragging = '';
 		dropInto = null;
-		const entry = editor.folder.find((e) => e.path === path);
-		if (entry) await moveTo(entry, destPath);
+		// Checked again on RELEASE and not only on hover. `dragover` is what draws the highlight and
+		// a drop can still arrive at a target that never highlighted — a fast release, a nested
+		// element, a browser that fires them out of order.
+		if (list !== from) return;
+		const entry = entriesOf(from).find((e) => e.path === path);
+		if (entry) await moveTo(entry, destPath, from);
 	}
 
 	/** Delete an entry from disk. Two presses, like Clear — see `doomed`. */
@@ -2482,6 +2507,25 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.driveCollapsed = [...editor.driveCollapsed, ...fresh];
 	}
 
+	/**
+	 * A NEW DOCUMENT ON THE DRIVE — `Untitled.md`, or `Untitled 2.md` where that is taken.
+	 *
+	 * It is a real file the moment it is made, which is the opposite of what NEW does: that makes a
+	 * scratch note precisely so nobody has to name a document before writing it. The difference is
+	 * the place. A scratch note has nowhere to be until it is filed; a drive is somewhere, already
+	 * open, and the gesture somebody wants at the head of a list of documents on a server is "put one
+	 * more here". The name is not asked for either — `Untitled` is a placeholder Rename exists to
+	 * replace, and asking would be the thing NEW stopped doing.
+	 */
+	async function newDriveDoc() {
+		if (!drive?.writable) return;
+		const entry = await drive.create('', 'Untitled', '.md', '');
+		if (!entry) return;
+		editor.drive = [...editor.drive, entry].sort((a, b) => a.path.localeCompare(b.path));
+		await openEntry(entry, 'cloud');
+		flash(entry.path, 'Saved');
+	}
+
 	/** Shut a drive's section without forgetting the drive. */
 	function closeDrive() {
 		drive = null;
@@ -2743,7 +2787,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					<button
 						type="button"
 						class="te-work-row te-work-dir"
-						class:into={list === 'tree' && dropInto === row.path}
+						class:into={list === dragList && dropInto === row.path}
 						class:fetching={busy}
 						aria-busy={busy || undefined}
 						role="treeitem"
@@ -2751,9 +2795,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						aria-expanded={!row.shut}
 						aria-selected="false"
 						style:padding-left="calc(0.75rem + {row.depth} * 0.8rem)"
-						ondragover={(e) => list === 'tree' && onDragOver(e, row.path)}
-						ondragleave={(e) => list === 'tree' && onDragLeave(e, row.path)}
-						ondrop={(e) => list === 'tree' && onDrop(e, row.path)}
+						ondragover={(e) => onDragOver(e, row.path, list)}
+						ondragleave={(e) => onDragLeave(e, row.path)}
+						ondrop={(e) => onDrop(e, row.path, list)}
 						onclick={() => twist(row.path)}
 						onkeydown={(e) => {
 							// The arrow keys a tree is expected to answer to. Left shuts an open
@@ -2832,8 +2876,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 								: undefined}
 							aria-haspopup="menu"
 							title={entry.path}
-							draggable={list === 'tree' && canMove()}
-							ondragstart={(e) => onDragStart(e, entry)}
+							draggable={canMoveIn(list)}
+							ondragstart={(e) => onDragStart(e, entry, list)}
 							ondragend={() => {
 								dragging = '';
 								dropInto = null;
@@ -3127,8 +3171,32 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				     has no way to tell which. -->
 				{#if editor.driveOpen || editor.drivePending}
 					<section class="te-drive" aria-label="Drive: {editor.driveName}">
-						<header class="te-work-head te-drive-head">
+						<!-- ITS HEAD IS THE ROOT'S DROP TARGET, exactly as the folder's is. Without it a
+						     document dragged into a sub-folder has no way back to the top level, which
+						     makes the gesture one-way and therefore a trap. -->
+						<header
+							class="te-work-head te-drive-head"
+							role="group"
+							aria-label="Drive {editor.driveName || ''}"
+							class:into={dragList === 'cloud' && dropInto === ''}
+							ondragover={(e) => onDragOver(e, '', 'cloud')}
+							ondragleave={(e) => onDragLeave(e, '')}
+							ondrop={(e) => onDrop(e, '', 'cloud')}
+						>
 							<h2 class="te-work-name">{editor.driveName || 'Drive'}</h2>
+							<!-- `+`, the same key the Scratch head wears and in the same place: the short
+							     road to one more row, at the head of the list it adds to. What it MAKES
+							     differs, and has to — a scratch note has nowhere to be until it is filed,
+							     and a drive is somewhere already. See `newDriveDoc`. -->
+							{#if editor.driveOpen && drive?.writable}
+								<button
+									type="button"
+									class="te-loose-sort te-loose-add"
+									title="Make a document on {editor.driveName || 'the drive'}"
+									aria-label="New document on the drive"
+									onclick={newDriveDoc}>+</button
+								>
+							{/if}
 							<!-- NO TALLY. The tree arrives one level at a time, so the number of documents
 							     in the drive is not a thing this app knows until every folder has been
 							     opened — and a figure that grows as you browse is worse than none. -->
@@ -3168,10 +3236,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						class="te-work-head"
 						role="group"
 						aria-label="Workspace {editor.folderName || ''}"
-						class:into={dropInto === ''}
-						ondragover={(e) => onDragOver(e, '')}
+						class:into={dragList === 'tree' && dropInto === ''}
+						ondragover={(e) => onDragOver(e, '', 'tree')}
 						ondragleave={(e) => onDragLeave(e, '')}
-						ondrop={(e) => onDrop(e, '')}
+						ondrop={(e) => onDrop(e, '', 'tree')}
 					>
 						<!-- THE FOLDER'S OWN NAME, and now the whole of what this row is for. `Workspace`
 					     as the placeholder rather than `Folder`: the row has the width for it since New,

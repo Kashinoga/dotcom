@@ -172,11 +172,13 @@ describe("a MOVE's destination", () => {
 
 describe('the other limits', () => {
 	test('only the methods a workspace uses', () => {
-		for (const m of ['PROPFIND', 'GET', 'HEAD', 'PUT', 'MOVE', 'DELETE', 'POST'])
+		for (const m of ['PROPFIND', 'GET', 'HEAD', 'PUT', 'MOVE', 'MKCOL', 'DELETE', 'POST'])
 			assert.ok(METHODS.has(m), `${m} should be allowed`);
 		// Not refused because they are dangerous — refused because this editor does not do them,
 		// and a relay should not be able to do on somebody's behalf what its own app cannot.
-		for (const m of ['PROPPATCH', 'MKCOL', 'LOCK', 'UNLOCK', 'REPORT', 'COPY', 'TRACE', 'PATCH'])
+		// MKCOL came off this list when folders were added — one method, one gesture. The rest stay
+		// out: not because they are dangerous, but because this editor does not do them.
+		for (const m of ['PROPPATCH', 'LOCK', 'UNLOCK', 'REPORT', 'COPY', 'TRACE', 'PATCH'])
 			assert.ok(!METHODS.has(m), `${m} should not be allowed`);
 	});
 

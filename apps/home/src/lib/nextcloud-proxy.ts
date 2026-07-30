@@ -33,11 +33,23 @@ export const TIMEOUT_MS = 20_000;
 
 /**
  * The methods a workspace uses, and no others. PROPFIND lists, GET reads, PUT writes, MOVE renames
- * and moves, DELETE deletes; POST is here for the login flow alone. Anything else — PROPPATCH,
- * MKCOL, LOCK, REPORT, COPY — is not something this editor does, so it is not something this route
- * needs to be able to do on somebody else's behalf.
+ * and moves, MKCOL makes a folder, DELETE deletes; POST is here for the login flow alone.
+ *
+ * MKCOL WAS ADDED WHEN FOLDERS WERE, and that is the rule this list follows: it grows one method at
+ * a time, each time an editor gesture needs one, and never in advance. PROPPATCH, LOCK, REPORT and
+ * COPY are still out — not because they are dangerous but because this editor does not do them, and
+ * a relay should not be able to do on somebody's behalf what its own app cannot.
  */
-export const METHODS = new Set(['PROPFIND', 'GET', 'HEAD', 'PUT', 'MOVE', 'DELETE', 'POST']);
+export const METHODS = new Set([
+	'PROPFIND',
+	'GET',
+	'HEAD',
+	'PUT',
+	'MOVE',
+	'MKCOL',
+	'DELETE',
+	'POST'
+]);
 
 /**
  * Request headers that go upstream. An allow-list of exactly what this app SENDS — `authorization`

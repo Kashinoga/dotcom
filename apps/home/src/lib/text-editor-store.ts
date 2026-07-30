@@ -144,6 +144,23 @@ export type Store = {
 	/** Move to another directory in the same tree. Refused if the name is taken there. */
 	move(path: string, dir: string): Promise<FolderEntry | null>;
 	remove(path: string): Promise<boolean>;
+	/**
+	 * Make a FOLDER under `dir` ('' is the root), named `name`. Answers with its path, or null.
+	 *
+	 * A separate verb from `create` rather than a flag on it, because the two answer different
+	 * questions: `create` finds a free name because a document is a thing you make and the name is
+	 * incidental, and a folder is named on purpose — asking for `Notes` and silently getting
+	 * `Notes 2` is not the same favour.
+	 */
+	createDir?(dir: string, name: string): Promise<string | null>;
+	/**
+	 * Delete a FOLDER AND EVERYTHING UNDER IT. Separate from `remove` for the same reason it asks a
+	 * different question of the visitor: this is the most destructive thing this app can do, it is
+	 * recursive, and on a drive it is not undoable from here — Nextcloud has a trash bin but the
+	 * proxy's path allow-list does not reach it, so this app cannot offer a restore it cannot make.
+	 * The caller confirms by NAME. See `doomedDir` in $lib/TextEditor.
+	 */
+	removeDir?(path: string): Promise<boolean>;
 	/** A reference to this document that outlives the store, for the shelf. Null if there is none. */
 	detach(path: string): DetachedDoc | null;
 };
@@ -341,6 +358,48 @@ export function localStore(root: FileSystemDirectoryHandle, openable: RegExp): L
 				return false;
 			}
 			files.delete(path);
+			return true;
+		},
+
+		async createDir(dir, name) {
+			const into = dirs.get(dir);
+			if (!into || !name || /[/\\]/.test(name)) return null;
+			// It must not already exist. `getDirectoryHandle(create: true)` hands back an EXISTING
+			// folder rather than failing — the same trap `getFileHandle` sets — and "made you a
+			// folder" when it did nothing is the kind of lie this store is built to avoid.
+			try {
+				await into.getDirectoryHandle(name);
+				return null;
+			} catch {
+				/* nothing there by that name, which is what we wanted */
+			}
+			let made: FileSystemDirectoryHandle;
+			try {
+				made = await into.getDirectoryHandle(name, { create: true });
+			} catch {
+				return null;
+			}
+			const path = join(dir, name);
+			dirs.set(path, made);
+			return path;
+		},
+
+		async removeDir(path) {
+			const parent = dirs.get(dirOf(path));
+			if (!parent || !path) return false;
+			try {
+				// RECURSIVE, deliberately. Without it a folder with anything in it simply refuses, and
+				// the visitor has already been asked to type its name — a confirmation that strong
+				// followed by "no" is worse than not offering the verb.
+				await parent.removeEntry(path.slice(path.lastIndexOf('/') + 1), { recursive: true });
+			} catch {
+				return false;
+			}
+			// Everything under it went with it, so everything under it goes from both maps.
+			for (const key of [...files.keys()])
+				if (key === path || key.startsWith(`${path}/`)) files.delete(key);
+			for (const key of [...dirs.keys()])
+				if (key === path || key.startsWith(`${path}/`)) dirs.delete(key);
 			return true;
 		},
 
