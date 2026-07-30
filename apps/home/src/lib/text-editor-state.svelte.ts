@@ -390,6 +390,12 @@ export const editor = $state({
 		x: number;
 		y: number;
 		list: 'tree' | 'cloud' | 'loose' | 'ephemeral';
+		/**
+		 * A DOCUMENT or a FOLDER. One piece of state for both, because they are one gesture — a
+		 * right-click on a row — and two would be two scrims, two placements and two Escapes over
+		 * the same list. The verbs differ and nothing else does.
+		 */
+		kind: 'file' | 'dir';
 	} | null,
 	// `copied` was here, beside `armed`, and went with the Copy key: a row says "Copied" on the
 	// row itself now (see `flash` in the editor), which is the only place that can say WHICH

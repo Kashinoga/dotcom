@@ -2406,6 +2406,177 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	ok('and the note beside it still has its words', (await value()).includes('bravo'));
 }
 
+// ── A DRIVE'S FOLDERS ────────────────────────────────────────────────────────
+// `+` on the head, a folder made, a folder deleted. Driven against a stub that MUTATES — the drive
+// block above answers from a fixed map, which is right for asserting how many PROPFINDs a lazy tree
+// makes and useless for asserting that a MKCOL created anything. This one keeps a little server in a
+// variable and the assertions read it back, the way the OPFS block reads the filesystem back rather
+// than trusting the sidebar.
+{
+	const c = await browser.newContext({ viewport: { width: 1400, height: 900 } });
+	const fp = await c.newPage();
+	const errs = [];
+	fp.on('pageerror', (e) => errs.push(e.message));
+	const ROOT = '/remote.php/dav/files/andrew/Notes';
+	const R = (href, dir) =>
+		`<d:response><d:href>${href}</d:href><d:propstat><d:prop>` +
+		(dir ? '<d:resourcetype><d:collection/></d:resourcetype>' : '<d:resourcetype/>') +
+		'<d:getetag>&quot;e&quot;</d:getetag></d:prop>' +
+		'<d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>';
+	/** The whole server, as a map of folder → what is in it. Every verb below edits this. */
+	const tree = { '': { dirs: ['Deep'], files: [] }, Deep: { dirs: [], files: ['a.md', 'b.md'] } };
+	await fp.route('**/api/nextcloud', async (route) => {
+		const r = route.request();
+		const m = r.method();
+		const path = decodeURIComponent(new URL(r.headers()['x-dav-target']).pathname).replace(
+			/\/$/,
+			''
+		);
+		const rel = path.startsWith(ROOT) ? path.slice(ROOT.length).replace(/^\//, '') : '';
+		const parent = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '';
+		const leaf = rel.slice(rel.lastIndexOf('/') + 1);
+		if (m === 'PROPFIND') {
+			const at = tree[rel];
+			if (!at) return route.fulfill({ status: 404 });
+			const under = rel ? `${rel}/` : '';
+			return route.fulfill({
+				status: 207,
+				contentType: 'application/xml',
+				body:
+					'<?xml version="1.0"?><d:multistatus xmlns:d="DAV:">' +
+					[
+						R(`${ROOT}/${under}`, true),
+						...at.dirs.map((d) => R(`${ROOT}/${under}${d}/`, true)),
+						...at.files.map((f) => R(`${ROOT}/${under}${f}`, false))
+					].join('') +
+					'</d:multistatus>'
+			});
+		}
+		if (m === 'GET') return route.fulfill({ status: 200, headers: { etag: '"e"' }, body: '# doc' });
+		if (m === 'PUT') {
+			// `If-None-Match: *` is how the store creates without clobbering — 412 is "taken".
+			if (tree[parent].files.includes(leaf)) return route.fulfill({ status: 412 });
+			tree[parent].files.push(leaf);
+			return route.fulfill({ status: 201, headers: { etag: '"n"' } });
+		}
+		if (m === 'MKCOL') {
+			if (tree[rel]) return route.fulfill({ status: 405 });
+			tree[parent].dirs.push(leaf);
+			tree[rel] = { dirs: [], files: [] };
+			return route.fulfill({ status: 201 });
+		}
+		if (m === 'DELETE') {
+			// A collection takes everything under it — the protocol's own rule, modelled here so the
+			// assertion can prove the app is not quietly leaving orphans behind.
+			for (const k of Object.keys(tree)) if (k === rel || k.startsWith(`${rel}/`)) delete tree[k];
+			for (const k of Object.keys(tree)) {
+				tree[k].dirs = tree[k].dirs.filter((d) => (k ? `${k}/` : '') + d !== rel);
+				tree[k].files = tree[k].files.filter((f) => (k ? `${k}/` : '') + f !== rel);
+			}
+			return route.fulfill({ status: 204 });
+		}
+		return route.fulfill({ status: 405 });
+	});
+
+	await fp.goto(`${B}/apps/text-editor`, { waitUntil: 'networkidle' });
+	await fp.waitForTimeout(400);
+	await fp
+		.getByRole('button', { name: /settings/i })
+		.first()
+		.click();
+	await fp.getByRole('button', { name: /Connect a drive/ }).click();
+	await fp.waitForTimeout(200);
+	const fld = (n) => fp.locator('.te-conn-row input').nth(n);
+	await fld(0).fill('cloud.example.com');
+	await fld(1).fill('andrew');
+	await fld(2).fill('app-password');
+	await fld(3).fill('Notes');
+	await fp.getByRole('radio', { name: /Through this site/ }).click();
+	await fp.getByRole('button', { name: /^(Connect|Trying)/ }).click();
+	await fp.waitForTimeout(1500);
+
+	// `+` NUMBERS FROM ZERO AND FROM THE FIRST ONE. `Untitled.md` then `Untitled 2.md` reads as a
+	// missing `Untitled 1.md` — the unnumbered name doing an index's job without looking like one.
+	// Notepad++'s `new 0` convention, and the lowest FREE index, so closing one frees its name.
+	await fp.locator('.te-drive-head .te-loose-add').click();
+	await fp.waitForTimeout(900);
+	ok(
+		'+ on the drive head makes Untitled 0.md',
+		tree[''].files.includes('Untitled 0.md'),
+		JSON.stringify(tree[''].files)
+	);
+	ok(
+		'and opens it',
+		(await fp.locator('.te-drive-list [aria-current=true]').textContent()).includes('Untitled 0.md')
+	);
+	await fp.locator('.te-drive-head .te-loose-add').click();
+	await fp.waitForTimeout(900);
+	ok(
+		'then Untitled 1.md, not Untitled 2.md',
+		tree[''].files.includes('Untitled 1.md'),
+		JSON.stringify(tree[''].files)
+	);
+
+	// A FOLDER ROW HAS A MENU NOW. It was a twisty and nothing else, so the two gestures a folder
+	// needs had nowhere to live.
+	await fp.locator('.te-drive-list .te-work-dir').first().click({ button: 'right' });
+	await fp.waitForTimeout(300);
+	ok(
+		'a folder row has its own menu',
+		(await fp
+			.locator('.popover-item')
+			.filter({ hasText: /New folder/ })
+			.count()) === 1
+	);
+	await fp
+		.locator('.popover-item')
+		.filter({ hasText: /New folder/ })
+		.click();
+	await fp.waitForTimeout(200);
+	// A FOLDER IS NAMED ON PURPOSE — unlike a document, which gets `Untitled 0` and a Rename.
+	await fp.locator('#te-dir-new').fill('Inner');
+	await fp.locator('.te-dir-keys button[type=submit]').click();
+	await fp.waitForTimeout(700);
+	ok(
+		'MKCOL puts it inside the folder that asked',
+		!!tree['Deep/Inner'],
+		Object.keys(tree).join(',')
+	);
+
+	// DELETING ASKS IN WORDS, because it is recursive and not undoable from here.
+	await fp.locator('.te-drive-list .te-work-dir').first().click({ button: 'right' });
+	await fp.waitForTimeout(300);
+	await fp
+		.locator('.popover-item')
+		.filter({ hasText: /Delete folder/ })
+		.click();
+	await fp.waitForTimeout(1400);
+	const warn = (await fp.locator('.te-dir-warn').textContent()).replace(/\s+/g, ' ').trim();
+	ok(
+		'it counts the WHOLE subtree, having read it first',
+		warn.includes('2 documents and 1 folder'),
+		warn
+	);
+	ok('and says it cannot be undone', warn.includes('cannot be undone'), warn);
+	const kill = fp.locator('.te-dir-kill');
+	ok('Delete is refused until the name is typed', await kill.isDisabled());
+	await fp.locator('#te-dir-kill').fill('Wrong');
+	await fp.waitForTimeout(150);
+	ok('and a wrong name is not enough', await kill.isDisabled());
+	await fp.locator('#te-dir-kill').fill('Deep');
+	await fp.waitForTimeout(150);
+	ok('the exact name arms it', !(await kill.isDisabled()));
+	await kill.click();
+	await fp.waitForTimeout(900);
+	ok(
+		'and it goes with everything under it',
+		!tree.Deep && !tree['Deep/Inner'],
+		Object.keys(tree).join(',')
+	);
+	ok('no page errors anywhere in that', errs.length === 0, errs.join(' | '));
+	await c.close();
+}
+
 // ── CONNECTING A DRIVE ───────────────────────────────────────────────────────
 // The form that sets up a Nextcloud workspace. Nothing here reaches a real server — what is under
 // test is the part that runs BEFORE a password goes anywhere, which is the part where a mistake

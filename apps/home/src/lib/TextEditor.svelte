@@ -17,6 +17,7 @@
 		type Ephemeral
 	} from '$lib/text-editor-state.svelte';
 	import {
+		dirOf,
 		localStore,
 		snapshotStore,
 		notWritten,
@@ -1908,7 +1909,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	let fileMenuAt = $state({ x: 0, y: 0 });
 	/** The TREE entry the open menu belongs to — null when the menu belongs to a shelf row. */
 	const fileMenuEntry = $derived(
-		editor.fileMenu?.list === 'tree' || editor.fileMenu?.list === 'cloud'
+		editor.fileMenu?.kind === 'file' &&
+			(editor.fileMenu?.list === 'tree' || editor.fileMenu?.list === 'cloud')
 			? (entriesOf(editor.fileMenu.list).find((e) => e.path === editor.fileMenu?.path) ?? null)
 			: null
 	);
@@ -1922,7 +1924,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// Neither TREE is a shelf. Both are excluded here rather than one, because the two draw the
 		// same rows and a menu opened on a drive row would otherwise fall through to looking for it
 		// among the scratch notes.
-		if (!at || at.list === 'tree' || at.list === 'cloud') return null;
+		if (!at || at.kind === 'dir' || at.list === 'tree' || at.list === 'cloud') return null;
 		const doc =
 			at.list === 'loose'
 				? editor.loose.find((d) => d.id === at.path)
@@ -1970,6 +1972,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		const at = editor.fileMenu;
 		if (!at) return null;
 
+		if (at.kind === 'dir') return null;
 		if (at.list === 'tree' || at.list === 'cloud') {
 			// ONE branch for both trees. They differ in which store answers and in nothing else,
 			// which is the whole return on the seam: a document is a path, and a path is a store's
@@ -2135,11 +2138,126 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		return true;
 	}
 
+	// ── A FOLDER'S OWN MENU ───────────────────────────────────────────────────
+	// Folder rows had no menu at all: a folder was a twisty and nothing else, so the two gestures a
+	// folder needs — put one inside it, take it away — had nowhere to live. They are on its
+	// right-click menu now, which is where a file manager keeps them and where this pane already
+	// keeps a document's verbs.
+	//
+	// RENAME IS NOT OFFERED, and that is a limit rather than an omission. A drive would take it
+	// (`MOVE` works on a collection) and the local store would not: `move` is on
+	// FileSystemFileHandle and not on the directory handle, so a folder renamed on a drive and
+	// refused on a disk is one verb with two answers. A verb that works in one workspace and not the
+	// other is the thing this app has spent its whole life not drawing.
+
+	/** Which form the folder menu is showing: its verbs, a new folder's name, or the deletion. */
+	let dirMode = $state<'verbs' | 'new' | 'delete'>('verbs');
+	/** What has been typed into whichever form is open. */
+	let dirField = $state('');
+	/**
+	 * WHAT IS INSIDE, for the deletion to be able to say. Null while it is not known — which on a
+	 * drive is the ordinary case, because a folder nothing has been opened is a folder whose contents
+	 * this app has never read. It is FETCHED before the question is asked: "delete this, contents
+	 * unknown" is not a confirmation, it is a coin toss with a text field on it.
+	 */
+	let dirCounts = $state<{ files: number; dirs: number } | null>(null);
+
+	/** The folder the open menu belongs to, and its name. */
+	const menuDir = $derived.by(() => {
+		const at = editor.fileMenu;
+		if (!at || at.kind !== 'dir') return null;
+		const list = at.list === 'cloud' ? ('cloud' as const) : ('tree' as const);
+		return { path: at.path, name: at.path.slice(at.path.lastIndexOf('/') + 1), list };
+	});
+
+	function openDirMenu(event: MouseEvent, path: string, list: 'tree' | 'cloud') {
+		dirMode = 'verbs';
+		dirField = '';
+		dirCounts = null;
+		placeMenu(event, path, list, 'dir');
+	}
+
+	/** Count what is under a path, from the flat lists the tree is derived from. */
+	function countUnder(path: string, list: 'tree' | 'cloud') {
+		const under = (p: string) => p === path || p.startsWith(`${path}/`);
+		const dirs = list === 'cloud' ? editor.driveFolders : editor.folders;
+		return {
+			files: entriesOf(list).filter((e) => under(e.path)).length,
+			dirs: dirs.filter((d) => d !== path && under(d)).length
+		};
+	}
+
+	/**
+	 * Open the deletion, having first made sure the count is TRUE. On a drive an unopened folder has
+	 * never been read, and every folder inside it is unread in its turn — so the whole subtree is
+	 * walked before the question is asked. A count that only covers the part somebody happened to
+	 * browse would understate exactly the folder most dangerous to delete.
+	 */
+	async function askDeleteDir(path: string, list: 'tree' | 'cloud') {
+		dirMode = 'delete';
+		dirField = '';
+		dirCounts = null;
+		if (list === 'cloud' && drive?.listDir) {
+			const queue = [path];
+			while (queue.length) {
+				const at = queue.shift() as string;
+				if (!editor.driveFetched.includes(at)) await fetchDriveDir(at);
+				queue.push(...editor.driveFolders.filter((d) => dirOf(d) === at));
+			}
+		}
+		dirCounts = countUnder(path, list);
+	}
+
+	/** Make a folder inside the one the menu belongs to. */
+	async function makeDir(inside: string, list: 'tree' | 'cloud', name: string) {
+		const clean = name.trim();
+		const store = storeOf(list);
+		if (!clean || !store?.createDir) return;
+		const path = await store.createDir(inside, clean);
+		if (!path) return;
+		if (list === 'cloud') {
+			editor.driveFolders = [...editor.driveFolders, path];
+			// Made and therefore READ: it is empty, and a folder marked unfetched would draw a
+			// tally-less row that asks the server for children nobody put there.
+			editor.driveFetched = [...editor.driveFetched, path];
+		} else {
+			editor.folders = [...editor.folders, path];
+		}
+		closeFileMenu();
+		flash(path, 'Saved');
+	}
+
+	/** Delete a folder and everything under it. The name has already been typed — see `dirMode`. */
+	async function killDir(path: string, list: 'tree' | 'cloud') {
+		const store = storeOf(list);
+		if (!store?.removeDir || !(await store.removeDir(path))) return;
+		const under = (p: string) => p === path || p.startsWith(`${path}/`);
+		if (list === 'cloud') {
+			editor.drive = editor.drive.filter((e) => !under(e.path));
+			editor.driveFolders = editor.driveFolders.filter((d) => !under(d));
+			editor.driveFetched = editor.driveFetched.filter((d) => !under(d));
+			editor.driveCollapsed = editor.driveCollapsed.filter((d) => !under(d));
+		} else {
+			editor.folder = editor.folder.filter((e) => !under(e.path));
+			editor.folders = editor.folders.filter((d) => !under(d));
+			editor.collapsed = editor.collapsed.filter((d) => !under(d));
+		}
+		// The sheet keeps its words — they are still yours — but it stops claiming to be a document
+		// that no longer exists.
+		if (editor.openIn === list && under(editor.openPath)) {
+			editor.openPath = '';
+			editor.filename = '';
+			editor.openWritable = false;
+		}
+		closeFileMenu();
+	}
+
 	/** Where a menu stands, given the event that asked for it. Shared by all three lists. */
 	function placeMenu(
 		event: MouseEvent,
 		path: string,
-		list: 'tree' | 'cloud' | 'loose' | 'ephemeral'
+		list: 'tree' | 'cloud' | 'loose' | 'ephemeral',
+		kind: 'file' | 'dir' = 'file'
 	) {
 		event.preventDefault();
 		editor.renaming = '';
@@ -2152,7 +2270,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		const x = event.clientX > 0 ? event.clientX : row.left + 12;
 		const y = event.clientY > 0 ? event.clientY : row.bottom;
 		fileMenuAt = { x, y };
-		editor.fileMenu = { path, x, y, list };
+		editor.fileMenu = { path, x, y, list, kind };
 	}
 
 	function openFileMenu(event: MouseEvent, entry: FolderEntry, list: 'tree' | 'cloud' = 'tree') {
@@ -2249,7 +2367,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	// A menu whose row has gone — deleted, or the folder changed underneath it — is a menu aimed
 	// at nothing. It comes down rather than staying open over the row that took its place.
 	$effect(() => {
-		if (editor.fileMenu && !fileMenuEntry && !shelfMenuRow) closeFileMenu();
+		// `menuDir` counts, and leaving it out shut the folder menu in the same frame it opened: this
+		// asks "is the row this menu points at still there", and a folder row is a row.
+		if (editor.fileMenu && !fileMenuEntry && !shelfMenuRow && !menuDir) closeFileMenu();
 	});
 
 	// ── Remembering the folder ────────────────────────────────────────────────
@@ -2517,9 +2637,27 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * more here". The name is not asked for either — `Untitled` is a placeholder Rename exists to
 	 * replace, and asking would be the thing NEW stopped doing.
 	 */
+	/**
+	 * `Untitled 0`, then `Untitled 1` — the LOWEST free index, Notepad++'s `new 0` convention, and
+	 * the same rule `nextEphemeralName` keeps: closing one frees its name rather than leaving a gap
+	 * that counts up forever.
+	 *
+	 * Numbered from the FIRST one. `Untitled.md` and then `Untitled 2.md` reads as a missing
+	 * `Untitled 1.md` — the unnumbered name is doing the work of an index without looking like one.
+	 */
+	function nextDriveName() {
+		const taken = new Set(editor.drive.map((e) => e.name));
+		let n = 0;
+		while (taken.has(`Untitled ${n}.md`)) n += 1;
+		return `Untitled ${n}`;
+	}
+
 	async function newDriveDoc() {
 		if (!drive?.writable) return;
-		const entry = await drive.create('', 'Untitled', '.md', '');
+		// The APP picks the name it wants and the STORE guarantees it does not land on top of
+		// anything — its own free-naming stays as the backstop for the case this cannot see, which is
+		// another device having made the same file a moment ago.
+		const entry = await drive.create('', nextDriveName(), '.md', '');
 		if (!entry) return;
 		editor.drive = [...editor.drive, entry].sort((a, b) => a.path.localeCompare(b.path));
 		await openEntry(entry, 'cloud');
@@ -2799,6 +2937,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						ondragleave={(e) => onDragLeave(e, row.path)}
 						ondrop={(e) => onDrop(e, row.path, list)}
 						onclick={() => twist(row.path)}
+						oncontextmenu={(e) => canMoveIn(list) && openDirMenu(e, row.path, list)}
 						onkeydown={(e) => {
 							// The arrow keys a tree is expected to answer to. Left shuts an open
 							// folder, right opens a shut one — the rest of the tree's keyboard is
@@ -3562,6 +3701,132 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					? 'Sure?'
 					: 'Close'}</button
 			>
+		</div>
+	{:else if editor.fileMenu && menuDir}
+		<!-- A FOLDER'S MENU. Same scrim, same placement, same Escape as a document's — see the note
+		     below. What differs is the verbs and, for the deletion, that it asks in words. -->
+		{@const dir = menuDir}
+		<button
+			class="popover-scrim"
+			aria-label="Close the folder menu"
+			onclick={() => closeFileMenu()}
+			oncontextmenu={(e) => {
+				e.preventDefault();
+				closeFileMenu();
+			}}
+		></button>
+		<div
+			class="popover te-file-menu"
+			role="menu"
+			aria-label={dir.name}
+			tabindex="-1"
+			bind:this={fileMenuEl}
+			style:left="{fileMenuAt.x}px"
+			style:top="{fileMenuAt.y}px"
+			onkeydown={(e) => {
+				if (e.key === 'Escape') {
+					e.stopPropagation();
+					// Backing out of a form goes to the verbs, not out of the menu: one Escape should
+					// undo one step, and the step somebody wants undone is the one they just took.
+					if (dirMode !== 'verbs') dirMode = 'verbs';
+					else closeFileMenu(true);
+				}
+			}}
+		>
+			<p class="popover-title">{dir.name}</p>
+			{#if dirMode === 'verbs'}
+				<button
+					type="button"
+					role="menuitem"
+					class="popover-item"
+					onclick={() => {
+						dirMode = 'new';
+						dirField = '';
+					}}>New folder…</button
+				>
+				<!-- DELETE IS LAST and it is the only item here that opens a question rather than doing
+				     something. The ellipsis is the promise that pressing it is not the end of it. -->
+				<button
+					type="button"
+					role="menuitem"
+					class="popover-item te-file-del"
+					onclick={() => askDeleteDir(dir.path, dir.list)}>Delete folder…</button
+				>
+			{:else if dirMode === 'new'}
+				<!-- A FOLDER IS NAMED ON PURPOSE, so it is asked for. A document is not — `+` makes
+				     `Untitled 0.md` and Rename exists to replace it — and the difference is that a
+				     folder with a placeholder name is a folder nobody can find anything in. -->
+				<form
+					class="te-dir-form"
+					onsubmit={(e) => {
+						e.preventDefault();
+						makeDir(dir.path, dir.list, dirField);
+					}}
+				>
+					<label class="te-dir-label" for="te-dir-new">Name it</label>
+					<!-- svelte-ignore a11y_autofocus -->
+					<input
+						id="te-dir-new"
+						class="field te-work-field"
+						autofocus
+						spellcheck="false"
+						bind:value={dirField}
+						placeholder="Notes"
+					/>
+					<div class="te-dir-keys">
+						<button type="button" class="chip" onclick={() => (dirMode = 'verbs')}>Cancel</button>
+						<button type="submit" class="chip" disabled={!dirField.trim()}>Make it</button>
+					</div>
+				</form>
+			{:else}
+				<!-- TYPING THE NAME, because this is recursive and, on a drive, not undoable from here:
+				     Nextcloud keeps a trash bin and the proxy's path allow-list does not reach it, so
+				     this app cannot offer a restore it cannot make. Two presses is the confirmation
+				     calibrated for emptying one document; this deletes a folder and everything under it,
+				     and the difference in consequence has to show as a difference in effort. -->
+				<form
+					class="te-dir-form"
+					onsubmit={(e) => {
+						e.preventDefault();
+						if (dirField.trim() === dir.name) killDir(dir.path, dir.list);
+					}}
+				>
+					<p class="te-dir-warn">
+						{#if dirCounts === null}
+							Reading what is in it…
+						{:else if dirCounts.files || dirCounts.dirs}
+							<!-- COUNTED, and counted over the WHOLE subtree — on a drive the folder is read
+							     first, because a count that covered only the part somebody happened to browse
+							     would understate exactly the folder most dangerous to delete. -->
+							This deletes {dirCounts.files}
+							{dirCounts.files === 1 ? 'document' : 'documents'}{dirCounts.dirs
+								? ` and ${dirCounts.dirs} ${dirCounts.dirs === 1 ? 'folder' : 'folders'}`
+								: ''} inside it.
+							{dir.list === 'cloud' ? 'It cannot be undone from here.' : ''}
+						{:else}
+							It is empty.
+						{/if}
+					</p>
+					<label class="te-dir-label" for="te-dir-kill">Type <b>{dir.name}</b> to confirm</label>
+					<!-- svelte-ignore a11y_autofocus -->
+					<input
+						id="te-dir-kill"
+						class="field te-work-field"
+						autofocus
+						spellcheck="false"
+						bind:value={dirField}
+						aria-label="Type {dir.name} to confirm deleting it"
+					/>
+					<div class="te-dir-keys">
+						<button type="button" class="chip" onclick={() => (dirMode = 'verbs')}>Cancel</button>
+						<button
+							type="submit"
+							class="chip te-dir-kill"
+							disabled={dirField.trim() !== dir.name || dirCounts === null}>Delete it</button
+						>
+					</div>
+				</form>
+			{/if}
 		</div>
 	{:else if editor.fileMenu && fileMenuEntry}
 		<!-- THE ROW'S MENU. Rendered here rather than inside the row it belongs to, because the
@@ -4720,6 +4985,41 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		opacity: 0.45;
 	}
 	.te-work-row.into,
+	/* A folder menu's two forms. Narrow, because the popover is a menu that has grown a question
+	   rather than a dialog that has been dressed as one. */
+	.te-dir-form {
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+		padding: 0.15rem 0.35rem 0.35rem;
+	}
+	.te-dir-label {
+		font-size: 0.72rem;
+		color: var(--sub);
+	}
+	.te-dir-warn {
+		margin: 0 0 0.15rem;
+		font-size: 0.72rem;
+		line-height: 1.35;
+		/* THE REFUSAL INK, on a warning rather than on a refusal — this is the one place the two
+		   meet. What is about to happen is not reversible and the colour says so before the words
+		   are read. */
+		color: var(--ruby);
+	}
+	.te-dir-keys {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.35rem;
+		margin-top: 0.2rem;
+	}
+	.te-dir-kill:not(:disabled) {
+		color: var(--ruby);
+		border-color: var(--ruby);
+	}
+	.te-dir-keys .chip:disabled {
+		opacity: 0.45;
+	}
+
 	/* ── A FOLDER BEING READ ───────────────────────────────────────────────────
 	   Opening a remote folder is a request, and on a slow connection the row does nothing for a
 	   second or two — which from the outside is indistinguishable from a folder that is empty or a
