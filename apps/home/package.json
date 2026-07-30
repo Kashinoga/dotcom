@@ -20,7 +20,8 @@
 		"check:csp": "node scripts/csp-check.mjs",
 		"test:e2e": "node e2e/run.mjs",
 		"test:e2e:changed": "node e2e/run.mjs --changed",
-		"snap:sky": "node e2e/sky-snap.mjs"
+		"snap:sky": "node e2e/sky-snap.mjs",
+		"snap:docs": "node e2e/docs-snap.mjs"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-cloudflare": "^7.2.9",
