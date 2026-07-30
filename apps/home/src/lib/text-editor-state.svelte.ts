@@ -317,6 +317,17 @@ export const editor = $state({
 	driveFolders: [] as string[],
 	/** What the head says: the drive's own folder name. */
 	driveName: '',
+	/**
+	 * WHICH SERVER it is on, for the head to name beside the folder — `Notes
+	 * (nextcloud.kashinoga.com)`. A folder called `Notes` says nothing about where it is, and a
+	 * visitor with a drive open beside a local folder of the same name has two lists with one name
+	 * on them.
+	 *
+	 * Only worth saying when there IS a folder: a drive opened at its root is already named for its
+	 * host, and `nextcloud.kashinoga.com (nextcloud.kashinoga.com)` is a label arguing with itself.
+	 * The head compares the two rather than a flag being carried.
+	 */
+	driveHost: '',
 	/** Is a connection LIVE — opened, answered, and holding rows? */
 	driveOpen: false,
 	/**

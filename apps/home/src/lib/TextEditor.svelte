@@ -39,7 +39,7 @@
 	import FloatingKey from '$lib/FloatingKey.svelte';
 	import TextEditorSettings from '$lib/TextEditorSettings.svelte';
 	import { dev } from '$app/environment';
-	import { NIB_SVG, RULE_SVG, GEAR_SVG } from '$lib/icons';
+	import { NIB_SVG, RULE_SVG, GEAR_SVG, REFRESH_SVG } from '$lib/icons';
 
 	/**
 	 * The door out, which is the PAGE's — closing the panel, showing what is behind it and pushing
@@ -2584,6 +2584,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.driveFetched = [''];
 		editor.driveFetching = [];
 		editor.driveName = next.name;
+		editor.driveHost = new URL(c.base).hostname;
 		editor.driveOpen = true;
 		editor.drivePending = false;
 		editor.folderShown = true;
@@ -2664,10 +2665,46 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		flash(entry.path, 'Saved');
 	}
 
+	/**
+	 * FETCH UPDATES. A drive is somebody else's disk and this app reads it once — another device, or
+	 * the web client, or a phone can change it underneath and nothing here would know. So the head
+	 * carries a refresh.
+	 *
+	 * It re-reads the root and then RE-READS EVERY FOLDER THAT HAD BEEN READ, in order of depth so a
+	 * parent arrives before its children can be asked for. Re-listing the root alone would silently
+	 * collapse the tree back to one level while leaving the rows on screen, which is worse than not
+	 * refreshing: the open folders would look current and be stale.
+	 *
+	 * A folder that has appeared since is SHUT, as any newly-seen folder is; one that was open stays
+	 * open. Somebody refreshing wants the drive brought up to date, not their place in it thrown away.
+	 */
+	async function refreshDrive() {
+		if (!drive || editor.driveFetching.includes('')) return;
+		// The head says so with the row's own word and bar — `driveFetching` already means "this path
+		// is being read", and the root is a path.
+		editor.driveFetching = [...editor.driveFetching, ''];
+		const wasRead = editor.driveFetched
+			.filter(Boolean)
+			.sort((a, b) => a.split('/').length - b.split('/').length);
+		const wasShut = new Set(editor.driveCollapsed);
+		const listing = await drive.list();
+		if (listing) {
+			editor.drive = listing.files;
+			editor.driveFolders = listing.dirs;
+			editor.driveFetched = [''];
+			editor.driveCollapsed = listing.dirs.filter((d) => wasShut.has(d) || !wasRead.includes(d));
+			for (const path of wasRead) {
+				if (editor.driveFolders.includes(path)) await fetchDriveDir(path);
+			}
+		}
+		editor.driveFetching = editor.driveFetching.filter((p) => p !== '');
+	}
+
 	/** Shut a drive's section without forgetting the drive. */
 	function closeDrive() {
 		drive = null;
 		driveId = '';
+		editor.driveHost = '';
 		editor.driveFetching = [];
 		editor.drive = [];
 		editor.driveFolders = [];
@@ -3322,7 +3359,40 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 							ondragleave={(e) => onDragLeave(e, '')}
 							ondrop={(e) => onDrop(e, '', 'cloud')}
 						>
-							<h2 class="te-work-name">{editor.driveName || 'Drive'}</h2>
+							<!-- NAMED FOR THE FOLDER AND THE SERVER BOTH — `Notes (nextcloud.kashinoga.com)`.
+							     A folder called `Notes` says nothing about where it is, and somebody with a
+							     drive open beside a local folder of the same name has two lists wearing one
+							     name. The host is left off when the drive was opened at its ROOT, because the
+							     name IS the host then and `host (host)` is a label arguing with itself. -->
+							<h2 class="te-work-name">
+								{editor.driveName || 'Drive'}{editor.driveHost &&
+								editor.driveHost !== editor.driveName
+									? ` (${editor.driveHost})`
+									: ''}
+							</h2>
+							{#if editor.driveOpen}
+								{@const busy = editor.driveFetching.includes('')}
+								<!-- FETCH UPDATES. A drive is somebody else's disk: another device, the web
+								     client or a phone can change it underneath and nothing here would know.
+								     It is the only key in this pane that asks a question rather than
+								     changing something, which is why it is a glyph and not a word. -->
+								<button
+									type="button"
+									class="te-loose-sort te-drive-refresh"
+									class:on={busy}
+									disabled={busy}
+									title="Fetch updates from {editor.driveHost || 'the drive'}"
+									aria-label="Fetch updates from the drive"
+									onclick={refreshDrive}>{@html REFRESH_SVG}</button
+								>
+								{#if busy}
+									<!-- The row's own word and bar, on the head. `driveFetching` already means
+									     "this path is being read" and the root is a path, so refreshing says it
+									     in the vocabulary the rows already use rather than inventing a spinner. -->
+									<span class="te-work-fetching">Fetching</span>
+									<span class="te-work-bar" aria-hidden="true"></span>
+								{/if}
+							{/if}
 							<!-- `+`, the same key the Scratch head wears and in the same place: the short
 							     road to one more row, at the head of the list it adds to. What it MAKES
 							     differs, and has to — a scratch note has nowhere to be until it is filed,
@@ -5098,6 +5168,30 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   two places rather than one list with a gap in it. No shading: the shelves are shaded because
 	   they are NOT a place (they hold documents from anywhere and notes from nowhere), and a drive
 	   is as much a place as the folder is. */
+	/* The refresh is a GLYPH among word keys, so it is sized like the `+` rather than like `A-Z` —
+	   and it spins while it works, which is the one place this pane animates a key. */
+	.te-drive-refresh {
+		display: inline-flex;
+		align-items: center;
+		line-height: 1;
+	}
+	.te-drive-refresh :global(svg) {
+		width: 0.8rem;
+		height: 0.8rem;
+	}
+	.te-drive-refresh.on :global(svg) {
+		animation: te-spin 0.9s linear infinite;
+	}
+	@keyframes te-spin {
+		to {
+			transform: rotate(1turn);
+		}
+	}
+	/* The head carries the bar while the root is being re-read, so it needs to be the box the bar
+	   is absolute to. */
+	.te-drive-head {
+		position: relative;
+	}
 	.te-drive,
 	.te-local {
 		border-top: 1px solid var(--pixel-hairline, rgba(0, 0, 0, 0.12));

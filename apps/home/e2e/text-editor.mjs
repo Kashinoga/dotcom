@@ -2573,6 +2573,38 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 		!tree.Deep && !tree['Deep/Inner'],
 		Object.keys(tree).join(',')
 	);
+	// THE HEAD NAMES THE SERVER TOO, because a folder called `Notes` says nothing about where it is
+	// — and somebody with a drive open beside a local folder of the same name has two lists wearing
+	// one name.
+	await eq(
+		'the head names the folder and its server',
+		fp
+			.locator('.te-drive-head .te-work-name')
+			.textContent()
+			.then((t) => t.trim()),
+		'Notes (cloud.example.com)'
+	);
+
+	// FETCH UPDATES. A drive is somebody else's disk; something else can change it underneath.
+	tree[''].files.push('added-elsewhere.md');
+	tree[''].dirs.push('Fresh');
+	tree.Fresh = { dirs: [], files: [] };
+	await fp.locator('.te-drive-refresh').click();
+	await fp.waitForTimeout(1600);
+	const after = await fp.locator('.te-drive-list .te-work-file').allTextContents();
+	ok(
+		'refresh picks up a document made elsewhere',
+		after.includes('added-elsewhere.md'),
+		after.join(',')
+	);
+	ok('and a folder made elsewhere', after.includes('Fresh'), after.join(','));
+	ok(
+		'which arrives SHUT, as any newly-seen folder does',
+		(await fp
+			.locator('.te-drive-list .te-work-dir')
+			.filter({ hasText: 'Fresh' })
+			.getAttribute('aria-expanded')) === 'false'
+	);
 	ok('no page errors anywhere in that', errs.length === 0, errs.join(' | '));
 	await c.close();
 }
@@ -2871,8 +2903,9 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	await dp.waitForTimeout(1200);
 
 	ok(
-		'a connected drive is its own section, headed with its folder',
-		(await dp.locator('.te-drive-head .te-work-name').textContent()) === 'Notes'
+		'a connected drive is its own section, headed with its folder and its server',
+		(await dp.locator('.te-drive-head .te-work-name').textContent()).trim() ===
+			'Notes (cloud.example.com)'
 	);
 	ok(
 		'and it does NOT replace the folder — the local tree is still its own list',
