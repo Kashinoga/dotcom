@@ -169,7 +169,15 @@ const NARROW = [
 // hand (`pnpm --filter home snap:sky`) and nothing here ever calls it. Without this they fall to
 // the "shared e2e helper" arm below, and editing a tool no suite imports would force all 18 —
 // exactly the over-selection --changed exists to avoid.
-const IGNORE = [/^src\/app\.d\.ts$/, /^e2e\/sky-snap\.mjs$/, /^e2e\/snapshots\//];
+const IGNORE = [
+	/^src\/app\.d\.ts$/,
+	/^e2e\/sky-snap\.mjs$/,
+	// …and the docs snapshotter beside it, for the identical reason. Both are run BY HAND
+	// (`snap:sky`, `snap:docs`) and no suite imports either. Without this they fall to the "shared
+	// e2e helper" arm below and editing a tool nothing depends on forces all nineteen — measured.
+	/^e2e\/docs-snap\.mjs$/,
+	/^e2e\/snapshots\//
+];
 
 /** Files changed vs a ref, or in the working tree (staged + unstaged + untracked), app-relative. */
 function changedFiles(ref) {
