@@ -30,7 +30,18 @@ const PORT = Number(process.env.AUDIT_PORT ?? 5196);
 
 // The Kashinoga pages: the cover, a prose page, the two full-width sheets, and the longest
 // document on the site. Apps are deliberately out — they own their interiors and their own rhythm.
-const PAGES = ['/', '/about', '/about/work', '/apps', '/settings', '/apps/densette'];
+// The Emoji Viewer is the exception, and earns it: it is the only page whose superbar grows a
+// SEARCH KEY, and that key cancels the bar's right padding with a negative margin. Leave it out and
+// the report is silent about the one control this whole scale was built after.
+const PAGES = [
+	'/',
+	'/about',
+	'/about/work',
+	'/apps',
+	'/settings',
+	'/apps/densette',
+	'/apps/emoji-viewer'
+];
 // Where the clamps sit at their ends, and two widths in the fluid middle between them.
 const WIDTHS = [1500, 1100, 860, 390];
 
@@ -105,6 +116,12 @@ try {
 		for (const path of PAGES) {
 			await page.goto(base + path, { waitUntil: 'networkidle' });
 			await page.waitForTimeout(900);
+			// SCROLLED, or the report is missing the chrome most likely to be wrong. The superbar's
+			// separator and its search key are not in the DOM until the bar marks itself scrolled, and
+			// both cancel a bar inset with a negative margin — the exact shape that goes stale when the
+			// bar changes. An audit taken at rest walks past them and prints a clean page.
+			await page.evaluate(() => document.querySelector('.docs-scroll')?.scrollTo({ top: 600 }));
+			await page.waitForTimeout(600);
 			for (const { who, prop, px } of await page.evaluate(READ, PROPS)) {
 				const key = Math.round(px * 100) / 100;
 				if (!seen.has(key)) seen.set(key, { n: 0, who: new Set() });
@@ -126,7 +143,11 @@ try {
 // scale would be the tail wagging the dog.
 const STRUCTURAL = {
 	42: "the superbar's height, reserved by the scroller beneath it",
-	7: "the search key's optical centring in the bar"
+	7: "the search key's optical centring in the bar",
+	// 7px − 12px. The key wants to sit 7px off the bar's right edge (half the 42−28 difference,
+	// so its air matches top and bottom); the bar already pads 12px. The pull is the arithmetic
+	// between two numbers that are each correct, and it is not a rung in its own right.
+	'-5': "the search key's pull against the bar's own right padding"
 };
 
 const rows = [...seen.entries()].sort((a, b) => a[0] - b[0]);

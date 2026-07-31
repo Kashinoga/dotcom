@@ -288,8 +288,17 @@ const desk = async (path, { w = 1500, h = 950 } = {}) => {
 // Checked at FOUR WIDTHS, and the middle two are the point. At 1500 and 390 every clamp is pinned
 // to one of its ends, so those widths would pass on the bounds alone; 1100 and 860 catch the fluid
 // middle, which is where `round()` is doing the work.
+//
+// AND SCROLLED, WHICH IS THE SCENE OF THE CRIME. The bug that prompted all of this — the search key
+// pulled thirteen pixels outside the bar, where it was clipped — was reported "after scrolling",
+// and it could only be reported that way: `.docs-sb-search` and `.docs-brand-sep` do not EXIST in
+// the DOM until the bar marks itself scrolled. Measured at rest, this section walks straight past
+// the two elements it was written for and reports a clean page. Both of them cancel a bar inset
+// with a negative margin, which is exactly the shape that goes stale.
 for (const w of [1500, 1100, 860, 390]) {
 	const { ctx, page } = await desk('/about/work', { w, h: 950 });
+	await page.evaluate(() => document.querySelector('.docs-scroll')?.scrollTo({ top: 600 }));
+	await page.waitForTimeout(600);
 	const fractional = await page.evaluate(() => {
 		const props = [
 			'marginTop',
@@ -320,6 +329,39 @@ for (const w of [1500, 1100, 860, 390]) {
 		fractional.length === 0,
 		fractional.slice(0, 4).join(' | ')
 	);
+	await ctx.close();
+}
+
+// THE BUG ITSELF, ASKED DIRECTLY — and asked on the ONE PAGE that can answer.
+//
+// `.docs-sb-search` is `{#if onEmojiPage && evBarGone}`: it exists on the Emoji Viewer alone, and
+// only once that page's in-flow bar has scrolled away. Which is exactly how it was reported — "in
+// Emoji Viewer, after scrolling". Written into the width loop above, over `/about/work`, the
+// locator matched nothing and the check SILENTLY SKIPPED at all four widths while the section went
+// on printing four passes. A guard that matches nothing looks precisely like a guard that passes.
+//
+// And a whole-pixel sweep would not have caught this bug anyway: the stale pull was −25px, a
+// perfectly whole number, with the key hanging thirteen pixels outside the bar. What was wrong was
+// a RELATIONSHIP — where the key sits against the edge it is supposed to sit inside — so that is
+// what this asks. Both bounds, because a pull gone the other way buries the key instead.
+for (const w of [1500, 1100]) {
+	const { ctx, page } = await desk('/apps/emoji-viewer', { w, h: 950 });
+	await page.evaluate(() => document.querySelector('.docs-scroll')?.scrollTo({ top: 800 }));
+	await page.waitForTimeout(800);
+	const key = page.locator('.docs-sb-search');
+	ok(`@${w}px the emoji search key reaches the bar on scroll`, (await key.count()) === 1);
+	if (await key.count()) {
+		const fits = await page.evaluate(() => {
+			const k = document.querySelector('.docs-sb-search').getBoundingClientRect();
+			const b = document.querySelector('.docs-superbar').getBoundingClientRect();
+			return { gap: Math.round(b.right - k.right), inside: k.right <= b.right && k.left >= b.left };
+		});
+		ok(
+			`@${w}px …and sits inside the bar it belongs to`,
+			fits.inside && fits.gap >= 0 && fits.gap <= 12,
+			`right edge ${fits.gap}px inside the bar`
+		);
+	}
 	await ctx.close();
 }
 
