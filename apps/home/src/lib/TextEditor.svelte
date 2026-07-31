@@ -4,6 +4,7 @@
 	import {
 		editor,
 		shownMode,
+		openKind,
 		MARKS,
 		DOC_KEYS,
 		OPEN_KEYS,
@@ -224,6 +225,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	// $lib/text-editor-state, because the rack in the bar has to apply the same one to decide whether to
 	// draw the SPLIT key at all.
 	const shown = $derived(shownMode());
+	// WHAT KIND OF DOCUMENT IS OPEN — prose or code. Everything it gates is an affordance that is
+	// ABOUT prose: the proof, the reading measure, the contents rail (which indexes markdown
+	// headings) and the word and reading-time counts. None of them are wrong for code so much as
+	// meaningless, and a rail of headings found in a shell script would be actively misleading —
+	// `# set the path` is a comment, and outline() would list it as a chapter.
+	const kind = $derived(openKind());
 
 	/**
 	 * THE VIEW KEYS AS THE FLYOUT WANTS THEM — a mark, a word and a mode.
@@ -3572,7 +3579,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	     THE EVENT IS PASSED ON. Most of these want nothing to do with it; Workspace opens a menu
 	     and has to measure the disc it opens from, and on a phone that disc is the only thing that
 	     knows where the bottom-left of the screen is. -->
-	{#each VIEW_KEYS as m (m.id)}
+	<!-- The same rule the bar keeps: the view keys and the measure are PROSE's, and a code file
+	     has one view. See `shownMode`. -->
+	{#each kind === 'code' ? [] : VIEW_KEYS as m (m.id)}
 		<button
 			type="button"
 			class="icon-btn te-fkey"
@@ -3603,16 +3612,18 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			{@html k.svg}<span class="te-fkey-word">{k.label()}</span>
 		</button>
 	{/each}
-	<button
-		type="button"
-		class="icon-btn te-fkey"
-		class:on={editor.measured}
-		aria-pressed={editor.measured}
-		title={editor.measured ? 'Let the text run the full width' : 'Hold the text to a measure'}
-		onclick={() => (editor.measured = !editor.measured)}
-	>
-		{@html RULE_SVG}<span class="te-fkey-word">Measure</span>
-	</button>
+	{#if kind !== 'code'}
+		<button
+			type="button"
+			class="icon-btn te-fkey"
+			class:on={editor.measured}
+			aria-pressed={editor.measured}
+			title={editor.measured ? 'Let the text run the full width' : 'Hold the text to a measure'}
+			onclick={() => (editor.measured = !editor.measured)}
+		>
+			{@html RULE_SVG}<span class="te-fkey-word">Measure</span>
+		</button>
+	{/if}
 	<!-- THE PANEL'S CHROME, past the document keys — and it is ONE key now. About, Install and the
 	     door out were three discs at the top of this stack, drawn among the marks and looking like
 	     three more marks; the Beta tag was a fourth thing in the bar beside them. All four are
@@ -3642,7 +3653,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	class="te"
 	class:te-write={shown === 'write'}
 	class:te-proof-only={shown === 'proof'}
-	class:te-measured={editor.measured}
+	class:te-measured={editor.measured && kind !== 'code'}
 >
 	<div class="te-desk">
 		{#if editor.folderPending}
@@ -4038,7 +4049,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				</div>
 			</div>
 		{/if}
-		{#if editor.contentsShown && !editor.narrow}
+		{#if editor.contentsShown && !editor.narrow && kind !== 'code'}
 			<!-- THE CONTENTS, a fourth column at the right — the docs shell's own right rail, in an
 			     editor. It indexes the SOURCE rather than the proof, so it is there in WRITE where
 			     there is no proof to read, and it carries the same section numbers the proof
@@ -4501,7 +4512,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			icon={NIB_SVG}
 			label="Editor controls"
 			buttons={docKeys}
-			card={shown === 'proof' ? undefined : markCard}
+			card={shown === 'proof' || kind === 'code' ? undefined : markCard}
 		/>
 	{/if}
 
@@ -4521,17 +4532,25 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					<dt>Lines</dt>
 					<dd>{pad(count.lines)}</dd>
 				</div>
-				<div class="te-count">
-					<dt>Words</dt>
-					<dd>{pad(count.words)}</dd>
-				</div>
+				<!-- WORDS AND READING TIME ARE PROSE'S. "How long will this take somebody to read"
+				     is a question about a document, and it has no answer for a stylesheet — words
+				     counts identifiers and punctuation runs, and a reading time computed from them
+				     is a number that is precise and means nothing. Lines and characters are true
+				     of any text file, so those two stay for both kinds. -->
+				{#if kind !== 'code'}
+					<div class="te-count">
+						<dt>Words</dt>
+						<dd>{pad(count.words)}</dd>
+					</div>
+				{/if}
 				<div class="te-count">
 					<dt>Chars</dt>
 					<dd>{pad(count.chars)}</dd>
 				</div>
-				<div class="te-count">
-					<dt>Read</dt>
-					<!-- `min` is a LABEL, not part of the figure, and it used to be inside the <dd>'s
+				{#if kind !== 'code'}
+					<div class="te-count">
+						<dt>Read</dt>
+						<!-- `min` is a LABEL, not part of the figure, and it used to be inside the <dd>'s
 					     string — so the one word in this row that is not a number was set in the
 					     number face. The foot's whole recipe is sans labels and bitmap figures; this
 					     was the one place it was not kept, and it was invisible because `min` next to
@@ -4547,11 +4566,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					     normalisation still reads it as an ordinary space. Inside the span, so the
 					     space itself is set in the label's face at the label's size rather than in
 					     the bitmap figure's. -->
-					<dd>
-						{#if count.minutes}{pad(count.minutes)}<span class="te-unit">&nbsp;min</span
-							>{:else}—{/if}
-					</dd>
-				</div>
+						<dd>
+							{#if count.minutes}{pad(count.minutes)}<span class="te-unit">&nbsp;min</span
+								>{:else}—{/if}
+						</dd>
+					</div>
+				{/if}
 			</dl>
 			<!-- The lamp speaks only while a write is pending, and is silent the rest of the time.
 		     It used to sign off with "Set in type", which read as a wordmark rather than as

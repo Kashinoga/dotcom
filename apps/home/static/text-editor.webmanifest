@@ -35,7 +35,20 @@
 			"action": "/apps/text-editor",
 			"accept": {
 				"text/markdown": [".md", ".markdown", ".mdown", ".mkd"],
-				"text/plain": [".txt", ".text"]
+				"text/plain": [".txt", ".text"],
+				"text/javascript": [".js", ".mjs", ".cjs", ".jsx"],
+				"text/x-typescript": [".ts", ".tsx"],
+				"application/json": [".json", ".jsonc"],
+				"text/css": [".css", ".scss", ".less"],
+				"text/html": [".html", ".svelte", ".vue"],
+				"text/x-python": [".py"],
+				"text/x-shellscript": [".sh", ".bash", ".zsh", ".fish"],
+				"text/x-yaml": [".yaml", ".yml"],
+				"text/x-toml": [".toml"],
+				"application/sql": [".sql"],
+				"application/xml": [".xml", ".svg"],
+				"text/x-rust": [".rs"],
+				"text/x-go": [".go"]
 			}
 		}
 	],

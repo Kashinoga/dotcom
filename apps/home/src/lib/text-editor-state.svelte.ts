@@ -102,7 +102,11 @@ export type Ephemeral = { id: string; name: string; text: string };
  * runes all the way down — and the install manifest's file handlers need checking against the
  * same list. See the note there.
  */
-export { OPENABLE } from '$lib/markdown';
+export { OPENABLE, PROSE, CODE, kindOf, type Kind } from '$lib/markdown';
+// Re-exported ABOVE for the call sites that used to import from here, and imported again HERE
+// because a re-export does not bind a name in this module's own scope — `openKind` below needs
+// the real one.
+import { kindOf, type Kind } from '$lib/markdown';
 
 /** What the rack can ask the editor to do. Registered by the editor while it is mounted. */
 export type Commands = {
@@ -494,7 +498,26 @@ export async function install() {
  * reactive context reads `editor` there and tracks properly.
  */
 export function shownMode(): Mode {
+	// A CODE FILE HAS ONE VIEW, and this is the single place that decides it. There is no proof of
+	// a stylesheet — the markdown engine would set `# !/bin/sh` as a heading and a `*` as a
+	// bullet, which is not a rendering of the file but a misreading of it — and SPLIT is two panes
+	// of which one would be that misreading. Forcing it here rather than at each pane means the
+	// sheet, the rack, the flyout and the rail all follow without any of them asking what kind of
+	// document is open. `editor.mode` is left ALONE: it is the visitor's standing preference, and
+	// opening a `.json` should not silently reset the view they chose for their prose.
+	if (openKind() === 'code') return 'write';
 	return editor.narrow && editor.mode === 'split' ? 'write' : editor.mode;
+}
+
+/**
+ * WHAT KIND OF DOCUMENT IS OPEN, from its name.
+ *
+ * A function rather than a field on `editor`, for the reason `shownMode` is one: it is DERIVED,
+ * and a field would be a second copy of a fact that `editor.filename` already holds — settable in
+ * the eight places that set a filename, and therefore wrong in whichever of them somebody forgets.
+ */
+export function openKind(): Kind {
+	return kindOf(editor.filename);
 }
 
 // ── What the app offers ───────────────────────────────────────────────────────

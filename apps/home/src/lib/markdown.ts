@@ -24,18 +24,57 @@
 // (test/markdown.test.ts) with no browser and no harness.
 
 /**
- * What this engine will read. Deliberately narrow: handing it a binary would put mojibake on the
- * sheet rather than an error.
+ * WHAT THIS APP OPENS, in two kinds, because it now opens two kinds of thing.
  *
- * It lives HERE, beside the parser, rather than with the editor's state, because it is a fact
- * about the format rather than about the app — and because two things now have to agree on it
- * that cannot both import a module full of runes: the editor (which gates a folder walk and a
- * picker on it) and the install manifest's `file_handlers`, which is a promise to the operating
- * system that double-clicking one of these opens this app. A claim there that fails this test is
- * a file manager taught to hand documents to an editor that will not take them —
- * test/manifest.test.ts holds the two together.
+ * These live HERE, beside the parser, rather than with the editor's state, because they are facts
+ * about FORMATS rather than about the app — and because three things have to agree on them that
+ * cannot all import a module full of runes: the editor (which gates a folder walk and a picker on
+ * `OPENABLE`), the install manifest's `file_handlers`, which is a promise to the operating system
+ * that double-clicking one of these opens this app, and the tests. A claim in the manifest that
+ * fails `OPENABLE` is a file manager taught to hand documents to an editor that will not take
+ * them; test/manifest.test.ts holds those two together and test/markdown.test.ts holds these.
+ *
+ * Both lists are deliberately narrow — handing this a binary would put mojibake on the sheet
+ * rather than an error — and deliberately DISJOINT, which is asserted rather than assumed. An
+ * extension in both would make `kindOf` decide by the order of two regexes, which is not a
+ * decision anybody wrote down.
  */
-export const OPENABLE = /\.(md|markdown|mdown|mkd|txt|text)$/i;
+export const PROSE = /\.(md|markdown|mdown|mkd|txt|text)$/i;
+
+/**
+ * The code kinds. Text files with a grammar, which this app can carry, save and hand back
+ * unharmed — it makes no claim to UNDERSTAND them. The list is what turns up in a folder of notes
+ * next to the notes: a config, a stylesheet, a script. It is not a bid to be an IDE.
+ *
+ * `.svelte`, `.html` and `.xml` are here rather than in PROSE deliberately: they are markup a
+ * person writes as source, and setting them as a document would render the very tags they came to
+ * look at.
+ */
+export const CODE =
+	/\.(ts|tsx|js|jsx|mjs|cjs|json|jsonc|css|scss|less|html|svelte|vue|py|rb|rs|go|java|c|h|cpp|hpp|cs|php|swift|kt|sh|bash|zsh|fish|toml|ini|cfg|conf|ya?ml|sql|graphql|gql|xml|svg|lua|pl|r|jl|ex|exs|vim|dockerfile|makefile|gradle|properties|env)$/i;
+
+/**
+ * Everything the app will open, which is the union and must stay the union — `localStore` takes
+ * ONE pattern, and the walk that decides whether a row is a document or an inert grey line is
+ * gated on it.
+ */
+export const OPENABLE = new RegExp(`(?:${PROSE.source})|(?:${CODE.source})`, 'i');
+
+/** Which sheet a document wants. See `openKind` in the editor's state for the app-level answer. */
+export type Kind = 'prose' | 'code';
+
+/**
+ * What KIND of thing this name is.
+ *
+ * PROSE is the default and the fallback, and that is the important half: a scratch note is called
+ * `Ephemeral 0` and has no extension at all, a cleared sheet has no name, and a `README` with no
+ * suffix is prose by any reasonable reading. Only a positive match on CODE makes something code,
+ * so anything this app cannot place is set as a document — which is the behaviour it had before
+ * there were two kinds, and the one that cannot lose anybody's text.
+ */
+export function kindOf(name: string): Kind {
+	return CODE.test(name) ? 'code' : 'prose';
+}
 
 /** The tags this module will ever emit. Written down so a review can check the list, not the file. */
 export const EMITTED_TAGS = [

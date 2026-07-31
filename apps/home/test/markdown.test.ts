@@ -9,7 +9,16 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderMarkdown, tally, lineMarks, outline } from '../src/lib/markdown.ts';
+import {
+	renderMarkdown,
+	tally,
+	lineMarks,
+	outline,
+	PROSE,
+	CODE,
+	OPENABLE,
+	kindOf
+} from '../src/lib/markdown.ts';
 
 const md = renderMarkdown;
 
@@ -333,4 +342,41 @@ test('ids match the rendered headings, so the rail can jump to them', () => {
 	for (const h of outline(src)) {
 		assert.match(renderMarkdown(src), new RegExp(`id="${h.id}"`), h.text);
 	}
+});
+
+// ── What this app opens ───────────────────────────────────────────────────────
+// Three claims, and the app is wrong in a different way if any of them stops holding.
+
+test('OPENABLE is exactly the union of the two kinds', () => {
+	// It has to be: `localStore` takes ONE pattern, and the walk decides from it whether a row is
+	// a document or an inert grey line. A union that drifted would hide files from the workspace
+	// with nothing on screen to say so.
+	for (const ext of ['md', 'markdown', 'mdown', 'mkd', 'txt', 'text'])
+		assert.ok(OPENABLE.test(`a.${ext}`), `${ext} is prose but not openable`);
+	for (const ext of ['ts', 'js', 'json', 'css', 'html', 'py', 'rs', 'sh', 'yaml', 'toml', 'sql'])
+		assert.ok(OPENABLE.test(`a.${ext}`), `${ext} is code but not openable`);
+	for (const ext of ['png', 'pdf', 'zip', 'mp4', 'docx'])
+		assert.ok(!OPENABLE.test(`a.${ext}`), `${ext} is not text and must not be offered`);
+});
+
+test('the two kinds are disjoint', () => {
+	// If an extension were in both, `kindOf` would decide by the order of two regexes — which is
+	// not a decision anybody wrote down, and would change silently when either list is edited.
+	const of = (re: RegExp) => re.source.match(/\(([^)]+)\)/)![1].split('|');
+	const both = of(PROSE).filter((e) => of(CODE).includes(e));
+	assert.deepEqual(both, [], `in both lists: ${both.join(', ')}`);
+});
+
+test('kindOf falls back to prose, and that is the safe direction', () => {
+	assert.equal(kindOf('notes.md'), 'prose');
+	assert.equal(kindOf('README.txt'), 'prose');
+	assert.equal(kindOf('app.ts'), 'code');
+	assert.equal(kindOf('Deep/Nested/style.CSS'), 'code', 'the test is case-insensitive');
+	// The three that matter most, because they are what the app hands itself every session: a
+	// scratch note has no extension, a cleared sheet has no name, and a suffix-less README is
+	// prose by any reasonable reading. Anything unplaceable must be set as a document — that is
+	// the behaviour this app had before there were two kinds, and the one that cannot lose text.
+	assert.equal(kindOf('Ephemeral 0'), 'prose');
+	assert.equal(kindOf(''), 'prose');
+	assert.equal(kindOf('README'), 'prose');
 });

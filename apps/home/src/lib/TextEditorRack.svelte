@@ -3,6 +3,7 @@
 	import {
 		editor,
 		shownMode,
+		openKind,
 		openHeadings,
 		MARKS,
 		DOC_KEYS,
@@ -42,6 +43,9 @@
 	];
 
 	const shown = $derived(shownMode());
+	// WHAT KIND OF DOCUMENT IS OPEN. The marks and the view keys are markdown's, and a bar that
+	// offers them over a stylesheet is a bar making a promise about the file that is not true.
+	const kind = $derived(openKind());
 
 	/**
 	 * THE ENTRANCE IS THE BAR ARRIVING, NOT A KEY APPEARING — and it has to be able to stop.
@@ -110,7 +114,7 @@
 	</div>
 {/if}
 <div class="te-rack" class:te-arrived={arrived} role="toolbar" aria-label="Text Editor">
-	{#if shown !== 'proof' && !editor.narrow}
+	{#if shown !== 'proof' && !editor.narrow && kind !== 'code'}
 		<!-- The marks are only offered when there is a sheet to put them on. In PROOF there is
 		     nothing to mark up, and ten dead keys would say otherwise. On a phone they are in the
 		     flyout instead. They are the ONLY thing in the scrolling strip now: everything else
@@ -157,37 +161,45 @@
      keys stay, because switching between the sheet and the proof is the one thing a phone still
      has to do from the bar. -->
 <div class="te-tail" class:te-arrived={arrived}>
-	<div class="te-group" role="group" aria-label="View">
-		{#each MODES as m, i (m.id)}
-			<!-- SPLIT simply is not offered on a narrow window; see shownMode. -->
-			{#if !(editor.narrow && m.id === 'split')}
+	<!-- THE VIEW GROUP IS PROSE'S, ALL FOUR KEYS OF IT. A code file has one view — see `shownMode`,
+     which forces WRITE — so Write/Split/Proof would be three keys of which two do nothing and one
+     is already pressed. MEASURE goes with them rather than staying: a reading measure is a prose
+     affordance, and code is written to its own line lengths and wants the width it was written
+     for. The keys are ABSENT rather than disabled, which is this bar's standing rule — see `.md`
+     and SAVE, both of which vanish where they cannot act. -->
+	{#if kind !== 'code'}
+		<div class="te-group" role="group" aria-label="View">
+			{#each MODES as m, i (m.id)}
+				<!-- SPLIT simply is not offered on a narrow window; see shownMode. -->
+				{#if !(editor.narrow && m.id === 'split')}
+					<button
+						type="button"
+						class="tb"
+						class:on={shown === m.id}
+						aria-pressed={shown === m.id}
+						style:--bn={2 + i}
+						onclick={() => (editor.mode = m.id)}>{m.label}</button
+					>
+				{/if}
+			{/each}
+			<!-- The measure sits with the VIEW keys, not the marks: it changes how the document is laid
+		     out rather than what it says, and it applies to the proof as much as to the sheet — so
+		     it stays offered in PROOF, where the marks are not. On a phone it is in the flyout. -->
+			{#if !editor.narrow}
 				<button
 					type="button"
 					class="tb"
-					class:on={shown === m.id}
-					aria-pressed={shown === m.id}
-					style:--bn={2 + i}
-					onclick={() => (editor.mode = m.id)}>{m.label}</button
+					class:on={editor.measured}
+					aria-pressed={editor.measured}
+					title={editor.measured
+						? 'Let the text run the full width'
+						: 'Hold the text to a reading measure'}
+					style:--bn={5}
+					onclick={() => (editor.measured = !editor.measured)}>Measure</button
 				>
 			{/if}
-		{/each}
-		<!-- The measure sits with the VIEW keys, not the marks: it changes how the document is laid
-		     out rather than what it says, and it applies to the proof as much as to the sheet — so
-		     it stays offered in PROOF, where the marks are not. On a phone it is in the flyout. -->
-		{#if !editor.narrow}
-			<button
-				type="button"
-				class="tb"
-				class:on={editor.measured}
-				aria-pressed={editor.measured}
-				title={editor.measured
-					? 'Let the text run the full width'
-					: 'Hold the text to a reading measure'}
-				style:--bn={5}
-				onclick={() => (editor.measured = !editor.measured)}>Measure</button
-			>
-		{/if}
-	</div>
+		</div>
+	{/if}
 	{#if !editor.narrow}
 		<!-- A RULE SEPARATES TWO THINGS, so it is drawn only when there are two — and the GROUP goes
 		     with it. The document group can be EMPTY now: Save appears only when there is somewhere
