@@ -20,10 +20,14 @@
 //   transforms over a selection, so they work against ANY sheet without being written twice. (They
 //   are markdown's, so a code file would hide them — but that is the bar's decision, not theirs.)
 //
-// - `onChange` AND `destroy`. Both belong to a second implementation and neither has a caller yet.
-//   The textarea reports its changes through `bind:value`, and there is nothing to tear down.
-//   Adding them now would be an interface written against an imagined caller, which is how a seam
-//   ends up fitting nothing.
+// - `onChange`. It belongs to an engine that owns its own document, so it is a CONSTRUCTION
+//   parameter of the one that does ($lib/code-sheet) rather than a method here. The prose sheet
+//   reports through `bind:value` and has nothing to subscribe to; putting a subscription on the
+//   interface would oblige it to invent one.
+//
+//   (`destroy` was in the same position until Stage 2 and is now below, because it acquired a real
+//   caller. That is the rule this file is trying to keep: a method arrives when something needs
+//   it, not when it seems likely to be needed.)
 //
 // EVERY METHOD IS NULL-SAFE, and that is load-bearing rather than defensive. PROOF does not mount
 // the sheet at all — `{#if shown !== 'proof'}` — so there are real, reachable moments with no text
@@ -78,4 +82,10 @@ export type Sheet = {
 	 * suppressed, row scrolled to last.
 	 */
 	goToLine(line: number): void;
+
+	/**
+	 * Let go of whatever this sheet holds. A no-op for the prose sheet, which is markup Svelte
+	 * unmounts for it; real work for an engine that built its own DOM and its own listeners.
+	 */
+	destroy(): void;
 };

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onMount, tick, untrack } from 'svelte';
 	import { renderMarkdown, tally, lineMarks, outline } from '$lib/markdown';
 	import {
 		editor,
@@ -1010,7 +1010,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * ASSIGNED. Handing all of that to a factory would mean passing a setter for the one piece of
 	 * state the component most obviously owns.
 	 */
-	const sheet: Sheet = {
+	const proseSheet: Sheet = {
 		selection: () => ({ start: ta?.selectionStart ?? 0, end: ta?.selectionEnd ?? 0 }),
 		select(start, end) {
 			if (!ta) return;
@@ -1040,8 +1040,91 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			const row = mirrorEl?.children[line] as HTMLElement | undefined;
 			row?.scrollIntoView({ block: 'center' });
 			trackCaret();
-		}
+		},
+		// Nothing to let go of: this sheet IS markup, and Svelte unmounts it.
+		destroy: () => {}
 	};
+
+	/**
+	 * THE CODE SHEET — CodeMirror, built on demand, held here while a code file is open.
+	 *
+	 * Null in every other case, which is what makes `sheet` below resolve to the prose one. It is
+	 * `$state` rather than a plain variable because `sheet` is derived from it and the whole app
+	 * reads `sheet`.
+	 */
+	let codeSheet = $state<(Sheet & { setLanguage(f: string): Promise<void> }) | null>(null);
+	/** The element CodeMirror builds into. Only rendered for a code file. */
+	let codeEl: HTMLDivElement | undefined = $state();
+	/** True between asking for the module and having an editor. It is a network fetch the first
+	 *  time, so it is worth saying so rather than showing an empty white pane. */
+	let codeComing = $state(false);
+
+	/**
+	 * WHICH SHEET IS THE SHEET. Everything above this line — the marks, the contents rail, the
+	 * workspace, the keyboard — goes through `sheet` and none of it knows which engine answered.
+	 * That is the entire return on the seam.
+	 */
+	const sheet: Sheet = $derived(codeSheet ?? proseSheet);
+
+	/**
+	 * BUILDING AND LETTING GO OF THE CODE SHEET.
+	 *
+	 * Two effects rather than one, and the split is the point: this one owns the sheet's LIFE and
+	 * runs only when the kind changes, the one below owns its GRAMMAR and runs on every file. Put
+	 * together they would rebuild CodeMirror on every code-file switch and throw away the undo
+	 * history each time — the same quiet loss the prose sheet goes through `execCommand` to avoid.
+	 *
+	 * `text` and `editor.filename` are read through `untrack`, because this effect must not re-run
+	 * on a keystroke or on a file switch. What it depends on is the kind and the element, and
+	 * saying so precisely is what keeps a network import from being fired twice.
+	 *
+	 * THE DOCUMENT COMES FROM `text`, WHICH IS ALREADY RIGHT. `load` calls `sheet.put` BEFORE it
+	 * sets the filename, so at that moment the OLD sheet is still the sheet: coming from prose the
+	 * words land in the textarea, coming from code they land through `onChange`. Either way `text`
+	 * holds the document by the time the kind flips and this runs.
+	 */
+	$effect(() => {
+		const el = codeEl;
+		const wantsCode = kind === 'code';
+		if (!wantsCode || !el) {
+			if (codeSheet) {
+				codeSheet.destroy();
+				codeSheet = null;
+			}
+			codeComing = false;
+			return;
+		}
+		if (codeSheet) return;
+		let dropped = false;
+		codeComing = true;
+		(async () => {
+			const { makeCodeSheet } = await import('$lib/code-sheet');
+			const built = await makeCodeSheet({
+				parent: el,
+				doc: untrack(() => text),
+				filename: untrack(() => editor.filename),
+				onChange: (next) => (text = next)
+			});
+			// The kind can change while a module is in flight — open a `.ts`, change your mind,
+			// open a `.md`. Without this the editor is built into an element that is no longer in
+			// the document and never torn down.
+			if (dropped) return built.destroy();
+			codeSheet = built;
+			codeComing = false;
+		})();
+		return () => {
+			dropped = true;
+		};
+	});
+
+	/**
+	 * THE GRAMMAR FOLLOWS THE FILENAME, through a Compartment rather than a rebuild. Opening a
+	 * `.css` after a `.ts` is a reconfigure; the editor, its history and its scroll position stay.
+	 */
+	$effect(() => {
+		const name = editor.filename;
+		codeSheet?.setLanguage(name);
+	});
 
 	/**
 	 * A document's WORDS, on the sheet, under its name. It goes through `write`, like every other
@@ -3954,7 +4037,22 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				{/if}
 			</aside>
 		{/if}
-		{#if shown !== 'proof'}
+		{#if kind === 'code'}
+			<!-- THE CODE SHEET. A different engine entirely — see $lib/code-sheet — behind the same
+			     Sheet interface, so nothing above this line knows which one answered.
+			     It is a bare element that CodeMirror builds into, and it carries NONE of the prose
+			     sheet's apparatus: no mirror, no drawn caret, no drawn selection, no paper
+			     scroller. All of those exist to give a textarea things this engine already has, so
+			     on this path they are not reimplemented — they are absent. -->
+			<div class="te-pane te-sheet te-code-pane">
+				<div class="te-code" bind:this={codeEl}></div>
+				{#if codeComing}
+					<!-- The first code file of a session is a network fetch. Saying so beats a white
+					     pane, and it says what is happening rather than spinning at somebody. -->
+					<p class="te-code-coming">Loading the code editor…</p>
+				{/if}
+			</div>
+		{:else if shown !== 'proof'}
 			<!-- THE SHEET. The scroller is .te-paper; inside it the mirror sets the height and the
 			     textarea lies over it at exactly the same metrics. See the file head for why. -->
 			<div class="te-pane te-sheet">
@@ -4727,6 +4825,33 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   The scroller. Paper white under Pixelite (--surface is the white sheet), with the margin's
 	   rule drawn as a background line rather than a border, so it runs the full scroll height
 	   instead of stopping at the viewport. */
+	/* ── The code pane ────────────────────────────────────────────────────────
+	   CodeMirror brings its own scroller, its own gutter and its own line layout, so this is a
+	   frame and nothing else. Everything about how it LOOKS is set in $lib/code-sheet through
+	   CodeMirror's own theme API, reading the same custom properties this file does — which is
+	   the only way to dress it, since its DOM is built at runtime and carries no Svelte scope
+	   class for a scoped rule to reach. */
+	.te-code-pane {
+		position: relative;
+		overflow: hidden;
+	}
+	.te-code {
+		height: 100%;
+	}
+	/* The waiting line, centred over the empty frame. It is only ever seen once per session and
+	   only on a cold cache, so it is deliberately plain — a spinner would be a moving thing on a
+	   desk whose one moving thing is reserved for the drive (see TOPAZ in the theme). */
+	.te-code-coming {
+		position: absolute;
+		inset: 0;
+		display: grid;
+		place-items: center;
+		margin: 0;
+		font-family: var(--font-body, system-ui, sans-serif);
+		font-size: 0.78rem;
+		color: var(--sub);
+		pointer-events: none;
+	}
 	.te-paper {
 		flex: 1 1 auto;
 		min-height: 0;

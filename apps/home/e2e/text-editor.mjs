@@ -3422,6 +3422,180 @@ await browser.close();
 	await b.close();
 }
 
+// ── THE CODE SHEET ───────────────────────────────────────────────────────────
+// A SECOND ENGINE behind the same Sheet interface ($lib/code-sheet). What is worth asserting here
+// is NOT that CodeMirror works — that is CodeMirror's own problem, and re-testing it would be this
+// suite paying to maintain somebody else's coverage. What is worth asserting is the SEAM: that the
+// right engine answers for the right file, that the app's own state stays in step with a document
+// it no longer owns, that switching files does not quietly rebuild the editor, and that the whole
+// thing stays off the wire for a visitor who only ever writes prose.
+{
+	const b = await chromium.launch();
+	const c = await b.newContext({ viewport: { width: 1500, height: 950 } });
+	// Every script this page asks for, so the laziness can be measured rather than asserted from
+	// the shape of the source.
+	const scripts = [];
+	await c.addInitScript(() => {
+		window.__seed = async () => {
+			const root = await navigator.storage.getDirectory();
+			const put = async (n, body) => {
+				const fh = await root.getFileHandle(n, { create: true });
+				const w = await fh.createWritable();
+				await w.write(body);
+				await w.close();
+			};
+			await put('notes.md', '# Head\n\nprose here\n');
+			await put('app.ts', 'export function start() {\n\tconst n = 42;\n\treturn n;\n}\n');
+			await put('style.css', '.a { color: red; }\n');
+			window.showDirectoryPicker = async () => root;
+		};
+	});
+	const p = await c.newPage();
+	p.on('request', (r) => r.resourceType() === 'script' && scripts.push(r.url()));
+	await p.goto(`${B}/apps/text-editor`, { waitUntil: 'networkidle' });
+	await p.waitForSelector('.te-type', { timeout: 15000 });
+
+	// THE LAZINESS, measured on the way in. A prose visitor must not pay for an engine they will
+	// never open. This is the assertion that justifies the whole hybrid, so it runs FIRST, before
+	// anything has had a chance to fetch it.
+	ok(
+		'a prose visitor fetches no code editor at all',
+		scripts.every((u) => !/code-sheet|codemirror/i.test(u)),
+		scripts.filter((u) => /code-sheet|codemirror/i.test(u)).join(', ')
+	);
+
+	await p.evaluate(() => window.__seed());
+	await p.waitForTimeout(300);
+	await p.locator('.te-local .te-work-head').click({ button: 'right' });
+	await p.waitForTimeout(200);
+	await p
+		.locator('.popover-item')
+		.filter({ hasText: /^Open a/ })
+		.first()
+		.click();
+	await p.waitForTimeout(900);
+	const open = async (name) => {
+		await p.locator('.te-local-list .te-work-file').filter({ hasText: name }).first().click();
+		await p.waitForTimeout(1500);
+	};
+
+	await open('notes.md');
+	ok(
+		'a prose file is served by the textarea sheet',
+		(await p.locator('.te-type').count()) === 1 && (await p.locator('.cm-editor').count()) === 0
+	);
+
+	await open('app.ts');
+	ok('a code file builds the code sheet', (await p.locator('.cm-editor').count()) === 1);
+	ok('and the prose sheet is gone with it', (await p.locator('.te-type').count()) === 0);
+	ok(
+		'the document arrived on it intact',
+		(await p.locator('.cm-content').innerText()).includes('export function start')
+	);
+	// The gutter is the margin column's counterpart on this path, and the numerals in it wear the
+	// figure face for the same reason every other numeral in the app does.
+	ok(
+		'line numbers are drawn, in the figure face',
+		(await p.locator('.cm-lineNumbers .cm-gutterElement').count()) >= 4 &&
+			(
+				await p
+					.locator('.cm-lineNumbers .cm-gutterElement')
+					.first()
+					.evaluate((el) => getComputedStyle(el).fontFamily)
+			).includes('VT323')
+	);
+	// THE PALETTE IS THE MANUAL'S. Not which token landed on which construct — that is a taste
+	// somebody may retune — but that the highlighting is drawn from the app's own inks rather than
+	// a downloaded theme's, which is the thing that would silently stop being true.
+	const inks = await p.evaluate(() => {
+		const want = ['--sub', '--orange', '--emerald', '--topaz'].map((n) =>
+			getComputedStyle(document.documentElement).getPropertyValue(n).trim()
+		);
+		const rgb = (v) => {
+			const d = document.createElement('div');
+			d.style.color = v;
+			document.body.appendChild(d);
+			const c = getComputedStyle(d).color;
+			d.remove();
+			return c;
+		};
+		const theme = new Set(want.map(rgb));
+		const used = new Set(
+			[...document.querySelectorAll('.cm-content span')].map((s) => getComputedStyle(s).color)
+		);
+		return { used: [...used], stray: [...used].filter((c) => !theme.has(c)) };
+	});
+	ok(
+		'tokens are painted in more than one colour',
+		inks.used.length >= 3,
+		JSON.stringify(inks.used)
+	);
+	ok(
+		'and every one of them is one of the theme’s own inks',
+		inks.stray.length === 0,
+		`not from the palette: ${inks.stray.join(', ')}`
+	);
+
+	// THE EDITING MODEL — the actual reason a second engine is here. A textarea can do none of
+	// these, and no amount of highlighting would make up for it.
+	await p.locator('.cm-content').click();
+	await p.keyboard.press('ControlOrMeta+a');
+	await p.keyboard.press('Delete');
+	await p.keyboard.type('function f() {');
+	await p.keyboard.press('Enter');
+	await p.keyboard.type('x');
+	await p.waitForTimeout(200);
+	const typed = await p.locator('.cm-content').innerText();
+	ok('a bracket closes itself', typed.includes('}'), JSON.stringify(typed));
+	ok('and the line inside it is indented', /\n\s+x/.test(typed), JSON.stringify(typed));
+	await p.keyboard.press('ControlOrMeta+z');
+	await p.waitForTimeout(250);
+	ok(
+		'undo works, on this engine’s own history',
+		!(await p.locator('.cm-content').innerText()).includes('x}'),
+		JSON.stringify(await p.locator('.cm-content').innerText())
+	);
+
+	// THE APP'S STATE FOLLOWS A DOCUMENT IT NO LONGER OWNS. CodeMirror holds the text; `text` is
+	// kept from its updates. The running foot is the visible end of that wire, so it is what says
+	// the wire is connected.
+	await p.keyboard.press('ControlOrMeta+a');
+	await p.keyboard.press('Delete');
+	await p.keyboard.type('one\ntwo\nthree');
+	await p.waitForTimeout(700);
+	ok(
+		'the running foot follows the code sheet',
+		/0003/.test((await p.locator('.te-tally').innerText()).replace(/\s+/g, ' ')),
+		JSON.stringify((await p.locator('.te-tally').innerText()).replace(/\s+/g, ' '))
+	);
+
+	// SWITCHING CODE → CODE RECONFIGURES, IT DOES NOT REBUILD. A rebuild would throw the undo
+	// history away on every file switch, which is the quiet loss `write` goes through execCommand
+	// to avoid on the other path. Marked on the live element, so a new instance cannot fake it.
+	const mark = await p.evaluate(() => {
+		document.querySelector('.cm-editor').dataset.mark = 'kept';
+		return true;
+	});
+	await open('style.css');
+	ok(
+		'switching between two code files keeps the same editor',
+		mark && (await p.locator('.cm-editor').getAttribute('data-mark')) === 'kept'
+	);
+	ok(
+		'and the new document is on it',
+		(await p.locator('.cm-content').innerText()).includes('color')
+	);
+
+	await open('notes.md');
+	ok('going back to prose lets the code sheet go', (await p.locator('.cm-editor').count()) === 0);
+	ok(
+		'and the prose sheet is back with the right document',
+		(await p.locator('.te-type').inputValue()).includes('prose here')
+	);
+
+	await b.close();
+}
+
 const failed = results.filter((r) => !r.pass);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);
 process.exit(failed.length ? 1 : 0);
