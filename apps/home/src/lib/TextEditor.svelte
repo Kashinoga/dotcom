@@ -29,6 +29,7 @@
 		type WriteResult
 	} from '$lib/text-editor-store';
 	import { SAID } from '$lib/text-editor-state.svelte';
+	import type { Sheet } from '$lib/text-editor-sheet';
 	import {
 		configFor,
 		forgetToken,
@@ -213,25 +214,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			proofEl?.querySelector(`#${CSS.escape(entry.id)}`)?.scrollIntoView({ block: 'start' });
 			return;
 		}
-		// ORDER MATTERS HERE, and getting it wrong is what made this take two clicks.
-		//
-		// Focusing a text control scrolls its CURRENT selection into view, and the textarea is not
-		// its own scroller — it is the full height of the document, laid over the mirror — so the
-		// browser scrolls `.te-paper` instead. Done after the row was scrolled to, that threw the
-		// sheet straight back to wherever the caret had been left: the first press on a heading
-		// landed on the PREVIOUS heading's position, and the second one, with the caret now in the
-		// right chapter, looked like it had worked.
-		//
-		// So the caret is set first, focus is taken with the scrolling suppressed, and the row is
-		// scrolled to LAST, where nothing can undo it.
-		const at = srcLines.slice(0, entry.line).reduce((n, l) => n + l.length + 1, 0);
-		if (ta) {
-			ta.setSelectionRange(at, at);
-			ta.focus({ preventScroll: true });
-		}
-		const row = mirrorEl?.children[entry.line] as HTMLElement | undefined;
-		row?.scrollIntoView({ block: 'center' });
-		trackCaret();
+		// The ordering this used to spell out in place is the SHEET's now — see `goToLine` in
+		// $lib/text-editor-sheet, where it is stated as the invariant it is. The rail's own job is
+		// only to know that a heading is at a line.
+		sheet.goToLine(entry.line);
 	}
 
 	// Which panes are on. The rule (SPLIT is not offered on a narrow window) lives in
@@ -792,21 +778,19 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * Pressing it again on an already-wrapped selection unwraps it.
 	 */
 	function surround(open: string, close = open) {
-		if (!ta) return;
-		const { selectionStart: s, selectionEnd: e } = ta;
+		const { start: s, end: e } = sheet.selection();
 		const chosen = text.slice(s, e);
 		const before = text.slice(Math.max(0, s - open.length), s);
 		const after = text.slice(e, e + close.length);
 
 		if (before === open && after === close) {
 			// Already wrapped — take the marks off, and keep the words selected.
-			ta.selectionStart = s - open.length;
-			ta.selectionEnd = e + close.length;
-			write(chosen, s - open.length, e - open.length);
+			sheet.select(s - open.length, e + close.length);
+			sheet.write(chosen, s - open.length, e - open.length);
 			return;
 		}
 		const at = s + open.length;
-		write(open + chosen + close, at, at + chosen.length);
+		sheet.write(open + chosen + close, at, at + chosen.length);
 	}
 
 	/**
@@ -815,8 +799,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * The whole affected range is rewritten in ONE execCommand so it is a single undo step.
 	 */
 	function prefix(mark: string) {
-		if (!ta) return;
-		const { selectionStart: s, selectionEnd: e } = ta;
+		const { start: s, end: e } = sheet.selection();
 		const from = text.lastIndexOf('\n', s - 1) + 1;
 		const toNewline = text.indexOf('\n', e);
 		const to = toNewline === -1 ? text.length : toNewline;
@@ -830,10 +813,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			.map((l) => (allMarked ? l.replace(family, '') : mark + l.replace(family, '')))
 			.join('\n');
 
-		ta.selectionStart = from;
-		ta.selectionEnd = to;
+		sheet.select(from, to);
 		const shift = next.length - (to - from);
-		write(next, Math.max(from, s + (allMarked ? -mark.length : mark.length)), e + shift);
+		sheet.write(next, Math.max(from, s + (allMarked ? -mark.length : mark.length)), e + shift);
 	}
 
 	const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -845,8 +827,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * first. Pressing the level a line already has takes it off, the way the two keys did.
 	 */
 	function heading(level: number) {
-		if (!ta) return;
-		const { selectionStart: s, selectionEnd: e } = ta;
+		const { start: s, end: e } = sheet.selection();
 		const from = text.lastIndexOf('\n', s - 1) + 1;
 		const toNewline = text.indexOf('\n', e);
 		const to = toNewline === -1 ? text.length : toNewline;
@@ -855,31 +836,28 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		const already = chosen.every((l) => l.match(ATX)?.[1].length === level);
 		const mark = level && !already ? '#'.repeat(level) + ' ' : '';
 		const next = chosen.map((l) => mark + l.replace(ATX, '')).join('\n');
-		ta.selectionStart = from;
-		ta.selectionEnd = to;
+		sheet.select(from, to);
 		const shift = next.length - (to - from);
 		const head = chosen[0].match(ATX)?.[0].length ?? 0;
-		write(next, Math.max(from, s + (mark.length - head)), e + shift);
+		sheet.write(next, Math.max(from, s + (mark.length - head)), e + shift);
 	}
 
 	/** Drop a block in on its own lines, with blank lines around it if there aren't any. */
 	function block(body: string) {
-		if (!ta) return;
-		const { selectionStart: s } = ta;
+		const { start: s } = sheet.selection();
 		const lead = s > 0 && text[s - 1] !== '\n' ? '\n' : '';
 		const tail = s < text.length && text[s] !== '\n' ? '\n' : '';
-		write(lead + body + '\n' + tail);
+		sheet.write(lead + body + '\n' + tail);
 	}
 
 	// The link key, which is the one that earns a special case. With text selected, the selection
 	// becomes the LABEL and the caret lands in the empty target, ready for a paste — which is the
 	// order the gesture actually happens in: you copy a URL, select the words, press the key.
 	function link() {
-		if (!ta) return;
-		const { selectionStart: s, selectionEnd: e } = ta;
+		const { start: s, end: e } = sheet.selection();
 		const chosen = text.slice(s, e) || 'text';
 		const body = `[${chosen}](`;
-		write(`${body})`, s + body.length);
+		sheet.write(`${body})`, s + body.length);
 	}
 
 	// ── The keyboard ──────────────────────────────────────────────────────────
@@ -906,12 +884,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		if (event.key === 'Tab') {
 			event.preventDefault();
 			if (event.shiftKey) return dedent();
-			return write('  ');
+			return sheet.write('  ');
 		}
 		if (event.key === 'Escape') {
 			// The advertised way out of the trap. Blurring hands focus back to the document, so
 			// the next Tab reaches the rack.
-			ta?.blur();
+			sheet.blur();
 			return;
 		}
 
@@ -925,15 +903,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 
 	/** Shift-Tab: take one indent step off the current line, if there is one to take. */
 	function dedent() {
-		if (!ta) return;
-		const { selectionStart: s } = ta;
+		const { start: s } = sheet.selection();
 		const from = text.lastIndexOf('\n', s - 1) + 1;
 		const line = text.slice(from, s);
 		const lead = line.match(/^[ \t]{1,2}/)?.[0];
 		if (!lead) return;
-		ta.selectionStart = from;
-		ta.selectionEnd = from + lead.length;
-		write('', s - lead.length);
+		sheet.select(from, from + lead.length);
+		sheet.write('', s - lead.length);
 	}
 
 	/**
@@ -942,8 +918,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * behaviour every editor has and nobody notices until it is missing.
 	 */
 	function carryList(event: KeyboardEvent) {
-		if (!ta) return;
-		const { selectionStart: s, selectionEnd: e } = ta;
+		const { start: s, end: e } = sheet.selection();
 		if (s !== e) return; // a selection makes this an ordinary replace
 		const from = text.lastIndexOf('\n', s - 1) + 1;
 		const line = text.slice(from, s);
@@ -954,13 +929,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		event.preventDefault();
 		if (!rest) {
 			// An empty item: clear the marker off this line and leave the caret on a blank line.
-			ta.selectionStart = from;
-			ta.selectionEnd = s;
-			write('');
+			sheet.select(from, s);
+			sheet.write('');
 			return;
 		}
 		const marker = bullet ? `${bullet} ` : `${Number(number) + 1}${delimiter} `;
-		write(`\n${indent}${marker}`);
+		sheet.write(`\n${indent}${marker}`);
 	}
 
 	// ── Getting it out ────────────────────────────────────────────────────────
@@ -1014,6 +988,55 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 
 	/**
+	 * THE SHEET, as everything above it sees it — the seam described at length in
+	 * $lib/text-editor-sheet.
+	 *
+	 * This is the PROSE implementation, and it is deliberately thin: every method here is one or
+	 * two lines over machinery that already existed, because the point of this object is not to do
+	 * anything new but to be the only door through which the marks, the contents rail and the
+	 * workspace reach the text control. What is left OUTSIDE it — `trackCaret`, `measureCaret`,
+	 * `measureSelection`, `onPaperScroll`, the mirror itself — is this sheet's own business and
+	 * has no meaning for any other one. A second engine draws its own caret and scrolls itself.
+	 *
+	 * It stays an object literal in this component rather than a factory in the module, because it
+	 * closes over `ta`, `text`, `mirrorEl` and `srcLines`, and `text` is a rune that has to be
+	 * ASSIGNED. Handing all of that to a factory would mean passing a setter for the one piece of
+	 * state the component most obviously owns.
+	 */
+	const sheet: Sheet = {
+		selection: () => ({ start: ta?.selectionStart ?? 0, end: ta?.selectionEnd ?? 0 }),
+		select(start, end) {
+			if (!ta) return;
+			ta.selectionStart = start;
+			ta.selectionEnd = end ?? start;
+		},
+		write: (replacement, selectStart, selectEnd) => write(replacement, selectStart, selectEnd),
+		put: (body) => putOnSheet(body),
+		focus: (opts) => ta?.focus(opts),
+		blur: () => ta?.blur(),
+		goToLine(line) {
+			// ORDER MATTERS HERE, and getting it wrong is what made the contents rail take two
+			// clicks. Focusing a text control scrolls its CURRENT selection into view, and this
+			// textarea is not its own scroller — it is the full height of the document, laid over
+			// the mirror — so the browser scrolls `.te-paper` instead. Done after the row was
+			// scrolled to, that threw the sheet straight back to wherever the caret had been left:
+			// the first press on a heading landed on the PREVIOUS heading's position, and the
+			// second, with the caret now in the right chapter, looked like it had worked.
+			//
+			// So the caret is set first, focus is taken with the scrolling suppressed, and the row
+			// is scrolled to LAST, where nothing can undo it.
+			const at = srcLines.slice(0, line).reduce((n, l) => n + l.length + 1, 0);
+			if (ta) {
+				ta.setSelectionRange(at, at);
+				ta.focus({ preventScroll: true });
+			}
+			const row = mirrorEl?.children[line] as HTMLElement | undefined;
+			row?.scrollIntoView({ block: 'center' });
+			trackCaret();
+		}
+	};
+
+	/**
 	 * A document's WORDS, on the sheet, under its name. It goes through `write`, like every other
 	 * edit, so opening the wrong file is UNDOABLE — Cmd-Z brings back what was there. That is the
 	 * whole reason opening does not have to ask first.
@@ -1031,7 +1054,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	) {
 		// Whatever is on the sheet may be a scratch note, and this is about to be over it.
 		stashEphemeral();
-		putOnSheet(body.replace(/\r\n?/g, '\n'));
+		sheet.put(body.replace(/\r\n?/g, '\n'));
 		editor.filename = name;
 		editor.openHandle = handle;
 		editor.openWritable = writable;
@@ -1236,7 +1259,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * scratch note is undoable exactly as opening a file is.
 	 */
 	function putEphemeralOnSheet(doc: Ephemeral) {
-		putOnSheet(doc.text);
+		sheet.put(doc.text);
 		editor.filename = doc.name;
 		editor.openHandle = null;
 		editor.openWritable = false;
@@ -2204,7 +2227,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 
 	/** Empty a document that is open, through the sheet, so the emptying is UNDOABLE. */
 	function emptyTheSheet() {
-		putOnSheet('');
+		sheet.put('');
 	}
 
 	/** The tree entry, the shelf row or the scratch note the open menu belongs to, as one thing. */
@@ -2609,7 +2632,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.fileMenu = null;
 		editor.doomed = '';
 		clearTimeout(doomTimer);
-		if (refocus) ta?.focus();
+		if (refocus) sheet.focus();
 	}
 
 	$effect(() => {
@@ -3108,7 +3131,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 */
 	function readme() {
 		stashEphemeral();
-		putOnSheet(STARTER);
+		sheet.put(STARTER);
 		editor.filename = '';
 		editor.openPath = '';
 		editor.openIn = 'tree';
@@ -3164,7 +3187,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	let wasProof = false;
 	$effect(() => {
 		const now = shown;
-		if (wasProof && now !== 'proof') tick().then(() => ta?.focus());
+		if (wasProof && now !== 'proof') tick().then(() => sheet.focus());
 		wasProof = now === 'proof';
 		// A mode change swaps which panes exist, and the new one has its own scroll position —
 		// so the bar's frost has to be re-read rather than left on from the pane that just went.
