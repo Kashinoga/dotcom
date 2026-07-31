@@ -4512,9 +4512,21 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					     string — so the one word in this row that is not a number was set in the
 					     number face. The foot's whole recipe is sans labels and bitmap figures; this
 					     was the one place it was not kept, and it was invisible because `min` next to
-					     `0001` looks like it belongs to it. Its own span, in the label's voice. -->
+					     `0001` looks like it belongs to it. Its own span, in the label's voice.
+					     THE SPACE IS A REAL CHARACTER, INSIDE THE SPAN, and that is the second thing
+					     this cost. It was a `margin-left` first, which looks identical and is not:
+					     `textContent` came out `0001min`, so the running foot read as one word to
+					     anything not looking at pixels — a screen reader, a copy-paste, and the
+					     suite, which caught it. A GAP IS NOT A SPACE; $lib/VersionCard's legend
+					     records the same lesson from the same mistake.
+					     NON-BREAKING, because a figure and its unit are one thing and the foot wraps
+					     on a narrow window. `\s` matches U+00A0, so the assertion's whitespace
+					     normalisation still reads it as an ordinary space. Inside the span, so the
+					     space itself is set in the label's face at the label's size rather than in
+					     the bitmap figure's. -->
 					<dd>
-						{#if count.minutes}{pad(count.minutes)}<span class="te-unit">min</span>{:else}—{/if}
+						{#if count.minutes}{pad(count.minutes)}<span class="te-unit">&nbsp;min</span
+							>{:else}—{/if}
 					</dd>
 				</div>
 			</dl>
@@ -6347,11 +6359,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		font-variant-numeric: tabular-nums;
 	}
 	/* The unit rides the figure but is not one, so it takes the label's face and the label's size.
-	   The gap is a MARGIN rather than a space in the markup: the figure is `pad()`ed to four
-	   characters and a literal space inside the <dd> would be set in the bitmap face at the
-	   figure's 1.05rem, which is a third again the gap this row wants. */
+	   NO MARGIN: the gap is the non-breaking space inside the span — see the markup for why it has
+	   to be a real character. Setting both would space it twice. */
 	.te-unit {
-		margin-left: var(--space-4);
 		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.66rem;
 		color: var(--sub);
