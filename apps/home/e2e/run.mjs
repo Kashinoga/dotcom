@@ -184,6 +184,7 @@ const IGNORE = [
 	// (`snap:sky`, `snap:docs`) and no suite imports either. Without this they fall to the "shared
 	// e2e helper" arm below and editing a tool nothing depends on forces all nineteen — measured.
 	/^e2e\/docs-snap\.mjs$/,
+	/^e2e\/space-audit\.mjs$/,
 	/^e2e\/snapshots\//
 ];
 

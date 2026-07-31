@@ -275,6 +275,89 @@ const desk = async (path, { w = 1500, h = 950 } = {}) => {
 	await ctx.close();
 }
 
+// ── 8. SPACING LANDS ON WHOLE PIXELS ────────────────────────────────────────
+// The runtime half of the spacing guard. `test/spacing.test.ts` reads the SOURCE and asks that
+// every value came from puhig's `--space-*` scale; it cannot see anything computed, and computed
+// is where the interesting failures are — a `clamp()` in its fluid middle, a `calc()` cancelling
+// something that has since moved, a token that did not resolve.
+//
+// WHOLE PIXELS ARE THE CLAIM, and it is a real one rather than a tidiness one: a fractional gap
+// rounds independently wherever it lands, so a column of them accumulates disagreement down the
+// page — the reasoning behind the text editor's whole-pixel row invariant, applied to space.
+//
+// Checked at FOUR WIDTHS, and the middle two are the point. At 1500 and 390 every clamp is pinned
+// to one of its ends, so those widths would pass on the bounds alone; 1100 and 860 catch the fluid
+// middle, which is where `round()` is doing the work.
+for (const w of [1500, 1100, 860, 390]) {
+	const { ctx, page } = await desk('/about/work', { w, h: 950 });
+	const fractional = await page.evaluate(() => {
+		const props = [
+			'marginTop',
+			'marginBottom',
+			'marginLeft',
+			'marginRight',
+			'paddingTop',
+			'paddingBottom',
+			'paddingLeft',
+			'paddingRight',
+			'rowGap',
+			'columnGap'
+		];
+		const bad = [];
+		for (const el of document.querySelectorAll('[class*="docs-"]')) {
+			const s = getComputedStyle(el);
+			for (const p of props) {
+				const v = parseFloat(s[p]);
+				// A hair of tolerance: a browser may report 12.0000001 for an exact value.
+				if (!isNaN(v) && v !== 0 && Math.abs(v % 1) > 0.01)
+					bad.push(`${[...el.classList].filter((c) => !c.startsWith('svelte-'))[0]} ${p}=${s[p]}`);
+			}
+		}
+		return [...new Set(bad)];
+	});
+	ok(
+		`@${w}px every docs spacing is a whole number of pixels`,
+		fractional.length === 0,
+		fractional.slice(0, 4).join(' | ')
+	);
+	await ctx.close();
+}
+
+// ── 9. The two columns stand on one pitch ───────────────────────────────────
+// The sidebar's leaves and the rail's entries are the same kind of thing — a short name in a
+// narrow column — and they are read together, one either side of the page. They drifted apart
+// once (26px against 21px: a smaller face on tighter leading, then padding putting it back and
+// more), which is the sort of difference nobody can name and everybody can see.
+//
+// A LINE PITCH IS NOT ON THE SPACING SCALE, and must not be asserted as though it were. It is
+// `font-size × line-height` — 12.8 × 1.65 here, so 21.12px — which is TYPE, the same category as
+// the inline-code chip's `em` padding that `test/spacing.test.ts` exempts as a unit. Section 8
+// asks about margins, padding and gaps for exactly this reason: those are the page's own
+// decisions, and a line box is the font's.
+//
+// This assertion used to round the two pitches before comparing them AND then check the rounded
+// number was whole — which it always was, by construction. An assertion that cannot fail reads as
+// coverage and is not, and this one was hiding a claim (a 21px pitch) that was never true.
+{
+	const { ctx, page } = await desk('/apps/densette');
+	const pitch = (sel) =>
+		page.evaluate((s) => {
+			const e = [...document.querySelectorAll(s)];
+			// Sampled INSIDE a run of siblings — across a section head the gap is a different fact.
+			return e[5].getBoundingClientRect().top - e[4].getBoundingClientRect().top;
+		}, sel);
+	const leaf = await pitch('.docs-leaf');
+	const rail = await pitch('.docs-rail-link');
+	// Compared RAW, to a sub-pixel tolerance: the claim is that the two columns are set to one
+	// rhythm, and rounding first would let a genuine half-pixel drift pass as agreement.
+	ok(
+		'the sidebar and the rail share one line pitch',
+		Math.abs(leaf - rail) < 0.02,
+		`sidebar ${leaf} · rail ${rail}`
+	);
+	await ctx.close();
+}
+
 await browser.close();
 const failed = results.filter((r) => !r.pass);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);
