@@ -30,11 +30,8 @@ const read = (p: string) => readFileSync(resolve(HERE, '..', p), 'utf8');
 
 const TOKENS = read('../../packages/puhig/src/base.css');
 
-/** The files that draw a Kashinoga PAGE — the shell around it and the paper inside it. */
-const PAGES = ['src/lib/DocsShell.svelte', 'src/lib/DocsBody.svelte'];
-
 /** Declarations that set space. Not `border`/`inset`/`width` — those are not rhythm. */
-const SPACING = /^\s*(margin|padding|gap|row-gap|column-gap)(-[a-z]+)?\s*:\s*([^;]+);/gm;
+const SPACING = /^\s*(margin|padding|gap|row-gap|column-gap)(-[a-z-]+)?\s*:\s*([^;]+);/gm;
 
 /**
  * Literals allowed to stand outside the scale, each with the reason it is not rhythm.
@@ -52,6 +49,34 @@ const EXEMPT: Record<string, string> = {
 	// The floating key's diameter, reserved so the last line of a page clears it.
 	'40px': "the floating key's diameter, reserved at the foot of the scroller"
 };
+
+/**
+ * The surfaces held to the scale, each with whatever it is allowed on top of the shared list.
+ *
+ * TWO GROUPS, because they are two different jobs. The SHELL is the site's own chrome and the
+ * paper a page is printed on. The EDITOR is an app, and an app owns its interior — it was
+ * deliberately out of the first pass for that reason. It is in now because "owns its interior"
+ * turned out to mean thirty-one distinct spacings, twenty-two of them off the grid, with the two
+ * workhorses (5.6px and 6.4px) differing by less than a pixel and used interchangeably in the same
+ * files. That is not a rhythm of its own; it is the absence of one.
+ */
+const SURFACES: { file: string; also?: Record<string, string> }[] = [
+	{ file: 'src/lib/DocsShell.svelte' },
+	{ file: 'src/lib/DocsBody.svelte' },
+	{
+		file: 'src/lib/TextEditorRack.svelte',
+		also: {
+			// CLEARANCE, not a gap: the keys' focus ring and press bevel are drawn OUTSIDE the border
+			// box and would be clipped by the scroller. Its size is the ring's, and a 4px rung here
+			// would take 8px out of the one row the bar is allowed.
+			'2px': "room for a key's focus ring inside the scrolling strip"
+		}
+	},
+	{ file: 'src/lib/TextEditor.svelte' },
+	{ file: 'src/lib/TextEditorSettings.svelte' },
+	{ file: 'src/lib/TextEditorConnect.svelte' },
+	{ file: 'src/lib/FloatingKey.svelte' }
+];
 
 /** Strip comments so a number quoted in prose is not read as a declaration. */
 const decomment = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, '');
@@ -81,9 +106,10 @@ describe('the spacing scale', () => {
 	});
 });
 
-describe('the Kashinoga pages spend the scale', () => {
-	for (const file of PAGES) {
+describe('the Kashinoga surfaces spend the scale', () => {
+	for (const { file, also } of SURFACES) {
 		test(`${file} uses no spacing literal off the scale`, () => {
+			const allowed = { ...EXEMPT, ...(also ?? {}) };
 			const css = styleOf(read(file));
 			const stray: string[] = [];
 			for (const m of css.matchAll(SPACING)) {
@@ -96,7 +122,7 @@ describe('the Kashinoga pages spend the scale', () => {
 					// it on a pixel scale would be the wrong answer confidently applied.
 					if (tok.endsWith('em') && !tok.endsWith('rem')) continue;
 					const bare = tok.replace(/^-/, '');
-					if (bare in EXEMPT || tok in EXEMPT) continue;
+					if (bare in allowed || tok in allowed) continue;
 					stray.push(`${decl}   ← ${tok}`);
 				}
 			}
@@ -107,6 +133,25 @@ describe('the Kashinoga pages spend the scale', () => {
 			);
 		});
 	}
+
+	// THE EDITOR'S DESK TOKENS ARE SPACING WEARING A NAME, and the source sweep above cannot see
+	// them: `padding: var(--te-gutter)` carries no literal, so a fractional gutter hid from the
+	// check while every declaration spending it passed. Both were off the grid before this
+	// (--te-pad 24px by luck, --te-gutter 6.4px), and --te-gutter is the most visible spacing in
+	// the app — it is the grey field that makes four panes read as four objects on a desk.
+	test('the editor spends the scale through its own tokens too', () => {
+		const css = styleOf(read('src/lib/TextEditor.svelte'));
+		for (const name of ['--te-pad', '--te-gutter']) {
+			const decls = [...css.matchAll(new RegExp(`${name}\\s*:\\s*([^;]+);`, 'g'))];
+			assert.ok(decls.length, `${name} should be declared`);
+			for (const d of decls)
+				assert.match(
+					d[1].trim(),
+					/^var\(--space-\d+\)$/,
+					`${name} is "${d[1].trim()}" — a desk token is spacing, so it must name a rung`
+				);
+		}
+	});
 
 	test('a value the bar publishes is read, never copied', () => {
 		// The superbar's insets are cancelled by two things inside it — the brand separator, which

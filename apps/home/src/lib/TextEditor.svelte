@@ -4542,7 +4542,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		   under both themes; a bare var() would have left the sheet unpainted under the other. */
 		--te-key-face: var(--pixel-key-face, var(--aero-face, rgba(255, 255, 255, 0.5)));
 		--te-rule: var(--pixel-hairline, var(--line-edge, rgba(0, 0, 0, 0.2)));
-		/* The margin the marks hang in, and the one measure the sheet and the mirror share. */
+		/* The margin the marks hang in, and the one measure the sheet and the mirror share.
+		   NOT ON THE `--space-*` SCALE, and it is the same exemption the superbar's height takes:
+		   this is the WIDTH OF A COLUMN — the box a margin mark is drawn in — reserved as space by
+		   the sheet beside it. It is sized by what it holds, and rounding it to suit a spacing
+		   scale would be the tail wagging the dog. It also feeds the wrap invariant (the sheet and
+		   the mirror both take their measure from it), so it is not a number to nudge for tidiness. */
 		--te-margin: 2.6rem;
 		--te-type-size: 15px;
 		/* THE ROW IS AN INTEGER NUMBER OF PIXELS, and that is a correctness rule, not a taste one.
@@ -4554,12 +4559,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		   26px is the nearest whole pixel to the leading this wants (≈1.73). Nothing can accumulate
 		   between two integer stacks. The phone override below keeps the same rule. */
 		--te-row: 26px;
-		--te-pad: 1.5rem;
+		--te-pad: var(--space-24);
 		/* The sheet's measure, in the mono face: ~82 columns once the gutter and the right pad
 		   come out of it. The proof's is narrower because prose sets wider per pixel — 34rem of
 		   IBM Plex is about 68 characters, which is the same reading comfort. */
-		/* The band of gutter round and between the columns. */
-		--te-gutter: 0.4rem;
+		/* The band of gutter round and between the columns. A rung, like every other gap in this
+		   app — it was 6.4px, which is the one spacing here that is SEEN as a field rather than as
+		   air, since it is what makes four panes read as four objects laid on a desk. */
+		--te-gutter: var(--space-8);
 		/* THE RAILS' STOCK — the workspace on one side, the contents on the other. They used to be
 		   cut from the same --surface as the sheet and the proof, and four panes in one white made
 		   the desk read as one wide sheet with rules drawn on it: the thing you are WRITING stood
@@ -4941,7 +4948,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		flex: 1 1 auto;
 		min-height: 0;
 		overflow: auto;
-		padding: var(--te-pad) clamp(1.25rem, 3vw, 2.5rem) 40vh;
+		/* Declared TWICE, and the second is the one that counts where `round()` exists: the reading
+		   measure's side inset steps in whole 4px increments instead of sliding through fractional
+		   pixels as the pane is resized. An engine without `round()` drops the second declaration and
+		   keeps a working clamp — the same arrangement the docs shell uses. (40vh is the runway under
+		   the last line so a heading can reach the top of the pane; a viewport fraction, not a rung.) */
+		padding: var(--te-pad) clamp(var(--space-20), 3vw, var(--space-40)) 40vh;
+		padding: var(--te-pad) clamp(var(--space-20), round(3vw, var(--space-4)), var(--space-40)) 40vh;
 		counter-reset: te-sec te-listing;
 		color: var(--ink);
 		font-family: var(--font-body, system-ui, sans-serif);
@@ -4967,8 +4980,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   sections at zero" actually means. */
 	.te-proof :global(h1) {
 		counter-set: te-sec 0 te-listing 0;
-		margin: 0 0 1.2rem;
-		padding-bottom: 0.5rem;
+		margin: 0 0 var(--space-20);
+		padding-bottom: var(--space-8);
 		border-bottom: 1px solid var(--te-rule);
 		font-family: var(--font-motto, Georgia, serif);
 		font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.2rem);
@@ -4976,7 +4989,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		line-height: 1.15;
 	}
 	.te-proof :global(h2) {
-		margin: 2.2rem 0 0.7rem;
+		margin: var(--space-36) 0 var(--space-12);
 		font-family: var(--font-motto, Georgia, serif);
 		font-size: 1.35rem;
 		font-weight: 400;
@@ -5003,7 +5016,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   window wide in SPLIT and a hanging numeral would be the first thing off the edge. */
 	.te-proof :global(h2::before) {
 		content: counter(te-sec, decimal-leading-zero);
-		margin-right: 0.6rem;
+		margin-right: var(--space-8);
 		font-family: var(--font-pixel, monospace);
 		font-size: 1.15em;
 		color: var(--orange);
@@ -5015,7 +5028,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-proof :global(h4),
 	.te-proof :global(h5),
 	.te-proof :global(h6) {
-		margin: 1.6rem 0 0.5rem;
+		margin: var(--space-24) 0 var(--space-8);
 		font-family: var(--font-mono, monospace);
 		font-size: 0.78rem;
 		font-weight: 700;
@@ -5024,7 +5037,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		color: color-mix(in srgb, var(--ink) 65%, transparent);
 	}
 	.te-proof :global(p) {
-		margin: 0 0 1rem;
+		margin: 0 0 var(--space-16);
 	}
 	.te-proof :global(a) {
 		color: var(--orange);
@@ -5058,8 +5071,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   read as one crowded row. */
 	.te-proof :global(pre) {
 		position: relative;
-		margin: 0 0 1.4rem;
-		padding: 1.7rem 1rem 0.9rem;
+		margin: 0 0 var(--space-24);
+		padding: var(--space-28) var(--space-16) var(--space-16);
 		overflow-x: auto;
 		background: var(--page);
 		border: 1px solid var(--te-rule);
@@ -5088,8 +5101,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		border: 0;
 	}
 	.te-proof :global(blockquote) {
-		margin: 0 0 1.2rem;
-		padding: 0.1rem 0 0.1rem 1.1rem;
+		margin: 0 0 var(--space-20);
+		padding: var(--space-4) 0 var(--space-4) var(--space-16);
 		border-left: 2px solid var(--orange);
 		font-family: var(--font-motto, Georgia, serif);
 		font-size: 1.05rem;
@@ -5100,11 +5113,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 	.te-proof :global(ul),
 	.te-proof :global(ol) {
-		margin: 0 0 1.1rem;
-		padding-left: 1.5rem;
+		margin: 0 0 var(--space-16);
+		padding-left: var(--space-24);
 	}
 	.te-proof :global(li) {
-		margin-bottom: 0.35rem;
+		margin-bottom: var(--space-4);
 	}
 	/* The marker is chrome, so it speaks the chrome's language — cobalt, in the mono face. */
 	.te-proof :global(li::marker) {
@@ -5115,23 +5128,23 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	/* A nested list is tighter than its parent: it is a sub-point, not a second document. */
 	.te-proof :global(li > ul),
 	.te-proof :global(li > ol) {
-		margin: 0.35rem 0 0;
+		margin: var(--space-4) 0 0;
 	}
 	.te-proof :global(hr) {
 		height: 1px;
-		margin: 2rem 0;
+		margin: var(--space-32) 0;
 		border: 0;
 		/* The site's own fading rule, so a break in the proof is the break the docs pages draw. */
 		background: var(--rule-fade, var(--te-rule));
 	}
 	.te-proof :global(table) {
 		width: 100%;
-		margin: 0 0 1.3rem;
+		margin: 0 0 var(--space-20);
 		border-collapse: collapse;
 		font-size: 0.92rem;
 	}
 	.te-proof :global(th) {
-		padding: 0.45rem 0.6rem;
+		padding: var(--space-8) var(--space-12);
 		border-bottom: 1px solid var(--card-edge, var(--te-rule));
 		font-family: var(--font-mono, monospace);
 		font-size: 0.72rem;
@@ -5142,7 +5155,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		color: color-mix(in srgb, var(--ink) 65%, transparent);
 	}
 	.te-proof :global(td) {
-		padding: 0.45rem 0.6rem;
+		padding: var(--space-8) var(--space-12);
 		border-bottom: 1px solid var(--te-rule);
 		vertical-align: top;
 	}
@@ -5214,9 +5227,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		flex: none;
 		display: flex;
 		align-items: center;
-		gap: 0.4rem;
+		gap: var(--space-8);
 		min-height: 30px;
-		padding: 0.25rem 0.75rem;
+		padding: var(--space-4) var(--space-12);
 	}
 	/* The name takes what the keys leave, and no less than nothing: `min-width: 0` is what makes
 	   a flex child agree to be narrower than its own text, and without it the name would push the
@@ -5248,7 +5261,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		top: calc(100% - 0.25rem);
 		left: 0.75rem;
 		right: 0.75rem;
-		padding: 0.35rem 0.5rem;
+		padding: var(--space-4) var(--space-8);
 		font-family: var(--font-mono, monospace);
 		font-size: 0.72rem;
 		font-weight: 700;
@@ -5286,7 +5299,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-work-act {
 		flex: none;
 		height: 22px;
-		padding: 0 0.4rem;
+		padding: 0 var(--space-8);
 		font: inherit;
 		font-size: 0.62rem;
 		line-height: 1;
@@ -5346,7 +5359,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   what this pane is for. */
 	.te-loose-sort {
 		flex: none;
-		padding: 0 0.25rem;
+		padding: 0 var(--space-4);
 		font-family: var(--font-mono, monospace);
 		font-size: 0.6rem;
 		letter-spacing: 0.04em;
@@ -5403,7 +5416,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		top: calc(100% - 0.25rem);
 		left: 0.75rem;
 		right: 0.75rem;
-		padding: 0.35rem 0.5rem;
+		padding: var(--space-4) var(--space-8);
 		font-family: var(--font-mono, monospace);
 		font-size: 0.68rem;
 		color: var(--ink);
@@ -5460,7 +5473,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   `:last-child` and not a class, because "does anything follow me" is precisely the question.
 	   On the folder's head the tally follows, so this does not apply there. */
 	.te-work-head > .te-twist-all:last-child {
-		margin-right: -0.25rem;
+		/* A PULL, so it is the rung negated rather than a number of its own — the amount it cancels
+		   is the key's own side padding, and the two must move together or the mark stops landing
+		   on the right edge every tally under it lands on. */
+		margin-right: calc(-1 * var(--space-4));
 	}
 	/* THE COLLAPSE MARK, made from the expand one — chevrons pointing TOGETHER instead of apart.
 	   reicon has no `chevron-collapse-y` and this is how the pair is got without hand-cutting a
@@ -5571,7 +5587,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-eph-close.on {
 		width: auto;
 		min-width: 18px;
-		padding: 0 0.3rem;
+		padding: 0 var(--space-4);
 		font-size: 0.55rem;
 		font-weight: 700;
 		letter-spacing: 0.06em;
@@ -5611,10 +5627,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-work-row {
 		display: flex;
 		align-items: center;
-		gap: 0.35rem;
+		gap: var(--space-8);
 		width: 100%;
 		min-height: 30px;
-		padding: 0.3rem 0.75rem;
+		padding: var(--space-4) var(--space-12);
 		text-align: left;
 		background: none;
 		border: 0;
@@ -5651,15 +5667,15 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-dir-form {
 		display: flex;
 		flex-direction: column;
-		gap: 0.3rem;
-		padding: 0.15rem 0.35rem 0.35rem;
+		gap: var(--space-4);
+		padding: var(--space-4);
 	}
 	.te-dir-label {
 		font-size: 0.72rem;
 		color: var(--sub);
 	}
 	.te-dir-warn {
-		margin: 0 0 0.15rem;
+		margin: 0 0 var(--space-4);
 		font-size: 0.72rem;
 		line-height: 1.35;
 		/* THE REFUSAL INK, on a warning rather than on a refusal — this is the one place the two
@@ -5670,8 +5686,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-dir-keys {
 		display: flex;
 		justify-content: flex-end;
-		gap: 0.35rem;
-		margin-top: 0.2rem;
+		gap: var(--space-8);
+		margin-top: var(--space-4);
 	}
 	.te-dir-kill:not(:disabled) {
 		color: var(--ruby);
@@ -5891,13 +5907,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		}
 	}
 	.te-work-rename {
-		padding: 0.25rem 0.5rem;
+		padding: var(--space-4) var(--space-8);
 	}
 	.te-work-field {
 		width: 100%;
 		box-sizing: border-box;
 		height: 26px;
-		padding: 0 0.4rem;
+		padding: 0 var(--space-8);
 		font-family: var(--font-mono, monospace);
 		font-size: 0.76rem;
 		color: var(--ink);
@@ -5908,9 +5924,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 	.te-work-reconnect {
 		align-self: flex-start;
-		margin: 0 0.75rem 0.75rem;
+		margin: 0 var(--space-12) var(--space-12);
 		height: 26px;
-		padding: 0 0.6rem;
+		padding: 0 var(--space-8);
 		font: inherit;
 		font-size: 0.68rem;
 		font-weight: 600;
@@ -5925,7 +5941,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-work-note {
 		flex: none;
 		margin: 0;
-		padding: 0.8rem 0.75rem 0.6rem;
+		padding: var(--space-12) var(--space-12) var(--space-8);
 		font-size: 0.66rem;
 		line-height: 1.4;
 		color: var(--sub);
@@ -6025,8 +6041,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		width: auto;
 		min-width: 11rem;
 		height: 40px;
-		padding: 0 1rem;
-		gap: 0.65rem;
+		padding: 0 var(--space-16);
+		gap: var(--space-12);
 		border-radius: 20px;
 	}
 	.te-fkey-word {
@@ -6066,7 +6082,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		border-radius: 4px;
 		background: var(--te-rail);
 		/* No top inset — the head is a row and brings its own. */
-		padding: 0 0 0.75rem;
+		padding: 0 0 var(--space-12);
 	}
 	/* The same row as the workspace's head across the desk: 30px, the same insets, the label
 	   centred in it rather than sitting on a margin. The two rails frame the writing, and they
@@ -6077,7 +6093,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		align-items: center;
 		min-height: 30px;
 		margin: 0;
-		padding: 0.25rem 0.75rem;
+		padding: var(--space-4) var(--space-12);
 		font-family: var(--font-mono, monospace);
 		font-size: 0.66rem;
 		font-weight: 700;
@@ -6093,9 +6109,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-toc-link {
 		display: flex;
 		align-items: baseline;
-		gap: 0.4rem;
+		gap: var(--space-8);
 		width: 100%;
-		padding: 0.25rem 0.75rem;
+		padding: var(--space-4) var(--space-12);
 		text-align: left;
 		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.78rem;
@@ -6126,13 +6142,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		color: var(--ink);
 	}
 	.te-toc-link.lvl-2 {
-		padding-left: 1.4rem;
+		padding-left: var(--space-24);
 	}
 	.te-toc-link.lvl-3,
 	.te-toc-link.lvl-4,
 	.te-toc-link.lvl-5,
 	.te-toc-link.lvl-6 {
-		padding-left: 2.1rem;
+		padding-left: var(--space-36);
 		font-size: 0.72rem;
 		color: var(--sub);
 	}
@@ -6145,7 +6161,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 	.te-toc-empty {
 		margin: 0;
-		padding: 0 0.75rem;
+		padding: 0 var(--space-12);
 		font-size: 0.72rem;
 		color: var(--sub);
 	}
@@ -6160,7 +6176,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-heads-item {
 		display: flex;
 		align-items: baseline;
-		gap: 0.5rem;
+		gap: var(--space-8);
 		/* The one place a popover item is not in the mono voice: these ARE headings. */
 		font-family: var(--font-motto, Georgia, serif);
 	}
@@ -6204,7 +6220,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-fly-marks {
 		display: grid;
 		grid-template-columns: repeat(5, 1fr);
-		gap: 0.4rem;
+		gap: var(--space-8);
 	}
 	.te-fly-mark {
 		display: grid;
@@ -6244,8 +6260,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		display: flex;
 		flex-wrap: wrap;
 		align-items: baseline;
-		gap: 0.5rem 1.1rem;
-		padding: 0.5rem clamp(0.75rem, 2vw, 1.25rem);
+		gap: var(--space-8) var(--space-16);
+		padding: var(--space-8) clamp(var(--space-12), 2vw, var(--space-20));
+		padding: var(--space-8) clamp(var(--space-12), round(2vw, var(--space-4)), var(--space-20));
 		border-top: 1px solid var(--te-rule);
 	}
 	/* THE FOOT COMES IN LAST, after the desk it is a footnote to. The app arrives in the order it
@@ -6264,13 +6281,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-tally {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.4rem 1.1rem;
+		gap: var(--space-8) var(--space-16);
 		margin: 0;
 	}
 	.te-count {
 		display: flex;
 		align-items: baseline;
-		gap: 0.4rem;
+		gap: var(--space-4);
 	}
 	.te-count dt {
 		font-family: var(--font-mono, monospace);
@@ -6309,7 +6326,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			--te-type-size: 16px;
 			--te-row: 28px;
 			--te-margin: 2.2rem;
-			--te-pad: 1rem;
+			--te-pad: var(--space-16);
 		}
 		/* NO GUTTER AND NO GAP. The desk's band of grey is what makes four columns read as four
 		   objects laid on a field — and at this width there are no four columns: there is one pane,

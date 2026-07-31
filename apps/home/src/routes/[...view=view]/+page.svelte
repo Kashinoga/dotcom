@@ -3249,17 +3249,24 @@
 	   of the pinned Pixelite bar height and the 28px control line — (42 − 28) / 2 = 7px — so the
 	   horizontal is set to match rather than left at the 11.2px it inherited, which framed the
 	   row differently side to side than top to bottom.
-	   The row's gap comes down to the 0.4rem the keys keep between themselves inside a group, so
-	   the space either side of a separator is the same step as the space between two keys. At
-	   0.5rem the clusters sat a beat wider apart than their own contents. */
+	   The row's gap is THE SAME STEP THE KEYS KEEP between themselves inside a group, so the space
+	   either side of a separator is the space between two keys. At a wider gap the clusters sat a
+	   beat further apart than their own contents.
+	   IT MUST NAME THAT STEP RATHER THAN RESTATE IT. This was written as a literal `0.4rem` copied
+	   out of the rack, and when the rack moved onto the scale the bar stayed behind — the same
+	   copy-instead-of-name fault that put the docs superbar's search key outside its own bar. Both
+	   are `--space-8` now, and neither can drift without the other. */
 	.surface-head.bar.te-bar {
-		/* 6px, not 7: the bar wears a 1px transparent border (the pill's geometry, kept even while
-		   flat), so the inset a control actually gets is the border plus the padding. Vertically
-		   that comes to 1 + 6 = 7px; the horizontal padding matches at 6 so both read as 7. */
+		/* 6px, not 7, and off the scale on purpose: the bar wears a 1px transparent border (the
+		   pill's geometry, kept even while flat), so the inset a control actually gets is the
+		   border plus the padding. Vertically that comes to 1 + 6 = 7px, which is itself
+		   (42 − 28) / 2 — the bar's height less the control line. The horizontal padding matches at
+		   6 so both read as 7. Structural, like the 7px it derives from: it is the arithmetic
+		   between two sizes, not a step in a rhythm. */
 		padding-inline: 6px;
 	}
 	.surface-head.bar.te-bar .head-row {
-		gap: 0.4rem;
+		gap: var(--space-8);
 	}
 	.surface-head.bar .head-title {
 		font-size: clamp(1.15rem, 1.5vw, 1.5rem);

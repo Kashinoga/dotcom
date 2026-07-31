@@ -195,7 +195,7 @@
 	   material — the sheet, its edge, the drop, the scrim — is puhig's `.popover`. */
 	.te-set-card {
 		width: min(23rem, calc(100vw - 1rem));
-		padding: 0.25rem 0.25rem 0.5rem;
+		padding: var(--space-4) var(--space-4) var(--space-8);
 	}
 	/* The version stands BELOW a rule, in the card's own margins rather than the items'. The items
 	   above it are choices and this is a statement; without the rule the head of the version block
@@ -207,7 +207,7 @@
 		display: flex;
 		align-items: baseline;
 		justify-content: space-between;
-		gap: 0.6rem;
+		gap: var(--space-8);
 	}
 	.te-set-forget {
 		font-family: var(--font-mono, monospace);
@@ -217,8 +217,8 @@
 		color: var(--sub);
 	}
 	.te-set-ver {
-		margin: 0.45rem 0.25rem 0;
-		padding: 0.55rem 0.25rem 0;
+		margin: var(--space-8) var(--space-4) 0;
+		padding: var(--space-8) var(--space-4) 0;
 		border-top: 1px solid var(--popover-rule, var(--pixel-hairline, rgba(0, 0, 0, 0.15)));
 	}
 </style>

@@ -211,7 +211,7 @@
 		min-width: 0;
 		display: flex;
 		align-items: center;
-		gap: 0.4rem;
+		gap: var(--space-8);
 		overflow-x: auto;
 		overflow-y: hidden;
 		/* No visible scrollbar: a bar of controls with a track under it reads as a scrolling
@@ -219,7 +219,11 @@
 		   fade at the right edge (below) is what says there is more. */
 		scrollbar-width: none;
 		/* Room for the keys' focus ring and the press bevel, which would otherwise be clipped by
-		   the scroller's own box. */
+		   the scroller's own box.
+		   DELIBERATELY OFF THE `--space-*` SCALE, like the 1px hairline: this is CLEARANCE for
+		   something drawn outside the key's border box, not a gap between two things, and its size
+		   is set by the ring's own width. A rung here would be 4px top and bottom inside a bar of
+		   fixed height, which is 8px taken off the one row the keys stand in. */
 		padding-block: 2px;
 	}
 	.te-rack::-webkit-scrollbar {
@@ -247,7 +251,7 @@
 	.te-group {
 		display: flex;
 		align-items: center;
-		gap: 0.4rem;
+		gap: var(--space-8);
 		flex: none;
 	}
 	/* The right-hand cluster. Outside .te-rack on purpose: the strip scrolls, and a key that acts
@@ -258,7 +262,7 @@
 		flex: none;
 		display: flex;
 		align-items: center;
-		gap: 0.4rem;
+		gap: var(--space-8);
 		padding-block: 2px;
 	}
 	/* A hairline between the groups — the manual's own way of parting a row of keys, and the
@@ -268,9 +272,10 @@
 		width: 1px;
 		align-self: stretch;
 		/* NO margin of its own. A rule with margins sat 10.4px from the key before it and 12px
-		   from the one after — two different gaps, neither of them the 6.4px the keys keep
-		   between themselves. The flex gap alone puts it on the same rhythm as everything else,
-		   so a separator reads as one step in the row rather than a wider pause. */
+		   from the one after — two different gaps, neither of them the one the keys keep between
+		   themselves (6.4px when that was written, `--space-8` now). The flex gap alone puts it on
+		   the same rhythm as everything else, so a separator reads as one step in the row rather
+		   than a wider pause. */
 		margin-inline: 0;
 		background: var(--pixel-hairline, var(--line-edge, rgba(0, 0, 0, 0.2)));
 	}
@@ -317,11 +322,11 @@
 	.tb {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.35rem;
+		gap: var(--space-4);
 		box-sizing: border-box;
 		flex: none;
 		height: 28px; /* the manual's one control line */
-		padding: 0 0.7rem;
+		padding: 0 var(--space-12);
 		font: inherit;
 		font-size: 0.78rem;
 		/* REGULAR, not the 600 this carried. Every key in the bar was semibold, so nothing in the
@@ -392,7 +397,7 @@
 	@media (pointer: coarse) {
 		.tb {
 			height: 28px;
-			padding: 0 0.6rem;
+			padding: 0 var(--space-8);
 		}
 		.te-mark-key {
 			width: 28px;

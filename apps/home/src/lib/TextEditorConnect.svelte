@@ -314,8 +314,8 @@
 	.te-conn {
 		display: flex;
 		flex-direction: column;
-		gap: 0.3rem;
-		padding: 0.15rem 0.35rem 0.35rem;
+		gap: var(--space-4);
+		padding: var(--space-4);
 	}
 	.te-conn-head {
 		margin: 0;
@@ -326,14 +326,14 @@
 		color: var(--sub);
 	}
 	.te-conn-sub {
-		margin-top: 0.45rem;
+		margin-top: var(--space-8);
 	}
 	/* The label sits ABOVE its field rather than beside it. A two-column form in a 23rem popover
 	   gives the field about eleven characters, and one of these fields is a URL. */
 	.te-conn-row {
 		display: flex;
 		flex-direction: column;
-		gap: 0.15rem;
+		gap: var(--stack-tight);
 	}
 	.te-conn-row span {
 		font-size: 0.72rem;
@@ -342,7 +342,7 @@
 	.te-conn-row input {
 		font: inherit;
 		font-size: 0.82rem;
-		padding: 0.3rem 0.4rem;
+		padding: var(--space-4) var(--space-8);
 		border: 1px solid var(--popover-rule, rgba(0, 0, 0, 0.2));
 		border-radius: 4px;
 		background: var(--pixel-key-face, transparent);
@@ -357,7 +357,7 @@
 	}
 	.te-conn-modes {
 		display: flex;
-		gap: 0.3rem;
+		gap: var(--space-4);
 	}
 	.te-conn-modes .chip {
 		flex: 1;
@@ -365,22 +365,22 @@
 	.te-conn-check {
 		display: flex;
 		align-items: center;
-		gap: 0.4rem;
+		gap: var(--space-8);
 		font-size: 0.78rem;
-		margin-top: 0.35rem;
+		margin-top: var(--space-8);
 	}
 	/* The sign-in row sits with the fields rather than with Cancel and Connect, so it reads as
 	   another way to fill them in rather than as a third thing to press at the end. */
 	.te-conn-signin {
 		justify-content: flex-start;
 		align-items: center;
-		margin-top: 0.35rem;
+		margin-top: var(--space-8);
 	}
 	.te-conn-keys {
 		display: flex;
 		justify-content: flex-end;
-		gap: 0.35rem;
-		margin-top: 0.5rem;
+		gap: var(--space-8);
+		margin-top: var(--space-8);
 	}
 	.te-conn-go:disabled {
 		opacity: 0.45;

@@ -3324,6 +3324,104 @@ await browser.close();
 	await b.close();
 }
 
+// ── SPACING LANDS ON WHOLE PIXELS ───────────────────────────────────────────
+// The runtime half of the editor's spacing guard, and the counterpart to `pixelite.mjs` §8 over
+// on the docs shell. `test/spacing.test.ts` reads the SOURCE and asks that every value came from a
+// `--space-*` rung; it cannot see anything computed, and computed is where the interesting
+// failures are — a token that did not resolve, a clamp in its fluid middle, a `calc()` cancelling
+// something that has since moved.
+//
+// WHOLE PIXELS ARE A CORRECTNESS CLAIM HERE MORE THAN ANYWHERE, and this app already says so in
+// its own words: `--te-row` is pinned to a whole number because a fractional row lets the mirror's
+// block stack and the textarea's internal stepping round to device pixels independently, and the
+// disagreement is re-rolled on every line. That reasoning is about type, and it applies to space
+// for the same reason — a column of fractional gaps accumulates the same drift down the pane.
+//
+// BOTH VIEWS, because they are different pages. The rendered document's rhythm — headings, lists,
+// listings, quotes — is not mounted at all in WRITE (`{#if shown !== 'proof'}`), so a sweep that
+// only ever looks at the sheet walks past every value in the proof.
+{
+	const b = await chromium.launch();
+	const c = await b.newContext({ viewport: { width: 1440, height: 900 } });
+	const p = await c.newPage();
+	await p.goto(`${B}/apps/text-editor`, { waitUntil: 'networkidle' });
+	await p.waitForSelector('.te-type');
+	const sweep = () =>
+		p.evaluate(() => {
+			const props = [
+				'marginTop',
+				'marginBottom',
+				'paddingTop',
+				'paddingBottom',
+				'paddingLeft',
+				'paddingRight',
+				'rowGap',
+				'columnGap'
+			];
+			// LEFT AND RIGHT MARGINS ARE LEFT OUT, and not from squeamishness: the proof centres its
+			// measure with `margin-inline: auto`, and an `auto` margin resolves to whatever width is
+			// left over — 201.2px here — which is not a spacing decision and never lands on a rung.
+			// The running foot's lamp is pushed to the end the same way.
+			//
+			// The mark column is skipped by NAME rather than by value: `--te-margin` is the width of
+			// the box a margin mark is drawn in, reserved as padding by the sheet beside it, and it
+			// feeds the wrap invariant. It is a thing, not a gap. Same argument as the superbar's
+			// height over in the docs suite.
+			const STRUCTURAL = new Set(['te-type', 'te-mirror', 'te-lamp']);
+			const bad = [];
+			for (const el of document.querySelectorAll('[class^="te-"], [class*=" te-"]')) {
+				const names = [...el.classList].filter((x) => !x.startsWith('svelte-'));
+				if (names.some((n) => STRUCTURAL.has(n))) continue;
+				const s = getComputedStyle(el);
+				for (const prop of props) {
+					const v = parseFloat(s[prop]);
+					// A hair of tolerance: a browser may report 12.0000001 for an exact value.
+					if (!isNaN(v) && v !== 0 && Math.abs(v % 1) > 0.01)
+						bad.push(`${names[0]} ${prop}=${s[prop]}`);
+				}
+			}
+			return [...new Set(bad)];
+		});
+	const inWrite = await sweep();
+	ok(
+		'WRITE: every spacing in the desk is a whole number of pixels',
+		inWrite.length === 0,
+		inWrite.slice(0, 4).join(' | ')
+	);
+	const proofKey = p.getByRole('button', { name: /^PROOF$/i });
+	if (await proofKey.count()) {
+		await proofKey.first().click();
+		await p.waitForTimeout(700);
+	}
+	ok('and the proof is mounted to be measured', (await p.locator('.te-proof').count()) === 1);
+	const inProof = await sweep();
+	ok(
+		'PROOF: the document rhythm is whole pixels too',
+		inProof.length === 0,
+		inProof.slice(0, 4).join(' | ')
+	);
+	// THE DESK GUTTER IS A RUNG, asked directly. It is the most visible spacing in the app — the
+	// grey field that makes four panes read as four objects laid out rather than one wide sheet —
+	// and it reaches every pane through one token, so a sweep of computed values would report it
+	// once per element and never say which knob was wrong.
+	//
+	// READ OFF THE ELEMENT THAT SPENDS IT, never off the token. `getPropertyValue('--te-gutter')`
+	// hands back `0.5rem` — a custom property's computed value is its token stream after var()
+	// substitution, NOT a used length, unless it has been registered with `@property`. Asking the
+	// token gives a string that has to be re-parsed and re-multiplied by the test, which is the
+	// test doing the browser's arithmetic and getting a second opinion on the root font size.
+	const gutter = await p.evaluate(() => {
+		const s = getComputedStyle(document.querySelector('.te-desk'));
+		return { gap: parseFloat(s.columnGap), pad: parseFloat(s.paddingLeft) };
+	});
+	ok(
+		'the desk gutter resolves to a whole 4px step',
+		gutter.gap % 4 === 0 && gutter.pad % 4 === 0 && gutter.gap === gutter.pad,
+		`gap ${gutter.gap} · pad ${gutter.pad}`
+	);
+	await b.close();
+}
+
 const failed = results.filter((r) => !r.pass);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);
 process.exit(failed.length ? 1 : 0);

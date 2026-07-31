@@ -144,7 +144,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
-		gap: 0.5rem;
+		gap: var(--space-8);
 		transform: translateY(0.5rem);
 		opacity: 0;
 		visibility: hidden;
@@ -166,7 +166,7 @@
 	.fkey-stack {
 		display: flex;
 		flex-direction: column-reverse;
-		gap: 0.5rem;
+		gap: var(--space-8);
 	}
 	/* The key's row: level with the key, starting where the key ends and running to the far inset.
 	   The measures restate the key's own — its 1.25rem insets, its 40px, and the 0.5rem the stack
@@ -217,7 +217,7 @@
 		box-sizing: border-box;
 		width: calc(100vw - 2 * 1.25rem);
 		max-width: 24rem;
-		padding: 0.75rem;
+		padding: var(--space-12);
 		color: var(--ink);
 		background: color-mix(in srgb, var(--page) 92%, transparent);
 		-webkit-backdrop-filter: blur(8px);
