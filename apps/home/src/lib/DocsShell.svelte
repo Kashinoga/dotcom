@@ -303,9 +303,15 @@
 
 	// The page's own heading, listed FIRST at level 1 so the rail is never empty — a prose page,
 	// a bleed reading, or the homepage cover all lead with their title even when nothing sits
-	// under it. (Densette draws its own paper without one of these, but always carries chapter
-	// titles below, so its rail is populated anyway.)
-	const TITLE_SEL = '.docs-page-title, .docs-cover-title';
+	// under it. (Densette draws its own paper and prints its own cover — `.cover-title` — which is
+	// why that class is in the selector too.)
+	// `.cover-title` is Densette's own, and it belongs here for the reason the other two do: the
+	// rail leads with the page's TITLE. Densette renders BARE — it draws its own paper and prints
+	// its own cover, so it has no `.docs-page-title` for the shell to find — and the note above
+	// waved that away on the grounds that its chapters populate the rail anyway. They do, but the
+	// rail then opened at "1. Welcome to Adventure" with the name of the thing you are reading, The
+	// Curriculum, missing from its own contents.
+	const TITLE_SEL = '.docs-page-title, .docs-cover-title, .cover-title';
 	// The section headings worth listing beneath the title: Densette's chapter/sub titles, the
 	// prose column's own h3/h4 sub-heads, Settings' group leads, and the Emoji Viewer's group
 	// names. Deliberately narrow — specific classes, so it lists real sections and never leaks a
@@ -563,7 +569,7 @@
 		<a
 			class="docs-wordmark"
 			href={viewPath({ kind: 'port', code: HUB })}
-			onclick={(e) => nav(e, HUB)}>KASHINOGA</a
+			onclick={(e) => nav(e, HUB)}>Kashinoga</a
 		>
 		{#if shownCrumbs.length}
 			<span class="docs-brand-sep" aria-hidden="true" transition:fade={{ duration: 180 }}></span>
@@ -768,7 +774,17 @@
 		   gap BETWEEN the columns (twice it, facing paddings) and the gap under the superbar (the
 		   columns' top padding), so a smaller value pulls the whole grid in — the sheets' own inner
 		   padding is untouched, so the reading keeps its breathing room. */
-		--docs-pad: clamp(0.4rem, 0.9vw, 0.8rem);
+		/* Bounds on the scale — 8px to 12px, where they were 6.4 and 12.8 — and the FLUID MIDDLE
+		   snapped to the scale's own step with `round()`, so the gutter is a whole number of pixels
+		   at EVERY width rather than only at the two ends. It still grows with the window; it grows
+		   in 4px steps instead of sliding through 9.88px.
+		   DECLARED TWICE ON PURPOSE. `round()` is recent (Chrome 125, Safari 15.4, Firefox 118 —
+		   measured working in all three engines this repo tests). An engine without it throws the
+		   whole `clamp()` out as invalid, and a dropped custom property here would leave every
+		   `padding: var(--docs-pad)` at zero and the docs edge to edge. The plain clamp first is
+		   what such an engine keeps. */
+		--docs-pad: clamp(var(--space-8), 0.9vw, var(--space-12));
+		--docs-pad: clamp(var(--space-8), round(0.9vw, var(--space-4)), var(--space-12));
 		/* The paper's own stock — the white (or dark) leaf every sheet in the shell is cut from:
 		   the docs sheets in +page.svelte, the homepage cover below, and on a phone the shell
 		   itself. Named once here because the phone makes them the SAME surface, and two files
@@ -883,15 +899,28 @@
 		z-index: 16;
 		display: flex;
 		align-items: center;
-		gap: clamp(1rem, 3vw, 2rem);
+		/* THE BAR'S GAP IS PUBLISHED, not just applied. Two things inside the bar have to cancel it
+		   to sit where they belong — the brand separator's inline pull and, until it was fixed, the
+		   search key's — and both were written as a COPY of this value. A copy is a thing that goes
+		   stale: changing the bar's spacing left the separator pulling by an amount the bar no
+		   longer used, and the same mistake put the search key thirteen pixels outside the bar.
+		   Named once, read everywhere, and they cannot drift.
+		   Fluid in whole steps — see the note at --docs-pad for why this is written twice. */
+		--bar-gap: clamp(var(--space-16), 3vw, var(--space-32));
+		--bar-gap: clamp(var(--space-16), round(3vw, var(--space-4)), var(--space-32));
+		gap: var(--bar-gap);
 		/* ONE bar height across the site — 42px exactly, not padding-derived: every app bar
 		   (traffic, ranger, star map) pins to the same measure, so crossing pages never
 		   nudges the chrome. Flex centring seats the content; --superbar-h still reads the
 		   real rect, so the rails don't care how the height is made. */
 		box-sizing: border-box;
 		height: 42px;
-		/* Left inset matches the vertical rhythm so the wordmark sits square in the corner. */
-		padding: 0 clamp(1rem, 3vw, 2rem) 0 0.7rem;
+		/* THE SAME INSET BOTH SIDES, and the tighter of the two it used to have. It was 0.7rem on
+		   the left against `clamp(1rem, 3vw, 2rem)` on the right — 11px and 32px at 1500px wide —
+		   so the bar's contents sat off-centre in their own row while the columns beneath them are
+		   square. The left value is the one that was right: it matches the vertical rhythm, and it
+		   is what seats the wordmark in the corner. */
+		padding: 0 var(--space-12);
 		/* No hairline under the bar: space and the page/sheet colour tell it from the content,
 		   not a drawn line. On scroll the frost alone reads as the bar (see .scrolled). */
 		background: color-mix(in srgb, var(--page) 100%, transparent);
@@ -909,9 +938,11 @@
 	   (VT323 ran optically small at 1.4rem — the body face sits right at 1.15rem/600.) */
 	.docs-wordmark {
 		flex: none;
+		/* INITIAL CASE, with the rest of the shell. The name is written `Kashinoga` in the markup
+		   now rather than uppercased in CSS — a wordmark is a NAME, and the copy should read as the
+		   name so it can be selected, searched and spoken as one. */
 		font-family: var(--font-body);
-		text-transform: uppercase;
-		letter-spacing: 0.04em;
+		letter-spacing: 0.01em;
 		font-weight: 600;
 		font-size: 1.15rem;
 		line-height: 1;
@@ -929,12 +960,15 @@
 		flex: none;
 		display: flex;
 		align-items: center;
-		margin-block: -0.4rem;
-		/* Even air around the key's corner: the 28px key sits 7px off the bar's top and
-		   bottom edges ((42px bar − 28px key)/2), but the bar's wide right padding — sized
-		   for the TEXT row — left it up to 2rem off the right edge. Pull right by the
-		   difference so the key's right gap matches its vertical air. */
-		margin-right: calc(7px - clamp(1rem, 3vw, 2rem));
+		/* Even air around the key's corner: the 28px key sits 7px off the bar's top and bottom
+		   edges ((42px bar − 28px key)/2), so it should sit 7px off the RIGHT edge too. The pull
+		   is the difference between that and the bar's own right padding.
+		   IT MUST NAME THE BAR'S PADDING, and this is where that went wrong: the value was written
+		   as `7px − clamp(1rem, 3vw, 2rem)` back when the bar's right inset WAS that clamp. The
+		   inset is symmetric `--space-12` now, and the stale −25px pull dragged the key thirteen
+		   pixels PAST the bar's right edge, where it was clipped. Same token as the padding, so the
+		   two cannot drift again. */
+		margin-right: calc(7px - var(--space-12));
 	}
 	.docs-sb-ctl {
 		display: flex;
@@ -999,7 +1033,7 @@
 		transition: opacity 0.15s ease;
 	}
 	.docs-sb-ctl.open .docs-sb-input {
-		padding: 0 0.15rem 0 0.6rem;
+		padding: 0 var(--space-4) 0 var(--space-8);
 		opacity: 1;
 		pointer-events: auto;
 	}
@@ -1028,8 +1062,8 @@
 		/* The bar's block padding used to bound the stretch; with the bar's height now fixed
 		   (padding-block 0), the same 0.7rem air is restated as the post's own margins — the
 		   full-height line read as a column rule, not a separator. */
-		margin-block: 0.7rem;
-		margin-inline: calc(0.7rem - clamp(1rem, 3vw, 2rem));
+		margin-block: var(--space-12);
+		margin-inline: calc(var(--space-12) - var(--bar-gap));
 		background: var(--pixel-hairline);
 	}
 	.docs-crumbs {
@@ -1043,10 +1077,13 @@
 		display: flex;
 		align-items: center;
 		overflow: hidden;
-		font-family: var(--font-mono);
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-		font-size: 0.72rem;
+		/* THE BODY FACE, IN THE PLACE'S OWN CASE — the same move the sidebar leaves and the
+		   on-this-page rail made, and for the same reason: a crumb is a PLACE NAME, and the trail
+		   reads as a sentence about where you are rather than as a row of codes. It was the only
+		   thing left in the bar set in the mono face. The letter-spacing goes with the uppercase. */
+		font-family: var(--font-body);
+		letter-spacing: 0;
+		font-size: 0.78rem;
 		color: color-mix(in srgb, var(--ink) 40%, transparent);
 		white-space: nowrap;
 	}
@@ -1099,7 +1136,7 @@
 		color: var(--orange);
 	}
 	.docs-crumb-sep {
-		margin: 0 0.5rem;
+		margin: 0 var(--space-8);
 		font-family: var(--font-pixel);
 		font-size: 1.15em;
 		color: color-mix(in srgb, var(--ink) 30%, transparent);
@@ -1163,8 +1200,13 @@
 		padding: 0;
 		counter-reset: none;
 	}
+	/* NO GAP AFTER A SECTION'S CHILDREN. It was 0.9rem, so the step from a section's last child to
+	   the next section's head was nearly twice the step between two childless sections (`1. Home`
+	   → `2. About`, which is zero) — one column, two rhythms, and the tree read as though the Apps
+	   list had been pushed away from what follows it. The head's own `margin-bottom` is what parts
+	   a head from ITS list; nothing further is needed to part one section from the next. */
 	.docs-sec {
-		margin-bottom: 0.9rem;
+		margin-bottom: 0;
 	}
 	/* A section with no sub-entries (1. Home) is just a line, not a group — no group air
 	   below it, so it sits directly over the next section head like consecutive lines. */
@@ -1178,14 +1220,23 @@
 	   wordmark), children in mono (like the breadcrumbs). */
 	.docs-sec-head {
 		display: block;
+		/* INITIAL CASE, like everything else the shell names. The hierarchy is carried by WEIGHT and
+		   by the numeral beside it, which is plenty — shouting the section as well was a third
+		   telling of the same thing, and this is the one line here that can be a long place name. */
 		font-family: var(--font-body);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
+		letter-spacing: 0;
 		font-weight: 600;
-		font-size: 0.82rem;
+		font-size: 0.85rem;
 		color: var(--ink);
 		text-decoration: none;
-		margin-bottom: 0.5rem;
+		/* A SECTION SITS ON ITS OWN LIST. This was 0.5rem, which parted `3. Apps` from `Air Traffic`
+		   by more than the whole gap between one section and the next — so the children read as
+		   floating under their heading rather than belonging to it. The indent and the bullet are
+		   what say "these are inside"; space was saying it a third time.
+		   The value is puhig's `--stack-tight` — the named step for a thing sitting ON what it
+		   introduces. It was a bare 0.2rem here and again in the rail's head, which is two places
+		   to keep in step by hand. */
+		margin-bottom: var(--stack-tight);
 	}
 	.docs-sec-head:hover,
 	.docs-sec-head.active {
@@ -1195,20 +1246,30 @@
 		list-style: none;
 		margin: 0;
 		/* Leaves step clearly in from their numbered section head. */
-		padding: 0 0 0 1.1rem;
+		padding: 0 0 0 var(--space-16);
 	}
+	/* NO MARGIN BETWEEN SIBLINGS. The leaves are one column of short names and the line-height
+	   already gives them their air — a margin on top of it spaced the children of a section further
+	   apart than the sections themselves, so a long shelf like Apps read as nine separate things
+	   rather than one list. */
 	.docs-toc ul li {
-		margin: 0.15rem 0;
+		margin: 0;
 	}
 	.docs-leaf {
 		display: flex;
 		align-items: baseline;
-		gap: 0.55rem;
-		font-family: var(--font-mono);
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		font-size: 0.75rem;
-		line-height: 1.7;
+		gap: var(--space-8);
+		/* THE BODY FACE, IN THE NAME'S OWN CASE. These are PLACE NAMES — "Air Traffic", "Court of
+		   Public Opinion" — and uppercasing them in the mono face made the tree read as a list of
+		   codes rather than a list of places, with a nine-word app name coming out as a wall.
+		   The section heads above them were already Plex, so the sidebar was set in two faces down
+		   one narrow column; it is one now, and matches the on-this-page rail across the page.
+		   The letter-spacing goes with the uppercase: tracking that opens up capitals closes a
+		   lower-case line up too far. */
+		font-family: var(--font-body);
+		letter-spacing: 0;
+		font-size: 0.8rem;
+		line-height: 1.65;
 		color: color-mix(in srgb, var(--ink) 80%, transparent);
 		text-decoration: none;
 	}
@@ -1256,7 +1317,8 @@
 		max-width: calc(65ch + 2 * clamp(1.25rem, 3vw, 2.25rem));
 		background: var(--sheet-stock);
 		border-radius: 2px;
-		padding: clamp(1.25rem, 3vw, 2.25rem);
+		padding: clamp(var(--space-20), 3vw, var(--space-36));
+		padding: clamp(var(--space-20), round(3vw, var(--space-4)), var(--space-36));
 	}
 	/* Entrance — the cover settles top-to-bottom in the same cadence as the docs pages. */
 	@media (prefers-reduced-motion: no-preference) {
@@ -1287,7 +1349,7 @@
 		letter-spacing: -0.02em;
 		line-height: 1.05;
 		color: color-mix(in srgb, var(--ink) 88%, transparent);
-		margin: 0 0 1rem;
+		margin: 0 0 var(--space-16);
 	}
 	.docs-cover-lede {
 		font-family: var(--font-motto);
@@ -1320,12 +1382,17 @@
 	}
 	/* Same pairing as the superbar and sidebar: head in the body voice, links in mono. */
 	.docs-rail-head {
-		margin: 0 0 0.9rem;
+		/* THE SAME STEP THE SIDEBAR'S HEADS KEEP to their own lists (`.docs-sec-head`), so the two
+		   columns either side of the reading start on one rhythm. It was 0.9rem here against the
+		   sidebar's — the rail's title floated well clear of the list it heads while the sidebar's
+		   sat on top of its own. Both take puhig's `--stack-tight` now, so they cannot drift. */
+		margin: 0 0 var(--stack-tight);
+		/* …and the rail's head with it, so the two column heads match each other as well as the
+		   entries beneath them. "On this page" is a sentence; it was being set as a label. */
 		font-family: var(--font-body);
 		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.1em;
-		font-size: 0.68rem;
+		letter-spacing: 0.01em;
+		font-size: 0.72rem;
 		color: color-mix(in srgb, var(--ink) 40%, transparent);
 	}
 	.docs-rail-list {
@@ -1333,24 +1400,42 @@
 		margin: 0;
 		padding: 0;
 	}
+	/* Same for the rail, and for the same reason. The LINK below keeps its own padding — that is
+	   the hit area, not spacing, and taking it away would make a one-line entry a 17px target. */
 	.docs-rail-item {
-		margin: 0.1rem 0;
+		margin: 0;
 	}
 	/* The page-title entry leads the rail; a hair of air below it sets the title off from
 	   the section list that follows (when there is one). */
+	/* The rail's lead entry is the PAGE'S OWN TITLE and the entries under it are its sections — so
+	   the step is `--stack-tight`, the named gap for a thing sitting ON what it introduces. It was
+	   twice that, which parted the page from its own contents by more than the contents are parted
+	   from each other. */
 	.docs-rail-item.lvl-1 {
-		margin-bottom: 0.35rem;
+		margin-bottom: var(--stack-tight);
 	}
 	.docs-rail-item.lvl-3 {
-		padding-left: 0.85rem;
+		padding-left: var(--space-12);
 	}
 	.docs-rail-link {
 		display: block;
-		font-family: var(--font-mono);
-		font-size: 0.7rem;
-		line-height: 1.4;
-		letter-spacing: 0.01em;
-		padding: 0.15rem 0;
+		/* THE BODY FACE, not the mono one. The rail's own head is already IBM Plex Sans and its
+		   entries were Space Mono, so the one short column on the page was set in two faces — and
+		   the entries are HEADINGS FROM THE READING, not data: they are the page's own words
+		   repeated, and they should be set the way the page sets them. Size and spacing are nudged
+		   with it because Plex runs narrower than the mono at the same nominal size. */
+		font-family: var(--font-body);
+		/* THE SIDEBAR'S RHYTHM EXACTLY — same size, same leading, no padding. The two columns frame
+		   the reading and they now stand on one pitch, where the rail used to sit ~5px looser: a
+		   smaller face on tighter leading, then 4px of padding top and bottom putting it back and
+		   more. The padding was carrying spacing, which the line-height is for; the line box is the
+		   hit area and a whole line of it is target enough for a rail never drawn on a phone.
+		   The pitch is 12.8 × 1.65 = 21.12px and is deliberately NOT on the `--space-*` scale — a
+		   line box is type, not spacing, so it is measured by the font. `e2e/pixelite.mjs` §9
+		   asserts the two columns AGREE, and says why it does not assert a whole number. */
+		font-size: 0.8rem;
+		line-height: 1.65;
+		letter-spacing: 0;
 		color: color-mix(in srgb, var(--ink) 55%, transparent);
 		text-decoration: none;
 		overflow: hidden;
@@ -1391,12 +1476,12 @@
 	.docs-key {
 		display: flex;
 		align-items: center;
-		gap: 0.6rem;
+		gap: var(--space-8);
 		box-sizing: border-box;
 		height: 40px;
 		/* Tighter at the mark's end than at the word's — the glyph carries its own optical margin
 		   inside its box, and matched padding read as a word pushed off-centre. */
-		padding: 0 0.95rem 0 0.7rem;
+		padding: 0 var(--space-16) 0 var(--space-12);
 		color: var(--ink);
 		background: color-mix(in srgb, var(--page) 78%, transparent);
 		-webkit-backdrop-filter: blur(8px);
@@ -1480,7 +1565,7 @@
 		   On the scroller (outside Densette's bleeding gutter), so it reads as page background for
 		   every page — sheet or bare paper — rather than fighting a component's own margins. */
 		.docs-scroll {
-			padding-bottom: calc(40px + 2.5rem);
+			padding-bottom: calc(40px + var(--space-40));
 		}
 		/* The breadcrumb hides on a phone; the wordmark keeps the bar's left end to itself
 		   (the contents control now floats at the bottom-left instead of riding the bar). Its

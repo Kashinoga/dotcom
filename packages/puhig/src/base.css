@@ -169,6 +169,47 @@
 	/* Grid background tile size — 1px lines on a tile (the line *colour* is themed). */
 	--grid-size: 32px;
 
+	/* ── THE SPACING SCALE ──────────────────────────────────────────────────────────────────────
+	 * NAMED FOR THE PIXELS THEY ARE at a 16px root, because that IS the argument for the scale.
+	 * Every step is a whole number of pixels; the values these replaced mostly were not. Measured
+	 * across the docs shell and the docs bodies before this landed: NINETEEN distinct fixed
+	 * spacings, of which only seven were whole pixels — and those same seven were the only ones on
+	 * a 0.25rem grid. The half that looked deliberate already agreed with each other; the rest were
+	 * 3.2px, 5.6px, 8.8px, 9.6px, 11.2px, 17.6px, and no reader could tell any of them from its
+	 * neighbours.
+	 *
+	 * The base is 0.25rem and NOT 0.2rem, which is where this started. 0.2rem is 3.2px, so a scale
+	 * built on it lands on a whole pixel only every fifth step — and this repo already treats
+	 * fractional pixels as a correctness problem rather than a matter of taste (see the text
+	 * editor's row invariant, where a fractional row re-rolls its rounding on every line).
+	 *
+	 * The rungs are the ones the site actually stands on. A scale does not need every step, and
+	 * inventing rungs nothing uses is how a scale becomes a menu.
+	 */
+	--space-4: 0.25rem;
+	--space-8: 0.5rem;
+	--space-12: 0.75rem;
+	--space-16: 1rem;
+	--space-20: 1.25rem;
+	--space-24: 1.5rem;
+	--space-28: 1.75rem;
+	--space-32: 2rem;
+	--space-36: 2.25rem;
+	--space-40: 2.5rem;
+	--space-44: 2.75rem;
+
+	/* THE TIGHT STACK STEP, and the one rung with a MEANING rather than a size: a thing sitting ON
+	 * what it introduces — a heading and the list it heads, a label and the thing it labels.
+	 *
+	 * It is named because the docs shell had three different answers to one question: 0.9rem
+	 * between a section and the next, 0.5rem from a head to its own children, and zero between two
+	 * childless sections — one narrow column, three rhythms, and the children read as floating
+	 * under their heading rather than belonging to it. Naming the step is what stops the next
+	 * column inventing a fourth. Anything that wants AIR between two SEPARATE things wants a
+	 * larger rung, and should ask for it by size.
+	 */
+	--stack-tight: var(--space-4);
+
 	/* Inset bordered panel that frames the grid */
 	--frame-inset: 20px; /* gap between viewport edge and panel */
 	--panel-radius: 22px;

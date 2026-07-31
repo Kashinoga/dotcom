@@ -121,8 +121,8 @@
 	   1.75rem read as a hole under the title, and the Emoji page had taken to swallowing
 	   it with a negative margin rather than living with it. */
 	.docs-page-head {
-		margin: 0 0 0.75rem;
-		padding-bottom: 0.5rem;
+		margin: 0 0 var(--space-12);
+		padding-bottom: var(--space-8);
 	}
 	/* The self-chrome readings' paper: Weather, the Court and the Emoji wall each lay their
 	   reading AND their title (a printed cover) on a white sheet over the grey gutter —
@@ -141,7 +141,10 @@
 		   a fallback for a sheet rendered outside the shell, which nothing does today. */
 		background: var(--sheet-stock, light-dark(#ffffff, #202023));
 		border-radius: 2px;
-		padding: clamp(1.25rem, 3vw, 2.25rem);
+		/* Fluid, in whole 4px steps. Written twice — see the note at --docs-pad in $lib/DocsShell:
+		   `round()` is recent enough that an engine without it must be left a working clamp. */
+		padding: clamp(var(--space-20), 3vw, var(--space-36));
+		padding: clamp(var(--space-20), round(3vw, var(--space-4)), var(--space-36));
 	}
 	/* The Emoji wall's in-flow search bar bleeds to the docs GUTTER by --docs-pad (its recipe
 	   for the old full-bleed layout); on the sheet that pulls it out of the padded measure and
@@ -219,8 +222,8 @@
 	/* Quotes in the manual voice: serif italic between two hairline rules, the same
 	   treatment as Densette's pull-quotes, left-aligned to the measure. */
 	.docs-prose :global(blockquote) {
-		margin: 1.75rem 0;
-		padding: 1rem 0;
+		margin: var(--space-28) 0;
+		padding: var(--space-16) 0;
 		border-top: 1px solid var(--pixel-hairline);
 		border-bottom: 1px solid var(--pixel-hairline);
 		font-family: var(--font-motto);
@@ -232,8 +235,8 @@
 	/* Code sets in the data voice on a faint ink wash — a printed listing, not a terminal:
 	   hairline border, the theme's 2px cut, and its own horizontal scroll when wide. */
 	.docs-prose :global(pre) {
-		margin: 1.5rem 0;
-		padding: 1rem 1.15rem;
+		margin: var(--space-24) 0;
+		padding: var(--space-16);
 		background: color-mix(in srgb, var(--ink) 4%, transparent);
 		border: 1px solid var(--pixel-hairline);
 		border-radius: 2px;
@@ -284,7 +287,7 @@
 		   on a phone narrower than that the card overran the sheet's right edge. min(…, 100%)
 		   lets the single column collapse to the container width instead of overflowing it. */
 		grid-template-columns: repeat(auto-fill, minmax(min(17rem, 100%), 1fr));
-		gap: 0.75rem;
+		gap: var(--space-12);
 		align-items: start;
 	}
 	.app-page :global(.app-cols > .app-cards) {
@@ -307,7 +310,7 @@
 		   than overflowing it (a bare 19rem minimum can't shrink); no effect on the wide panel. */
 		grid-template-columns: repeat(auto-fill, minmax(min(19rem, 100%), 1fr));
 		align-content: start;
-		gap: 1.75rem 2.75rem;
+		gap: var(--space-28) var(--space-44);
 		/* Groups top-align in their row so single-line leads keep their controls level without the
 		   panel's min-height floor (the panel levels leads to a two-line floor so controls line up
 		   even when one lead wraps; the docs leads are all one line, and the floor only opened a
@@ -324,7 +327,7 @@
 	/* Each control sits close under its lead — a small section label — rather than at the group's
 	   default 1.05rem step. */
 	.docs-settings :global(.stg-group > .seg-lead + *) {
-		margin-top: 0.5rem;
+		margin-top: var(--space-8);
 	}
 	/* The grid's row-gap parts the groups, so cancel the pixelite theme's stacked-column margin
 	   (puhig pixelite.css: html[data-look=pixelite] .stg-group + .stg-group). Left in, it lands on
