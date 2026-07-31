@@ -46,11 +46,9 @@
 	.ver-name {
 		flex: 1 1 auto;
 		min-width: 0;
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.7rem;
 		font-weight: 700;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -69,22 +67,20 @@
 	   figure, in the figures' own order. It is not aligned to them character by character: the
 	   figures are proportional to their own values and any alignment would be a lie by the
 	   second release. A fourth word is why the letter-spacing came off — at four words the line
-	   wrapped inside `collections`, and a legend that breaks mid-word explains nothing. */
+	   wrapped inside `collections`, and a legend that breaks mid-word explains nothing. (The
+	   REMAINING tracking came off with the uppercase in the type pass, which only helps that:
+	   initial case at 0.6rem fits the four words with more room than the tracked caps did.) */
 	.ver-scheme {
 		margin: 0.2rem 0 0;
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.6rem;
-		letter-spacing: 0.02em;
-		text-transform: uppercase;
 		color: var(--sub);
 	}
 	.ver-sub {
 		margin: 0.7rem 0 0.35rem;
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.62rem;
 		font-weight: 700;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
 		color: var(--sub);
 	}
 	.ver-list {

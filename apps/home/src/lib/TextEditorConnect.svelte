@@ -319,10 +319,8 @@
 	}
 	.te-conn-head {
 		margin: 0;
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.62rem;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
 		color: var(--sub);
 	}
 	.te-conn-sub {
@@ -354,6 +352,20 @@
 		font-size: 0.7rem;
 		line-height: 1.35;
 		color: var(--sub);
+	}
+	/* THE FORM'S KEYS OPT OUT OF THE THEME'S VOICE, exactly as the bar's do. Pixelite dresses
+	   `.chip` in the same rule it dresses `.tb` with — mono, uppercase, tracked, at
+	   `html[data-look='pixelite'] .chip` = (0,2,1) — and this app is set in one voice, in the
+	   label's own case. Four keys reading DIRECT · THROUGH THIS SITE · CANCEL · CONNECT were the
+	   last shouting things in the editor, and they sit in a form whose every other line is
+	   sentence case.
+	   `.te-conn .chip` (0,4,0) is what beats it. A bare `.chip` here is (0,2,0) and LOSES to the
+	   theme on specificity rather than on order, so it would look like a no-op — the same trap
+	   the rack's `.tb` override documents. */
+	.te-conn .chip {
+		font-family: var(--font-body, system-ui, sans-serif);
+		letter-spacing: normal;
+		text-transform: none;
 	}
 	.te-conn-modes {
 		display: flex;

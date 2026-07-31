@@ -4508,7 +4508,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				</div>
 				<div class="te-count">
 					<dt>Read</dt>
-					<dd>{count.minutes ? `${pad(count.minutes)} min` : '—'}</dd>
+					<!-- `min` is a LABEL, not part of the figure, and it used to be inside the <dd>'s
+					     string — so the one word in this row that is not a number was set in the
+					     number face. The foot's whole recipe is sans labels and bitmap figures; this
+					     was the one place it was not kept, and it was invisible because `min` next to
+					     `0001` looks like it belongs to it. Its own span, in the label's voice. -->
+					<dd>
+						{#if count.minutes}{pad(count.minutes)}<span class="te-unit">min</span>{:else}—{/if}
+					</dd>
 				</div>
 			</dl>
 			<!-- The lamp speaks only while a write is pending, and is silent the rest of the time.
@@ -5014,27 +5021,58 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 	/* The section numeral. Inline rather than hanging in a margin: the proof pane is half a
 	   window wide in SPLIT and a hanging numeral would be the first thing off the edge. */
+	/* The fallback is spelled THROUGH --font-mono, and it has to be. --font-pixel is declared by
+	   Pixelite alone — Aeropalite and metro never set it — so this fallback is live rather than
+	   theoretical, and written as a bare `monospace` it fell to whatever generic mono the browser
+	   keeps while every other numeral in the app (the tallies, the contents rail, the margin
+	   marks, the word count) fell to Space Mono. Two numerals a rail apart in two different faces,
+	   in the one look where nobody would think to check. */
 	.te-proof :global(h2::before) {
 		content: counter(te-sec, decimal-leading-zero);
 		margin-right: var(--space-8);
-		font-family: var(--font-pixel, monospace);
+		font-family: var(--font-pixel, var(--font-mono, monospace));
 		font-size: 1.15em;
 		color: var(--orange);
 	}
-	/* Third level drops out of the serif into the manual's running-head voice — mono, uppercase,
-	   tracked. Two serif sizes that close together read as an accident; a change of voice does
-	   not. */
+	/* EVERY HEADING IS THE SERIF, ALL SIX OF THEM. The lower four used to drop out of Iowan into
+	   the manual's running-head voice — mono, uppercase, tracked — on the argument that two serif
+	   sizes that close together read as an accident where a change of voice does not. The
+	   argument was sound about the SIZES and wrong about the fix: it bought the separation by
+	   spending a whole second face on it, and the result was a document whose outline was written
+	   in two alphabets, so a reader scanning for structure had to recognise two things rather than
+	   one. A heading is a heading at every depth.
+	   The separation is bought with SIZE AND WEIGHT instead, which is what a type ladder is for.
+	   The steps are deliberately uneven: 2.2 → 1.35 is a chapter opening a section, and the drop
+	   is large because those two are different KINDS of thing; 1.35 → 1.05 → 0.95 → 0.9 is one
+	   kind of thing getting quieter. Weight goes UP as size comes down (400 at the top, 600 below
+	   it) — past h3 a heading is smaller than the 1rem prose it introduces, and something has to
+	   say "heading" once size has stopped being able to. H6 adds italic because 0.9/600 twice
+	   over is not a step, and at the sixth level there is no size left to spend.
+	   Full ink, where these were muted to 65%. The mute was propping up a face that had already
+	   left the prose behind; in the same serif as h1 it only made the deepest headings look like
+	   an aside. */
 	.te-proof :global(h3),
 	.te-proof :global(h4),
 	.te-proof :global(h5),
 	.te-proof :global(h6) {
 		margin: var(--space-24) 0 var(--space-8);
-		font-family: var(--font-mono, monospace);
-		font-size: 0.78rem;
-		font-weight: 700;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: color-mix(in srgb, var(--ink) 65%, transparent);
+		font-family: var(--font-motto, Georgia, serif);
+		font-weight: 600;
+		line-height: 1.3;
+		color: var(--ink);
+	}
+	.te-proof :global(h3) {
+		font-size: 1.05rem;
+	}
+	.te-proof :global(h4) {
+		font-size: 0.95rem;
+	}
+	.te-proof :global(h5),
+	.te-proof :global(h6) {
+		font-size: 0.9rem;
+	}
+	.te-proof :global(h6) {
+		font-style: italic;
 	}
 	.te-proof :global(p) {
 		margin: 0 0 var(--space-16);
@@ -5084,10 +5122,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		position: absolute;
 		top: 0.15rem;
 		right: 0.55rem;
-		font-family: var(--font-pixel, monospace);
+		/* Through --font-mono for the reason spelled out on the section numeral above. */
+		font-family: var(--font-pixel, var(--font-mono, monospace));
 		font-size: 0.95rem;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
 		color: var(--sub);
 	}
 	/* Inside a listing the span drops its own face and border — it already has the slab's. */
@@ -5119,10 +5156,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-proof :global(li) {
 		margin-bottom: var(--space-4);
 	}
-	/* The marker is chrome, so it speaks the chrome's language — cobalt, in the mono face. */
+	/* The marker is chrome, so it speaks the chrome's language — which is now the same sans the
+	   prose is set in. The COLOUR is what marks it as the app's own mark rather than the author's
+	   text, and the colour was always doing that work; the mono face was a second signal for one
+	   fact, and it is the signal that made a bulleted list look like it had been set by a
+	   different hand than the paragraph above it. */
 	.te-proof :global(li::marker) {
 		color: var(--orange);
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.85em;
 	}
 	/* A nested list is tighter than its parent: it is a sub-point, not a second document. */
@@ -5143,16 +5184,24 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		border-collapse: collapse;
 		font-size: 0.92rem;
 	}
+	/* A table head is the AUTHOR's content, not the app's chrome, so it takes the sheet's own sans
+	   — and its own CASE. It wore tracked uppercase at 0.72rem for one release, on the argument
+	   that nothing else would separate a header row from the first row of data once the face
+	   matched the body. Three things do: the WEIGHT, the heavier rule under it (--card-edge
+	   against the --te-rule the data rows keep), and the position. A header is the first row of a
+	   table; it does not need to be shouted.
+	   The size override went with the uppercase and did not survive on its own. 0.72rem was an
+	   EYEBROW size, sized for caps; in initial case it left the head smaller than the 0.92rem
+	   cells beneath it, which reads as a caption over a table rather than as part of one. It
+	   inherits the table's size now — a bold row at the data's own measure, which is what a table
+	   head is everywhere else. Full ink for the same reason the proof's deep headings took it. */
 	.te-proof :global(th) {
 		padding: var(--space-8) var(--space-12);
 		border-bottom: 1px solid var(--card-edge, var(--te-rule));
-		font-family: var(--font-mono, monospace);
-		font-size: 0.72rem;
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-weight: 700;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
 		text-align: left;
-		color: color-mix(in srgb, var(--ink) 65%, transparent);
+		color: var(--ink);
 	}
 	.te-proof :global(td) {
 		padding: var(--space-8) var(--space-12);
@@ -5238,11 +5287,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		margin: 0;
 		flex: 1 1 auto;
 		min-width: 0;
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.72rem;
 		font-weight: 700;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
 		color: var(--ink);
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -5262,11 +5309,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		left: 0.75rem;
 		right: 0.75rem;
 		padding: var(--space-4) var(--space-8);
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.72rem;
 		font-weight: 700;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
 		color: var(--ink);
 		/* Wrapped, and broken mid-word if it has to be: a folder name can be one long token with
 		   no space in it, and the point of this box is that the WHOLE name is readable. */
@@ -5352,17 +5397,18 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-loose-head {
 		background: none;
 	}
-	/* The manual's running-head voice — the same one a folder row in the tree is set in, because
-	   this is the same kind of thing: a heading over a handful of documents. */
+	/* The same voice a folder row in the tree is set in, because this is the same kind of thing:
+	   a heading over a handful of documents. (Which is now every voice in the chrome — see the
+	   head rules above. The sentence is kept because the CLAIM is still the point: these two are
+	   the same kind of thing and must not be set apart.) */
 	/* A-Z on the Scratch head. Set as small as the tally beside it and in the same muted ink: it
 	   is a key, but it is a key about the LIST rather than about a document, and the documents are
 	   what this pane is for. */
 	.te-loose-sort {
 		flex: none;
 		padding: 0 var(--space-4);
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.6rem;
-		letter-spacing: 0.04em;
 		color: var(--sub);
 		background: none;
 		border: 0;
@@ -5376,8 +5422,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 	/* The + is the same key at the same weight, one step up in size: a single glyph set at 0.6rem
 	   beside a two-character word reads as a speck rather than as a control. Its line-height is
-	   stated because a lone `+` in the mono face sits high in its own box, and the row is 30px of
-	   things that all have to sit on one line. */
+	   stated because a lone `+` sits high in its own box, and the row is 30px of things that all
+	   have to sit on one line. */
 	.te-loose-add {
 		font-size: 0.85rem;
 		line-height: 1;
@@ -5388,9 +5434,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   name is read, which is the one thing four stacked lists in a 15rem column cannot say for
 	   themselves — three of the four names are the app's own words and the fourth is whatever the
 	   folder happens to be called.
-	   SET IN THE MUTED INK, like the tally and the twisty. The name is the bold uppercase thing in
-	   this row and the mark must not compete with it: it is an aid to finding the row, not the
-	   row's subject. Every one of them is aria-hidden — the name beside it already says this. */
+	   SET IN THE MUTED INK, like the tally and the twisty. The name is the bold thing in this row
+	   and the mark must not compete with it: it is an aid to finding the row, not the row's
+	   subject. Every one of them is aria-hidden — the name beside it already says this. */
 	.te-work-mark {
 		flex: none;
 		display: inline-flex;
@@ -5417,7 +5463,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		left: 0.75rem;
 		right: 0.75rem;
 		padding: var(--space-4) var(--space-8);
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.68rem;
 		color: var(--ink);
 		white-space: normal;
@@ -5553,7 +5599,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		   its left against 5.3px to its right). Nothing about the glyph was wrong; it was never
 		   being centred in the button at all, only in the six pixels the UA had left it. */
 		padding: 0;
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.85rem;
 		line-height: 1;
 		color: var(--sub);
@@ -5588,10 +5634,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		width: auto;
 		min-width: 18px;
 		padding: 0 var(--space-4);
-		font-size: 0.55rem;
+		font-size: 0.6rem;
 		font-weight: 700;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
 		color: var(--orange);
 		background: var(--pixel-key-on, color-mix(in srgb, var(--orange) 14%, transparent));
 		border: 1px solid color-mix(in srgb, var(--orange) 55%, transparent);
@@ -5619,9 +5663,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   it: the rows are already parted by their own leading, and the hover tint and the marked
 	   row are what actually need to be seen. The same argument as the panes beside it. */
 	/* EVERY row in this pane is the same height — a document, a folder, a scratch note. They are
-	   set in different faces and different sizes (a folder name is the running-head voice, a
-	   filename is the mono one), and left to their own type they came out a pixel or two apart,
-	   which reads as a list that has been assembled rather than one that was set.
+	   set at different sizes and weights (a folder name is bold and small, a filename is neither),
+	   and left to their own type they came out a pixel or two apart, which reads as a list that
+	   has been assembled rather than one that was set. One face across the pane narrowed the gap
+	   and did not close it: the floor is still what holds the rows level.
 	   A flex row with a floor under it, rather than padding alone: padding plus a smaller face is
 	   still a smaller row. */
 	.te-work-row {
@@ -5715,10 +5760,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   the same question, arriving late. */
 	.te-work-fetching {
 		margin-left: auto;
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.6rem;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
 		color: var(--topaz);
 	}
 	/* A 2px rule along the bottom of the row, with a sliver sweeping it. Along the BOTTOM rather
@@ -5857,10 +5900,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		right: 0.75rem;
 		top: 50%;
 		transform: translateY(-50%);
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.6rem;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
 		color: var(--te-said, var(--emerald));
 		animation: te-saved-word 1.6s ease forwards;
 	}
@@ -5914,7 +5955,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		box-sizing: border-box;
 		height: 26px;
 		padding: 0 var(--space-8);
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.76rem;
 		color: var(--ink);
 	}
@@ -5950,7 +5991,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		flex: 1 1 auto;
 		min-width: 0;
 		line-height: 1.3;
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.76rem;
 		color: var(--ink);
 		overflow: hidden;
@@ -5967,8 +6008,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		flex: 1 1 auto;
 		min-width: 0;
 		font-size: 0.7rem;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
 		color: var(--sub);
 	}
 	.te-work-dir:hover .te-work-dirname {
@@ -6046,10 +6085,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		border-radius: 20px;
 	}
 	.te-fkey-word {
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.78rem;
-		letter-spacing: 0.04em;
-		text-transform: uppercase;
 		white-space: nowrap;
 	}
 	/* The mark keeps its size while the key grows around it — without this the flex row would
@@ -6094,11 +6131,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		min-height: 30px;
 		margin: 0;
 		padding: var(--space-4) var(--space-12);
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.66rem;
 		font-weight: 700;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
 		color: var(--sub);
 	}
 	.te-toc-list {
@@ -6132,7 +6167,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		background: color-mix(in srgb, var(--orange) 8%, transparent);
 	}
 	/* Levels step in. Only the first three earn a step — past that a rail indents further than it
-	   informs, and h4–h6 are the mono running-head voice in the proof anyway. */
+	   informs, and h4–h6 are the quietest steps of the proof's own ladder anyway. */
 	/* A TOP-LEVEL heading is not BOLDER than the ones under it, only darker. The rail already says
 	   the hierarchy twice — by indent and by the numbering — and a third telling in weight made the
 	   H1s read as the important entries rather than as the outer ones. Full ink against the 80% the
@@ -6177,9 +6212,17 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		display: flex;
 		align-items: baseline;
 		gap: var(--space-8);
-		/* The one place a popover item is not in the mono voice: these ARE headings. */
-		font-family: var(--font-motto, Georgia, serif);
+		/* Named rather than inherited. These items read `Heading 1`, `Heading 2` — the app's own
+		   words for a level, not a specimen of the level, so they take the chrome's voice like
+		   every other popover item. They wore the SERIF for a while on the argument that these
+		   ARE headings; they are not, they are a menu of them. */
+		font-family: var(--font-body, system-ui, sans-serif);
 	}
+	/* THE HASHES STAY MONO, and they are the reason this rule exists. `#`, `##`, `###` is
+	   MARKDOWN — the literal characters the key is about to type into the sheet — so it is the
+	   same thing an inline code span is, and it is set the way the sheet sets it. The one place
+	   in the chrome where the mono face survived the pass, and it survived on the same argument
+	   that keeps it on the WRITE sheet: this is source, not label. */
 	.te-heads-mark {
 		margin-left: auto;
 		font-family: var(--font-mono, monospace);
@@ -6187,10 +6230,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		color: var(--sub);
 	}
 	.te-heads-none {
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.7rem;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
 		color: var(--sub);
 	}
 
@@ -6234,7 +6275,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		border: 1px solid var(--pixel-key-border, rgba(0, 0, 0, 0.4));
 		border-radius: 4px;
 		box-shadow: var(--pixel-bevel);
-		font-family: var(--font-mono, ui-monospace, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.78rem;
 		font-weight: 600;
 		cursor: pointer;
@@ -6253,8 +6294,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 
 	/* ── The running foot ──────────────────────────────────────────────────────
-	   The tally, set the way a manual foots a page: mono labels, pixel figures, one hairline
-	   over the lot. Fixed to the bottom of the desk, never scrolling with either pane. */
+	   The tally, set the way a manual foots a page: sans labels, pixel figures, one hairline
+	   over the lot. The label/figure split is the whole recipe — the word is chrome and reads as
+	   chrome, the number is a readout and wears the bitmap face every other numeral in the app
+	   wears. Fixed to the bottom of the desk, never scrolling with either pane. */
 	.te-foot {
 		flex: none;
 		display: flex;
@@ -6290,10 +6333,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		gap: var(--space-4);
 	}
 	.te-count dt {
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.66rem;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
 		color: var(--sub);
 	}
 	.te-count dd {
@@ -6305,12 +6346,20 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		/* Tabular figures so the counts do not shuffle sideways as they tick over. */
 		font-variant-numeric: tabular-nums;
 	}
+	/* The unit rides the figure but is not one, so it takes the label's face and the label's size.
+	   The gap is a MARGIN rather than a space in the markup: the figure is `pad()`ed to four
+	   characters and a literal space inside the <dd> would be set in the bitmap face at the
+	   figure's 1.05rem, which is a third again the gap this row wants. */
+	.te-unit {
+		margin-left: var(--space-4);
+		font-family: var(--font-body, system-ui, sans-serif);
+		font-size: 0.66rem;
+		color: var(--sub);
+	}
 	.te-lamp {
 		margin: 0 0 0 auto;
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.66rem;
-		letter-spacing: 0.1em;
-		text-transform: uppercase;
 		color: var(--sub);
 	}
 	.te-lamp-dirty {

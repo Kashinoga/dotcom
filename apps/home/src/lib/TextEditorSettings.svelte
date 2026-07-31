@@ -210,10 +210,8 @@
 		gap: var(--space-8);
 	}
 	.te-set-forget {
-		font-family: var(--font-mono, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.6rem;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
 		color: var(--sub);
 	}
 	.te-set-ver {

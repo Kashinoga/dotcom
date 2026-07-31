@@ -346,8 +346,9 @@
 	}
 
 	/* The shared control class at this app's measure. Everything about how a .tb LOOKS — face,
-	   border, bevel, the mono uppercase label, the cobalt hover and the sunken press — comes from
-	   the theme (pixelite.css dresses .tb globally at 0,2,1, which outranks these scoped rules). */
+	   border, bevel, the cobalt hover and the sunken press — comes from the theme (pixelite.css
+	   dresses .tb globally at 0,2,1, which outranks these scoped rules). Its LABEL no longer
+	   does; see the voice override below. */
 	.tb {
 		display: inline-flex;
 		align-items: center;
@@ -372,6 +373,25 @@
 		cursor: pointer;
 		white-space: nowrap;
 	}
+	/* THE KEY'S VOICE IS THE APP'S VOICE, NOT THE THEME'S. Pixelite dresses every .tb on the site
+	   in the mono face, uppercase and tracked, and this bar opts out: the editor is set in one
+	   voice now — IBM Plex Sans, in the label's own case — and a bar shouting OPEN · WORKSPACE ·
+	   SAVE over a pane reading Scratch · Local · Contents is two apps in one window.
+	   What said "key" was never the type. It is the plastic: the face, the edge and the bevel are
+	   all still the theme's, the accent still says which key is ON, and the 28px square still says
+	   these are a rack. The type was doing the same job a third time, in a face nothing else in
+	   the app wears any more.
+	   It MUST be spelled with the group in front of it. The theme's selector is
+	   `html[data-look='pixelite'] .tb` — (0,2,1), which a scoped bare `.tb` (0,2,0) loses to on
+	   specificity rather than on order, so this would silently do nothing written the obvious way.
+	   All three groups are listed because all three hold keys and only .te-rack scrolls. */
+	.te-lead .tb,
+	.te-rack .tb,
+	.te-tail .tb {
+		font-family: var(--font-body, system-ui, sans-serif);
+		letter-spacing: normal;
+		text-transform: none;
+	}
 	.tb:focus-visible {
 		outline: var(--focus-ring);
 		outline-offset: 2px;
@@ -389,12 +409,13 @@
 	   rack of keys rather than as ten differently-sized buttons. Square rather than merely
 	   min-width'd: a 28px glyph key beside a 42px "H1" key is the ragged rhythm the typographic
 	   labels used to give the whole strip, and the point of moving to the icon set was to end it.
-	   The two word keys keep the mono face; the theme's uppercase transform is harmless on them. */
+	   Eight of the ten are SVG, so the face reaches only the two that are not — but it is named
+	   rather than inherited so a mark key that grows a word later lands in the bar's own voice. */
 	.te-mark-key {
 		width: 28px;
 		padding: 0;
 		justify-content: center;
-		font-family: var(--font-mono, ui-monospace, monospace);
+		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.72rem;
 	}
 
