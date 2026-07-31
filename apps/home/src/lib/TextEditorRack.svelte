@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import {
 		editor,
 		shownMode,
@@ -41,6 +42,31 @@
 	];
 
 	const shown = $derived(shownMode());
+
+	/**
+	 * THE ENTRANCE IS THE BAR ARRIVING, NOT A KEY APPEARING — and it has to be able to stop.
+	 *
+	 * `btn-in` was attached to `.tb` unconditionally, so ANY key that mounted later replayed the
+	 * whole app's arrival. That is not hypothetical: SAVE is `{#if docKeys.length}` behind a
+	 * `shown()` that asks whether this document can be written back, so it appears the moment a
+	 * savable document is opened — and it slid in from the left every time, as though the toolbar
+	 * had just loaded. Measured: opening a file with a handle runs `btn-in` on SAVE and on the rule
+	 * beside it. The same is true of every conditional key here.
+	 *
+	 * A key that appears because the DOCUMENT changed should simply be there. The entrance belongs
+	 * to the load, so it is scoped to a window after mount and then switched off for good.
+	 *
+	 * The window is a plain timer rather than an `animationend` count, and generous on purpose:
+	 * the last key's animation ends at `--enter-lead` + 6 × `--btn-enter-step` + 0.42s, which is
+	 * well under a second, and flipping the flag LATE costs nothing (the animations are over)
+	 * while flipping it early would cut the last key off mid-slide. Counting `animationend` would
+	 * mean knowing how many keys are drawn, which is the thing that varies.
+	 */
+	let arrived = $state(false);
+	onMount(() => {
+		const t = setTimeout(() => (arrived = true), 1500);
+		return () => clearTimeout(t);
+	});
 </script>
 
 {#if !editor.narrow}
@@ -54,7 +80,7 @@
 	     unmissable — but a rule is not only telling two things apart, it is saying where one job
 	     ends and the next begins, and this bar reads left to right in the order of the work. It
 	     matches the one in the tail, which parts the document keys from what stands past them. -->
-	<div class="te-lead">
+	<div class="te-lead" class:te-arrived={arrived}>
 		<div class="te-group" role="group" aria-label="Open">
 			{#each OPEN_KEYS as k, i (k.id)}
 				<!-- NO CARET on either of these any more. Workspace held a menu and wore one; it is a
@@ -83,7 +109,7 @@
 		{/if}
 	</div>
 {/if}
-<div class="te-rack" role="toolbar" aria-label="Text Editor">
+<div class="te-rack" class:te-arrived={arrived} role="toolbar" aria-label="Text Editor">
 	{#if shown !== 'proof' && !editor.narrow}
 		<!-- The marks are only offered when there is a sheet to put them on. In PROOF there is
 		     nothing to mark up, and ten dead keys would say otherwise. On a phone they are in the
@@ -130,7 +156,7 @@
      The tail itself is always drawn: on a phone the document keys go to the flyout, but the view
      keys stay, because switching between the sheet and the proof is the one thing a phone still
      has to do from the bar. -->
-<div class="te-tail">
+<div class="te-tail" class:te-arrived={arrived}>
 	<div class="te-group" role="group" aria-label="View">
 		{#each MODES as m, i (m.id)}
 			<!-- SPLIT simply is not offered on a narrow window; see shownMode. -->
@@ -298,16 +324,19 @@
 	   universal hover/press list, so the fill has to lift the moment the entrance ends or the
 	   animated translate would pin their scale(). */
 	@media (prefers-reduced-motion: no-preference) {
-		.te-lead .tb,
-		.te-rack .tb,
-		.te-tail .tb {
+		/* `:not(.te-arrived)` is what keeps this an ARRIVAL. See the note on `arrived` above: the
+		   rule used to reach every `.tb` for the life of the page, so a key that mounted later —
+		   SAVE, the moment a savable document is opened — replayed the whole bar's entrance. */
+		.te-lead:not(.te-arrived) .tb,
+		.te-rack:not(.te-arrived) .tb,
+		.te-tail:not(.te-arrived) .tb {
 			animation: btn-in 0.42s var(--spring) backwards;
 			animation-delay: calc(var(--enter-lead) + var(--bn, 0) * var(--btn-enter-step));
 		}
 		/* The rules come in with the keys they part, a beat behind the key on their left, so a
 		   cluster arrives as a cluster instead of the hairline standing there waiting for it. */
-		.te-lead .te-sep,
-		.te-tail .te-sep {
+		.te-lead:not(.te-arrived) .te-sep,
+		.te-tail:not(.te-arrived) .te-sep {
 			animation: btn-in 0.42s var(--spring) backwards;
 			animation-delay: calc(var(--enter-lead) + var(--bn, 2) * var(--btn-enter-step));
 		}
