@@ -137,12 +137,12 @@ const DEFAULTS = {
 	// the reset had NOT changed the chrome. It should, and it does.
 	ok('reset → the chrome is the docs shell now', !(await page.locator('aside.surface').count()));
 	ok('reset → still on the settings page', page.url() === `${B}/settings`, page.url());
-	// NO TOAST IS ASSERTED, and this is a REAL GAP rather than a stale expectation. `showToast`
-	// still fires (see the reset handler in +page.svelte) but the toast is rendered INSIDE the
-	// stage — `{#if look !== 'pixelite' || stageFullApp}` — and a reset flips the look to Pixelite,
-	// which unmounts the stage in the same tick. Measured: the toast never appears, at 150ms or at
-	// 4s. So a reset gives no confirmation at all under the default theme. Worth fixing in the app;
-	// asserting it here would only have re-hidden it.
+	// THE TOAST IS ASSERTED AGAIN, and this is the assertion that was missing while the bug lived.
+	// It used to be rendered INSIDE the stage — and a reset clears `ksh-look`, so it returns the
+	// site to Pixelite and unmounts the stage in the SAME TICK the toast is raised. Measured then
+	// at 150ms and at 4s: it never appeared, so a reset confirmed nothing at all on the default
+	// theme. The toast is the page's now, outside both look branches.
+	ok('reset → toast shown', await page.getByText('Settings reset to defaults').isVisible());
 	ok('reset → button now disabled', await resetBtn(page).isDisabled());
 
 	// Storage: prefs forgotten entirely, unrelated keys untouched.

@@ -12,7 +12,7 @@
 	import Weather from '$lib/Weather.svelte';
 	import Aita from '$lib/Aita.svelte';
 	import PudIdle from '$lib/PudIdle.svelte';
-	import LocaleForest from '$lib/LocaleForest.svelte';
+	import LocaleScenes from '$lib/LocaleScenes.svelte';
 	import { ranger, togglePaused } from '$lib/location-state.svelte';
 	import EmojiViewer from '$lib/EmojiViewer.svelte';
 	import EmojiSearch from '$lib/EmojiSearch.svelte';
@@ -929,13 +929,6 @@
 	// pill's geometry, kept even while flat) and clientHeight leaves both out, which left the
 	// editor's top gutter 2px shy of the three that frame it. See .surface-body.editor.
 	let barHeight = $state(0);
-	// Has the ranger EVER gone up this visit? The space scene mounts on the first orbit and
-	// then stays — a mounted-once layer just turns its opacity, so later deployments can't
-	// race a snapshot the way mount/unmount fades did. Until then three.js stays unpaid-for.
-	let everOrbited = $state(false);
-	$effect(() => {
-		if (ranger.deployment === 'orbit') everOrbited = true;
-	});
 	// The Park Ranger's own settings popout, opened from its bar (see the PUD head-actions).
 	// The BUTTON lives up here because the bar is the page's; the CARD is drawn by PudIdle,
 	// which owns the numbers in it (the lifetime tally, and abandoning the universe).
@@ -2298,50 +2291,14 @@
 			     inner key (no transition) just remounts content so the arrival-board
 			     titles re-flip on each destination. -->
 				<div class="surface-scroll">
+					<!-- The Park Ranger's scenery — the forest, the space above it, and the wipe that hides
+					     the swap between them — in $lib/LocaleScenes. It lives INSIDE the panel because the
+					     sheet is opaque: there is no "behind the panel" a viewer can see.
+					     IT TAKES NO PROPS. Every question the scenery asks is about the deployment, which is
+					     $lib/location-state and which it reads itself — the opposite of the sky, where the
+					     page has to decide whether a layer belongs on screen at all and hands over answers. -->
 					{#if v?.kind === 'port' && v.code === 'PUD'}
-						<!-- The Location backdrop — scenery behind the ranger's chrome.
-				     It lives INSIDE the panel because the sheet is opaque: there is no "behind the
-				     panel" the viewer can see. The space scene is imported lazily so three.js is
-				     never paid for until the ranger first goes up.
-				     NOTHING MOUNTS OR UNMOUNTS on a deployment. Svelte in/out fades here raced the
-				     view transition's snapshots — the capture caught scenes mid-intro and the sheet
-				     flashed through every swap. So the forest is the PERMANENT base layer, always
-				     opaque beneath everything, and the space scene above it is the only thing that
-				     moves: one CSS opacity transition, compositor-driven, nothing for a snapshot to
-				     catch half-dressed. Either direction, the fade happens over an opaque scene. -->
-						<!-- The wrapper is an ISOLATED stacking context: space pins itself over the forest
-				     with a z-index that must never escape to outrank the chrome, which sits above
-				     these scenes by DOM order alone. -->
-						<div class="locale-scenes" aria-hidden="true">
-							<div class="locale-scene">
-								<LocaleForest />
-							</div>
-							{#if everOrbited}
-								<!-- class:instant kills the 0.7s opacity fade WHILE a transit is in the air: the
-						     scene swap is timed to land at WIPE_COVER_MS, when the white owns the screen,
-						     so it must be INSTANT — a fade would still be crossing when the white lifts
-						     and the seam would show. Either direction, the swap happens unseen. And the
-						     space loop must keep running through BOTH legs (the descend dives while
-						     deployment has already flipped planetside under the wash), so `active` reads
-						     the transit too, not just the resting deployment. -->
-								<div
-									class="locale-scene scene-orbit"
-									class:shown={ranger.deployment === 'orbit'}
-									class:instant={ranger.transit !== null}
-								>
-									{#await import('$lib/LocaleSpace.svelte') then m}
-										<m.default active={ranger.deployment === 'orbit' || ranger.transit !== null} />
-									{/await}
-								</div>
-							{/if}
-							<!-- THE WIPE — an atmosphere flash over both scenes (z above them, inside the isolated
-					     wrapper), mounted only for the length of a transit. One keyframes animation
-					     (fill-mode forwards) covers, holds, then reveals; the world is swapped under it
-					     during the hold, so the change is never seen. See .locale-wipe for the phasing. -->
-							{#if ranger.transit}
-								<div class="locale-wipe"></div>
-							{/if}
-						</div>
+						<LocaleScenes />
 					{/if}
 					{#if !contentHeld}
 						{#key v.code + ':' + editRev + ':' + arriveRev}
@@ -2743,29 +2700,35 @@
 				onclick={() => board(last)}>{@html ARROW_LEFT_SVG}</button
 			>
 		{/if}
+	</div>
+{/if}
 
-		{#if dev && editMode}
-			<div class="edit-bar" role="toolbar" aria-label="Edit mode actions">
-				<span class="edit-flag">Edit mode</span>
-				<button type="button" class="edit-btn discard" onclick={discardEdits}
-					>Discard &amp; exit</button
-				>
-				<button type="button" class="edit-btn save" onclick={saveEdits}>Save &amp; exit</button>
-			</div>
-		{/if}
-		{#if toast}
-			<!-- Drops in from above the top edge and lifts back out the same way. Distances are
-		     small — it's a notice, not an entrance — and both collapse to a plain fade under
-		     reduced motion. -->
-			<div
-				class="edit-toast"
-				role="status"
-				in:fly={{ y: reduce ? 0 : -18, duration: reduce ? 140 : 280 }}
-				out:fly={{ y: reduce ? 0 : -12, duration: reduce ? 120 : 200 }}
-			>
-				{toast}
-			</div>
-		{/if}
+<!-- THE TOAST AND THE EDIT BAR ARE THE PAGE'S, NOT THE STAGE'S — outside both look branches, so
+     they are drawn whichever chrome is on screen.
+     They used to sit INSIDE the stage, and the toast was therefore unreachable in the one case it
+     mattered most: "Reset to defaults" clears `ksh-look` too, so the reset returns the site to
+     Pixelite and unmounts the stage in the SAME TICK the toast is raised. Measured at 150ms and at
+     4s — it never appeared at all, so a reset gave no confirmation whatever on the default theme.
+     Nothing about their placement depended on the stage: both are `position: fixed` with their own
+     z-index (50 and 60), so they sit exactly where they did. -->
+{#if dev && editMode}
+	<div class="edit-bar" role="toolbar" aria-label="Edit mode actions">
+		<span class="edit-flag">Edit mode</span>
+		<button type="button" class="edit-btn discard" onclick={discardEdits}>Discard &amp; exit</button
+		>
+		<button type="button" class="edit-btn save" onclick={saveEdits}>Save &amp; exit</button>
+	</div>
+{/if}
+{#if toast}
+	<!-- Drops in from above the top edge and lifts back out the same way. Distances are small —
+	     it's a notice, not an entrance — and both collapse to a plain fade under reduced motion. -->
+	<div
+		class="edit-toast"
+		role="status"
+		in:fly={{ y: reduce ? 0 : -18, duration: reduce ? 140 : 280 }}
+		out:fly={{ y: reduce ? 0 : -12, duration: reduce ? 120 : 200 }}
+	>
+		{toast}
 	</div>
 {/if}
 
@@ -2947,107 +2910,14 @@
 	   absolutely positioned inside .surface-scroll (already position: relative), so it sits
 	   above the panel's own fill — .surface-backdrop is a SIBLING that comes BEFORE .surface-scroll
 	   in the DOM, so this scroller's children paint over it. */
-	.locale-scenes {
-		position: absolute;
-		inset: 0;
-		overflow: hidden;
-		pointer-events: none;
-		/* The scenes' z-order is a private argument: isolate keeps space's z-index from ever
-		   outranking the chrome, which beats this wrapper by DOM order alone. */
-		isolation: isolate;
-		/* Its own view-transition group: snapshotted apart from the root, old and new scenery
-		   crossfade in an isolated image pair (the UA's plus-lighter blend — dip-free) instead
-		   of riding the root's crossfade alongside the recoloring chrome. */
-		view-transition-name: pud-scenes;
-	}
-	.locale-scene {
-		position: absolute;
-		inset: 0;
-		overflow: hidden;
-		pointer-events: none;
-	}
-	/* Space rides above the always-opaque forest and is the only layer that fades — one
-	   opacity turn on a mounted-once element, so no deployment ever shows the sheet. */
-	.locale-scene.scene-orbit {
-		z-index: 1;
-		opacity: 0;
-	}
-	.locale-scene.scene-orbit.shown {
-		opacity: 1;
-	}
-	/* While a transit is in the air the scene swap must be INSTANT: it's timed to land at
-	   WIPE_COVER_MS, when the white fully covers the screen, so a lingering 0.7s opacity fade would
-	   still be crossing as the white lifts and the seam between the two skies would show. This kills
-	   the transition just for the swap under the wash; the RESTING fade (a plain planetside↔orbit
-	   change with no transit — reduced motion, say) keeps it. Higher specificity than the base rule,
-	   so it wins wherever it applies. */
-	.locale-scene.scene-orbit.instant {
-		transition: none;
-	}
-	/* THE WIPE — the atmosphere, absolute over BOTH scenes inside the isolated wrapper
-	   (z-index 2, above space's z-index 1), mounted only for the length of a transit.
-	   A FULL-BLEED FADE, not a directional slide: the cover is the whole glass brightening at
-	   once, because what it plays against is the CAMERA — descending, the dive to closest
-	   approach runs exactly the cover's 350ms (see LocaleSpaceScene), so the planet swelling
-	   up and the air thickening over the lens arrive together and read as entering the
-	   atmosphere; ascending, the reveal fades off the planet-filling close-up just as the
-	   FLIGHT starts pulling the camera away, the air thinning as you leave it. An edge-wipe
-	   said "slide"; a bleed timed to the zoom says "through".
-	   It follows the viewer's theme — by day the air is bright haze, by night a deep indigo
-	   sky, indigo rather than pure black so it still reads as SKY. (This layer sits outside
-	   the orbit re-theme's color-scheme scope, so light-dark() answers to the user's theme,
-	   not the ship's.)
-	   One keyframes animation carries all three phases, so nothing can drift from a missed
-	   timer the way separate setTimeouts could. The clock is location-state's: COVER 350 +
-	   HOLD 150 + REVEAL 450 = 950ms total; the percentages are those milestones over the
-	   total — cover 350/950 = 36.842%, hold-end 500/950 = 52.632% — so this animation and the
-	   module's setTimeout(flip, WIPE_COVER_MS) read the same clock: the swap lands exactly
-	   inside the hold, fully covered. fill-mode forwards holds the cleared end until the
-	   element unmounts at TRANSIT_TOTAL_MS. */
-	.locale-wipe {
-		position: absolute;
-		inset: 0;
-		z-index: 2;
-		pointer-events: none;
-		background: light-dark(#eef2f6, #0b1120);
-		animation: locale-wipe 950ms linear forwards;
-	}
-	@keyframes locale-wipe {
-		0% {
-			opacity: 0;
-			animation-timing-function: ease-in;
-		}
-		36.842% {
-			opacity: 1;
-		}
-		52.632% {
-			opacity: 1;
-		}
-		100% {
-			opacity: 0;
-		}
-	}
-	@media (prefers-reduced-motion: no-preference) {
-		.locale-scene.scene-orbit {
-			transition: opacity 0.7s ease;
-		}
-		/* The deployment's view transition is the only one this site starts, so the root's
-		   crossfade (the recoloring chrome) and the scenes' own group ride the panel's 0.45s
-		   like the named sections do — the browser's 0.25s default finished ahead of everything
-		   else and the mismatch read as a flicker. */
-		:global(::view-transition-group(root)),
-		:global(::view-transition-group(pud-scenes)),
-		:global(::view-transition-group(pud-bar)) {
-			animation-duration: 0.45s;
-			animation-timing-function: ease;
-		}
-	}
-	/* But an absolutely-positioned layer paints ABOVE its static in-flow siblings, so left alone
-	   the scene would cover the head and body it's meant to sit behind. Lifting the chrome to
-	   position: relative makes them positioned too, and among positioned siblings with auto
-	   z-index DOM ORDER wins: the scene is written first (behind), the chrome after (in front).
-	   No z-index needed. (PudIdle's settings card pins to .pud, its own relative ancestor, so
-	   naming these positioning contexts doesn't disturb it.) */
+	/* THE ONE RULE THE SCENERY LEFT BEHIND, and it belongs here: these are the PAGE's elements.
+	   An absolutely-positioned layer paints ABOVE its static in-flow siblings, so left alone the
+	   scene ($lib/LocaleScenes, written just before the chrome in the markup) would cover the head
+	   and body it is meant to sit behind. Lifting the chrome to position: relative makes them
+	   positioned too, and among positioned siblings with auto z-index DOM ORDER wins: the scene is
+	   written first (behind), the chrome after (in front). No z-index needed. (PudIdle's settings
+	   card pins to .pud, its own relative ancestor, so naming these positioning contexts doesn't
+	   disturb it.) */
 	.surface-head.bar,
 	.surface-body.ranger {
 		position: relative;
