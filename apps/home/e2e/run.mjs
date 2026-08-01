@@ -342,12 +342,38 @@ if (!base) {
 	//
 	// The workspace's own vite binary, not `npx` (which would happily fetch a different one).
 	const vite = join(APP, 'node_modules', '.bin', 'vite');
-	server = spawn(vite, ['dev', '--port', String(PORT), '--strictPort'], {
+
+	// ── BUILT AND PREVIEWED, NOT `vite dev` ──────────────────────────────────────────────────
+	//
+	// This spawned a dev server for a long time, and the cost was one failure that only ever
+	// appeared in CI. `vite dev` TRANSFORMS AND SERVES MODULES ON DEMAND — hundreds of separate
+	// requests per page, each one a chance to drop on a loaded runner. When one does, the failure
+	// lands nowhere near the module: the ranger suite reported a missing space scene, and the page
+	// error behind it was SvelteKit's own generated `matchers.js` failing to load. A broken router
+	// resets the route, the ranger reverts planetside, and two assertions about orbit fail with
+	// nothing in the log connecting them to a dropped request.
+	//
+	// A preview server hands over a BUILT bundle: hashed, immutable files off disk, no
+	// transformation, a fraction of the requests. It also tests something closer to what actually
+	// deploys — `check:csp` already builds and previews for exactly that reason, and the CSP is
+	// live in both modes so nothing about the policy changes here.
+	//
+	// THE COST IS HONEST: a full build up front instead of a cold `dev` spawn, paid once per run
+	// rather than per suite. `--changed` still narrows WHICH suites run; it cannot narrow the
+	// build. For a single suite while iterating, `E2E_BASE=http://localhost:5173` against a dev
+	// server you are already running remains the fast path and skips this entirely.
+	console.log('e2e: building (the suites run against a built bundle, not a dev server)…');
+	const built = await run(vite, ['build'], { cwd: APP });
+	if (built !== 0) {
+		console.error('e2e: the build failed — nothing to serve, so nothing to test.');
+		process.exit(built);
+	}
+	server = spawn(vite, ['preview', '--port', String(PORT), '--strictPort'], {
 		cwd: APP,
 		detached: true,
 		stdio: 'ignore'
 	});
-	console.log(`e2e: spawned a dev server on :${PORT} (pid ${server.pid})`);
+	console.log(`e2e: spawned a preview server on :${PORT} (pid ${server.pid})`);
 }
 
 const stop = () => {
