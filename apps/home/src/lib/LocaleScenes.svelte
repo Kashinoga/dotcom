@@ -53,8 +53,22 @@
 			class:shown={ranger.deployment === 'orbit'}
 			class:instant={ranger.transit !== null}
 		>
+			<!-- A `:catch` THAT RENDERS NOTHING. It stops a failed import becoming an UNHANDLED
+			     rejection, and that is the whole of its claim — measured, after a first version of
+			     this comment claimed more.
+			     WHAT IT IS NOT: it is not what makes the ranger survive a dropped module. Removing
+			     it and blocking the three.js request on purpose, twice, leaves `.locale-scenes`,
+			     `.scene-orbit`, its `shown` class and the bar's re-theme all intact — Svelte does
+			     not take the enclosing block down when an `{#await}` rejects. The CI failure that
+			     sent somebody looking here has a different cause; see e2e/ranger.mjs.
+			     The forest is the PERMANENT base layer beneath this one, so a space scene that
+			     never arrives degrades to the planet with no sky over it. The scene is
+			     `aria-hidden` decoration; there is nothing to tell anybody, and a message where a
+			     starfield should be would be worse than a starfield that is missing. -->
 			{#await import('$lib/LocaleSpace.svelte') then m}
 				<m.default active={ranger.deployment === 'orbit' || ranger.transit !== null} />
+			{:catch}
+				<!-- deliberately empty — see above -->
 			{/await}
 		</div>
 	{/if}
