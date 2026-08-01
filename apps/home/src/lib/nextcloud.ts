@@ -36,7 +36,7 @@
 // same event and the editor does not yet tell them apart. See the note on `write` below.
 
 import type { DetachedDoc, FolderEntry, Listing, Store, WriteError } from '$lib/text-editor-store';
-import { dirOf, join, notWritten, WROTE } from '$lib/text-editor-store';
+import { dirOf, join, notWritten, WROTE, type Openable } from '$lib/text-editor-store';
 
 // ── Reading a multistatus ─────────────────────────────────────────────────────
 // PROPFIND answers 207 with a document like this, and the parts of it worth having are few:
@@ -367,7 +367,7 @@ function whyStatus(status: number): WriteError {
  * trip per folder, so the shallow rows (which are the ones somebody is most likely to want) should
  * not wait behind a deep branch.
  */
-export function nextcloudStore(cfg: NextcloudConfig, openable: RegExp): Store {
+export function nextcloudStore(cfg: NextcloudConfig, openable: Openable): Store {
 	const root = rootSegments(cfg);
 	/** The last etag seen for a path — what makes a save able to notice it would clobber someone. */
 	const etags = new Map<string, string>();
@@ -400,7 +400,7 @@ export function nextcloudStore(cfg: NextcloudConfig, openable: RegExp): Store {
 			// service. Hidden files are hidden everywhere by the same convention, so those still go.
 			if (e.dir) {
 				if (!e.name.startsWith('.') && path.split('/').length < MAX_DEPTH) dirs.push(path);
-			} else if (openable.test(e.name)) {
+			} else if (openable(e.name)) {
 				files.push({ name: e.name, path });
 			}
 		}

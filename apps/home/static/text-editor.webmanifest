@@ -35,7 +35,17 @@
 			"action": "/apps/text-editor",
 			"accept": {
 				"text/markdown": [".md", ".markdown", ".mdown", ".mkd"],
-				"text/plain": [".txt", ".text"],
+				"text/plain": [
+					".txt",
+					".text",
+					".log",
+					".conf",
+					".ini",
+					".cfg",
+					".env",
+					".properties",
+					".rules"
+				],
 				"text/javascript": [".js", ".mjs", ".cjs", ".jsx"],
 				"text/x-typescript": [".ts", ".tsx"],
 				"application/json": [".json", ".jsonc"],
@@ -48,7 +58,16 @@
 				"application/sql": [".sql"],
 				"application/xml": [".xml", ".svg"],
 				"text/x-rust": [".rs"],
-				"text/x-go": [".go"]
+				"text/x-go": [".go"],
+				"text/x-makefile": [".mk"],
+				"text/x-ruby": [".rb"],
+				"text/x-lua": [".lua"],
+				"text/x-perl": [".pl"],
+				"text/x-csharp": [".cs"],
+				"text/x-swift": [".swift"],
+				"text/x-kotlin": [".kt"],
+				"text/x-c": [".c", ".h", ".cpp", ".hpp"],
+				"application/graphql": [".graphql", ".gql"]
 			}
 		}
 	],

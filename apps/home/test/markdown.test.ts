@@ -15,9 +15,10 @@ import {
 	lineMarks,
 	outline,
 	PROSE,
-	CODE,
-	OPENABLE,
-	kindOf
+	BINARY,
+	isOpenable,
+	kindOf,
+	looksBinary
 } from '../src/lib/markdown.ts';
 
 const md = renderMarkdown;
@@ -345,26 +346,42 @@ test('ids match the rendered headings, so the rail can jump to them', () => {
 });
 
 // ── What this app opens ───────────────────────────────────────────────────────
-// Three claims, and the app is wrong in a different way if any of them stops holding.
+// The app is a CATCH-ALL now: text is the default state of a file, so the list this module keeps
+// is a DENY-list and the interesting claims are about what it refuses rather than what it allows.
 
-test('OPENABLE is exactly the union of the two kinds', () => {
-	// It has to be: `localStore` takes ONE pattern, and the walk decides from it whether a row is
-	// a document or an inert grey line. A union that drifted would hide files from the workspace
-	// with nothing on screen to say so.
-	for (const ext of ['md', 'markdown', 'mdown', 'mkd', 'txt', 'text'])
-		assert.ok(OPENABLE.test(`a.${ext}`), `${ext} is prose but not openable`);
-	for (const ext of ['ts', 'js', 'json', 'css', 'html', 'py', 'rs', 'sh', 'yaml', 'toml', 'sql'])
-		assert.ok(OPENABLE.test(`a.${ext}`), `${ext} is code but not openable`);
-	for (const ext of ['png', 'pdf', 'zip', 'mp4', 'docx'])
-		assert.ok(!OPENABLE.test(`a.${ext}`), `${ext} is not text and must not be offered`);
+test('anything that is not a known binary is openable', () => {
+	// The whole point of the inversion: an extension nobody thought of is still text.
+	for (const n of [
+		'a.md',
+		'a.txt',
+		'a.ts',
+		'a.css',
+		'a.py',
+		'a.conf',
+		'a.ini',
+		'a.rules',
+		'a.toml'
+	])
+		assert.ok(isOpenable(n), `${n} should open`);
+	// Including the ones with no extension at all — a Makefile, a LICENSE, a README.
+	for (const n of ['Makefile', 'LICENSE', 'README', 'Dockerfile'])
+		assert.ok(isOpenable(n), `${n} should open`);
 });
 
-test('the two kinds are disjoint', () => {
-	// If an extension were in both, `kindOf` would decide by the order of two regexes — which is
-	// not a decision anybody wrote down, and would change silently when either list is edited.
-	const of = (re: RegExp) => re.source.match(/\(([^)]+)\)/)![1].split('|');
-	const both = of(PROSE).filter((e) => of(CODE).includes(e));
-	assert.deepEqual(both, [], `in both lists: ${both.join(', ')}`);
+test('known binaries are refused by name', () => {
+	for (const n of ['a.png', 'a.jpg', 'a.pdf', 'a.zip', 'a.mp4', 'a.woff2', 'a.sqlite3', 'a.wasm'])
+		assert.ok(!isOpenable(n), `${n} must not be offered`);
+});
+
+test('the byte guard is what actually decides, and it is a NUL', () => {
+	// The deny-list is short and deliberately incomplete. This is the guard that makes that safe,
+	// and it is the same heuristic git uses: no encoding this app can display puts a NUL in the
+	// first few kilobytes, and every binary format has one near the front.
+	assert.ok(looksBinary('PK\u0003\u0004\u0000\u0000'), 'a zip header is binary');
+	assert.ok(!looksBinary('#!/bin/sh\necho hello\n'), 'a shell script is not');
+	assert.ok(!looksBinary('café — naïve — 日本語'), 'nor is anything merely non-ASCII');
+	// Past the window it stops looking, so a huge text file is not scanned end to end.
+	assert.ok(!looksBinary('x'.repeat(9000) + '\u0000'), 'only the head is sampled');
 });
 
 test('kindOf falls back to prose, and that is the safe direction', () => {
@@ -372,11 +389,21 @@ test('kindOf falls back to prose, and that is the safe direction', () => {
 	assert.equal(kindOf('README.txt'), 'prose');
 	assert.equal(kindOf('app.ts'), 'code');
 	assert.equal(kindOf('Deep/Nested/style.CSS'), 'code', 'the test is case-insensitive');
-	// The three that matter most, because they are what the app hands itself every session: a
-	// scratch note has no extension, a cleared sheet has no name, and a suffix-less README is
-	// prose by any reasonable reading. Anything unplaceable must be set as a document — that is
-	// the behaviour this app had before there were two kinds, and the one that cannot lose text.
+	// An extension nobody listed is CODE, which costs nothing to be wrong about: a code sheet with
+	// no grammar is a plain monospaced editor, where a document view would render `#` as a heading.
+	assert.equal(kindOf('nginx.conf'), 'code');
+	assert.equal(kindOf('a.rules'), 'code');
+	// The three that matter most, because the app hands itself these every session: a scratch note
+	// has no extension, a cleared sheet has no name, and a suffix-less README is prose by any
+	// reasonable reading. Anything unplaceable must be set as a document.
 	assert.equal(kindOf('Ephemeral 0'), 'prose');
 	assert.equal(kindOf(''), 'prose');
 	assert.equal(kindOf('README'), 'prose');
+	assert.equal(kindOf('Makefile'), 'prose');
+});
+
+test('prose and binary do not overlap', () => {
+	const of = (re: RegExp) => re.source.match(/\(([^)]+)\)/)![1].split('|');
+	const both = of(PROSE).filter((e: string) => of(BINARY).includes(e));
+	assert.deepEqual(both, [], `in both lists: ${both.join(', ')}`);
 });

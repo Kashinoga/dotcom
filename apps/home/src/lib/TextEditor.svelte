@@ -8,7 +8,9 @@
 		MARKS,
 		DOC_KEYS,
 		OPEN_KEYS,
-		OPENABLE,
+		isOpenable,
+		kindOf,
+		looksBinary,
 		HEADING_LEVELS,
 		openHeadings,
 		holdInstall,
@@ -1058,6 +1060,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	/** True between asking for the module and having an editor. It is a network fetch the first
 	 *  time, so it is worth saying so rather than showing an empty white pane. */
 	let codeComing = $state(false);
+	/** The engine was asked for and did not arrive. Falls back to the prose sheet; see the catch. */
+	let codeLost = $state(false);
 
 	/**
 	 * WHICH SHEET IS THE SHEET. Everything above this line — the marks, the contents rail, the
@@ -1085,7 +1089,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 */
 	$effect(() => {
 		const el = codeEl;
-		const wantsCode = kind === 'code';
+		const wantsCode = kind === 'code' && !codeLost;
 		if (!wantsCode || !el) {
 			if (codeSheet) {
 				codeSheet.destroy();
@@ -1098,19 +1102,31 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		let dropped = false;
 		codeComing = true;
 		(async () => {
-			const { makeCodeSheet } = await import('$lib/code-sheet');
-			const built = await makeCodeSheet({
-				parent: el,
-				doc: untrack(() => text),
-				filename: untrack(() => editor.filename),
-				onChange: (next) => (text = next)
-			});
-			// The kind can change while a module is in flight — open a `.ts`, change your mind,
-			// open a `.md`. Without this the editor is built into an element that is no longer in
-			// the document and never torn down.
-			if (dropped) return built.destroy();
-			codeSheet = built;
-			codeComing = false;
+			try {
+				const { makeCodeSheet } = await import('$lib/code-sheet');
+				const built = await makeCodeSheet({
+					parent: el,
+					doc: untrack(() => text),
+					filename: untrack(() => editor.filename),
+					onChange: (next) => (text = next)
+				});
+				// The kind can change while a module is in flight — open a `.ts`, change your mind,
+				// open a `.md`. Without this the editor is built into an element that is no longer
+				// in the document and never torn down.
+				if (dropped) return built.destroy();
+				codeSheet = built;
+				codeComing = false;
+			} catch {
+				// THE ENGINE COULD NOT BE FETCHED — almost always offline, on a machine that has
+				// never opened a code file here (see `warmCodeSheet`, which exists to make that
+				// rare). The document is NOT lost and must not appear to be: the prose sheet is a
+				// textarea, and a textarea can read, edit and save a stylesheet perfectly well. It
+				// has no bracket matching and no highlighting, which is a smaller loss than a pane
+				// that says "Loading…" until the tab is closed.
+				if (dropped) return;
+				codeComing = false;
+				codeLost = true;
+			}
 		})();
 		return () => {
 			dropped = true;
@@ -1124,6 +1140,21 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	$effect(() => {
 		const name = editor.filename;
 		codeSheet?.setLanguage(name);
+	});
+
+	/**
+	 * A NEW DOCUMENT DESERVES A FRESH ATTEMPT AT THE ENGINE.
+	 *
+	 * `codeLost` latches, so a fetch that failed does not retry on every keystroke and leave the
+	 * pane flickering between two sheets. Opening another file clears it — which is also how
+	 * somebody who was offline and has since come back gets the real editor without reloading the
+	 * page.
+	 */
+	$effect(() => {
+		editor.filename;
+		untrack(() => {
+			if (codeLost) codeLost = false;
+		});
 	});
 
 	/**
@@ -1141,7 +1172,15 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		name: string,
 		handle: FileSystemFileHandle | null,
 		writable: boolean
-	) {
+	): boolean {
+		// THE BYTES GET THE LAST WORD. The name says a file is openable — the deny-list is short
+		// and deliberately incomplete, because text is the default state of a file and the
+		// exceptions are what deserve naming. This is the guard that makes that safe: a NUL byte
+		// near the front means no encoding this app can display, and putting it on the sheet would
+		// be mojibake over the reader's own document with a Save key next to it.
+		//
+		// Refused rather than mangled, and said out loud. The row stays where it is.
+		if (looksBinary(body)) return false;
 		// Whatever is on the sheet may be a scratch note, and this is about to be over it.
 		stashEphemeral();
 		sheet.put(body.replace(/\r\n?/g, '\n'));
@@ -1151,6 +1190,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// The workspace STAYS OPEN when you pick from it — that is what makes it a workspace
 		// rather than a picker. It closes on a phone, where it covers the sheet it just filled.
 		if (editor.narrow) editor.folderShown = false;
+		return true;
 	}
 
 	/**
@@ -1487,7 +1527,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			const body = await drive?.read(doc.drive.path);
 			if (body == null) return dropShelfRow(doc.id);
 			shelve(doc);
-			land(body, doc.name, null, !!drive?.writable);
+			if (!land(body, doc.name, null, !!drive?.writable)) flash(doc.id, 'Not text', 'lost');
 			return;
 		}
 		let file = doc.handle ? await doc.handle.getFile().catch(() => null) : (doc.file ?? null);
@@ -1614,6 +1654,19 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * Take a store on as the workspace. False if it could not be read at all, which only a
 	 * remembered folder ever acts on — see `openHeldFolder`.
 	 */
+	/**
+	 * Ask for the code engine in the background if this listing contains any code at all.
+	 *
+	 * The import of the WARMER is itself dynamic, so a prose-only visitor does not even fetch the
+	 * module that decides not to fetch anything — `$lib/code-sheet` is where the language table
+	 * lives, and pulling it in eagerly would drag the decision into the main chunk.
+	 */
+	function warmForCode(names: string[]) {
+		const code = names.filter((n) => kindOf(n) === 'code');
+		if (!code.length) return;
+		import('$lib/code-sheet').then((m) => m.warmCodeSheet(code)).catch(() => {});
+	}
+
 	async function adopt(next: Store) {
 		const listing = await next.list();
 		if (!listing) return false;
@@ -1625,6 +1678,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.folder = listing.files;
 		editor.folders = listing.dirs;
 		editor.folderName = next.name;
+		// A WORKSPACE THAT HOLDS CODE WARMS THE ENGINE. The service worker caches what is fetched,
+		// so doing this now — while there is a network — is what makes a `.ts` in this folder open
+		// on a plane later. Nothing happens for a folder of prose, which is why the install stays
+		// small. See `warmCodeSheet` for why it is a warm rather than a precache.
+		warmForCode(listing.files.map((f) => f.name));
 		editor.folderWritable = next.writable;
 		editor.folderShown = true;
 		editor.folderPending = false;
@@ -1653,7 +1711,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			// saying anything about.
 			return;
 		}
-		held = localStore(dir, OPENABLE);
+		held = localStore(dir, isOpenable);
 		if (await adopt(held)) rememberFolder(dir);
 	}
 
@@ -2842,7 +2900,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			req.onerror = () => resolve(null);
 		});
 		if (!dir) return;
-		held = localStore(dir, OPENABLE);
+		held = localStore(dir, isOpenable);
 		editor.folderName = held.name;
 		// Granted already (same session, or a browser that persisted the grant) — open it outright.
 		// Otherwise leave it named and shut, for `reconnect` to ask about on a real click.
@@ -2961,7 +3019,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			editor.drivePending = true;
 			return false;
 		}
-		const next = nextcloudStore(configFor(c, secret), OPENABLE);
+		const next = nextcloudStore(configFor(c, secret), isOpenable);
 		const listing = await next.list();
 		if (!listing) {
 			editor.driveName = c.name;
@@ -3156,7 +3214,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		if (body == null) return;
 		editor.openPath = entry.path;
 		editor.openIn = list;
-		land(body, entry.name, null, !!from?.writable);
+		if (!land(body, entry.name, null, !!from?.writable)) flash(entry.path, 'Not text', 'lost');
 	}
 
 	/** Put one of the two flat lists back in path order, after a name in it changed. */
@@ -3171,7 +3229,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// A `webkitdirectory` workspace is read-only, session-only, and knows no empty folders: an
 		// empty directory leaves no File to be seen in. All three are the platform's, and all three
 		// are the snapshot store's to say — see $lib/text-editor-store.
-		adopt(snapshotStore('', picked, OPENABLE));
+		adopt(snapshotStore('', picked, isOpenable));
 	}
 
 	/** The document leaves as a real file. The name is the first heading, or the date. */
@@ -4037,7 +4095,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				{/if}
 			</aside>
 		{/if}
-		{#if kind === 'code'}
+		{#if kind === 'code' && !codeLost}
 			<!-- THE CODE SHEET. A different engine entirely — see $lib/code-sheet — behind the same
 			     Sheet interface, so nothing above this line knows which one answered.
 			     It is a bare element that CodeMirror builds into, and it carries NONE of the prose
@@ -4073,7 +4131,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						<div class="te-mirror" bind:this={mirrorEl} aria-hidden="true">
 							{#each srcLines as line, i (i)}
 								<div class="te-mline" class:te-here={i === caretLine}>
-									{#if marks[i]}<span class="te-margin-mark">{marks[i]}</span>{/if}<!--
+									{#if kind !== 'code' && marks[i]}<span class="te-margin-mark">{marks[i]}</span
+										>{/if}<!--
 					-->{line}
 								</div>
 							{/each}

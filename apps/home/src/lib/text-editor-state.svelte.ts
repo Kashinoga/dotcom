@@ -102,7 +102,7 @@ export type Ephemeral = { id: string; name: string; text: string };
  * runes all the way down — and the install manifest's file handlers need checking against the
  * same list. See the note there.
  */
-export { OPENABLE, PROSE, CODE, kindOf, type Kind } from '$lib/markdown';
+export { isOpenable, PROSE, BINARY, kindOf, looksBinary, type Kind } from '$lib/markdown';
 // Re-exported ABOVE for the call sites that used to import from here, and imported again HERE
 // because a re-export does not bind a name in this module's own scope — `openKind` below needs
 // the real one.

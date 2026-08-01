@@ -222,7 +222,17 @@ export type LocalStore = Store & {
  * handle behind it. Collecting them on the way down the walk is the only place they all pass
  * through; the alternative is re-walking from the root on every drop.
  */
-export function localStore(root: FileSystemDirectoryHandle, openable: RegExp): LocalStore {
+/**
+ * WILL THIS APP OPEN A FILE OF THIS NAME? A predicate, not a pattern.
+ *
+ * It took a `RegExp` until the app became a catch-all, and every store only ever called `.test` on
+ * it — so the type was always narrower than the question. "Everything except the binaries" is not
+ * something a readable regular expression says. See `isOpenable` in $lib/markdown for the answer
+ * this app passes in.
+ */
+export type Openable = (name: string) => boolean;
+
+export function localStore(root: FileSystemDirectoryHandle, openable: Openable): LocalStore {
 	let files = new Map<string, FileSystemFileHandle>();
 	let dirs = new Map<string, FileSystemDirectoryHandle>();
 
@@ -247,7 +257,7 @@ export function localStore(root: FileSystemDirectoryHandle, openable: RegExp): L
 			// judgement the directory arm makes one line up. Listing `.DS_Store` greyed out would
 			// be answering a question nobody asked.
 			if (name.startsWith('.')) continue;
-			if (openable.test(name)) {
+			if (openable(name)) {
 				files.set(path, entry as FileSystemFileHandle);
 				out.push({ name, path });
 				continue;
@@ -468,7 +478,7 @@ export function localStore(root: FileSystemDirectoryHandle, openable: RegExp): L
  * empty and a tree derived from these paths is the whole of what this store can say. That is the
  * platform's limit, not a shortcut: it is also why moving is not offered here.
  */
-export function snapshotStore(name: string, picked: File[], openable: RegExp): Store {
+export function snapshotStore(name: string, picked: File[], openable: Openable): Store {
 	const files = new Map<string, File>();
 	const out: FolderEntry[] = [];
 	// The folder's own name is the first segment of every entry's relative path — and it is only
@@ -481,7 +491,7 @@ export function snapshotStore(name: string, picked: File[], openable: RegExp): S
 		if (f.name.startsWith('.')) continue;
 		const full = f.webkitRelativePath || f.name;
 		const path = root && full.startsWith(`${root}/`) ? full.slice(root.length + 1) : full;
-		if (!openable.test(f.name)) {
+		if (!openable(f.name)) {
 			// Listed and inert, on the same budget the handle-backed walk keeps — see MAX_INERT.
 			if (inert >= MAX_INERT) continue;
 			inert += 1;

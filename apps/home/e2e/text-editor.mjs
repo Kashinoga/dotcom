@@ -3447,6 +3447,10 @@ await browser.close();
 			await put('notes.md', '# Head\n\nprose here\n');
 			await put('app.ts', 'export function start() {\n\tconst n = 42;\n\treturn n;\n}\n');
 			await put('style.css', '.a { color: red; }\n');
+			await put('nginx.conf', 'server {\n  listen 80;\n}\n');
+			await put('Makefile', 'all:\n\techo hi\n');
+			// A binary in a text name — the case only the byte guard can catch.
+			await put('sneaky.txt', 'PK' + String.fromCharCode(0) + String.fromCharCode(0) + 'zip');
 			window.showDirectoryPicker = async () => root;
 		};
 	});
@@ -3585,6 +3589,31 @@ await browser.close();
 		'and the new document is on it',
 		(await p.locator('.cm-content').innerText()).includes('color')
 	);
+
+	// THE CATCH-ALL, and the guard that makes it safe. The app opens anything that is not a known
+	// binary, because text is the default state of a file and an allow-list showed a folder of
+	// perfectly ordinary config as greyed-out lines the app refused for no visible reason.
+	ok(
+		'an extension nobody listed is openable, and is code',
+		(await p.locator('.te-local-list .te-work-file').allTextContents()).includes('nginx.conf')
+	);
+	await open('nginx.conf');
+	ok('.conf opens in the code sheet', (await p.locator('.cm-editor').count()) === 1);
+	await open('Makefile');
+	ok(
+		'a file with no extension at all is prose — the safe fallback',
+		(await p.locator('.te-type').count()) === 1
+	);
+	// THE BYTES GET THE LAST WORD. A zip wearing a .txt name passes every check a NAME can make,
+	// and putting it on the sheet would be mojibake over the reader's document with a Save key
+	// beside it. Refused, and the row says so.
+	const held = await p.locator('.te-type').inputValue();
+	await open('sneaky.txt');
+	ok(
+		'a binary wearing a text name never reaches the sheet',
+		(await p.locator('.te-type').inputValue()) === held
+	);
+	ok('and the row says Not text', (await p.locator('.te-work-row.said').count()) > 0);
 
 	await open('notes.md');
 	ok('going back to prose lets the code sheet go', (await p.locator('.cm-editor').count()) === 0);

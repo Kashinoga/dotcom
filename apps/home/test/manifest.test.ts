@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 // From the engine rather than from the editor's state module: that one is runes all the way
 // down and cannot be imported outside a Svelte build. See the note on OPENABLE itself.
-import { OPENABLE } from '../src/lib/markdown.ts';
+import { isOpenable } from '../src/lib/markdown.ts';
 import { viewToSlug } from '../src/lib/views.ts';
 
 const STATIC = resolve(dirname(fileURLToPath(import.meta.url)), '../static');
@@ -77,7 +77,7 @@ describe('the install manifest', () => {
 			for (const list of Object.values(handler.accept) as string[][]) {
 				for (const ext of list) {
 					assert.match(ext, /^\./, `${ext} is not written as an extension`);
-					assert.ok(OPENABLE.test(`x${ext}`), `${ext} is claimed but the editor will not open it`);
+					assert.ok(isOpenable(`x${ext}`), `${ext} is claimed but the editor will not open it`);
 				}
 			}
 		}

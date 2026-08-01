@@ -309,3 +309,49 @@ export async function makeCodeSheet(
 		}
 	};
 }
+
+/**
+ * WARM THE ENGINE, so a workspace that holds code is not a surprise on a plane.
+ *
+ * The service worker caches what is FETCHED (see src/service-worker.ts — nothing is precached but
+ * the page, because `build` includes a WebGL star map). That is the right policy and it leaves one
+ * real gap: somebody whose remembered folder happens to contain code files, who has never opened
+ * one, and who is now offline. They click a `.ts` and the dynamic import has nowhere to go.
+ *
+ * This closes it by making the fetch happen while there is still a network — at which point the
+ * worker's ordinary cache-on-use puts it away and the plane is fine. It is a WARM, not a precache:
+ * nothing is added to the install step, so a visitor whose folders hold no code still pays nothing,
+ * which is the whole reason the install is small.
+ *
+ * The GRAMMARS are warmed by extension, for exactly the extensions present. A folder of Python
+ * does not fetch the Rust parser, which is the same rule the open path keeps.
+ *
+ * Failure is silent ON PURPOSE. This is speculative work on a background idle callback; if it does
+ * not land, the open path tries again and reports properly. Warning about a prefetch that failed
+ * would be telling somebody about a problem they do not have yet.
+ */
+export function warmCodeSheet(filenames: readonly string[]): void {
+	if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+	const wanted = new Set<string>();
+	for (const name of filenames) {
+		const ext = extOf(name);
+		if (Object.hasOwn(LANGUAGES, ext)) wanted.add(ext);
+	}
+	const run = () => {
+		// The SAME specifiers `makeCodeSheet` uses, so the bundler resolves them to the same chunks
+		// and the worker caches the very files the open path will ask for. Naming them again here
+		// rather than calling `makeCodeSheet` is deliberate: warming must not build an editor, and
+		// building one needs a parent element there is no reason to have yet.
+		Promise.all([
+			import('@codemirror/state'),
+			import('@codemirror/view'),
+			import('@codemirror/commands'),
+			import('@codemirror/language'),
+			import('@codemirror/autocomplete'),
+			import('@lezer/highlight')
+		]).catch(() => {});
+		for (const ext of wanted) LANGUAGES[ext]?.().catch(() => {});
+	};
+	if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 4000 });
+	else setTimeout(run, 1500);
+}
