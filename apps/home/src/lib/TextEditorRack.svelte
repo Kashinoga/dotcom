@@ -48,6 +48,25 @@
 	const kind = $derived(openKind());
 
 	/**
+	 * WHAT IS ACTUALLY DRAWN, so a RULE CAN ASK BEFORE IT DRAWS ITSELF.
+	 *
+	 * A rule separates two things. Three of them in this bar were drawn on a condition about the
+	 * thing on ONE side, which was fine while every group was always there and became wrong the
+	 * moment groups started disappearing: a code file hides the marks and the view keys, so the
+	 * lead's rule pointed at an empty strip and the tail opened with `| Save` — a rule with
+	 * nothing to its left, which reads as a key that failed to load.
+	 *
+	 * These four booleans are the whole fix. Every rule below is gated on there being something
+	 * on BOTH sides of it, spelled out rather than inferred: a rule cannot look at its own
+	 * siblings, and walking the DOM to find out would be a layout question answered at runtime by
+	 * a component that already knows the answer.
+	 */
+	const hasMarks = $derived(shown !== 'proof' && !editor.narrow && kind !== 'code');
+	const hasView = $derived(kind !== 'code');
+	const docKeys = $derived(DOC_KEYS.filter((k) => k.shown?.() ?? true));
+	const hasDocs = $derived(!editor.narrow && docKeys.length > 0);
+
+	/**
 	 * THE ENTRANCE IS THE BAR ARRIVING, NOT A KEY APPEARING — and it has to be able to stop.
 	 *
 	 * `btn-in` was attached to `.tb` unconditionally, so ANY key that mounted later replayed the
@@ -105,16 +124,16 @@
 				</button>
 			{/each}
 		</div>
-		<!-- Drawn only where there is something on the other side of it. In PROOF the strip is
-		     empty — nothing to mark up — and a rule with a whole empty bar past it parts one thing
-		     from nothing. -->
-		{#if shown !== 'proof'}
+		<!-- Drawn only where there is something on the other side of it — which is the MARKS, and
+		     they are absent in PROOF (nothing to mark up) and over a code file (they are
+		     markdown's). A rule with a whole empty strip past it parts one thing from nothing. -->
+		{#if hasMarks}
 			<span class="te-sep" aria-hidden="true"></span>
 		{/if}
 	</div>
 {/if}
 <div class="te-rack" class:te-arrived={arrived} role="toolbar" aria-label="Text Editor">
-	{#if shown !== 'proof' && !editor.narrow && kind !== 'code'}
+	{#if hasMarks}
 		<!-- The marks are only offered when there is a sheet to put them on. In PROOF there is
 		     nothing to mark up, and ten dead keys would say otherwise. On a phone they are in the
 		     flyout instead. They are the ONLY thing in the scrolling strip now: everything else
@@ -206,9 +225,12 @@
 		     to save to, and `.md` only in a browser that cannot save at all. Empty, it still stood
 		     in the tail's flex row and still took a gap on either side, so the one rule left came
 		     with a hole in front of it. Rendering neither is what closes it. -->
-		{@const docKeys = DOC_KEYS.filter((k) => k.shown?.() ?? true)}
-		{#if docKeys.length}
-			<span class="te-sep" aria-hidden="true"></span>
+		{#if hasDocs}
+			<!-- Only where the VIEW keys are on the other side of it. Over a code file they are
+			     not, and this rule used to open the tail with `| Save`. -->
+			{#if hasView}
+				<span class="te-sep" aria-hidden="true"></span>
+			{/if}
 			<div class="te-group" role="group" aria-label="The document">
 				{#each docKeys as k, i (k.id)}
 					<button
@@ -233,10 +255,15 @@
 				{/each}
 			</div>
 		{/if}
-		<!-- The rule before the panel's own chrome. Always drawn: what stands past it is the
-		     SETTINGS key, which is not a document verb at all, and that boundary is there whether
-		     or not the document has any keys to its left. -->
-		<span class="te-sep" aria-hidden="true"></span>
+		<!-- The rule before the panel's own chrome. What stands past it is the SETTINGS key, which
+		     is always there — so this one only has to ask about its LEFT. It used to be drawn
+		     unconditionally on the argument that the boundary exists whether or not the document
+		     has keys; true of the boundary, false of the RULE, which needs two things to sit
+		     between. A code file with nowhere to save has neither view keys nor document keys, and
+		     this drew a hairline hanging off the settings disc. -->
+		{#if hasView || hasDocs}
+			<span class="te-sep" aria-hidden="true"></span>
+		{/if}
 	{/if}
 </div>
 
