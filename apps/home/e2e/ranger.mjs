@@ -95,6 +95,40 @@ const browser = await firefox.launch();
 const ctx = await browser.newContext({ viewport: { width: 1400, height: 950 } });
 const page = await ctx.newPage();
 
+// ── WHAT THE PAGE ITSELF SAID ────────────────────────────────────────────────────────────────
+// This suite ran blind: it reported that an element was missing and never that the page had
+// thrown while trying to draw it. Two of its assertions fail in CI and have never once failed
+// locally, and the log has nothing in it to say why — `.scene-orbit.shown` is found by a
+// `waitForSelector` and gone a second later, which is a subtree dying rather than a race.
+//
+// The scenery lazily imports $lib/LocaleSpace (three.js), and this suite runs in FIREFOX — a
+// headless Firefox on a CI runner is the likeliest place on this site for WebGL to be absent. If
+// that import rejects, the `{#await … then}` around it has no `:catch`, so the error takes the
+// scene subtree with it and every claim about the orbit scene fails for a reason no assertion
+// mentions.
+//
+// Collected rather than asserted on: a page error is not automatically a failure (an upstream
+// feed can log one), so these are attached to the DETAIL of the assertions that care. A run that
+// goes green says nothing about them and costs nothing.
+const pageErrors = [];
+const consoleErrors = [];
+page.on('pageerror', (e) => pageErrors.push(String(e).split('\n')[0].slice(0, 200)));
+page.on('console', (m) => {
+	if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 200));
+});
+/** Everything the page complained about, plus what the scenery actually looks like right now. */
+const sceneState = async () => {
+	const dom = await page
+		.evaluate(() => ({
+			scenes: !!document.querySelector('.locale-scenes'),
+			orbit: !!document.querySelector('.scene-orbit'),
+			orbitClass: document.querySelector('.scene-orbit')?.className ?? null,
+			heads: [...document.querySelectorAll('.surface-head')].map((e) => e.className).slice(0, 2)
+		}))
+		.catch((e) => ({ evaluateFailed: String(e).slice(0, 120) }));
+	return JSON.stringify({ dom, pageErrors, consoleErrors });
+};
+
 // Seed once — localStorage is per-origin and survives every navigation below (full loads and SPA
 // pushes alike). Sky off + light theme is the other suites' baseline: it keeps the scan off the
 // endless star field and pins light-dark() so a colour read is decidable.
@@ -257,14 +291,15 @@ ok(
 );
 
 await settle(page);
-ok(
-	'orbit: the space scene is shown (.scene-orbit.shown)',
-	(await count(page, '.scene-orbit.shown')) >= 1
-);
-ok(
-	'orbit: the bar carries the orbit re-theme class',
-	(await count(page, '.surface-head.orbit')) >= 1
-);
+{
+	// The state is read ONCE and shared by both, so the two details cannot disagree about the same
+	// moment — and so a passing run does no work beyond the counts.
+	const shown = (await count(page, '.scene-orbit.shown')) >= 1;
+	const themed = (await count(page, '.surface-head.orbit')) >= 1;
+	const why = shown && themed ? '' : await sceneState();
+	ok('orbit: the space scene is shown (.scene-orbit.shown)', shown, why);
+	ok('orbit: the bar carries the orbit re-theme class', themed, why);
+}
 ok(
 	'orbit: the bar re-themes to a dark colour-scheme',
 	(await page
