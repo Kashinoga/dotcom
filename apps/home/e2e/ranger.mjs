@@ -207,29 +207,55 @@ await settle(page);
 ok('re-boarded: cabin on stage', (await count(page, 'section[aria-label="Shuttle cabin"]')) === 1);
 
 await page.getByRole('button', { name: 'Enter Orbit' }).click();
-const clickT = Date.now();
-const afterClick = async (ms) => {
-	const d = ms - (Date.now() - clickT);
-	if (d > 0) await page.waitForTimeout(d);
-};
 
-await afterClick(200); // early in the cover — the wipe mounts synchronously with the transit leg
-ok('transit: the .locale-wipe overlay is playing', (await count(page, '.locale-wipe')) >= 1);
-await afterClick(600);
+// ── SAMPLED AGAINST THE APP'S OWN STATE, NOT A STOPWATCH ────────────────────────────────────
+//
+// These three assertions were the only ones in the repo that failed in CI and never once locally,
+// and the clock was why. They used to wait to WALL-CLOCK offsets from the click — 600ms, 1500ms,
+// 3400ms — while what each of them actually means is "DURING the crossing" or "AFTER it". Those
+// are the same thing only on an unloaded machine. Each check spends two round-trips into the page
+// (`shuttleLeads` is called twice, once for the condition and once for the detail string), so on a
+// busy runner the next sample can land past arrival at ~3300ms, where a Shuttle lead is
+// legitimately on stage and the check fails without the bug being present.
+//
+// `.locale-wipe` IS the app's transit state, expressed in the DOM: LocaleScenes mounts it under
+// `{#if ranger.transit}` and location-state nulls `transit` at TRANSIT_TOTAL_MS. So the overlay is
+// present for exactly as long as the crossing is, however long the machine takes to draw it.
+//
+// DO NOT "FIX" A RETURN OF THIS BY WIDENING A TOLERANCE. The old failure reported one lead on
+// stage, and one is the right number once you have arrived — it was the right answer read at the
+// wrong moment. A window widened until that stops failing is a window that can no longer fail.
+const inTransit = async () => (await count(page, '.locale-wipe')) >= 1;
+ok('transit: the .locale-wipe overlay is playing', await inTransit());
+
+// THE WINDOW STARTS AT THE SWAP, and finding that out is why this rewrite was worth doing. The
+// old checks sampled at 600ms and 1500ms, and 600 was not arbitrary: the world flips at
+// WIPE_COVER_MS (350ms), under the white, so before that the OLD world is still on stage and a
+// Shuttle lead being there is correct rather than a fault. Sampling from the click caught it and
+// reported a failure that was really the test asking the wrong question — locally, on the first
+// run, which is exactly what a stronger assertion is for.
+//
+// `.scene-orbit.shown` IS that flip in the DOM: LocaleScenes writes it from
+// `ranger.deployment === 'orbit'`, which location-state sets on the cover timer. So the claim is
+// stated as what it always meant — from the moment the world has swapped until the crossing ends,
+// no Shuttle lead is on stage — with both ends read off the app instead of a stopwatch.
+await page.waitForSelector('.scene-orbit.shown', { timeout: 15000 });
+
+// SAMPLED THROUGHOUT rather than at two chosen instants, which is strictly more coverage than the
+// offsets bought: a lead riding through any part of the wash is caught, not just one that happens
+// to be there at the two moments somebody picked. Bounded, so a transit that never ends fails the
+// suite rather than hanging it.
+let seenDuring = 0;
+for (let i = 0; i < 120 && (await inTransit()); i++) {
+	seenDuring = Math.max(seenDuring, await shuttleLeads(page));
+	await page.waitForTimeout(50);
+}
 ok(
-	'transit ~600ms: zero Shuttle leads on stage',
-	(await shuttleLeads(page)) === 0,
-	String(await shuttleLeads(page))
-);
-await afterClick(1500);
-ok(
-	'transit ~1500ms: zero Shuttle leads on stage',
-	(await shuttleLeads(page)) === 0,
-	String(await shuttleLeads(page))
+	'from the swap to the end of the crossing: zero Shuttle leads on stage',
+	seenDuring === 0,
+	`most seen at once: ${seenDuring}`
 );
 
-// Past arrival (≥3300ms clears TRANSIT_TOTAL_MS with headroom), then settle the fly-in.
-await afterClick(3400);
 await settle(page);
 ok(
 	'orbit: the space scene is shown (.scene-orbit.shown)',
