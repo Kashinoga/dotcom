@@ -273,29 +273,64 @@ ok('transit: the .locale-wipe overlay is playing', await inTransit());
 // `ranger.deployment === 'orbit'`, which location-state sets on the cover timer. So the claim is
 // stated as what it always meant — from the moment the world has swapped until the crossing ends,
 // no Shuttle lead is on stage — with both ends read off the app instead of a stopwatch.
-await page.waitForSelector('.scene-orbit.shown', { timeout: 15000 });
-// AND ONCE THE OLD WORLD HAS FINISHED LEAVING. `shuttleLeads` counts anything with client rects,
-// and an element part-way through an OUT transition still has them — so sampling from the instant
-// of the swap catches the departing lead mid-fade and calls it a lead riding through the wash.
-// That is what the original 600ms was buying with its extra 250ms past COVER+HOLD. `settle` waits
-// out every finite animation, which is the same claim without the arithmetic.
-await settle(page);
-
-// SAMPLED THROUGHOUT rather than at two chosen instants, which is strictly more coverage than the
-// offsets bought: a lead riding through any part of the wash is caught, not just one that happens
-// to be there at the two moments somebody picked. Bounded, so a transit that never ends fails the
-// suite rather than hanging it.
-let seenDuring = 0;
-for (let i = 0; i < 120 && (await inTransit()); i++) {
-	seenDuring = Math.max(seenDuring, await shuttleLeads(page));
-	await page.waitForTimeout(50);
-}
-ok(
-	'from the swap to the end of the crossing: zero Shuttle leads on stage',
-	seenDuring === 0,
-	`most seen at once: ${seenDuring}`
+// ── THE WASH, AND ONLY THE WASH ──────────────────────────────────────────────────────────────
+//
+// The claim has always been "no Shuttle lead riding through the wash", and the wash is a
+// specific 450ms. The wipe's clock (location-state, shared with its keyframes):
+//
+//   0–350ms   COVER    white climbing — the OLD world is still on screen, a lead belongs here
+//   350–500ms HOLD     opaque — the swap lands under it, nothing is visible either way
+//   500–950ms REVEAL   white fading off the NEW world — THIS is the wash, and the only window
+//                      where a lead riding through would be seen
+//   950ms+             white gone, camera flight runs on to TRANSIT_TOTAL_MS, then arrival
+//
+// That is what the old `afterClick(600)` encoded: past COVER+HOLD, inside the reveal. Removing it
+// for a state-based window cost four wrong attempts to rediscover — sampling from the click caught
+// the DEPARTING lead, sampling until the element unmounted caught the ARRIVING one, and a `settle`
+// meant to fix the first silently awaited the wipe's own animation so the sampler resolved on its
+// first tick against a window that was already over. A guard that matches nothing reads exactly
+// like a guard that passes; `mostAt` is reported so this one cannot do that again.
+//
+// SAMPLED IN THE PAGE, on rAF. Polling from Node — 120 iterations, two round-trips each — starved
+// the very setTimeout that ends the transit on a CI runner, and the crossing was still going after
+// 7.5 seconds. The instrument must not perturb what it measures.
+const wash = await page.evaluate(
+	() =>
+		new Promise((resolve) => {
+			const COVER_AND_HOLD = 500;
+			let most = 0;
+			let mostAt = -1;
+			let sampled = 0;
+			const tick = () => {
+				const wipe = document.querySelector('.locale-wipe');
+				const white = wipe?.getAnimations()[0];
+				if (!wipe || !white) return resolve({ most, mostAt, sampled, ran: false });
+				const t = Number(white.currentTime ?? 0);
+				if (white.playState === 'finished') return resolve({ most, mostAt, sampled, ran: true });
+				if (t >= COVER_AND_HOLD) {
+					sampled++;
+					const n = [...document.querySelectorAll('.pud-lead')].filter(
+						(e) => e.textContent.trim() === 'Shuttle' && e.getClientRects().length > 0
+					).length;
+					if (n > most) ((most = n), (mostAt = Math.round(t)));
+				}
+				requestAnimationFrame(tick);
+			};
+			tick();
+		})
 );
+ok(
+	'through the wash: zero Shuttle leads on stage',
+	wash.most === 0,
+	`most ${wash.most}${wash.mostAt >= 0 ? ` at ${wash.mostAt}ms` : ''} over ${wash.sampled} frames`
+);
+// THE WINDOW WAS REAL. Without this the assertion above passes by having sampled nothing, which is
+// exactly how it failed to fail once already.
+ok('and the wash was actually sampled', wash.ran && wash.sampled > 0, JSON.stringify(wash));
 
+// ARRIVAL IS WAITED FOR, not timed to: the wipe element outlives its own animation by the length
+// of the camera flight, and it is the ELEMENT going that says the crossing is over.
+await page.waitForSelector('.locale-wipe', { state: 'detached', timeout: 15000 });
 await settle(page);
 {
 	// The state is read ONCE and shared by both, so the two details cannot disagree about the same
