@@ -2231,27 +2231,35 @@
 
 		<!-- Persistent masthead (wordmark + tagline + station nav) — its own component so a
 	     homepage-chrome tweak stays out of this catch-all page. It reports which destination
-	     was clicked; the page keeps the modifier-aware click + camera handling. -->
-		<Masthead
-			{activeCode}
-			covered={backdropHidden}
-			popCodes={NAV_POPS}
-			popCode={navPopCode}
-			{navPop}
-			onNavigate={(code, e) => {
-				// Desktop's Home and About are flyouts under their own buttons (see navPop),
-				// not panels. Modified clicks stay the browser's (new tab and friends), like
-				// every in-app link; on a phone both open their panels as before.
-				if (NAV_POPS.includes(code) && !isMobile) {
-					if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
-					e.preventDefault();
-					e.stopPropagation(); // or the stage's anywhere-off dismiss undoes the open on the way up
-					navPopCode = navPopCode === code ? null : code;
-					return;
-				}
-				onNodeClick(e, () => board(code));
-			}}
-		/>
+	     was clicked; the page keeps the modifier-aware click + camera handling.
+	     AEROPALITE'S ONLY. The block around it renders under Pixelite too — the stage is a full
+	     app's FLOOR there (see stageFullApp) — but the masthead is the aero HOMEPAGE's chrome and
+	     has no business under a docs-look app. Reported as "the Aero masthead flashes in and is
+	     then replaced": it was not being replaced, it was being COVERED, by a full-viewport app
+	     painting over it a frame or two later. Measured on /apps/text-editor — `.menubar` present
+	     from the first sampled frame onwards, under `data-look="pixelite"` the whole time. -->
+		{#if look !== 'pixelite'}
+			<Masthead
+				{activeCode}
+				covered={backdropHidden}
+				popCodes={NAV_POPS}
+				popCode={navPopCode}
+				{navPop}
+				onNavigate={(code, e) => {
+					// Desktop's Home and About are flyouts under their own buttons (see navPop),
+					// not panels. Modified clicks stay the browser's (new tab and friends), like
+					// every in-app link; on a phone both open their panels as before.
+					if (NAV_POPS.includes(code) && !isMobile) {
+						if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+						e.preventDefault();
+						e.stopPropagation(); // or the stage's anywhere-off dismiss undoes the open on the way up
+						navPopCode = navPopCode === code ? null : code;
+						return;
+					}
+					onNodeClick(e, () => board(code));
+				}}
+			/>
+		{/if}
 
 		{#if view}
 			{@const v = view}
