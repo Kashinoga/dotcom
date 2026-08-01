@@ -297,6 +297,27 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					editor.filename = editor.ephemeral.find((d) => d.id === scratch.open)?.name ?? '';
 				}
 			}
+			// THE DOCUMENT THAT WAS ON THE SHEET, if it was not a scratch note. The scratch block
+			// above has already claimed `openPath` if one was open, and it wins: it is the more
+			// specific record and it carries the note's own words.
+			if (!editor.openPath) {
+				const mark = JSON.parse(localStorage.getItem(`${STORE}:open`) || 'null');
+				if (mark && typeof mark.name === 'string') {
+					// The NAME first and unconditionally. It is what `kindOf` reads, so it decides
+					// which sheet gets built — and it must be right on the FIRST frame, before any
+					// folder walk lands, or a code file flashes up in the prose sheet and swaps.
+					editor.filename = mark.name;
+					// The path is a claim about a tree that has not been walked yet. It is taken on
+					// trust here and checked in `openHeldFolder` once there is something to check
+					// against; a shelf or drive row is checked when its own list comes back.
+					if (mark.path && (mark.in === 'tree' || mark.in === 'cloud' || mark.in === 'loose')) {
+						editor.openPath = mark.path;
+						editor.openIn = mark.in;
+					}
+				}
+			}
+			// The record above has now been spent, so the effect that keeps it may start writing.
+			markRestored = true;
 			// Whether the SCRATCH shelf is drawn at all. Only an explicit '0' hides it — an absent key
 			// is a first visit, and a first visit should see the list.
 			editor.scratchShown = localStorage.getItem(`${STORE}:scratch-shown`) !== '0';
@@ -482,6 +503,46 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			localStorage.setItem(`${STORE}:scratch-shown`, editor.scratchShown ? '1' : '0');
 		} catch {
 			/* nothing to do */
+		}
+	});
+
+	/**
+	 * WHICH DOCUMENT IS ON THE SHEET, so a reload comes back to it rather than to its words alone.
+	 *
+	 * The text has always survived a reload; its IDENTITY did not. Only a scratch note was
+	 * remembered (it is stored with its own list), so opening a file from the workspace and
+	 * reloading gave you the right words with no row marked, a blank filename, and — once the app
+	 * grew a second engine — a `.ts` reopened in the PROSE sheet, because `kindOf('')` is prose and
+	 * there was no name left to ask about. The words looked right and everything around them was
+	 * wrong, which is the worst shape a bug can take.
+	 *
+	 * The NAME is the load-bearing half and it is restored first, before any folder is re-walked:
+	 * it is what decides the kind, and therefore which sheet is built. The path and the list are
+	 * what mark the row, and they are only worth anything once the walk lands — see
+	 * `openHeldFolder`, which checks the document is still there and clears the mark if it is not.
+	 *
+	 * `openWritable` is deliberately NOT stored. Whether a document can be saved is a fact about a
+	 * live store and a live permission grant, and a remembered `true` would draw a Save key that
+	 * fails when pressed. It is re-derived when the folder comes back.
+	 */
+	let markRestored = false;
+	$effect(() => {
+		const mark = { path: editor.openPath, in: editor.openIn, name: editor.filename };
+		if (typeof localStorage === 'undefined') return;
+		// GATED ON THE RESTORE HAVING HAPPENED, and this guard is load-bearing — it is the same
+		// fault the `collapsed` effect below carries a paragraph about. An effect runs on mount,
+		// when `openPath` and `filename` are still empty, so an ungated one calls `removeItem` and
+		// wipes the very record `onMount` is about to read. Measured: the key was written
+		// correctly, survived until the reload, and was gone by the time anything asked for it.
+		if (!markRestored) return;
+		try {
+			// A scratch note keeps its own record with the scratch list, and writing a second one
+			// here would give the two a chance to disagree about which note is open.
+			if (mark.in === 'ephemeral' || (!mark.path && !mark.name))
+				localStorage.removeItem(`${STORE}:open`);
+			else localStorage.setItem(`${STORE}:open`, JSON.stringify(mark));
+		} catch {
+			/* nothing to do — the sheet is on screen, it just will not come back marked */
 		}
 	});
 
@@ -1667,13 +1728,18 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		import('$lib/code-sheet').then((m) => m.warmCodeSheet(code)).catch(() => {});
 	}
 
-	async function adopt(next: Store) {
+	async function adopt(next: Store, keepOpen = false) {
 		const listing = await next.list();
 		if (!listing) return false;
 		// Whatever was open belonged to the LAST folder. Shelved before the new one lands, or its
 		// row would simply vanish with the tree it was in. A no-op unless a TREE document is on the
 		// sheet, which is why it can be called on every path through here.
-		shelveTheOpenOne();
+		//
+		// NOT ON THE RELOAD PATH. `keepOpen` means this is the SAME folder being re-opened, so
+		// there is no "last folder" for the open document to be homeless from — it is about to be
+		// in this very tree. Shelving it there moved the restored document onto the LOOSE shelf and
+		// took its row's mark with it, which is what made a reload come back with nothing selected.
+		if (!keepOpen) shelveTheOpenOne();
 		store = next;
 		editor.folder = listing.files;
 		editor.folders = listing.dirs;
@@ -1690,7 +1756,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// the line above. A scratch note or a shelf row belongs to no folder at all, and clearing
 		// the mark on one because a folder changed underneath it took the Save key away from a
 		// note that was still on the sheet.
-		if (editor.openIn === 'tree') {
+		// `keepOpen` is the RELOAD path: `openHeldFolder` is re-opening the same folder the mark
+		// was written against, so clearing it here would undo the restore a few lines after making
+		// it. Every other caller is adopting a DIFFERENT folder, where the old mark names a tree
+		// that is no longer on screen.
+		if (editor.openIn === 'tree' && !keepOpen) {
 			editor.openPath = '';
 			editor.openWritable = false;
 		}
@@ -2927,7 +2997,22 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 
 	async function openHeldFolder() {
 		if (!held) return;
-		if (await adopt(held)) {
+		if (await adopt(held, true)) {
+			// THE RESTORED MARK, CHECKED AGAINST THE TREE THAT ACTUALLY CAME BACK. Until now it was
+			// a claim read out of localStorage: the file may have been renamed, deleted or moved
+			// while the app was closed. Confirmed, it gets its Save key back — `openWritable` is
+			// never stored, because whether a document can be written is a fact about a live store
+			// and a live grant, and a remembered `true` draws a key that fails when pressed.
+			if (editor.openIn === 'tree' && editor.openPath) {
+				const there = editor.folder.some((f) => f.path === editor.openPath);
+				if (there) editor.openWritable = !!store?.writable;
+				else {
+					// Gone. The words are still on the sheet and are still the visitor's — this only
+					// stops the pane claiming they belong to a row that is not there.
+					editor.openPath = '';
+					editor.openWritable = false;
+				}
+			}
 			// PRUNED TO THE TREE THAT ACTUALLY CAME BACK. A folder deleted or renamed while the app
 			// was closed leaves a path behind that matches nothing, and an unpruned list would carry
 			// it for ever. Spent once — a second call is a folder being re-opened by hand, and by
