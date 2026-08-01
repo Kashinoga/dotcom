@@ -311,6 +311,17 @@ export const RULE_SVG =
 export const LINK_SVG =
 	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.7285 3.88396C17.1629 2.44407 19.2609 2.41383 20.4224 3.57981C21.586 4.74798 21.5547 6.85922 20.1194 8.30009L17.6956 10.7333C17.4033 11.0268 17.4042 11.5017 17.6976 11.794C17.9911 12.0863 18.466 12.0854 18.7583 11.7919L21.1821 9.35869C23.0934 7.43998 23.3334 4.37665 21.4851 2.5212C19.6346 0.663551 16.5781 0.905664 14.6658 2.82536L9.81817 7.69182C7.90688 9.61053 7.66692 12.6739 9.51519 14.5293C9.80751 14.8228 10.2824 14.8237 10.5758 14.5314C10.8693 14.2391 10.8702 13.7642 10.5779 13.4707C9.41425 12.3026 9.44559 10.1913 10.8809 8.75042L15.7285 3.88396Z" fill="currentColor"/><path d="M14.4851 9.47074C14.1928 9.17728 13.7179 9.17636 13.4244 9.46868C13.131 9.76101 13.1301 10.2359 13.4224 10.5293C14.586 11.6975 14.5547 13.8087 13.1194 15.2496L8.27178 20.1161C6.83745 21.556 4.73937 21.5863 3.57791 20.4203C2.41424 19.2521 2.44559 17.1408 3.88089 15.6999L6.30473 13.2667C6.59706 12.9732 6.59614 12.4984 6.30268 12.206C6.00922 11.9137 5.53434 11.9146 5.24202 12.2081L2.81818 14.6413C0.906876 16.5601 0.666916 19.6234 2.51519 21.4789C4.36567 23.3365 7.42221 23.0944 9.33449 21.1747L14.1821 16.3082C16.0934 14.3895 16.3334 11.3262 14.4851 9.47074Z" fill="currentColor"/></svg>';
 
+// FORMAT — the key that hands the document to Prettier. Drawn here rather than taken from reicon,
+// for the reason INSTALL is: the set's nearest glyphs are a wand (which says magic, not tidiness)
+// and its list marks, and LIST_UL and LIST_OL are both already on this same bar four keys away.
+//
+// It is a PICTURE OF INDENTATION — an outer line, two indented ones, then back out — because that
+// is what formatting most visibly does to a file, and it is legible at the 13px these keys draw at
+// where anything with interior detail is not. Same pill geometry as RULE_SVG above, which is the
+// set's own bar, so the four lines are the artwork already here at four positions.
+export const FORMAT_SVG =
+	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21 5.5C21 6.0523 20.4477 6.5 20 6.5H4C3.5523 6.5 3 6.0523 3 5.5C3 4.9477 3.5523 4.5 4 4.5H20C20.4477 4.5 21 4.9477 21 5.5Z" fill="currentColor"/><path d="M21 10.5C21 11.0523 20.4477 11.5 20 11.5H8.5C8.0523 11.5 7.5 11.0523 7.5 10.5C7.5 9.9477 8.0523 9.5 8.5 9.5H20C20.4477 9.5 21 9.9477 21 10.5Z" fill="currentColor"/><path d="M21 15.5C21 16.0523 20.4477 16.5 20 16.5H8.5C8.0523 16.5 7.5 16.0523 7.5 15.5C7.5 14.9477 8.0523 14.5 8.5 14.5H20C20.4477 14.5 21 14.9477 21 15.5Z" fill="currentColor"/><path d="M21 20.5C21 21.0523 20.4477 21.5 20 21.5H4C3.5523 21.5 3 21.0523 3 20.5C3 19.9477 3.5523 19.5 4 19.5H20C20.4477 19.5 21 19.9477 21 20.5Z" fill="currentColor"/></svg>';
+
 // Opening a document, and opening a folder of them (reicon.dev, Filled 24x24 currentColor).
 // FOLDER_OPEN_SVG already exists above for the Presentation Builder; the editor wears the same
 // glyph for the same verb rather than picking a second folder out of the set.

@@ -29,8 +29,13 @@ import {
 	RULE_SVG,
 	LINK_SVG,
 	DOC_TEXT_SVG,
-	FOLDER_OPEN_SVG
+	FOLDER_OPEN_SVG,
+	FORMAT_SVG
 } from '$lib/icons';
+// The ONE question the Format key asks, and it is asked of the module that answers it rather than
+// of a list restated here. $lib/format is otherwise reached only through a dynamic import — this
+// is a pure function over a filename and pulls in no parser.
+import { canFormat } from '$lib/format';
 import type { FolderEntry, WriteError } from '$lib/text-editor-store';
 import type { Connection } from '$lib/nextcloud-connections';
 
@@ -132,6 +137,12 @@ export type Commands = {
 	readme(): void;
 	/** Write the sheet back to where it came from. Only when `openWritable` says there is a where. */
 	saveInPlace(): void;
+	/**
+	 * Hand the document to Prettier and put the result back on the sheet. Undoable in ONE press,
+	 * like opening a file, which is why it does not stop to ask — see `formatDocument` in the
+	 * editor. Does nothing where `canFormat` says there is no parser; the key is absent there.
+	 */
+	format(): void;
 };
 // COPY and CLEAR are gone from this table, not renamed. They are a document's verbs now, offered
 // on a document's own row (see the note in DOC_KEYS), and the row menu is drawn INSIDE the editor
@@ -230,6 +241,26 @@ export const editor = $state({
 	 * phone, and neither of those may be told by saying nothing.
 	 */
 	saveFailed: '' as WriteError | '',
+	/**
+	 * FORMATTING — three flags, because the key has three things to say and they are not the same
+	 * kind of thing.
+	 *
+	 * `formatting` is IN FLIGHT, and unlike every other key in this bar that is a state worth
+	 * drawing: the first press on a given kind of file fetches a parser, which for a `.ts` is 213 KB
+	 * over whatever network is there. A key that looked idle for two seconds and then rewrote the
+	 * document would read as the app having done it by itself.
+	 *
+	 * `formatted` is the ordinary emerald answer, on a timer like `saved`.
+	 *
+	 * `formatFailed` is WHY, kept as a sentence rather than a code — which is the deliberate
+	 * opposite of `saveFailed` above. A refused write has five possible reasons and they fit in a
+	 * word each (see SAID); a refused format has one reason, the document does not parse, and the
+	 * only useful thing about it is WHERE. That will not compress to a word, so it is not made to:
+	 * the key says a short word and carries the sentence in its tooltip.
+	 */
+	formatting: false,
+	formatted: false,
+	formatFailed: '',
 	/** The path of the entry currently on the sheet, so the workspace can mark it. */
 	openPath: '',
 	/**
@@ -667,6 +698,53 @@ export const OPEN_KEYS: DocKey[] = [
 ];
 
 export const DOC_KEYS: DocKey[] = [
+	/*
+	 * FORMAT LEADS THE DOCUMENT KEYS, and the order is the bar's own rule rather than a preference:
+	 * this row reads left to right in the order of the work, so it is tidy it, keep it, take it
+	 * away — Format, Save, `.md`.
+	 *
+	 * It is a DOCUMENT key and not a mark, which is the whole reason it is in this table. The marks
+	 * are markdown's and the rack hides them over a code file; Format is the one verb in this app
+	 * that means the same thing to a `.md` and a `.ts`, and putting it among the marks would have
+	 * taken it away from every file it is most useful on.
+	 */
+	{
+		id: 'format',
+		svg: FORMAT_SVG,
+		title: () =>
+			editor.formatFailed
+				? editor.formatFailed
+				: editor.formatting
+					? 'Fetching the formatter…'
+					: `Format this ${editor.filename.split('.').pop()?.toLowerCase() ?? 'file'} with Prettier`,
+		// FOUR labels for four states. "Tidy" is the failure word, and it is deliberately not a
+		// description of the fault: the fault is in the DOCUMENT, and a key that said "Broken" would
+		// be reporting on the file in a place reserved for reporting on the key. "Tidy" is what the
+		// key could not do. The sentence — `Unexpected token (12:7)` — is one hover away.
+		label: () =>
+			editor.formatFailed
+				? 'Tidy'
+				: editor.formatted
+					? 'Formatted'
+					: editor.formatting
+						? 'Formatting'
+						: 'Format',
+		run: () => editor.cmd?.format(),
+		// IN FLIGHT WEARS THE ACCENT, which is this bar's "you are in this state" colour rather than
+		// its "that worked" one. That is the right reading here: the app IS formatting, currently,
+		// and the emerald below is saved for the moment it landed.
+		on: () => editor.formatting,
+		done: () => editor.formatted,
+		lost: () => !!editor.formatFailed,
+		/**
+		 * Only where there is a parser for this file. Prettier has no opinion about Python, Rust, Go
+		 * or C — all of which this editor opens and highlights perfectly well — so those get no key
+		 * rather than a key that fails when pressed, which is this bar's standing rule (`.md` and
+		 * SAVE both vanish where they cannot act rather than sitting there disabled).
+		 */
+		shown: () => canFormat(editor.filename),
+		folds: () => true
+	},
 	{
 		id: 'save',
 		svg: SAVE_SVG,

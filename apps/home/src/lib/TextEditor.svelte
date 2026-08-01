@@ -32,6 +32,9 @@
 		type WriteResult
 	} from '$lib/text-editor-store';
 	import { SAID } from '$lib/text-editor-state.svelte';
+	// `canFormat` is a pure function over a filename and pulls in no parser; `format` is the one
+	// that does, and everything it needs is behind dynamic imports inside it. See $lib/format.
+	import { canFormat, format } from '$lib/format';
 	import type { Sheet } from '$lib/text-editor-sheet';
 	import {
 		configFor,
@@ -444,6 +447,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			saveInPlace,
 			heading,
 			readme,
+			format: formatDocument,
 			newFile: () => newEphemeral()
 		};
 
@@ -460,6 +464,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			clearTimeout(saveTimer);
 			clearTimeout(armTimer);
 			clearTimeout(saidTimer);
+			clearTimeout(formatTimer);
+			// The key is drawn by the PAGE and outlives this component, so a lamp left lit here would
+			// show up on whatever app is opened next — the same fault `installable` above is cleared
+			// for. `formatting` in particular latches the key against a second press.
+			editor.formatting = false;
+			editor.formatted = false;
+			editor.formatFailed = '';
 			editor.cmd = null;
 			editor.armed = '';
 			// The flyout is drawn by this component but its position is shared state — left set, a
@@ -931,7 +942,35 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 
 	// ── The keyboard ──────────────────────────────────────────────────────────
+
+	/**
+	 * ⌥⇧F — VS Code's own Format Document binding, which is what this app's audience already has in
+	 * their fingers. The one shortcut in this editor taken from another program rather than from the
+	 * platform.
+	 *
+	 * IT IS ITS OWN HANDLER, called from two places, because the two sheets take their keys through
+	 * completely different paths: the prose sheet's `onKey` is bound to the textarea, and a code
+	 * file has no textarea at all — CodeMirror owns the keyboard there. So this is also bound to the
+	 * code pane's wrapper, where the event bubbles up from the editor's own content element. ⌥⇧F is
+	 * not one of CodeMirror's default bindings, so nothing swallows it on the way.
+	 *
+	 * `event.code`, NEVER `event.key`. Alt is a COMPOSING modifier on macOS: ⌥F is `ƒ` and ⌥⇧F is
+	 * `Ï`, so a handler written against `key` matches nothing at all on the platform most of this
+	 * binding's audience is using. `code` is the physical key and says `KeyF` either way.
+	 */
+	function formatShortcut(event: KeyboardEvent) {
+		if (!event.altKey || !event.shiftKey || event.metaKey || event.ctrlKey) return;
+		if (event.code !== 'KeyF') return;
+		// Nothing happens where there is no parser, and the key is not on the bar either. Returning
+		// before `preventDefault` leaves ⌥⇧F to whatever else wants it on a `.py`.
+		if (!canFormat(editor.filename)) return;
+		event.preventDefault();
+		formatDocument();
+	}
+
 	function onKey(event: KeyboardEvent) {
+		formatShortcut(event);
+		if (event.defaultPrevented) return;
 		const meta = event.metaKey || event.ctrlKey;
 
 		if (meta && !event.altKey) {
@@ -1215,6 +1254,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		editor.filename;
 		untrack(() => {
 			if (codeLost) codeLost = false;
+			// AND THE FORMAT LAMPS GO WITH IT, for a reason of scope rather than of retrying. Both
+			// answer for a PARTICULAR document — `Formatted` says this one was tidied, `Tidy` says
+			// this one does not parse — and they sit for 1.4 and 3.2 seconds, which is long enough
+			// to still be lit over the next file somebody opens. A refusal about a document that is
+			// no longer on the sheet is the same lie of scope that took COPY and CLEAR off this bar.
+			if (editor.formatted) editor.formatted = false;
+			if (editor.formatFailed) editor.formatFailed = '';
 		});
 	});
 
@@ -2011,6 +2057,69 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	/** The Save key's own confirmation — emerald, for a second and a bit. */
 	const saySaved = () => answer(WROTE);
 	let savedTimer = 0;
+
+	let formatTimer = 0;
+	/**
+	 * HAND THE DOCUMENT TO PRETTIER, and put what comes back on the sheet.
+	 *
+	 * IT DOES NOT ASK FIRST, and the reason is the same one that lets `load` replace the sheet
+	 * without asking: it goes through `sheet.put`, which is ONE undoable transaction in both
+	 * engines, so the whole of a format somebody did not want is a single Cmd-Z. A confirmation
+	 * before an action that is already one press to reverse is a dialog that costs more than the
+	 * mistake it prevents.
+	 *
+	 * THE CARET IS CARRIED THROUGH, which is why `format` is given the selection's start and why
+	 * `select` is called after `put` rather than left alone. Reformatting moves every offset in the
+	 * document, so a caret restored to the same NUMBER lands somewhere unrelated — and since this
+	 * textarea is not its own scroller, it takes the reader's place in a long file with it.
+	 *
+	 * NOTHING IS WRITTEN IF NOTHING CHANGED. Prettier is deterministic, so pressing Format on an
+	 * already-formatted document produces the identical string; putting it back would still push an
+	 * undo entry and still mark the document dirty, so a second press would offer to save a file
+	 * that is byte-for-byte what is on disk.
+	 */
+	async function formatDocument() {
+		// A press while one is in flight is ignored rather than queued. The only way to press twice
+		// is to press during the first fetch, and what that person wants is the format they already
+		// asked for, not two of them.
+		if (editor.formatting) return;
+		if (!canFormat(editor.filename)) return;
+		clearTimeout(formatTimer);
+		editor.formatting = true;
+		editor.formatted = false;
+		editor.formatFailed = '';
+		// The document as it stands at the moment of the press. It is read here rather than inside
+		// the await because the fetch below can take a second or more on a first press, and what is
+		// formatted has to be what was on screen when the key went down.
+		const was = text;
+		const name = editor.filename;
+		const at = sheet.selection().start;
+		const out = await format(was, name, at);
+		// THE LAMP GOES OUT FIRST, BEFORE THE GUARD BELOW. `formatting` is what stops a second press
+		// starting a second format, so a path that returns while it is still set does not abandon
+		// one format — it jams the key for the life of the page.
+		editor.formatting = false;
+		// THE DOCUMENT CAN CHANGE WHILE A PARSER IS IN FLIGHT — press Format on a `.ts`, change your
+		// mind, open a `.md`. The first press is a network fetch of up to 275 KB, so this window is
+		// wide enough to hit by hand, and without the guard the formatted text of the OLD document
+		// is written straight over the new one, silently. Same shape as the `dropped` flag the code
+		// sheet's life effect keeps, and for the same reason.
+		if (editor.filename !== name) return;
+		if (!out.ok) {
+			// The sentence, with the position folded in where there is one. Prettier's own message
+			// already carries `(12:7)` for a syntax error; `where` is kept separately because the
+			// message is the parser's and its shape is not ours to rely on.
+			editor.formatFailed = out.why;
+			formatTimer = window.setTimeout(() => (editor.formatFailed = ''), 3200);
+			return;
+		}
+		if (out.text !== was) {
+			sheet.put(out.text);
+			sheet.select(out.cursor);
+		}
+		editor.formatted = true;
+		formatTimer = window.setTimeout(() => (editor.formatted = false), 1400);
+	}
 
 	/**
 	 * A ROW THAT HAS JUST ANSWERED — renamed, moved, copied, cleared — and the word it is saying.
@@ -4421,7 +4530,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			     sheet's apparatus: no mirror, no drawn caret, no drawn selection, no paper
 			     scroller. All of those exist to give a textarea things this engine already has, so
 			     on this path they are not reimplemented — they are absent. -->
-			<div class="te-pane te-sheet te-code-pane">
+			<!-- The format shortcut is caught HERE rather than in `onKey`, which is bound to the
+			     textarea this branch does not render. Keydown bubbles out of CodeMirror's content
+			     element, and ⌥⇧F is not one of its bindings. See `formatShortcut`. -->
+			<!-- `presentation` because that is what this box IS: a wrapper with no semantics of its
+			     own, holding an element CodeMirror gives a real `textbox` role to. Without a role
+			     svelte-check rightly objects to a keydown handler on a bare div; suppressing that
+			     with an ignore comment would leave the tree claiming a plain div takes keys. -->
+			<div class="te-pane te-sheet te-code-pane" role="presentation" onkeydown={formatShortcut}>
 				<div class="te-code" bind:this={codeEl}></div>
 				{#if codeComing}
 					<!-- The first code file of a session is a network fetch. Saying so beats a white

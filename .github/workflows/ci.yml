@@ -49,6 +49,12 @@ jobs:
       # The build catches what neither of the above can: an adapter that cannot bundle a route.
       - run: pnpm build
 
+      # THE TWO HEAVY ENGINES STAY ON DEMAND. Reads the built module graph, so it needs the build
+      # above and no browser at all — which is why it runs before the playwright install below.
+      # The browser suite already counts what a prose visitor FETCHES; this catches the case that
+      # count cannot see, where a static import gets inlined into a chunk the page loads anyway.
+      - run: pnpm --filter home check:chunks
+
       # THE CONTENT SECURITY POLICY, which only exists in a production build — see
       # apps/home/scripts/csp-check.mjs for why it cannot live in the browser suites. It runs HERE,
       # after `pnpm build`, because the build is what it needs and this job already has one.

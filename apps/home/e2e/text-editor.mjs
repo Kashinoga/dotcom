@@ -26,6 +26,51 @@ const ok = (name, pass, detail = '') => {
 	console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${!pass && detail ? '  — got: ' + detail : ''}`);
 };
 
+/**
+ * WHICH HEAVY ENGINES A PAGE HAS ACTUALLY FETCHED, counted by what arrived rather than by what it
+ * was called.
+ *
+ * This replaced a URL pattern, and the reason is worth keeping. The laziness assertions were
+ * written as `url.includes('codemirror')` when this runner served the app through `vite dev`,
+ * where a module's URL really is its source path. `e2e/run.mjs` builds and previews now, and a
+ * built chunk is named `chunks/BGohlrsS2.js` — checked, and NOT ONE chunk filename in a production
+ * build carries a library's name. So the pattern matched nothing on every URL and the assertion
+ * passed by asking a question that had no way of failing. That is the third time this repo has
+ * shipped a guard that matched nothing, and the second time in this file.
+ *
+ * The markers are the libraries' own internals, and they are the SAME ONES scripts/chunk-check.mjs
+ * uses — validated there against a deliberately-leaked build. They are matched against the response
+ * BODY, which no amount of hashing can rename.
+ */
+function watchEngines() {
+	const seen = { prettier: 0, codemirror: 0 };
+	const pending = [];
+	const MARKS = { prettier: /astFormat|linguist/, codemirror: /cm-content|cmView/ };
+	return {
+		watch(p) {
+			p.on('response', (r) => {
+				if (r.request().resourceType() !== 'script') return;
+				pending.push(
+					r
+						.body()
+						.then((buf) => {
+							const src = buf.toString('utf8');
+							for (const [name, re] of Object.entries(MARKS)) if (re.test(src)) seen[name]++;
+						})
+						// A body that cannot be read (a redirect, a page torn down mid-flight) is not a
+						// chunk that arrived, and must not fail the run.
+						.catch(() => {})
+				);
+			});
+		},
+		/** Bodies arrive asynchronously — read them all before believing a count. */
+		async settle() {
+			await Promise.all(pending.slice());
+		},
+		count: () => ({ ...seen })
+	};
+}
+
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 const page = await ctx.newPage();
@@ -3508,6 +3553,7 @@ await browser.close();
 	// Every script this page asks for, so the laziness can be measured rather than asserted from
 	// the shape of the source.
 	const scripts = [];
+	const engines = watchEngines();
 	await c.addInitScript(() => {
 		window.__seed = async () => {
 			const root = await navigator.storage.getDirectory();
@@ -3529,16 +3575,25 @@ await browser.close();
 	});
 	const p = await c.newPage();
 	p.on('request', (r) => r.resourceType() === 'script' && scripts.push(r.url()));
+	engines.watch(p);
 	await p.goto(`${B}/apps/text-editor`, { waitUntil: 'networkidle' });
 	await p.waitForSelector('.te-type', { timeout: 15000 });
 
 	// THE LAZINESS, measured on the way in. A prose visitor must not pay for an engine they will
 	// never open. This is the assertion that justifies the whole hybrid, so it runs FIRST, before
 	// anything has had a chance to fetch it.
+	//
+	// IT IS COUNTED BY CONTENT AND NOT BY URL, and that correction is worth the note. This was
+	// written as `scripts.every((u) => !/codemirror/i.test(u))` back when the runner served the app
+	// through `vite dev`, where a module's URL is its path. The runner builds and previews now
+	// (see e2e/run.mjs), and a built chunk is named `chunks/BGohlrsS2.js` — so the pattern matched
+	// nothing, on every URL, and the assertion passed by asking a question that could not fail.
+	// Checked: zero chunk filenames in a production build carry a library's name.
+	await engines.settle();
 	ok(
 		'a prose visitor fetches no code editor at all',
-		scripts.every((u) => !/code-sheet|codemirror/i.test(u)),
-		scripts.filter((u) => /code-sheet|codemirror/i.test(u)).join(', ')
+		engines.count().codemirror === 0,
+		`${engines.count().codemirror} CodeMirror chunk(s) arrived`
 	);
 
 	await p.evaluate(() => window.__seed());
@@ -3565,6 +3620,16 @@ await browser.close();
 	await open('app.ts');
 	ok('a code file builds the code sheet', (await p.locator('.cm-editor').count()) === 1);
 	ok('and the prose sheet is gone with it', (await p.locator('.te-type').count()) === 0);
+	// THE POSITIVE HALF OF THE LAZINESS CLAIM, and it is not decoration. The assertion at the top of
+	// this block says a prose visitor fetched NO CodeMirror; on its own that would also be true of a
+	// marker that can never match anything, which is exactly the bug it was written to replace. This
+	// is the same marker finding the engine when the engine really is there.
+	await engines.settle();
+	ok(
+		'and opening it is what fetched the engine — the marker can see one',
+		engines.count().codemirror > 0,
+		'the marker found no CodeMirror even with the editor on screen'
+	);
 	ok(
 		'the document arrived on it intact',
 		(await p.locator('.cm-content').innerText()).includes('export function start')
@@ -3693,6 +3758,185 @@ await browser.close();
 	ok(
 		'and the prose sheet is back with the right document',
 		(await p.locator('.te-type').inputValue()).includes('prose here')
+	);
+
+	await b.close();
+}
+
+// ── FORMATTING ───────────────────────────────────────────────────────────────
+// Prettier behind one key ($lib/format). As with the code sheet, what is worth asserting is NOT
+// that Prettier formats — it has its own tests and re-running them here would be this suite paying
+// to maintain somebody else's coverage. What is worth asserting is everything AROUND it, and every
+// one of these is a claim the source makes that could quietly stop being true:
+//
+//   · that a prose visitor never fetches a parser
+//   · that the key is absent where there is no parser, rather than present and broken
+//   · that the document's own INDENTATION survives — the one option this app infers
+//   · that a file which does not parse is left ALONE and says so
+//   · that a format is one undo
+//
+// The indentation one is the reason the feature is usable at all. Prettier's default is two
+// spaces; a repo written with tabs would come back re-indented on every line, which in a tool whose
+// audience lives in `git diff` is the difference between a useful key and one nobody presses twice.
+{
+	const b = await chromium.launch();
+	const c = await b.newContext({ viewport: { width: 1500, height: 950 } });
+	const engines = watchEngines();
+	await c.addInitScript(() => {
+		window.__seed = async () => {
+			const root = await navigator.storage.getDirectory();
+			const put = async (n, body) => {
+				const fh = await root.getFileHandle(n, { create: true });
+				const w = await fh.createWritable();
+				await w.write(body);
+				await w.close();
+			};
+			// TAB-INDENTED and badly spaced, which is the case the whole of `readIndent` exists for.
+			await put('tabs.ts', 'export function a(){\n\tconst x   =  1;\n\t\treturn x;\n}\n');
+			// Four-space indented, so the inference has a second answer to get right.
+			await put('four.js', 'function a() {\n    if (x) {\n        return   1\n    }\n}\n');
+			await put('rough.md', '#  Head\n\n*  one\n*  two\n');
+			// Does not parse. Pressing Format on this must change nothing.
+			await put('broken.ts', 'export function a( {\n\tconst = = ;\n');
+			// Opens and highlights, and Prettier has no opinion about it.
+			await put('script.py', 'def a():\n    return 1\n');
+			window.showDirectoryPicker = async () => root;
+		};
+	});
+	const p = await c.newPage();
+	engines.watch(p);
+	await p.goto(`${B}/apps/text-editor`, { waitUntil: 'networkidle' });
+	await p.waitForSelector('.te-type', { timeout: 15000 });
+
+	// FIRST, before anything can have fetched it. The same assertion the code sheet block opens
+	// with, counted the same way — by what arrived, never by what the URL was called. It matters
+	// more here: Prettier's TypeScript plugin alone is 213 KB gzipped, half this entire site.
+	await engines.settle();
+	ok(
+		'a prose visitor fetches no formatter at all',
+		engines.count().prettier === 0,
+		`${engines.count().prettier} Prettier chunk(s) arrived`
+	);
+
+	await p.evaluate(() => window.__seed());
+	await p.waitForTimeout(300);
+	await p.locator('.te-local .te-work-head').click({ button: 'right' });
+	await p.waitForTimeout(200);
+	await p
+		.locator('.popover-item')
+		.filter({ hasText: /^Open a/ })
+		.first()
+		.click();
+	await p.waitForTimeout(900);
+
+	const open = async (name) => {
+		await p.locator('.te-local-list .te-work-file').filter({ hasText: name }).first().click();
+		await p.waitForTimeout(1500);
+	};
+	const formatKey = p.locator('.te-tail .tb').filter({ hasText: /Format|Formatted|Tidy/ });
+	// The document, whichever engine is holding it. A code file has no textarea at all.
+	const body = () =>
+		p.evaluate(() => {
+			const ta = document.querySelector('.te-type');
+			if (ta) return ta.value;
+			return Array.from(document.querySelectorAll('.cm-line'))
+				.map((l) => l.textContent)
+				.join('\n');
+		});
+	/** Press it and wait for it to stop saying it is working. */
+	const pressFormat = async () => {
+		await formatKey.click();
+		await p.waitForFunction(
+			() => !document.querySelector('.te-tail .tb.on'),
+			{},
+			{ timeout: 20000 }
+		);
+		await p.waitForTimeout(250);
+	};
+
+	// THE KEY IS ABSENT WHERE THERE IS NO PARSER, which is this bar's standing rule — `.md` and
+	// SAVE both vanish rather than sitting there disabled. A .py opens and highlights perfectly
+	// well; Prettier simply has no opinion about it.
+	await open('script.py');
+	ok('a Python file gets no Format key', (await formatKey.count()) === 0);
+	ok('but it still opens in the code sheet', (await p.locator('.cm-editor').count()) === 1);
+
+	await open('rough.md');
+	ok('a Markdown file gets one', (await formatKey.count()) === 1);
+
+	await open('tabs.ts');
+	ok('and so does a TypeScript file', (await formatKey.count()) === 1);
+
+	const beforeTabs = await body();
+	await pressFormat();
+	const afterTabs = await body();
+	ok('formatting a TypeScript file changes it', afterTabs !== beforeTabs, afterTabs);
+	ok('and it tidied the spacing', /const x = 1;/.test(afterTabs), afterTabs);
+	// THE CLAIM THE WHOLE OF readIndent EXISTS FOR. Prettier's own default here is two SPACES, so
+	// a file that comes back with spaces is a file whose every line has changed.
+	ok(
+		'the file’s own TAB indentation survives the format',
+		/\n\tconst x = 1;/.test(afterTabs),
+		JSON.stringify(afterTabs)
+	);
+	ok('the key says it landed', /Formatted/i.test(await formatKey.innerText()));
+
+	// A FORMAT IS ONE UNDO. It is why the key does not stop to ask first — the same argument that
+	// lets `load` replace the sheet without a dialog.
+	// ControlOrMeta, NEVER Control — the trap this file's own header opens with, and it caught this
+	// case on the first run. CodeMirror binds undo to Mod-z, which is Cmd on a Mac; a bare Control+Z
+	// reaches nothing and the failure reads exactly like a format that is not undoable.
+	await p.locator('.cm-content').click();
+	await p.keyboard.press('ControlOrMeta+z');
+	await p.waitForTimeout(300);
+	ok(
+		'and one undo puts the document back',
+		(await body()).includes('const x   =  1;'),
+		await body()
+	);
+
+	// The second inference, with a different answer. Four spaces in, four spaces out.
+	await open('four.js');
+	await pressFormat();
+	const four = await body();
+	ok(
+		'a four-space file comes back indented by four',
+		/\n {4}if \(x\)/.test(four) && /\n {8}return 1;/.test(four),
+		JSON.stringify(four)
+	);
+
+	// A DOCUMENT THAT DOES NOT PARSE IS LEFT ALONE AND SAYS SO. The ordinary case, not an
+	// exceptional one — a file is very often broken precisely while it is being edited.
+	await open('broken.ts');
+	const beforeBroken = await body();
+	await pressFormat();
+	ok('a file that does not parse is not rewritten', (await body()) === beforeBroken);
+	ok(
+		'and the key says Tidy rather than claiming it worked',
+		/Tidy/i.test(await formatKey.innerText())
+	);
+	// The sentence the key cannot fit — Prettier's own `Unexpected token (1:20)`. A word on the key,
+	// the position one hover away.
+	const why = await formatKey.getAttribute('title');
+	ok('and its tooltip carries the parser’s own reason', /\(\d+:\d+\)/.test(why ?? ''), why ?? '');
+
+	// THE LAMP DOES NOT FOLLOW YOU TO THE NEXT DOCUMENT. `Tidy` sits for 3.2 seconds, which is long
+	// enough to still be lit over the file opened after it — and a refusal about a document that is
+	// no longer on the sheet is the same lie of scope that took COPY and CLEAR off this bar.
+	await open('four.js');
+	ok(
+		'and the refusal does not carry over to the next document',
+		!/Tidy/i.test(await formatKey.innerText()),
+		await formatKey.innerText()
+	);
+
+	// AND ONLY NOW HAS ANYTHING BEEN FETCHED — the positive half, without which the assertion at the
+	// top of this block is indistinguishable from a marker that can never match.
+	await engines.settle();
+	ok(
+		'the formatter was fetched only once there was something to format',
+		engines.count().prettier > 0,
+		'no Prettier chunk was ever seen — the probe at the top of this block proves nothing'
 	);
 
 	await b.close();

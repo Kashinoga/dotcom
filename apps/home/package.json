@@ -25,6 +25,7 @@
 		"@kashinoga/puhig": "workspace:*",
 		"@lezer/highlight": "^1.2.3",
 		"@threlte/core": "^8.5.16",
+		"prettier": "^3.9.6",
 		"three": "^0.185.1"
 	},
 	"scripts": {
@@ -41,7 +42,8 @@
 		"test:e2e:changed": "node e2e/run.mjs --changed",
 		"snap:sky": "node e2e/sky-snap.mjs",
 		"snap:docs": "node e2e/docs-snap.mjs",
-		"audit:space": "node e2e/space-audit.mjs"
+		"audit:space": "node e2e/space-audit.mjs",
+		"check:chunks": "node scripts/chunk-check.mjs"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-cloudflare": "^7.2.9",

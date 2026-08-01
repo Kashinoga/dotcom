@@ -80,6 +80,9 @@ importers:
       '@threlte/core':
         specifier: ^8.5.16
         version: 8.5.16(svelte@5.56.4)(three@0.185.1)
+      prettier:
+        specifier: ^3.9.6
+        version: 3.9.6
       three:
         specifier: ^0.185.1
         version: 0.185.1
