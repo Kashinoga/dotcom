@@ -2095,6 +2095,18 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	let dropInto = $state<string | null>(null);
 
 	async function moveTo(entry: FolderEntry, destPath: string, list: 'tree' | 'cloud' = 'tree') {
+		// THE HEAD IS EXEMPT, and it is not a hole in the rule. `destPath` is `''` when a document is
+		// dropped on the head, which means "the top level" — and with several roots open the only
+		// unambiguous top level is the one belonging to the folder the document is ALREADY in.
+		// `storeAt` already resolves it that way: the source's store, at its own root.
+		//
+		// THE GUARANTEE, not the courtesy. `onDragOver` already declines a cross-root drop so the
+		// row never lights up, but this is the one that matters: the source's store would be handed
+		// the DESTINATION's path with the other root's name stripped off it, and a store asked to
+		// move a file to a path it can resolve would move it — to the wrong folder, inside its own
+		// root, with nothing on screen saying so.
+		if (list === 'tree' && destPath !== '' && rootFor(entry.path)?.id !== rootFor(destPath)?.id)
+			return;
 		const moved = await storeAt(list, entry.path).store?.move(
 			storeAt(list, entry.path).path,
 			storeAt(list, destPath).path
@@ -2135,6 +2147,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// keeps the browser's own "you cannot drop that here" cursor, which is the truthful answer and
 		// costs no copy. Highlighting the row and then declining on release would be worse.
 		if (list !== dragList) return;
+		// NOR ACROSS TWO ROOTS, and for the same reason one step down. The workspace holds several
+		// folders now, and two roots are two different stores with two different permission grants
+		// — so a drag between them is a read, a write and a delete, exactly the three requests the
+		// local-to-drive case is refused for. Refused the same way: by saying nothing, so the
+		// pointer keeps the browser's own "you cannot drop that here" cursor.
+		if (list === 'tree' && destPath !== '' && rootFor(dragging)?.id !== rootFor(destPath)?.id)
+			return;
 		const from = dragging.includes('/') ? dragging.slice(0, dragging.lastIndexOf('/')) : '';
 		// A folder will not take what it already holds. Without this every row lights up as a
 		// target for the file directly above it, which reads as an offer to do nothing.
