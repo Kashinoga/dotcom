@@ -330,7 +330,23 @@ ok('and the wash was actually sampled', wash.ran && wash.sampled > 0, JSON.strin
 
 // ARRIVAL IS WAITED FOR, not timed to: the wipe element outlives its own animation by the length
 // of the camera flight, and it is the ELEMENT going that says the crossing is over.
-await page.waitForSelector('.locale-wipe', { state: 'detached', timeout: 15000 });
+//
+// REPORTED, NOT THROWN — and this one is not defensiveness, it is the suite's most useful finding.
+// In CI the crossing DOES NOT LAND: the element is still up after 15s against a TRANSIT_TOTAL_MS
+// of 2750, and the wash above only managed 13 frames in its 450ms window (~29fps), so the main
+// thread is heavily loaded. The ranger's space scene is three.js, and this suite runs in headless
+// Firefox on a shared runner.
+//
+// That single fact is every ranger failure this suite has ever had in CI. The scene and the bar
+// re-theme flip at COVER, so they pass; everything that lands at TRANSIT_TOTAL — the Shuttle lead,
+// Courier, the ledger — does not. Thrown, it is a TimeoutError that takes the rest of the file
+// with it and names nothing. Reported, the log reads "the crossing landed — FAIL" followed by
+// exactly the content that depended on it, which is the whole story in the order it happened.
+const landed = await page
+	.waitForSelector('.locale-wipe', { state: 'detached', timeout: 20000 })
+	.then(() => true)
+	.catch(() => false);
+ok('the crossing landed', landed, landed ? '' : 'the wipe was still up after 20s');
 await settle(page);
 {
 	// The state is read ONCE and shared by both, so the two details cannot disagree about the same
