@@ -274,6 +274,12 @@ ok('transit: the .locale-wipe overlay is playing', await inTransit());
 // stated as what it always meant — from the moment the world has swapped until the crossing ends,
 // no Shuttle lead is on stage — with both ends read off the app instead of a stopwatch.
 await page.waitForSelector('.scene-orbit.shown', { timeout: 15000 });
+// AND ONCE THE OLD WORLD HAS FINISHED LEAVING. `shuttleLeads` counts anything with client rects,
+// and an element part-way through an OUT transition still has them — so sampling from the instant
+// of the swap catches the departing lead mid-fade and calls it a lead riding through the wash.
+// That is what the original 600ms was buying with its extra 250ms past COVER+HOLD. `settle` waits
+// out every finite animation, which is the same claim without the arithmetic.
+await settle(page);
 
 // SAMPLED THROUGHOUT rather than at two chosen instants, which is strictly more coverage than the
 // offsets bought: a lead riding through any part of the wash is caught, not just one that happens
@@ -374,7 +380,22 @@ const openViaCard = async () => {
 // app closing; the walk back to /apps is a step of its own now.
 const backToApps = async () => {
 	await page.getByRole('button', { name: 'Close and go home' }).click();
-	await page.waitForURL(B + '/', { timeout: 6000 });
+	// `commit`, not the default `load`. The claim here is that we LEFT — the URL changed — and the
+	// `goto` two lines down does its own `networkidle` wait for the page we actually want. Waiting
+	// for `load` made this the flakiest line in the suite: it is reached from F2 with a CROSSING
+	// still in the air, whose timers and camera flight keep the page busy past the timeout, and it
+	// took every case after it down with a TimeoutError rather than a named failure. Seen on both
+	// a dev server and a preview one, so it is the wait and not the transport.
+	const left = await page
+		.waitForURL(B + '/', { timeout: 10000, waitUntil: 'commit' })
+		.then(() => true)
+		.catch(() => false);
+	// NAMED, not thrown. This is reached once with a CROSSING still in the air (F2), and when the
+	// close did not navigate in time the bare wait threw a TimeoutError that took every remaining
+	// case with it — a crash where a failure belongs, and one that says nothing about which case
+	// it was in. Reported instead, and the walk to /apps below happens either way, so one slow
+	// close costs one assertion rather than the tail of the suite.
+	ok('closing the app navigates home', left, page.url());
 	await page.waitForTimeout(500);
 	await page.goto(B + '/apps', { waitUntil: 'networkidle' });
 	await page.waitForTimeout(700);
