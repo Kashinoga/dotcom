@@ -1618,7 +1618,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// was made of — a handle here, a File there. It used to be built from `editor.openHandle`,
 		// which a `webkitdirectory` document never had: those were shelved as a name with nothing
 		// behind it, so the row deleted itself the moment it was pressed.
-		const doc = storeOf(editor.openIn)?.detach(editor.openPath);
+		const doc = storeAt(editor.openIn, editor.openPath).store?.detach(
+			storeAt(editor.openIn, editor.openPath).path
+		);
 		if (doc) {
 			const rest = editor.loose.filter((d) => d.id !== doc.id);
 			editor.loose = [doc, ...rest].slice(0, LOOSE_MAX);
@@ -1695,7 +1697,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	// `$state.raw` rather than `$state`: this is REPLACED wholesale and never mutated, and a deep
 	// proxy would be actively harmful — the local store carries the directory handle that IndexedDB
 	// has to structured-clone, and a Proxy is not cloneable.
-	let store = $state.raw<Store | null>(null);
 	/**
 	 * THE DRIVE, which is a second store living at the same time rather than a different value of
 	 * the first. A folder on the machine and a folder on a server are different kinds of place and
@@ -1706,10 +1707,113 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	/** Which CONNECTION the live drive is. A shelf row names one, and this is how it is matched. */
 	let driveId = $state('');
 
-	/** Which store a list's rows belong to. The one lookup that keeps the verbs written once. */
-	const storeOf = (list: 'tree' | 'cloud') => (list === 'cloud' ? drive : store);
+	/**
+	 * THE WORKSPACE IS SEVERAL FOLDERS NOW, AND ONE TREE.
+	 *
+	 * Opening a folder used to REPLACE the one before it, because there was a single `store` and a
+	 * single flat list of entries. What actually wanted to change was smaller than it looked: the
+	 * pane derives its tree from PATHS alone (see `rowsFor`), so several folders become several
+	 * top-level rows the moment their paths do not collide.
+	 *
+	 * SO A ROOT'S NAME IS ITS PATH PREFIX. `Syncthing/notes/todo.md`. Not an opaque id, because
+	 * the tree renders path SEGMENTS as folder names — an id would show the reader `r0` where the
+	 * folder's name belongs, and the whole render would need a second lookup to undo it. Two
+	 * folders called the same thing are numbered apart (`Notes`, `Notes (2)`), which is what a file
+	 * manager does and what a tab bar does.
+	 *
+	 * Everything downstream keeps working because it was already keyed on paths: `collapsed`,
+	 * `openPath`, the row menus, the flash keys and the drag targets all take a string and none of
+	 * them care that it now has a folder's name on the front.
+	 *
+	 * This is the same arrangement VS Code calls a multi-root workspace, and the audience here is
+	 * VS Code people — see the note about not explaining standard affordances.
+	 */
+	type Root = {
+		/** The path prefix AND the row's name — unique across open roots. */
+		id: string;
+		store: LocalStore;
+		files: FolderEntry[];
+		dirs: string[];
+		writable: boolean;
+		/** The handle, kept so the set of open folders can be remembered across a reload. */
+		dir: FileSystemDirectoryHandle | null;
+	};
+	let roots = $state.raw<Root[]>([]);
+
+	// SUPERSEDED BY `roots`, and kept only where the question is "is there a LOCAL store at all" —
+	// `fileScratchNote` asks it to decide whether a note lands on disk or on a drive. Everything
+	// that acts on a PATH goes through `at()`, which finds the root that path belongs to.
+	const store = $derived<Store | null>(roots[0]?.store ?? null);
+
+	/** The root a tree path belongs to — its first segment. */
+	const rootFor = (path: string) => {
+		const seg = path.split('/')[0];
+		return roots.find((r) => r.id === seg) ?? null;
+	};
+
+	/**
+	 * WHICH STORE ANSWERS FOR A PATH, AND WHAT THAT PATH IS TO IT.
+	 *
+	 * The one lookup that keeps the verbs written once, now that a tree path carries a root on the
+	 * front of it and the store underneath has never heard of one. Every verb takes the pair.
+	 */
+	const storeAt = (list: 'tree' | 'cloud', path: string) => {
+		if (list === 'cloud') return { store: drive as Store | null, path };
+		const root = rootFor(path);
+		if (!root) return { store: null as Store | null, path };
+		return { store: root.store as Store, path: path.slice(root.id.length + 1) };
+	};
+
+	/**
+	 * PUT THE ROOT BACK ON THE FRONT of a path a store just handed back.
+	 *
+	 * The counterpart to `storeAt`, and every verb that gets a NEW path out of a store needs it —
+	 * rename, move, create. A store answers in its own path space, which has never heard of a root;
+	 * an answer written straight back onto a row detaches that row from the store it came from, and
+	 * the next verb on it finds no root at all. Silent, and only visible as a rename that appears to
+	 * work and then cannot be undone.
+	 */
+	const backFrom = (list: 'tree' | 'cloud', was: string, answered: string) => {
+		if (list === 'cloud') return answered;
+		const root = rootFor(was);
+		return root ? `${root.id}/${answered}` : answered;
+	};
+
+	/** Which store a list belongs to where no path is in hand — the drive, or the only root. */
+	const storeOf = (list: 'tree' | 'cloud') =>
+		list === 'cloud' ? drive : (roots[0]?.store ?? null);
 	/** And which array holds them. */
 	const entriesOf = (list: 'tree' | 'cloud') => (list === 'cloud' ? editor.drive : editor.folder);
+
+	/**
+	 * THE UNION, REBUILT. Every root's entries under its own name, in one flat list, which is what
+	 * `rowsFor` turns back into a tree. Called after anything changes a root's contents.
+	 *
+	 * The ROOT IDS are pushed into `folders` as directories in their own right — without that a
+	 * root with no sub-folders would have no row of its own and its documents would appear to hang
+	 * at the top level of the pane, which is exactly the invisible-empty-folder bug `rowsFor`
+	 * already carries a note about.
+	 */
+	function republish() {
+		editor.folder = roots.flatMap((r) => r.files.map((f) => ({ ...f, path: `${r.id}/${f.path}` })));
+		editor.folders = [
+			...roots.map((r) => r.id),
+			...roots.flatMap((r) => r.dirs.map((d) => `${r.id}/${d}`))
+		];
+		// WRITABLE IF ANY ROOT IS. The pane's read-only note asks whether writing is possible at
+		// all; per-document writability is `openWritable`, which asks the root the document is in.
+		editor.folderWritable = roots.some((r) => r.writable);
+		editor.folderName =
+			roots.length === 0 ? '' : roots.length === 1 ? roots[0].id : 'Local Folders';
+	}
+
+	/** A name no open root is already using. Two `Notes` become `Notes` and `Notes (2)`. */
+	function freeRootId(name: string) {
+		const base = (name || 'Folder').replace(/\//g, '-');
+		if (!roots.some((r) => r.id === base)) return base;
+		for (let n = 2; ; n++)
+			if (!roots.some((r) => r.id === `${base} (${n})`)) return `${base} (${n})`;
+	}
 
 	/**
 	 * Take a store on as the workspace. False if it could not be read at all, which only a
@@ -1728,45 +1832,88 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		import('$lib/code-sheet').then((m) => m.warmCodeSheet(code)).catch(() => {});
 	}
 
-	async function adopt(next: Store, keepOpen = false) {
+	/**
+	 * TAKE A FOLDER ON — ADDING it to the workspace, never replacing what is there.
+	 *
+	 * Replacing is what this did, and it was the whole complaint: opening a second folder threw the
+	 * first one away, so a workspace could only ever be one place at a time. It APPENDS now, and
+	 * the pane grows a second top-level row.
+	 *
+	 * `keepOpen` is still the RELOAD path. It says the mark on the sheet was written against a
+	 * folder that is coming back, so nothing here should shelve it or clear it. See the two notes
+	 * below, which are the two separate ways a reload used to lose its own row.
+	 */
+	async function addRoot(
+		next: LocalStore,
+		dir: FileSystemDirectoryHandle | null,
+		keepOpen = false
+	) {
+		// ALREADY OPEN? Then this is a no-op, not a second copy. Picking the same folder twice is an
+		// ordinary thing to do — the picker reopens wherever it was last — and it used to REPLACE,
+		// so doing it was harmless. Adding made it harmful: two roots over one directory, numbered
+		// apart as though they were different places, each with its own rows for the same files,
+		// each able to rename the other's documents out from under it.
+		//
+		// `isSameEntry` rather than comparing names: two folders can share a name and be different
+		// places, which is the whole reason roots are numbered apart in the first place.
+		if (dir) {
+			for (const r of roots) {
+				if (!r.dir || !(await r.dir.isSameEntry(dir))) continue;
+				// RE-WALKED, not ignored. Picking a folder you already have open is how somebody
+				// asks for it to be read again — it was the only refresh this pane had, back when
+				// opening a folder replaced the one before it — and answering with silence would
+				// take that away while looking like a bug. Anything created or deleted outside the
+				// app since it was opened appears now.
+				const again = await r.store.list();
+				if (!again) return true;
+				roots = roots.map((x) =>
+					x.id === r.id ? { ...x, files: again.files, dirs: again.dirs } : x
+				);
+				republish();
+				return true;
+			}
+		}
 		const listing = await next.list();
 		if (!listing) return false;
-		// Whatever was open belonged to the LAST folder. Shelved before the new one lands, or its
-		// row would simply vanish with the tree it was in. A no-op unless a TREE document is on the
-		// sheet, which is why it can be called on every path through here.
-		//
-		// NOT ON THE RELOAD PATH. `keepOpen` means this is the SAME folder being re-opened, so
-		// there is no "last folder" for the open document to be homeless from — it is about to be
-		// in this very tree. Shelving it there moved the restored document onto the LOOSE shelf and
-		// took its row's mark with it, which is what made a reload come back with nothing selected.
-		if (!keepOpen) shelveTheOpenOne();
-		store = next;
-		editor.folder = listing.files;
-		editor.folders = listing.dirs;
-		editor.folderName = next.name;
+		// NOT SHELVED ANY MORE, and the reason is the change itself: shelving existed because the
+		// open document's tree was about to disappear. Nothing disappears now — the folder it lives
+		// in stays open beside the new one — so the row it is marked on is still there.
+		const id = freeRootId(next.name);
+		roots = [
+			...roots,
+			{ id, store: next, files: listing.files, dirs: listing.dirs, writable: next.writable, dir }
+		];
+		republish();
 		// A WORKSPACE THAT HOLDS CODE WARMS THE ENGINE. The service worker caches what is fetched,
 		// so doing this now — while there is a network — is what makes a `.ts` in this folder open
 		// on a plane later. Nothing happens for a folder of prose, which is why the install stays
 		// small. See `warmCodeSheet` for why it is a warm rather than a precache.
 		warmForCode(listing.files.map((f) => f.name));
-		editor.folderWritable = next.writable;
 		editor.folderShown = true;
 		editor.folderPending = false;
-		// Only a document from the OLD TREE stops being the open one — it has just been shelved by
-		// the line above. A scratch note or a shelf row belongs to no folder at all, and clearing
-		// the mark on one because a folder changed underneath it took the Save key away from a
-		// note that was still on the sheet.
-		// `keepOpen` is the RELOAD path: `openHeldFolder` is re-opening the same folder the mark
-		// was written against, so clearing it here would undo the restore a few lines after making
-		// it. Every other caller is adopting a DIFFERENT folder, where the old mark names a tree
-		// that is no longer on screen.
-		if (editor.openIn === 'tree' && !keepOpen) {
-			editor.openPath = '';
-			editor.openWritable = false;
-		}
-		// A different folder is a different tree; what was shut in the last one means nothing here.
-		editor.collapsed = [];
+		// `collapsed` is NOT cleared. It used to be, because a different folder was a different
+		// tree and what was shut in the last one meant nothing. Adding a root leaves every other
+		// root exactly where it was, and shutting them all because one arrived would be the pane
+		// rearranging itself under the reader.
 		return true;
+	}
+
+	/**
+	 * CLOSE ONE FOLDER, leaving the others. The counterpart to opening several, and the one verb
+	 * this arrangement makes necessary — with a single folder, closing it and opening another were
+	 * the same gesture.
+	 *
+	 * A document open FROM this root goes to the shelf rather than vanishing: its words are on the
+	 * sheet, and a sheet whose row has just been taken away is the state the shelf exists for.
+	 */
+	function closeRoot(id: string) {
+		if (editor.openIn === 'tree' && editor.openPath.split('/')[0] === id) shelveTheOpenOne();
+		roots = roots.filter((r) => r.id !== id);
+		republish();
+		// Only this root's own shut-folders go with it; the others are still on screen.
+		editor.collapsed = editor.collapsed.filter((p) => p.split('/')[0] !== id);
+		rememberFolders();
+		if (!roots.length) editor.folderName = '';
 	}
 
 	/** The Chromium path: a real directory, with permission to write it. */
@@ -1781,8 +1928,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			// saying anything about.
 			return;
 		}
-		held = localStore(dir, isOpenable);
-		if (await adopt(held)) rememberFolder(dir);
+		const next = localStore(dir, isOpenable);
+		if (await addRoot(next, dir)) rememberFolders();
 	}
 
 	/**
@@ -1807,8 +1954,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		const list: 'tree' | 'cloud' = store?.writable ? 'tree' : 'cloud';
 		const into = storeOf(list);
 		if (!doc || !into?.writable) return;
-		const entry = await into.create('', doc.name, '.md', text);
-		if (!entry) return;
+		const made = await into.create('', doc.name, '.md', text);
+		if (!made) return;
+		// Filed into the FIRST root, which is what `storeOf` hands back where no path is in hand.
+		const entry =
+			list === 'tree' && roots[0] ? { ...made, path: `${roots[0].id}/${made.path}` } : made;
 		if (!entriesOf(list).some((e) => e.path === entry.path)) {
 			if (list === 'cloud')
 				editor.drive = [...editor.drive, entry].sort((a, b) => a.path.localeCompare(b.path));
@@ -1831,8 +1981,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// A document in the workspace is a path, and the store owns the write. A document from the
 		// SHELF is a handle and has no store behind it — it came from outside every folder.
 		if (editor.openIn === 'tree' || editor.openIn === 'cloud') {
-			const from = storeOf(editor.openIn);
-			return answer(from ? await from.write(editor.openPath, text) : notWritten('gone'));
+			const w = storeAt(editor.openIn, editor.openPath);
+			return answer(w.store ? await w.store.write(w.path, text) : notWritten('gone'));
 		}
 		const handle = editor.openHandle;
 		if (!handle) return;
@@ -1898,24 +2048,25 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	/** Rename an entry in the store, and follow it if it is the one on the sheet. */
 	async function rename(entry: FolderEntry, to: string, list: 'tree' | 'cloud' = 'tree') {
 		const name = to.trim();
-		const from = storeOf(list);
+		const { store: from, path: inStore } = storeAt(list, entry.path);
 		editor.renaming = '';
 		if (!name || name === entry.name || !from) return;
 		// A name is a NAME, not a path — a rename that could write into another directory is a
 		// move, and a text field in a list is the wrong place to offer one. The store refuses one
 		// too; this is the field's own answer, given before the round trip.
 		if (/[/\\]/.test(name)) return;
-		const moved = await from.rename(entry.path, name);
+		const moved = await from.rename(inStore, name);
 		if (!moved) return;
 		const was = entry.path;
+		const now = backFrom(list, was, moved.path);
 		entry.name = moved.name;
-		entry.path = moved.path;
+		entry.path = now;
 		resort(list);
 		if (editor.openPath === was) {
-			editor.openPath = moved.path;
+			editor.openPath = now;
 			editor.filename = moved.name;
 		}
-		flash(entry.path, 'Saved');
+		flash(now, 'Saved');
 	}
 
 	// ── Moving a document ─────────────────────────────────────────────────────
@@ -1944,14 +2095,18 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	let dropInto = $state<string | null>(null);
 
 	async function moveTo(entry: FolderEntry, destPath: string, list: 'tree' | 'cloud' = 'tree') {
-		const moved = await storeOf(list)?.move(entry.path, destPath);
+		const moved = await storeAt(list, entry.path).store?.move(
+			storeAt(list, entry.path).path,
+			storeAt(list, destPath).path
+		);
 		if (!moved) return;
 		const was = entry.path;
-		entry.path = moved.path;
+		const now = backFrom(list, was, moved.path);
+		entry.path = now;
 		resort(list);
 		// The document on the sheet follows its own file, exactly as it does through a rename.
-		if (editor.openIn === list && editor.openPath === was) editor.openPath = moved.path;
-		flash(moved.path, 'Moved', 'here');
+		if (editor.openIn === list && editor.openPath === was) editor.openPath = now;
+		flash(now, 'Moved', 'here');
 	}
 
 	/**
@@ -2025,7 +2180,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		}
 		clearTimeout(doomTimer);
 		editor.doomed = '';
-		if (!(await storeOf(list)?.remove(entry.path))) return;
+		if (!(await storeAt(list, entry.path).store?.remove(storeAt(list, entry.path).path))) return;
 		if (list === 'cloud') editor.drive = editor.drive.filter((e) => e.path !== entry.path);
 		else editor.folder = editor.folder.filter((e) => e.path !== entry.path);
 		// The sheet keeps what it is showing — the words are still yours even though the file is
@@ -2065,10 +2220,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 */
 	const driveWhere = $derived.by(() => {
 		const c = editor.connections.find((k) => k.id === driveId);
-		if (!c) return editor.driveHost ? `Cloud · ${editor.driveHost}` : 'Cloud';
+		if (!c) return editor.driveHost ? `Remote · ${editor.driveHost}` : 'Remote';
 		// The origin and the folder inside it — the address somebody would type to reach the same
 		// place in a browser, not the DAV path, which is an implementation detail of the transport.
-		return `Cloud · ${c.base}${c.root ? `/${c.root}` : ''}`;
+		return `Remote · ${c.base}${c.root ? `/${c.root}` : ''}`;
 	});
 	/** The address of a connection, the way somebody would type it to reach the same place. */
 	function driveAddress(id: string): string {
@@ -2098,16 +2253,21 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	function whereIs(path: string, list: 'tree' | 'cloud'): string {
 		if (list === 'cloud') {
 			const at = driveAddress(driveId);
-			return at ? `Cloud · ${at}/${path}` : `Cloud · ${path}`;
+			return at ? `Remote · ${at}/${path}` : `Remote · ${path}`;
 		}
-		return `Local · …/${editor.folderName ? `${editor.folderName}/` : ''}${path}`;
+		// THE ROOT IS ALREADY THE FIRST SEGMENT of the path. This used to prepend `folderName`,
+		// because a folder's name was stripped from every path and lived only in the head.
+		// Multi-root put it back on the front, so prepending says it twice — and with several
+		// folders open `folderName` is a COUNT ("2 folders"), which put that count into the middle
+		// of every row's stated location.
+		return `Local · …/${path}`;
 	}
 
 	/** The same for a SHELF row, which knows where it came from and may have come from a drive. */
 	function looseWhere(d: DetachedDoc): string {
 		if (d.drive) {
 			const at = driveAddress(d.drive.connection);
-			return at ? `Cloud · ${at}/${d.drive.path}` : `Cloud · ${d.drive.path}`;
+			return at ? `Remote · ${at}/${d.drive.path}` : `Remote · ${d.drive.path}`;
 		}
 		// A hand-picked FILE has no folder behind it at all — the picker hands back a handle and
 		// nothing else — so this is a name under a leading ellipsis and nothing more.
@@ -2127,10 +2287,18 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			: 'Local · no folder open'
 	);
 
-	const driveLabel = $derived(
-		(editor.driveName || 'Drive') +
-			(editor.driveHost && editor.driveHost !== editor.driveName ? ` (${editor.driveHost})` : '')
-	);
+	/**
+	 * THE DRIVE'S HEAD NAMES THE KIND OF LIST, not the server.
+	 *
+	 * It used to read the connection's name with the hostname after it, which put a piece of
+	 * somebody's infrastructure at the top of a column fifteen rems wide and ellipsised it. The
+	 * three lists beside it are called Scratch, Local Files and Local Folders — words for what a
+	 * list IS — and this is the fourth. Which server it is remains one hover away (`driveWhere`),
+	 * and every row under it already states its full address in its own title.
+	 */
+	const driveLabel = 'Remote';
+	// The server the head stopped spending its width on is one hover away — `driveWhere`, declared
+	// above with the other location strings, which already reads `Remote · https://host/folder`.
 	let driveNameEl: HTMLElement | null = $state(null);
 	let driveClipped = $state(false);
 
@@ -2459,22 +2627,22 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			// which is the whole return on the seam: a document is a path, and a path is a store's
 			// question. Writing this twice is how the two would stop agreeing.
 			const list = at.list;
-			const from = storeOf(list);
 			const entry = entriesOf(list).find((e) => e.path === at.path);
 			if (!entry) return null;
+			const { store: from, path: inStore } = storeAt(list, entry.path);
 			return {
 				key: entry.path,
 				name: entry.name,
 				read: async () => {
 					if (isOnSheet(entry.path, list)) return text;
-					return (await from?.read(entry.path)) ?? null;
+					return (await from?.read(inStore)) ?? null;
 				},
 				// Only where the workspace can be written to. A `webkitdirectory` snapshot cannot be,
 				// and a Clear that could not clear would be the one kind of key this app refuses to
 				// draw.
 				clear: from?.writable
 					? async () => {
-							const wrote = from ? await from.write(entry.path, '') : notWritten('gone');
+							const wrote = from ? await from.write(inStore, '') : notWritten('gone');
 							if (!wrote.ok) return wrote;
 							// It is still the open file, still named, still savable — it is empty now.
 							// So the sheet follows it rather than being detached from it.
@@ -2658,7 +2826,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			// A root has no last segment to be named by, so it borrows the head's own name.
 			name: root
 				? list === 'cloud'
-					? editor.driveName || 'Drive'
+					? driveLabel
 					: editor.folderName || 'Workspace'
 				: at.path.slice(at.path.lastIndexOf('/') + 1),
 			list,
@@ -2678,8 +2846,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 */
 	async function closeFolder() {
 		shelveTheOpenOne();
-		store = null;
 		held = null;
+		heldDir = null;
 		editor.folder = [];
 		editor.folders = [];
 		editor.folderName = '';
@@ -2690,8 +2858,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			editor.openPath = '';
 			editor.openWritable = false;
 		}
+		// EVERY root, because this is the head's verb and the head speaks for the whole workspace.
+		// One folder at a time is `closeRoot`, on that folder's own row — where a file manager
+		// keeps it, and where Rename and Delete already are.
+		roots = [];
+		republish();
 		closeFileMenu();
-		await rememberFolder(null);
+		await rememberFolders();
 	}
 
 	function openDirMenu(event: MouseEvent, path: string, list: 'tree' | 'cloud') {
@@ -2735,9 +2908,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	/** Make a folder inside the one the menu belongs to. */
 	async function makeDir(inside: string, list: 'tree' | 'cloud', name: string) {
 		const clean = name.trim();
-		const store = storeOf(list);
+		const { store, path: inStore } = storeAt(list, inside || (roots[0]?.id ?? ''));
 		if (!clean || !store?.createDir) return;
-		const path = await store.createDir(inside, clean);
+		const made = await store.createDir(inside ? inStore : '', clean);
+		const root = list === 'tree' ? rootFor(inside || (roots[0]?.id ?? '')) : null;
+		const path = made == null ? null : root ? `${root.id}/${made}` : made;
 		if (!path) return;
 		if (list === 'cloud') {
 			editor.driveFolders = [...editor.driveFolders, path];
@@ -2753,8 +2928,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 
 	/** Delete a folder and everything under it. The name has already been typed — see `dirMode`. */
 	async function killDir(path: string, list: 'tree' | 'cloud') {
-		const store = storeOf(list);
-		if (!store?.removeDir || !(await store.removeDir(path))) return;
+		const { store, path: inStore } = storeAt(list, path);
+		if (!store?.removeDir || !(await store.removeDir(inStore))) return;
 		const under = (p: string) => p === path || p.startsWith(`${path}/`);
 		if (list === 'cloud') {
 			editor.drive = editor.drive.filter((e) => !under(e.path));
@@ -2948,29 +3123,56 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		].slice(0, LOOSE_MAX);
 	}
 
-	async function rememberFolder(dir: FileSystemDirectoryHandle | null) {
+	/**
+	 * REMEMBER EVERY OPEN FOLDER, as a list under one key.
+	 *
+	 * It was a single handle under `'folder'`, because there was a single folder. The old key is
+	 * still READ on the way in (see `recallFolder`) so an existing visitor's workspace survives the
+	 * upgrade rather than coming back empty — a fresh start is a rude way to announce a feature.
+	 *
+	 * A `webkitdirectory` root has no handle and is simply not among them, which is the same limit
+	 * that arrangement always had: that pick is session-only because a File carries nothing to
+	 * store.
+	 */
+	async function rememberFolders() {
 		const handles = await handleStore('readwrite');
 		if (!handles) return;
 		try {
-			if (dir) handles.put(dir, 'folder');
-			else handles.delete('folder');
+			const dirs = roots.map((r) => r.dir).filter(Boolean);
+			if (dirs.length) handles.put(dirs, 'folders');
+			else handles.delete('folders');
+			// The single-folder key is gone the moment the list is authoritative, or a visitor who
+			// closed every folder would find one waiting for them again next time.
+			handles.delete('folder');
 		} catch {
 			/* private mode, or a browser that will not clone a handle — forgetting is survivable */
 		}
 	}
 
 	/** The folder from last time, if the browser kept it and still lets us read it. */
+	/**
+	 * THE FOLDERS FROM LAST TIME, if the browser kept them and still lets us read them.
+	 *
+	 * Reads the new list key AND the old single-folder key, so an existing visitor's workspace
+	 * survives this change rather than coming back empty.
+	 */
 	async function recallFolder() {
 		if (!editor.canWrite) return;
 		const handles = await handleStore('readonly');
 		if (!handles) return;
-		const dir: FileSystemDirectoryHandle | null = await new Promise((resolve) => {
-			const req = handles.get('folder');
-			req.onsuccess = () => resolve(req.result ?? null);
-			req.onerror = () => resolve(null);
-		});
-		if (!dir) return;
-		held = localStore(dir, isOpenable);
+		const get = <T,>(key: string): Promise<T | null> =>
+			new Promise((resolve) => {
+				const req = handles.get(key);
+				req.onsuccess = () => resolve(req.result ?? null);
+				req.onerror = () => resolve(null);
+			});
+		const many = await get<FileSystemDirectoryHandle[]>('folders');
+		const one = await get<FileSystemDirectoryHandle>('folder');
+		const dirs = (many ?? []).concat(one ? [one] : []);
+		if (!dirs.length) return;
+		held = localStore(dirs[0], isOpenable);
+		heldDir = dirs[0];
+		heldRest = dirs.slice(1);
 		editor.folderName = held.name;
 		// Granted already (same session, or a browser that persisted the grant) — open it outright.
 		// Otherwise leave it named and shut, for `reconnect` to ask about on a real click.
@@ -2982,22 +3184,28 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * The REMEMBERED store, which is not always the open one: between a recall and a reconnect it is
 	 * named and shut, waiting for the click that lets the browser re-ask. Typed as the local store
 	 * rather than as a `Store`, because permission is a thing only a handle-backed folder has.
+	 *
+	 * `held` is the FIRST remembered folder and the one whose permission gates the rest; `heldRest`
+	 * is the others, opened after it. One prompt stands for the workspace — asking once per folder
+	 * would be a queue of dialogs at mount, which is the thing `recallFolder` exists to avoid.
 	 */
 	let held: LocalStore | null = null;
+	let heldDir: FileSystemDirectoryHandle | null = null;
+	let heldRest: FileSystemDirectoryHandle[] = [];
 
 	/**
 	 * Which folders were shut when the pane was last closed, read at mount and spent here.
 	 *
-	 * Only the REMEMBERED folder gets it, which is why it is applied in `openHeldFolder` and not
-	 * in `adopt`: adopting a DIFFERENT folder clears `collapsed` on purpose (a different tree, and
-	 * what was shut in the last one means nothing here), and restoring a saved list there would
-	 * shut whatever folders happened to share a path with the old workspace.
+	 * Only the REMEMBERED folders get it, which is why it is applied in `openHeldFolder` and not in
+	 * `addRoot`: a folder opened by HAND is a folder the visitor is looking at on purpose, and
+	 * shutting parts of it because an old list happened to name the same paths would be the pane
+	 * arranging itself against them.
 	 */
 	let heldCollapsed: string[] = [];
 
 	async function openHeldFolder() {
 		if (!held) return;
-		if (await adopt(held, true)) {
+		if (await addRoot(held, heldDir, true)) {
 			// THE RESTORED MARK, CHECKED AGAINST THE TREE THAT ACTUALLY CAME BACK. Until now it was
 			// a claim read out of localStorage: the file may have been renamed, deleted or moved
 			// while the app was closed. Confirmed, it gets its Save key back — `openWritable` is
@@ -3005,7 +3213,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			// and a live grant, and a remembered `true` draws a key that fails when pressed.
 			if (editor.openIn === 'tree' && editor.openPath) {
 				const there = editor.folder.some((f) => f.path === editor.openPath);
-				if (there) editor.openWritable = !!store?.writable;
+				if (there) editor.openWritable = !!rootFor(editor.openPath)?.writable;
 				else {
 					// Gone. The words are still on the sheet and are still the visitor's — this only
 					// stops the pane claiming they belong to a row that is not there.
@@ -3017,6 +3225,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			// was closed leaves a path behind that matches nothing, and an unpruned list would carry
 			// it for ever. Spent once — a second call is a folder being re-opened by hand, and by
 			// then `collapsed` is whatever the visitor has since done.
+			// THE OTHER REMEMBERED FOLDERS, after the first. Sequential rather than parallel: each
+			// is a directory walk, and a handful started at once on a cold disk is a stall at the
+			// exact moment the pane is trying to draw.
+			for (const dir of heldRest) await addRoot(localStore(dir, isOpenable), dir, true);
+			heldRest = [];
 			const back = heldCollapsed.filter((p) => editor.folders.includes(p));
 			heldCollapsed = [];
 			if (back.length) editor.collapsed = back;
@@ -3025,7 +3238,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// The folder moved, or was deleted, or the grant went away between the check and here.
 		editor.folderPending = false;
 		editor.folderName = '';
-		await rememberFolder(null);
+		await rememberFolders();
 	}
 
 	/** The one thing a remembered folder needs: a click, so the browser will re-ask. */
@@ -3286,13 +3499,13 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	 * store is what turns one into words, and what will later save, rename or delete it.
 	 */
 	async function openEntry(entry: FolderEntry, list: 'tree' | 'cloud' = 'tree') {
-		const from = storeOf(list);
+		const { store: from, path: inStore } = storeAt(list, entry.path);
 		// A DOCUMENT on a drive is a request too, and it is the one somebody is waiting on most
 		// directly — they pressed a row expecting words. Only the drive is marked: a local read is a
 		// handle and a `File.text()`, over before a frame has passed, and a bar that flickered for
 		// one frame on every press would be noise wearing the shape of information.
 		if (list === 'cloud') editor.driveFetching = [...editor.driveFetching, entry.path];
-		const body = await from?.read(entry.path);
+		const body = await from?.read(inStore);
 		if (list === 'cloud') {
 			editor.driveFetching = editor.driveFetching.filter((p) => p !== entry.path);
 		}
@@ -3314,7 +3527,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		// A `webkitdirectory` workspace is read-only, session-only, and knows no empty folders: an
 		// empty directory leaves no File to be seen in. All three are the platform's, and all three
 		// are the snapshot store's to say — see $lib/text-editor-store.
-		adopt(snapshotStore('', picked, isOpenable));
+		addRoot(snapshotStore('', picked, isOpenable) as unknown as LocalStore, null);
 	}
 
 	/** The document leaves as a real file. The name is the first heading, or the date. */
@@ -3896,7 +4109,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						onclick={() => {
 							editor.folderPending = false;
 							editor.folderName = '';
-							rememberFolder(null);
+							heldRest = [];
+							rememberFolders();
 						}}
 						title="Forget this folder">Forget</button
 					>
@@ -3953,7 +4167,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 					{/if}
 					{#if editor.loose.length}
 						{@render shelf(
-							'Local',
+							'Local Files',
 							FOLDER_FILES_SVG,
 							'Opened from outside the workspace · usually local, and a drive row says so',
 							editor.loose.map((d) => ({
@@ -3967,107 +4181,6 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						)}
 					{/if}
 				</section>
-				<!-- THE DRIVE — a fourth list, above the folder and below the shelves. It is not the
-				     folder and never replaces it: a folder on the machine and a folder on a server are
-				     different kinds of place, and somebody may reasonably keep both open.
-
-				     It is drawn whenever a drive is CONNECTED OR REMEMBERED. A remembered one that has
-				     not answered yet — or whose password could not be read back — gets its head and a
-				     line saying so, rather than nothing at all: a workspace that vanishes because a
-				     token expired looks exactly like a workspace that was never there, and the visitor
-				     has no way to tell which. -->
-				{#if editor.driveOpen || editor.drivePending}
-					<section class="te-band te-drive" aria-label="Drive: {editor.driveName}">
-						<!-- ITS HEAD IS THE ROOT'S DROP TARGET, exactly as the folder's is. Without it a
-						     document dragged into a sub-folder has no way back to the top level, which
-						     makes the gesture one-way and therefore a trap. -->
-						<header
-							class="te-work-head te-drive-head"
-							role="group"
-							aria-label="Drive {editor.driveName || ''}"
-							class:into={dragList === 'cloud' && dropInto === ''}
-							ondragover={(e) => onDragOver(e, '', 'cloud')}
-							ondragleave={(e) => onDragLeave(e, '')}
-							ondrop={(e) => onDrop(e, '', 'cloud')}
-							oncontextmenu={(e) => editor.driveOpen && openDirMenu(e, '', 'cloud')}
-						>
-							<!-- NAMED FOR THE FOLDER AND THE SERVER BOTH — `Notes (nextcloud.kashinoga.com)`.
-							     A folder called `Notes` says nothing about where it is, and somebody with a
-							     drive open beside a local folder of the same name has two lists wearing one
-							     name. The host is left off when the drive was opened at its ROOT, because the
-							     name IS the host then and `host (host)` is a label arguing with itself. -->
-							<span class="te-work-mark" role="img" aria-label={driveWhere}>{@html CLOUD_SVG}</span>
-							<span class="popover te-work-where" aria-hidden="true">{driveWhere}</span>
-							<h2 class="te-work-name" bind:this={driveNameEl}>{driveLabel}</h2>
-							{#if driveClipped}
-								<!-- THE SAME REVEAL the folder's head keeps, and the drive needs it more: its label is a
-								     folder AND a host, so it is the longest name in this pane by some way and the one
-								     somebody most needs in full — two drives on two servers can hold a folder of one name.
-								     BELOW the row, never over it: over the name it lands under the pointer that opened it
-								     and takes its own hover away. -->
-								<span class="popover te-work-full" aria-hidden="true">{driveLabel}</span>
-							{/if}
-							{#if editor.driveOpen}
-								{@const busy = editor.driveFetching.includes('')}
-								<!-- FETCH UPDATES. A drive is somebody else's disk: another device, the web
-								     client or a phone can change it underneath and nothing here would know.
-								     It is the only key in this pane that asks a question rather than
-								     changing something, which is why it is a glyph and not a word. -->
-								<button
-									type="button"
-									class="te-loose-sort te-drive-refresh"
-									class:on={busy}
-									disabled={busy}
-									title="Fetch updates from {editor.driveHost || 'the drive'}"
-									aria-label="Fetch updates from the drive"
-									onclick={refreshDrive}>{@html REFRESH_SVG}</button
-								>
-								{#if busy}
-									<!-- The row's own word and bar, on the head. `driveFetching` already means
-									     "this path is being read" and the root is a path, so refreshing says it
-									     in the vocabulary the rows already use rather than inventing a spinner. -->
-									<span class="te-work-fetching">Fetching</span>
-									<span class="te-work-bar" aria-hidden="true"></span>
-								{/if}
-							{/if}
-							<!-- `+`, the same key the Scratch head wears and in the same place: the short
-							     road to one more row, at the head of the list it adds to. What it MAKES
-							     differs, and has to — a scratch note has nowhere to be until it is filed,
-							     and a drive is somewhere already. See `newDriveDoc`. -->
-							{#if editor.driveOpen && drive?.writable}
-								<button
-									type="button"
-									class="te-loose-sort te-loose-add"
-									title="Make a document on {editor.driveName || 'the drive'}"
-									aria-label="New document on the drive"
-									onclick={newDriveDoc}>+</button
-								>
-							{/if}
-							<!-- The drive's own, in the same place in the row and saying LESS in its word: this
-							     tree is lazy, so opening it reaches what the drive has revealed rather than all
-							     of it. See `twistAllDrive`. -->
-							{#if editor.driveOpen && editor.driveFolders.length}
-								{@render twistAll(
-									branchShut('', 'cloud'),
-									branchShut('', 'cloud') ? 'every folder read so far' : 'every folder',
-									() => twistBranch('', 'cloud')
-								)}
-							{/if}
-							<!-- NO TALLY. The tree arrives one level at a time, so the number of documents
-							     in the drive is not a thing this app knows until every folder has been
-							     opened — and a figure that grows as you browse is worse than none. -->
-						</header>
-						{#if editor.drivePending}
-							<p class="te-work-note">
-								Not connected. {editor.connections.length
-									? 'Its password could not be read back, or the server did not answer.'
-									: ''}
-							</p>
-						{:else}
-							{@render tree(driveRows, 'cloud', 'Drive documents', toggleDriveDir)}
-						{/if}
-					</section>
-				{/if}
 				<!-- THE FOLDER, head and all. The head used to be pinned to the TOP of the pane, above
 				     the shelves and above the drive, while the rows it heads were at the bottom — so a
 				     workspace called `Syncthing` announced itself three lists away from the first thing
@@ -4169,6 +4282,108 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						</p>
 					{/if}
 				</section>
+				<!-- THE DRIVE — a fourth list, and the LAST one: the pane reads Scratch, Local Files, Local
+				     Folders, Remote — nearest to hand first, furthest away last. It is not the
+				     folder and never replaces it: a folder on the machine and a folder on a server are
+				     different kinds of place, and somebody may reasonably keep both open.
+
+				     It is drawn whenever a drive is CONNECTED OR REMEMBERED. A remembered one that has
+				     not answered yet — or whose password could not be read back — gets its head and a
+				     line saying so, rather than nothing at all: a workspace that vanishes because a
+				     token expired looks exactly like a workspace that was never there, and the visitor
+				     has no way to tell which. -->
+				{#if editor.driveOpen || editor.drivePending}
+					<section class="te-band te-drive" aria-label="Drive: {editor.driveName}">
+						<!-- ITS HEAD IS THE ROOT'S DROP TARGET, exactly as the folder's is. Without it a
+						     document dragged into a sub-folder has no way back to the top level, which
+						     makes the gesture one-way and therefore a trap. -->
+						<header
+							class="te-work-head te-drive-head"
+							role="group"
+							aria-label="Drive {editor.driveName || ''}"
+							class:into={dragList === 'cloud' && dropInto === ''}
+							ondragover={(e) => onDragOver(e, '', 'cloud')}
+							ondragleave={(e) => onDragLeave(e, '')}
+							ondrop={(e) => onDrop(e, '', 'cloud')}
+							oncontextmenu={(e) => editor.driveOpen && openDirMenu(e, '', 'cloud')}
+						>
+							<!-- NAMED FOR THE FOLDER AND THE SERVER BOTH — `Notes (nextcloud.kashinoga.com)`.
+							     A folder called `Notes` says nothing about where it is, and somebody with a
+							     drive open beside a local folder of the same name has two lists wearing one
+							     name. The host is left off when the drive was opened at its ROOT, because the
+							     name IS the host then and `host (host)` is a label arguing with itself. -->
+							<span class="te-work-mark" role="img" aria-label={driveWhere}>{@html CLOUD_SVG}</span>
+							<span class="popover te-work-where" aria-hidden="true">{driveWhere}</span>
+							<h2 class="te-work-name" bind:this={driveNameEl} title={driveWhere}>{driveLabel}</h2>
+							{#if driveClipped}
+								<!-- THE SAME REVEAL the folder's head keeps, and the drive needs it more: its label is a
+								     folder AND a host, so it is the longest name in this pane by some way and the one
+								     somebody most needs in full — two drives on two servers can hold a folder of one name.
+								     BELOW the row, never over it: over the name it lands under the pointer that opened it
+								     and takes its own hover away. -->
+								<span class="popover te-work-full" aria-hidden="true">{driveLabel}</span>
+							{/if}
+							{#if editor.driveOpen}
+								{@const busy = editor.driveFetching.includes('')}
+								<!-- FETCH UPDATES. A drive is somebody else's disk: another device, the web
+								     client or a phone can change it underneath and nothing here would know.
+								     It is the only key in this pane that asks a question rather than
+								     changing something, which is why it is a glyph and not a word. -->
+								<button
+									type="button"
+									class="te-loose-sort te-drive-refresh"
+									class:on={busy}
+									disabled={busy}
+									title="Fetch updates from {editor.driveHost || 'the drive'}"
+									aria-label="Fetch updates from the drive"
+									onclick={refreshDrive}>{@html REFRESH_SVG}</button
+								>
+								{#if busy}
+									<!-- The row's own word and bar, on the head. `driveFetching` already means
+									     "this path is being read" and the root is a path, so refreshing says it
+									     in the vocabulary the rows already use rather than inventing a spinner. -->
+									<span class="te-work-fetching">Fetching</span>
+									<span class="te-work-bar" aria-hidden="true"></span>
+								{/if}
+							{/if}
+							<!-- `+`, the same key the Scratch head wears and in the same place: the short
+							     road to one more row, at the head of the list it adds to. What it MAKES
+							     differs, and has to — a scratch note has nowhere to be until it is filed,
+							     and a drive is somewhere already. See `newDriveDoc`. -->
+							{#if editor.driveOpen && drive?.writable}
+								<button
+									type="button"
+									class="te-loose-sort te-loose-add"
+									title="Make a document on {editor.driveName || 'the drive'}"
+									aria-label="New document on the drive"
+									onclick={newDriveDoc}>+</button
+								>
+							{/if}
+							<!-- The drive's own, in the same place in the row and saying LESS in its word: this
+							     tree is lazy, so opening it reaches what the drive has revealed rather than all
+							     of it. See `twistAllDrive`. -->
+							{#if editor.driveOpen && editor.driveFolders.length}
+								{@render twistAll(
+									branchShut('', 'cloud'),
+									branchShut('', 'cloud') ? 'every folder read so far' : 'every folder',
+									() => twistBranch('', 'cloud')
+								)}
+							{/if}
+							<!-- NO TALLY. The tree arrives one level at a time, so the number of documents
+							     in the drive is not a thing this app knows until every folder has been
+							     opened — and a figure that grows as you browse is worse than none. -->
+						</header>
+						{#if editor.drivePending}
+							<p class="te-work-note">
+								Not connected. {editor.connections.length
+									? 'Its password could not be read back, or the server did not answer.'
+									: ''}
+							</p>
+						{:else}
+							{@render tree(driveRows, 'cloud', 'Drive documents', toggleDriveDir)}
+						{/if}
+					</section>
+				{/if}
 				<!-- Only while there is no way to write ANYWHERE: not to the local disk, and not to
 				     whatever workspace is open. The second half is what stops this contradicting a
 				     writable store reached over a network, which Safari and Firefox can hold even
@@ -4523,18 +4738,40 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						onclick={() => {
 							closeFileMenu();
 							pickFolder();
-						}}>{store ? 'Open a different folder…' : 'Open a folder…'}</button
+						}}>{roots.length ? 'Open another folder…' : 'Open a folder…'}</button
 					>
 					<!-- CLOSE, on the ROOT only, and it is not Delete: nothing on the disk is touched.
 					     The word is the difference — this pane already keeps `Close` for a shelf row,
 					     where it means the same thing, and `Forget` for a drive, where it means it about
 					     a password. -->
-					{#if store}
+					{#if roots.length}
 						<button type="button" role="menuitem" class="popover-item" onclick={closeFolder}
-							>Close the folder</button
+							>{roots.length > 1 ? `Close all ${roots.length} folders` : 'Close the folder'}</button
 						>
 					{/if}
 				{:else if !dir.root}
+					<!-- A TOP-LEVEL ROW IS AN OPEN FOLDER, now that the workspace holds several. Closing
+					     one is this row's business — a file manager keeps a folder's verbs on the
+					     folder, and the head speaks for the workspace as a whole. Nothing on the disk
+					     is touched, which is why the word is Close and not Delete; the pane already
+					     uses Close for a shelf row, where it means exactly this. -->
+					{#if dir.list === 'tree' && !dir.path.includes('/')}
+						<button
+							type="button"
+							role="menuitem"
+							class="popover-item"
+							onclick={() => {
+								// THE ID IS TAKEN BEFORE THE MENU SHUTS. `closeFileMenu` nulls
+								// `editor.fileMenu`, `menuDir` derives from it, and `dir` is that
+								// derived value — so reading `dir.path` afterwards is reading a
+								// property of null. It threw silently into the console and the
+								// folder simply did not close.
+								const id = dir.path;
+								closeFileMenu();
+								closeRoot(id);
+							}}>Close this folder</button
+						>
+					{/if}
 					<!-- DELETE IS LAST and it is the only item here that opens a question rather than
 					     doing something. The ellipsis is the promise that pressing it is not the end of
 					     it. It is not offered on a ROOT: deleting the folder you are looking at from

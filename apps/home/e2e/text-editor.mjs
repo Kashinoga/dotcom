@@ -780,13 +780,27 @@ await reset('first\n\n\nlast');
 	const TREE = '.te-local-list';
 	// A TREE, not a path list: sub-folders are rows of their own, folders before documents, and
 	// what is inside one is indented under it rather than spelled out as a path on every line.
-	// The folder's own name is stripped from the paths — it is the heading above the list, and
-	// leaving it on would indent everything by a level to say it again.
+	//
+	// THE FOLDER ITSELF IS A ROW NOW, and that is the multi-root change rather than a regression.
+	// The workspace holds several folders, so each one is a top-level row named after itself and
+	// its contents are indented under it — the arrangement VS Code calls a multi-root workspace.
+	// It used to be stripped, on the argument that the name was already the heading above the list
+	// and repeating it would indent everything by a level; with two folders open that heading
+	// cannot name either of them.
+	const rootRow = await page.$eval(`${TREE} .te-work-dirname, ${TREE} button.te-work-dir`, (n) =>
+		n.textContent.trim()
+	);
 	await eq(
 		'a folder opens as a workspace tree, folders first',
-		page.$$eval(`${TREE} .te-work-file`, (ns) => ns.map((n) => n.textContent).join(',')),
+		page.$$eval(`${TREE} .te-work-file`, (ns) =>
+			ns
+				.map((n) => n.textContent)
+				.slice(1)
+				.join(',')
+		),
 		'sub,gamma.md,alpha.md,beta.markdown,ignore.png,notes.txt'
 	);
+	ok('and the folder itself leads the tree as its own root row', !!rootRow, rootRow);
 	// IT LISTS WHAT IT CANNOT OPEN, greyed out and inert — it used to drop those rows, and a folder
 	// of eleven things shown as a folder of three left the reader unable to tell whether the app
 	// had failed or the files were never there. The claim is no longer "it is absent" but "it is
@@ -818,17 +832,29 @@ await reset('first\n\n\nlast');
 		(await page.locator('.te-local .te-work-count').textContent()).trim() === '4',
 		await page.locator('.te-local .te-work-count').textContent()
 	);
+	// Row 0 is the ROOT, row 1 the sub-folder inside it, row 2 the document inside that. The claim
+	// is unchanged — what is inside a folder is indented under it — but every row moved down one
+	// now that the folder the workspace was opened on has a row of its own.
 	ok(
 		'a nested document is indented under its folder',
 		await page.evaluate((sel) => {
 			const rows = [...document.querySelectorAll(`${sel} .te-work-row`)];
 			const pad = (i) => parseFloat(getComputedStyle(rows[i]).paddingLeft);
-			return pad(1) > pad(0) && pad(2) === pad(0);
+			return pad(1) > pad(0) && pad(2) > pad(1);
 		}, TREE)
 	);
+	// SCOPED TO THE SUB-FOLDER. There are two tallies in this tree now — the root's, counting
+	// everything it holds, and `sub`'s, counting the one document in it — so an unscoped query is
+	// a strict-mode violation rather than an answer. It crashed the run, which is the honest
+	// outcome and better than picking one at random.
 	ok(
 		'and the folder says how many documents are under it',
-		(await page.locator('.te-work-tally').textContent()) === '1'
+		(await page
+			.locator(`${TREE} .te-work-row`)
+			.filter({ hasText: 'sub' })
+			.first()
+			.locator('.te-work-tally')
+			.textContent()) === '1'
 	);
 
 	// ── THE HEAD IS ONE ROW ──────────────────────────────────────────────────
@@ -959,7 +985,7 @@ await reset('first\n\n\nlast');
 		await eq(
 			'a file opened by hand is still on the shelf, several acts later',
 			page
-				.locator('ul[aria-label="Local"] .te-work-file')
+				.locator('ul[aria-label="Local Files"] .te-work-file')
 				.allTextContents()
 				.then((t) => t.join(',')),
 			'alpha.md'
@@ -969,14 +995,14 @@ await reset('first\n\n\nlast');
 		await eq(
 			'a second one goes to the FRONT — the order is the order you reached for them',
 			page
-				.locator('ul[aria-label="Local"] .te-work-file')
+				.locator('ul[aria-label="Local Files"] .te-work-file')
 				.allTextContents()
 				.then((t) => t.join(',')),
 			'elsewhere.md,alpha.md'
 		);
 		ok(
 			'marked as the one on the sheet',
-			(await page.locator('ul[aria-label="Local"] .te-work-row.on').count()) === 1
+			(await page.locator('ul[aria-label="Local Files"] .te-work-row.on').count()) === 1
 		);
 		ok('and the tree marks nothing', (await page.locator(`${TREE} .te-work-row.on`).count()) === 0);
 		// Above the tree, and a shade off the sheet — that shading is the whole of how it says it
@@ -996,22 +1022,25 @@ await reset('first\n\n\nlast');
 		await page.waitForTimeout(700);
 		ok(
 			'a tree row leaves the shelf standing',
-			(await page.locator('ul[aria-label="Local"]').count()) === 1
+			(await page.locator('ul[aria-label="Local Files"]').count()) === 1
 		);
 		ok(
 			'and takes the mark off it',
-			(await page.locator('ul[aria-label="Local"] .te-work-row.on').count()) === 0
+			(await page.locator('ul[aria-label="Local Files"] .te-work-row.on').count()) === 0
 		);
 		ok('marking the tree instead', (await page.locator(`${TREE} .te-work-row.on`).count()) === 1);
 		// A shelf row opens again by re-READING — the shelf holds where a document came from, not
 		// its text. There is one sheet in this editor and these are not buffers.
-		await page.locator('ul[aria-label="Local"] .te-work-row').first().click();
+		await page.locator('ul[aria-label="Local Files"] .te-work-row').first().click();
 		await page.waitForTimeout(700);
 		await eq('a shelf row opens again', value(), '# From elsewhere');
 		// Its menu holds the three verbs every document has, and then CLOSE — which acts on the
 		// LIST rather than on the disk, and is why it is offered in every browser where Rename and
 		// Delete are not.
-		await page.locator('ul[aria-label="Local"] .te-work-row').first().click({ button: 'right' });
+		await page
+			.locator('ul[aria-label="Local Files"] .te-work-row')
+			.first()
+			.click({ button: 'right' });
 		await page.waitForTimeout(300);
 		await eq(
 			'a shelf row offers Close, and nothing that touches the disk',
@@ -1026,7 +1055,7 @@ await reset('first\n\n\nlast');
 		await eq(
 			'Close takes that row off and leaves the rest',
 			page
-				.locator('ul[aria-label="Local"] .te-work-file')
+				.locator('ul[aria-label="Local Files"] .te-work-file')
 				.allTextContents()
 				.then((t) => t.join(',')),
 			'alpha.md'
@@ -1038,9 +1067,16 @@ await reset('first\n\n\nlast');
 	// Shutting a folder takes its documents off the list and leaves the folder itself.
 	await page.getByRole('treeitem', { name: /^sub/ }).click();
 	await page.waitForTimeout(250);
+	// `.slice(1)` past the ROOT row, which leads the tree now that the workspace can hold several
+	// folders. See the note where this listing is first asserted.
 	await eq(
 		'shutting a folder hides what is inside it',
-		page.$$eval(`${TREE} .te-work-file`, (ns) => ns.map((n) => n.textContent).join(',')),
+		page.$$eval(`${TREE} .te-work-file`, (ns) =>
+			ns
+				.map((n) => n.textContent)
+				.slice(1)
+				.join(',')
+		),
 		'sub,alpha.md,beta.markdown,ignore.png,notes.txt'
 	);
 	await eq(
@@ -1052,7 +1088,7 @@ await reset('first\n\n\nlast');
 	await page.waitForTimeout(250);
 	ok(
 		'opening it brings them back',
-		(await page.locator(`${TREE} .te-work-file`).allTextContents()).join(',') ===
+		(await page.locator(`${TREE} .te-work-file`).allTextContents()).slice(1).join(',') ===
 			'sub,gamma.md,alpha.md,beta.markdown,ignore.png,notes.txt'
 	);
 
@@ -1194,7 +1230,7 @@ await reset('first\n\n\nlast');
 	const TREE_FILES = '.te-local-list .te-work-file';
 	ok(
 		'a writable folder walks into its sub-folders and lists what it cannot read',
-		(await wp.locator(TREE_FILES).allTextContents()).join(',') ===
+		(await wp.locator(TREE_FILES).allTextContents()).slice(1).join(',') ===
 			'drafts,gamma.md,alpha.md,beta.md,notes.txt,skip.png',
 		JSON.stringify(await wp.locator(TREE_FILES).allTextContents())
 	);
@@ -1473,7 +1509,7 @@ await reset('first\n\n\nlast');
 		await wp.waitForTimeout(700);
 		await eq(
 			'a hand-picked file lands on the shelf',
-			wp.locator('ul[aria-label="Local"] .te-work-file').last().textContent(),
+			wp.locator('ul[aria-label="Local Files"] .te-work-file').last().textContent(),
 			'notes.txt'
 		);
 		ok(
@@ -1526,7 +1562,8 @@ await reset('first\n\n\nlast');
 	// It used to ask for a name and create a real file in the folder, which meant it only worked
 	// in Chromium, only with a folder open, and asked you to decide what a note was called before
 	// you had written a word of it. A new document is named for you and lives on a shelf of its
-	// own above the Local shelf — and it is the ONE kind of document this pane holds the text of,
+	// own above the Local Files shelf — and it is the ONE kind of document this pane holds the text
+	// of,
 	// because there is nowhere to read it back from.
 	{
 		await fromWorkspace('New note', wp);
@@ -1535,8 +1572,9 @@ await reset('first\n\n\nlast');
 		// `.te-loose .te-work-name`, not `.te-loose-name`: a shelf's title is set as every other head
 		// in this pane is now, so it wears the same class and is told apart by the block it is in.
 		ok(
-			'and puts a scratch document on a shelf of its own, above the Local shelf',
-			(await wp.locator('.te-loose .te-work-name').allTextContents()).join(',') === 'Scratch,Local',
+			'and puts a scratch document on a shelf of its own, above the Local Files shelf',
+			(await wp.locator('.te-loose .te-work-name').allTextContents()).join(',') ===
+				'Scratch,Local Files',
 			JSON.stringify(await wp.locator('.te-loose .te-work-name').allTextContents())
 		);
 		// The LAST row: the shelf opens with a standing `Ephemeral 0`, so what New made is the one
@@ -1723,10 +1761,17 @@ await reset('first\n\n\nlast');
 		// `Ephemeral N` this is depends on how many the cases above made, and pinning it here
 		// would make every one of them load-bearing for this one.
 		const noteName = (await wp.locator('.te-lamp').textContent()).trim();
+		// THE FOLDER IS NAMED in this title now. It used to read "in the folder", because an OPFS
+		// root has an empty name and the label fell through to a generic phrase. A workspace can
+		// hold several folders, so each one has to be called something — the name is read off the
+		// pane rather than written down here, for the same reason the note's name is.
+		const folderName = (
+			await wp.locator('.te-local-list .te-work-dirname').first().textContent()
+		).trim();
 		await eq(
 			'and says where it would go',
 			wp.getByRole('button', { name: /^Save/ }).getAttribute('title'),
-			`File this note in the folder as ${noteName}.md`
+			`File this note in ${folderName} as ${noteName}.md`
 		);
 		await wp.getByRole('button', { name: /^Save/ }).click();
 		await wp.waitForTimeout(700);
@@ -1833,7 +1878,9 @@ await reset('first\n\n\nlast');
 			'a folder cannot — only documents move',
 			(await wp.locator('.te-work-dir').first().getAttribute('draggable')) !== 'true'
 		);
-		await wp.dragAndDrop(`${TREE} >> text=beta.md`, '.te-work-dir');
+		// NAMED, not positional: `.te-work-dir` first is the workspace's own ROOT row now, and
+		// dropping a root-level document onto the root it is already in is not a move.
+		await wp.dragAndDrop(`${TREE} >> text=beta.md`, `${TREE} .te-work-dir:has-text("drafts")`);
 		await wp.waitForTimeout(400);
 		// A move ANSWERS too, in the accent rather than the emerald — it is a write you can see,
 		// but only if you were looking at the part of the list it landed in.
@@ -1855,10 +1902,14 @@ await reset('first\n\n\nlast');
 		// The whole path, under a LEADING ELLIPSIS and behind the word Local: the File System Access
 		// API exposes no absolute path, so `drafts/beta.md` alone read as one and was not. See
 		// `whereIs` in $lib/TextEditor.
+		// THE ROOT IS IN THE PATH NOW. A workspace holds several folders, so each one is a row and
+		// its name leads every path under it — which is also what makes two folders' `beta.md`
+		// tell apart. It used to be stripped, and the head named the one folder there could be.
+		const rootName = (await wp.locator(`${TREE} .te-work-dirname`).first().textContent()).trim();
 		await eq(
 			'a nested row carries its whole location for the hover',
 			wp.getByRole('treeitem', { name: 'beta.md' }).getAttribute('title'),
-			'Local · …/drafts/beta.md'
+			`Local · …/${rootName}/drafts/beta.md`
 		);
 		ok(
 			'dropping one on a folder moves it there on disk',
@@ -2688,16 +2739,25 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 		}
 	}
 
-	// THE HEAD NAMES THE SERVER TOO, because a folder called `Notes` says nothing about where it is
-	// — and somebody with a drive open beside a local folder of the same name has two lists wearing
-	// one name.
+	// THE HEAD NAMES THE KIND OF LIST, and the server is one hover away. It used to read the
+	// connection's name with the hostname after it, which put a piece of somebody's infrastructure
+	// at the top of a fifteen-rem column and ellipsised it. The three lists beside it are called
+	// Scratch, Local Files and Local Folders — words for what a list IS — and this is the fourth.
 	await eq(
-		'the head names the folder and its server',
+		'the head names the kind of list',
 		fp
 			.locator('.te-drive-head .te-work-name')
 			.textContent()
 			.then((t) => t.trim()),
-		'Notes (cloud.example.com)'
+		'Remote'
+	);
+	// The server it points at, on the head's own hover — nothing is lost, it is one move away.
+	ok(
+		'and the server is a hover away on it',
+		((await fp.locator('.te-drive-head .te-work-name').getAttribute('title')) ?? '').includes(
+			'cloud.example.com'
+		),
+		JSON.stringify(await fp.locator('.te-drive-head .te-work-name').getAttribute('title'))
 	);
 
 	// FETCH UPDATES. A drive is somebody else's disk; something else can change it underneath.
@@ -3018,9 +3078,9 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	await dp.waitForTimeout(1200);
 
 	ok(
-		'a connected drive is its own section, headed with its folder and its server',
-		(await dp.locator('.te-drive-head .te-work-name').textContent()).trim() ===
-			'Notes (cloud.example.com)'
+		'a connected drive is its own section, headed by what kind of list it is',
+		(await dp.locator('.te-drive-head .te-work-name').textContent()).trim() === 'Remote',
+		(await dp.locator('.te-drive-head .te-work-name').textContent()).trim()
 	);
 	ok(
 		'and it does NOT replace the folder — the local tree is still its own list',
@@ -3140,25 +3200,38 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 		.first()
 		.click();
 	await dp.waitForTimeout(900);
+	// NOTHING IS SHELVED ANY MORE, and that is the multi-root change rather than a loss. Opening a
+	// folder used to REPLACE the workspace, so a drive document on the sheet was about to lose the
+	// list its row lived in and had to be caught. A folder is ADDED now — the drive's list is not
+	// touched at all — so the document simply keeps the row it already had, which is better than
+	// being caught.
 	ok(
-		'changing the folder shelves the open drive document rather than losing its row',
-		(await dp.locator('ul[aria-label="Local"] .te-work-file').allTextContents()).includes('top.md'),
-		JSON.stringify(await dp.locator('ul[aria-label="Local"] .te-work-file').allTextContents())
+		'opening a folder leaves an open drive document exactly where it was',
+		(await dp.locator('.te-drive-list .te-work-file').allTextContents()).includes('top.md'),
+		JSON.stringify(await dp.locator('.te-drive-list .te-work-file').allTextContents())
 	);
 	ok(
-		'and it is NOT a scratch note — it is still a document on a server',
-		!(await dp.locator('ul[aria-label="Scratch"] .te-work-file').allTextContents()).includes(
+		'and it is still the marked row, on the drive',
+		(await dp.locator('.te-drive-list .on').count()) === 1,
+		`marked drive rows: ${await dp.locator('.te-drive-list .on').count()}`
+	);
+	ok(
+		'and it was not shelved, because nothing took its list away',
+		!(await dp.locator('ul[aria-label="Local Files"] .te-work-file').allTextContents()).includes(
 			'top.md'
 		)
 	);
-	// The shelf holds where a document came from, never its words. Pressing the row re-reads.
+	// A ROW HOLDS WHERE A DOCUMENT CAME FROM, never its words — so pressing it re-reads. Asked of
+	// the DRIVE's own row now rather than a shelf row: opening a folder no longer takes the drive's
+	// list away, so there is nothing for the shelf to have caught.
 	await dp.locator('.te-type').fill('scribbled over');
 	await dp.waitForTimeout(200);
-	await dp.locator('ul[aria-label="Local"] .te-work-file').filter({ hasText: 'top.md' }).click();
+	await dp.locator('.te-drive-list .te-work-file').filter({ hasText: 'top.md' }).click();
 	await dp.waitForTimeout(1800);
 	ok(
 		'and the row re-reads from the server, the way a handle row re-reads from disk',
-		(await dp.locator('.te-type').inputValue()) === '# From the drive'
+		(await dp.locator('.te-type').inputValue()) === '# From the drive',
+		JSON.stringify(await dp.locator('.te-type').inputValue())
 	);
 	await c.close();
 }
