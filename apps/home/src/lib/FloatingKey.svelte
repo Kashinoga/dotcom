@@ -95,17 +95,39 @@
 	/* ── The floating key ────────────────────────────────────────────────────────
 	   A plastic key at the bottom-left, its stack rising from just above it. Every measure here
 	   was the Park Ranger's before it was shared: the 40px touch size, the 1.25rem insets that
-	   match the docs shell's contents key, and the superbar's frost worn as the key face. */
+	   match the docs shell's contents key, and the superbar's frost worn as the key face.
+
+	   THE MEASURES ARE PUBLISHED, and the zone they add up to with them. Two reasons, and the
+	   second is the one that matters:
+	   · Inside this file the flyout, the row and the card all have to land against the key's own
+	     edges, so all three restated 1.25rem and 40px. The comment on .fkey-row said as much and
+	     left the copies standing.
+	   · The zone is NOT this component's business alone. The key is `position: fixed` OVER
+	     whatever scrolls beneath it, so a scroller has to keep the last of its content out of
+	     these pixels or the end of a document sits under the key. The Text Editor's sheet spends
+	     --fkey-zone as the runway under a document (see --te-tail). A reader that restated 20 +
+	     40 would go stale the day the key is resized — silently, with text underneath it, which
+	     is the copy bug this repo has now paid for three times.
+	   :root AND GLOBAL, because it is a fact about the key's geometry rather than about a mounted
+	   instance, and the reader that needs it is not inside this component. */
+	:global(:root) {
+		--fkey-inset: 1.25rem;
+		--fkey-size: 40px;
+		/* The gap the flyout and the row keep off the key. A rung, like every gap in this file. */
+		--fkey-gap: var(--space-8);
+		/* What the key takes off the bottom of the screen: its inset and its own height. */
+		--fkey-zone: calc(var(--fkey-inset) + var(--fkey-size));
+	}
 	.fkey {
 		position: fixed;
-		left: 1.25rem;
-		bottom: 1.25rem;
+		left: var(--fkey-inset);
+		bottom: var(--fkey-inset);
 		z-index: 19;
 		display: grid;
 		place-items: center;
 		box-sizing: border-box;
-		width: 40px;
-		height: 40px;
+		width: var(--fkey-size);
+		height: var(--fkey-size);
 		padding: 0;
 		color: var(--ink);
 		/* The superbar's frost, worn as the key face (docs-fab's material). */
@@ -138,8 +160,8 @@
 	   know how tall the column below it is. */
 	.fkey-flyout {
 		position: fixed;
-		left: 1.25rem;
-		bottom: calc(1.25rem + 40px + 0.5rem);
+		left: var(--fkey-inset);
+		bottom: calc(var(--fkey-zone) + var(--fkey-gap));
 		z-index: 18;
 		display: flex;
 		flex-direction: column;
@@ -169,16 +191,18 @@
 		gap: var(--space-8);
 	}
 	/* The key's row: level with the key, starting where the key ends and running to the far inset.
-	   The measures restate the key's own — its 1.25rem insets, its 40px, and the 0.5rem the stack
-	   above keeps — so the row's left edge lands exactly one gap past the key's right edge.
+	   It READS the key's measures — the zone the key takes, plus the gap the stack above keeps —
+	   so the row's left edge lands exactly one gap past the key's right edge and cannot drift
+	   from it. (It restated all three as literals until the tokens above; the copies are what
+	   this comment used to have to warn about.)
 	   It runs OUT SIDEWAYS from behind the key rather than rising, because that is where it came
 	   from: the key is at its left, and a thing on the key's row has no reason to arrive from
 	   below. Same clock and same easing as the flyout, so the two read as one movement. */
 	.fkey-row {
 		position: fixed;
-		left: calc(1.25rem + 40px + 0.5rem);
-		right: 1.25rem;
-		bottom: 1.25rem;
+		left: calc(var(--fkey-zone) + var(--fkey-gap));
+		right: var(--fkey-inset);
+		bottom: var(--fkey-inset);
 		z-index: 18;
 		display: flex;
 		align-items: center;
@@ -211,11 +235,11 @@
 		}
 	}
 	/* The card: the key's own frosted material at panel size, held to the viewport with the same
-	   1.25rem insets the key keeps. Its CONTENTS are the caller's — styled by the caller, which
-	   is why there is nothing here about fields or labels. */
+	   insets the key keeps. Its CONTENTS are the caller's — styled by the caller, which is why
+	   there is nothing here about fields or labels. */
 	.fkey-card {
 		box-sizing: border-box;
-		width: calc(100vw - 2 * 1.25rem);
+		width: calc(100vw - 2 * var(--fkey-inset));
 		max-width: 24rem;
 		padding: var(--space-12);
 		color: var(--ink);

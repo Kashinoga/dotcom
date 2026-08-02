@@ -5241,8 +5241,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		   screen to be typing. It is spent by all three sheets (the prose one here, the proof
 		   below, and CodeMirror's scroller in $lib/code-sheet), so it is a token: three copies of
 		   one number is how the three would stop agreeing.
-		   NOT ON THE `--space-*` SCALE — it is a viewport fraction on the desk and a count of rows
-		   on a phone, and neither is rhythm. See the narrow override for why it is not one rule. */
+		   NOT ON THE `--space-*` SCALE — it is a viewport fraction on the desk and the floating
+		   key's clearance on a phone, and neither is rhythm. See the narrow override, which is
+		   where the argument for two values is. */
 		--te-tail: 40vh;
 		/* The sheet's measure, in the mono face: ~82 columns once the gutter and the right pad
 		   come out of it. The proof's is narrower because prose sets wider per pixel — 34rem of
@@ -7080,20 +7081,25 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			--te-row: 28px;
 			--te-margin: 2.2rem;
 			--te-pad: var(--space-16);
-			/* THE RUNWAY IS SIX ROWS HERE, NOT 40vh — reported as "a ton of empty space at the
-			   bottom of a sheet", and measured: at 390×844 the tail was 337.6px against a pane of
-			   844, so scrolling to the end of a document put two fifths of the screen of blank
-			   paper under the last line and nothing else on it.
-			   THE UNIT IS THE THING THAT WAS WRONG. `vh` counts the WHOLE screen, and on a phone
-			   most of the screen is not the sheet: the software keyboard takes the bottom half the
-			   moment the sheet has focus, so a fraction of the screen is a fraction of something
-			   the reader cannot see. Rows are what the sheet is actually made of, and six of them
-			   is the clearance the runway was for — the last line is off the bottom edge and in
-			   the text, rather than pinned to it.
+			/* THE RUNWAY IS THE FLOATING KEY'S CLEARANCE HERE, NOT 40vh. Reported as "a ton of
+			   empty space at the bottom of a sheet", and measured twice: 40vh was 337.6px against
+			   an 844px pane, and six rows — the first cut at it — was still 168px, which is a
+			   third of a short window. Both were a number picked for comfort, and the pixels down
+			   there are not free: THE KEY IS `position: fixed` OVER THIS SHEET, bottom-left, so
+			   the last of a document lands underneath it unless the sheet keeps out of its way.
+			   So the value is DERIVED — --fkey-zone (the key's inset and its own height, published
+			   by $lib/FloatingKey) plus one row, so the last line clears the key rather than
+			   touching it. 88px at this row size. It moves if the key ever does, which a literal
+			   would not.
+			   `vh` IS THE WRONG UNIT AT THIS WIDTH whatever fraction is chosen. It counts the whole
+			   screen, and on a phone most of the screen is not the sheet — the software keyboard
+			   takes the bottom half the moment the sheet has focus, so a fraction of the screen is
+			   a fraction of something the reader cannot see.
 			   The desk keeps 40vh, and the difference is not merely screen size: both wide runways
 			   are also there so a heading JUMPED TO from the contents rail can reach the top of its
-			   pane, and that rail is not drawn below 820px at all. There is nothing here to land. */
-			--te-tail: calc(var(--te-row) * 6);
+			   pane, and that rail is not drawn below 820px at all. There is nothing here to land,
+			   and no floating key up there to dodge. */
+			--te-tail: calc(var(--fkey-zone) + var(--te-row));
 		}
 		/* NO GUTTER AND NO GAP. The desk's band of grey is what makes four columns read as four
 		   objects laid on a field — and at this width there are no four columns: there is one pane,
