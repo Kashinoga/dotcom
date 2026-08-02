@@ -874,7 +874,7 @@ await reset('first\n\n\nlast');
 	// forty photographs and one note is not a folder of forty-one.
 	ok(
 		'and never counted in a tally',
-		(await page.locator('.te-local .te-work-count').textContent()).trim() === '4',
+		(await page.locator('.te-local .te-work-count').textContent()).trim() === '(4)',
 		await page.locator('.te-local .te-work-count').textContent()
 	);
 	// Row 0 is the ROOT, row 1 the sub-folder inside it, row 2 the document inside that. The claim
@@ -899,7 +899,7 @@ await reset('first\n\n\nlast');
 			.filter({ hasText: 'sub' })
 			.first()
 			.locator('.te-work-tally')
-			.textContent()) === '1'
+			.textContent()) === '(1)'
 	);
 
 	// ── THE HEAD IS ONE ROW ──────────────────────────────────────────────────
@@ -940,18 +940,40 @@ await reset('first\n\n\nlast');
 		// controls sharing 250px with the one thing in the row you cannot work out from anywhere
 		// else, which is the folder's name.
 		ok('and no keys left in the head', (await page.locator('.te-work-head .tb').count()) === 0);
-		// The tally comes LAST, past the keys, because it heads a column: every folder row in the
-		// tree carries the same figure at the same right edge.
+		// THE TALLY SITS AGAINST THE NAME, AND THE KEYS END ON ONE EDGE. Two claims, and they replace
+		// one that said the opposite: the head's figure used to come LAST, past the keys, on the
+		// argument that it headed a column of row tallies at the same right edge. It reads better
+		// against the name it counts (`Syncthing (4)`), the rows' tallies moved with it, and what is
+		// left at the right end of every row in this pane is KEYS.
+		// BOTH HALVES ARE ASSERTED, because each is a different way for this to go wrong: a tally that
+		// drifts back to the far right (the name growing again is all it would take — see
+		// `.te-work-name`'s `flex`), and a key that stops lining up with the ones above and below it,
+		// which is what the branch key's stale `calc(0.75rem - 0.25rem)` did.
 		const edges = await page.evaluate(() => {
-			const r = (s) => Math.round(document.querySelector(s).getBoundingClientRect().right);
-			// The FOLDER'S head and the folder's rows — scoped, because the shelves have heads and
-			// tallies of their own now and an unscoped query would compare one list's head with
-			// another list's rows.
-			return { head: r('.te-local .te-work-count'), row: r('.te-local-list .te-work-tally') };
+			const rect = (s) => document.querySelector(s)?.getBoundingClientRect() ?? null;
+			const head = rect('.te-local .te-work-head');
+			const name = rect('.te-local .te-work-name');
+			const count = rect('.te-local .te-work-count');
+			const keys = [...document.querySelectorAll('.te-local .te-work-head button')];
+			return {
+				// Gap between the end of the name and the start of its figure — one head gap, no more.
+				nameToCount: Math.round(count.left - name.right),
+				// …and the figure is nowhere near the far end.
+				countToEnd: Math.round(head.right - count.right),
+				lastKeyToEnd: keys.length
+					? Math.round(head.right - keys.at(-1).getBoundingClientRect().right)
+					: null
+			};
 		});
 		ok(
-			'and the folder tally lines up with the row tallies',
-			Math.abs(edges.head - edges.row) <= 1,
+			'the head tally sits against the name it counts',
+			edges.nameToCount >= 0 && edges.nameToCount <= 12 && edges.countToEnd > 24,
+			JSON.stringify(edges)
+		);
+		// The pane's own inset, which every key in every head and every row now ends on.
+		ok(
+			"and the head's last key ends on the pane's inset",
+			edges.lastKeyToEnd === 12,
 			JSON.stringify(edges)
 		);
 
@@ -1670,21 +1692,32 @@ await reset('first\n\n\nlast');
 		await wp.waitForTimeout(150);
 		{
 			const x = wp.locator('ul[aria-label="Scratch"] .te-eph-close').last();
-			ok('a scratch row carries a ×', (await x.textContent()).trim() === '×');
+			// A MARK, NOT A CHARACTER, since 2026-08-02 — reicon's `x`, the same glyph the rest of
+			// this pane's controls are cut from. It was the literal `×`, which is a different weight
+			// and a different width in every font this theme might fall back to.
+			ok('a scratch row carries a close mark', (await x.locator('svg').count()) === 1);
 			// CENTRED IN ITS OWN BUTTON, which it was not: a <button> carries the UA's `1px 6px`
 			// padding, and this rule never reset it — so the content box was 6px wide inside an
 			// 18px border-box while the glyph's advance is 8.33px. Nothing can be centred in a box
 			// narrower than itself; it clamps to the start edge and overflows the other way, which
 			// put the × a pixel right of centre. Measured off the TEXT BOX rather than the ink, so
 			// the assertion is about the layout rather than about one font's bearings.
+			// THE MARK'S BOX WHERE THERE IS ONE, the text's where there is not — this control is a
+			// glyph when it is shut and a WORD when it is armed, and a Range over an <svg> selects
+			// no text box at all. One helper either way, so both states are held to the same claim.
 			const centred = () =>
 				wp.evaluate(async () => {
 					await document.fonts.ready;
 					const el = document.querySelector('.te-loose .te-eph-close');
 					const r = el.getBoundingClientRect();
-					const rg = document.createRange();
-					rg.selectNodeContents(el);
-					const t = rg.getBoundingClientRect();
+					const svg = el.querySelector('svg');
+					let t;
+					if (svg) t = svg.getBoundingClientRect();
+					else {
+						const rg = document.createRange();
+						rg.selectNodeContents(el);
+						t = rg.getBoundingClientRect();
+					}
 					return { left: +(t.x - r.x).toFixed(2), right: +(r.right - t.right).toFixed(2) };
 				});
 			const shutGaps = await centred();
@@ -1866,7 +1899,7 @@ await reset('first\n\n\nlast');
 				.getByRole('treeitem', { name: /^nothing-in-here/ })
 				.locator('.te-work-tally')
 				.textContent(),
-			'0'
+			'(0)'
 		);
 	}
 
@@ -3277,7 +3310,7 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	);
 	ok(
 		'a folder that HAS been read gets its tally back',
-		(await dp.locator('.te-drive-list .te-work-tally').first().textContent()).trim() === '2'
+		(await dp.locator('.te-drive-list .te-work-tally').first().textContent()).trim() === '(2)'
 	);
 	await dp.locator('.te-drive-list .te-work-dir').first().click();
 	await dp.waitForTimeout(500);

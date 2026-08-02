@@ -33,6 +33,34 @@ export const ARROW_LEFT_SVG =
 export const CHEVRON_EXPAND_Y_SVG =
 	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><g transform="scale(1.33333)"><path d="M9.53,2.22c-.293-.293-.768-.293-1.061,0l-3.5,3.5c-.293,.293-.293,.768,0,1.061s.768,.293,1.061,0l2.97-2.97,2.97,2.97c.146,.146,.338,.22,.53,.22s.384-.073,.53-.22c.293-.293,.293-.768,0-1.061l-3.5-3.5Z" fill="currentColor"/><path d="M11.97,11.22l-2.97,2.97-2.97-2.97c-.293-.293-.768-.293-1.061,0s-.293,.768,0,1.061l3.5,3.5c.146,.146,.338,.22,.53,.22s.384-.073,.53-.22l3.5-3.5c.293-.293,.293-.768,0-1.061s-.768-.293-1.061,0Z" fill="currentColor"/></g></svg>';
 
+// reicon "sort-alpha" (Filled) — the Scratch head's A→Z key. It was the WORD `A–Z` until
+// 2026-08-02, and reported: a word among four marks reads as a different KIND of control rather
+// than as the same control spelled differently.
+// ITS OUTLINE AND FILLED WEIGHTS ARE THE SAME PATH in the set — checked, byte for byte. This is a
+// rule-and-letter mark, so there is nothing in it to fill.
+// It is a WIDE, SHORT mark where `plus` and `chevron-expand-y` are tall ones (11.5 units of ink
+// against their 18), and that is the set's own optical sizing rather than a fault to correct: they
+// all take one box size, --te-key-ico, and reicon draws its 24-grid to be read that way.
+export const SORT_ALPHA_SVG =
+	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M2.25 7C2.25 6.58579 2.58579 6.25 3 6.25H13C13.4142 6.25 13.75 6.58579 13.75 7C13.75 7.41421 13.4142 7.75 13 7.75H3C2.58579 7.75 2.25 7.41421 2.25 7ZM16.5 6.25C16.7951 6.25 17.0628 6.42309 17.1839 6.69223L21.6839 16.6922C21.8539 17.07 21.6855 17.514 21.3078 17.6839C20.93 17.8539 20.486 17.6855 20.3161 17.3078L18.8787 14.1136H14.1213L12.6839 17.3078C12.514 17.6855 12.07 17.8539 11.6922 17.6839C11.3145 17.514 11.1461 17.07 11.3161 16.6922L15.8161 6.69223C15.9372 6.42309 16.2049 6.25 16.5 6.25ZM14.7963 12.6136H18.2037L16.5 8.82764L14.7963 12.6136ZM2.25 12C2.25 11.5858 2.58579 11.25 3 11.25H10C10.4142 11.25 10.75 11.5858 10.75 12C10.75 12.4142 10.4142 12.75 10 12.75H3C2.58579 12.75 2.25 12.4142 2.25 12ZM2.25 17C2.25 16.5858 2.58579 16.25 3 16.25H8C8.41421 16.25 8.75 16.5858 8.75 17C8.75 17.4142 8.41421 17.75 8 17.75H3C2.58579 17.75 2.25 17.4142 2.25 17Z" fill="currentColor"/></svg>';
+
+// reicon "chevron-right" / "chevron-down" (Filled) — the DISCLOSURE mark on a folder row, shut and
+// open. They replaced a CSS border triangle, whose own comment argued it against the CHARACTERS ▸
+// and ▾ ("different weights and different widths in every font this theme might fall back to, so
+// the row jumped sideways as it opened"). That argument was right about characters and says nothing
+// about svgs: these two are one family with the tree's other marks, they are the same box, and they
+// cannot be re-cut by a font fallback.
+// KEPT IN THE SET'S 18-UNIT BOX, `<g transform="scale(1.33333)">` and all, exactly as
+// CHEVRON_EXPAND_Y_SVG is and for the same reason.
+// TWO ICONS RATHER THAN ONE ROTATED, which is what the caller asked for. It costs the 0.12s turn
+// the border triangle had — two paths cannot tween into each other — and buys a mark that is the
+// set's in both states. (Unlike chevron-expand-y, this glyph IS asymmetric, so a single rotated
+// copy would have worked; see that icon's note for the case where it does not.)
+export const CHEVRON_RIGHT_SVG =
+	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><g transform="scale(1.33333)"><path d="M13.28,8.47L7.03,2.22c-.293-.293-.768-.293-1.061,0s-.293,.768,0,1.061l5.72,5.72-5.72,5.72c-.293,.293-.293,.768,0,1.061,.146,.146,.338,.22,.53,.22s.384-.073,.53-.22l6.25-6.25c.293-.293,.293-.768,0-1.061Z" fill="currentColor"></path></g></svg>';
+export const CHEVRON_DOWN_SVG =
+	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><g transform="scale(1.33333)"><path d="M9,13.5c-.192,0-.384-.073-.53-.22L2.22,7.03c-.293-.293-.293-.768,0-1.061s.768-.293,1.061,0l5.72,5.72,5.72-5.72c.293-.293,.768-.293,1.061,0s.293,.768,0,1.061l-6.25,6.25c-.146,.146-.338,.22-.53,.22Z" fill="currentColor"></path></g></svg>';
+
 // -- The Text Editor's workspace section marks (reicon, Filled) --
 // One per list in the pane, so a head says what KIND of list it is before its name is read: the
 // machine's own disk, a ghost for notes with no file behind them, a folder of files brought in
@@ -139,11 +167,15 @@ export const DRAG_SVG =
 // reicon "arrow-left-circle" — the panel Back control.
 export const BACK_CIRCLE_SVG =
 	'<svg viewBox="0.25 0.25 23.5 23.5" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M0.25 12C0.25 5.51065 5.51065 0.25 12 0.25C18.4893 0.25 23.75 5.51065 23.75 12C23.75 18.4893 18.4893 23.75 12 23.75C5.51065 23.75 0.25 18.4893 0.25 12ZM11.5303 7.46967C11.8232 7.76256 11.8232 8.23744 11.5303 8.53033L8.81066 11.25H17C17.4142 11.25 17.75 11.5858 17.75 12C17.75 12.4142 17.4142 12.75 17 12.75H8.81066L11.5303 15.4697C11.8232 15.7626 11.8232 16.2374 11.5303 16.5303C11.2374 16.8232 10.7626 16.8232 10.4697 16.5303L6.46967 12.5303C6.32902 12.3897 6.25 12.1989 6.25 12C6.25 11.8011 6.32902 11.6103 6.46967 11.4697L10.4697 7.46967C10.7626 7.17678 11.2374 7.17678 11.5303 7.46967Z" fill="currentColor"/></svg>';
-// A plain refresh (filled, rounded — in-set style): the circular arrow without the
-// disc, for the pill-faced controls (the *-circle forms keep the disc as CONTENT and
-// can't sit on a face).
+// reicon "refresh" (Filled) — the circular arrow without the disc, for the pill-faced controls
+// (the *-circle forms keep the disc as CONTENT and can't sit on a face).
+// IT WAS HAND-MADE "in-set style" UNTIL 2026-08-02, and its own comment said so. Set beside the
+// real thing in the Text Editor's drive head it read a size and a weight apart from its
+// neighbours, which is what got it reported. Replaced IN PLACE rather than added under a second
+// name — the Air Traffic board and the catch-all page draw this same key, and two refreshes under
+// two names is exactly the drift this file keeps warning about.
 export const REFRESH_SVG =
-	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 5.5V2.85c0-.45-.54-.67-.85-.35L7.85 5.79c-.2.2-.2.52 0 .71l3.3 3.3c.31.31.85.09.85-.36V6.5c3.03 0 5.5 2.47 5.5 5.5s-2.47 5.5-5.5 5.5S6.5 15.03 6.5 12c0-.55-.45-1-1-1s-1 .45-1 1c0 4.14 3.36 7.5 7.5 7.5s7.5-3.36 7.5-7.5S16.14 5.5 12 5.5z"/></svg>';
+	'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.0789 2.25C7.2854 2.25 3.34478 5.913 2.96055 10.5833H2.00002C1.69614 10.5833 1.42229 10.7667 1.30655 11.0477C1.19081 11.3287 1.25606 11.6517 1.47178 11.8657L3.15159 13.5324C3.444 13.8225 3.91567 13.8225 4.20808 13.5324L5.88789 11.8657C6.10361 11.6517 6.16886 11.3287 6.05312 11.0477C5.93738 10.7667 5.66353 10.5833 5.35965 10.5833H4.4668C4.84652 6.75167 8.10479 3.75 12.0789 3.75C14.8484 3.75 17.2727 5.20845 18.6156 7.39279C18.8325 7.74565 19.2944 7.85585 19.6473 7.63892C20.0002 7.42199 20.1104 6.96007 19.8934 6.60721C18.2871 3.99427 15.3873 2.25 12.0789 2.25Z" fill="currentColor"/><path d="M20.8411 10.4666C20.549 10.1778 20.0789 10.1778 19.7867 10.4666L18.1005 12.1333C17.8841 12.3471 17.8184 12.6703 17.9339 12.9517C18.0495 13.233 18.3235 13.4167 18.6277 13.4167H19.5268C19.1455 17.2462 15.8759 20.25 11.8828 20.25C9.10026 20.25 6.66586 18.7903 5.31796 16.6061C5.10042 16.2536 4.63833 16.1442 4.28583 16.3618C3.93334 16.5793 3.82393 17.0414 4.04146 17.3939C5.65407 20.007 8.56406 21.75 11.8828 21.75C16.6906 21.75 20.6475 18.0892 21.0331 13.4167H22.0002C22.3043 13.4167 22.5783 13.233 22.6939 12.9517C22.8095 12.6703 22.7437 12.3471 22.5274 12.1333L20.8411 10.4666Z" fill="currentColor"/></svg>';
 
 // reicon "refresh-circle" — the board’s refresh-now control.
 export const REFRESH_CIRCLE_SVG =

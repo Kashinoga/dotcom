@@ -53,6 +53,11 @@
 		GEAR_SVG,
 		REFRESH_SVG,
 		CHEVRON_EXPAND_Y_SVG,
+		CHEVRON_DOWN_SVG,
+		CHEVRON_RIGHT_SVG,
+		CLOSE_SVG,
+		PLUS_SVG,
+		SORT_ALPHA_SVG,
 		EDIT_SVG,
 		GLASSES_SVG,
 		SSD_SVG,
@@ -3832,7 +3837,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 {#snippet twistAll(allShut: boolean, what: string, act: () => void, where: 'head' | 'row' = 'head')}
 	<button
 		type="button"
-		class="te-loose-sort te-twist-all"
+		class="te-loose-sort te-ico-key te-twist-all"
 		class:te-twist-branch={where === 'row'}
 		class:shuts={!allShut}
 		title={allShut ? `Open ${what}` : `Shut ${what}`}
@@ -3893,7 +3898,9 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 							e.preventDefault();
 						}}
 					>
-						<span class="te-work-twist" class:shut={row.shut} aria-hidden="true"></span>
+						<span class="te-work-twist" aria-hidden="true"
+							>{@html row.shut ? CHEVRON_RIGHT_SVG : CHEVRON_DOWN_SVG}</span
+						>
 						<span class="te-work-file te-work-dirname">{row.name}</span>
 						<!-- ABSENT, not zero, where the count cannot be known. See `count` in WorkRow: a
 							     remote folder nothing has been fetched from holds an unknown number of
@@ -3905,7 +3912,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 							<span class="te-work-fetching">Fetching</span>
 							<span class="te-work-bar" aria-hidden="true"></span>
 						{:else if row.count !== null}
-							<span class="te-work-tally">{row.count}</span>
+							<!-- AGAINST THE NAME, like every head's — `Notes (12)`. It sat at the row's right
+								     end until 2026-08-02, in a column with every other row's; it is a fact about
+								     the folder it follows, not a column of its own. The branch key has that end
+								     of the row to itself now, which retired the fade the two needed while they
+								     shared it. Brackets are real characters (see the shelf head). -->
+							<span class="te-work-tally">({row.count})</span>
 						{/if}
 					</button>
 					<!-- THE BRANCH KEY, a SIBLING of the row button and never a child: a button inside a
@@ -4040,35 +4052,48 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			<span class="te-work-mark" role="img" aria-label={tip}>{@html mark}</span>
 			<span class="popover te-work-where" aria-hidden="true">{tip}</span>
 			<h2 class="te-work-name">{title}</h2>
+			<!-- THE TALLY READS AS PART OF THE NAME — `Scratch (12)`. It stood at the FAR RIGHT of the
+			     row until 2026-08-02, past every key, on the argument that it headed a column: every
+			     folder row in the tree below carries the same figure at the same right edge, so the
+			     head's figure was the top of that column.
+			     It reads better against the name, and the cost is named rather than hidden: the head's
+			     tally no longer lines up with the rows'. A number at the far right of a head is a
+			     column heading; a number after a name is a fact about that name, and this one is a
+			     fact about the name — how much is in the list you have just read the name of. The row
+			     tallies are unmoved and still line up with each other.
+			     THE BRACKETS ARE REAL CHARACTERS, not a `content:` rule, so the head reads as
+			     `Scratch (12)` to a copy-paste and a screen reader as well as to the eye. Same lesson
+			     as the running foot's `min`, which was a margin pretending to be a space. -->
+			<span class="te-work-count">({rows.length})</span>
+			{#if sort}
+				<!-- A-Z. Only on the list whose order is the visitor's: sorting ELSEWHERE would
+				     contradict what that shelf means, which is the order you reached for them. -->
+				<button
+					type="button"
+					class="te-loose-sort te-ico-key"
+					title="Sort these A to Z"
+					aria-label="Sort {title} A to Z"
+					onclick={sort}>{@html SORT_ALPHA_SVG}</button
+				>
+			{/if}
 			{#if add}
 				<!-- + on the Scratch head. New note is in the Workspace menu, which is the right place
 				     for it — the menu is where the pane's own controls went — but a list you add to
 				     this often deserves the shorter road as well, at the head of the list it adds to.
 				     Only on SCRATCH: nothing can be added to ELSEWHERE by asking, since that shelf is
 				     a record of what you reached for rather than a list you keep.
-				     It stands LEFT of A–Z, which is the order the two are used in. The tally stays
-				     last, past both, because it heads a column — every folder row in the tree below
-				     carries the same figure at the same right edge. -->
+				     IT IS THE LAST KEY IN THE ROW, on every head that has one — the drive's and the
+				     folder's too. The key that ADDS to a list is the end of what you can do to it, and
+				     it is the same key in the same corner on all three, which is worth more than the
+				     old left-to-right ordering of `+` before A–Z. -->
 				<button
 					type="button"
-					class="te-loose-sort te-loose-add"
+					class="te-loose-sort te-ico-key te-loose-add"
 					title="Make a scratch document"
 					aria-label="New {title} note"
-					onclick={add}>+</button
+					onclick={add}>{@html PLUS_SVG}</button
 				>
 			{/if}
-			{#if sort}
-				<!-- A-Z. Only on the list whose order is the visitor's: sorting ELSEWHERE would
-				     contradict what that shelf means, which is the order you reached for them. -->
-				<button
-					type="button"
-					class="te-loose-sort"
-					title="Sort these A to Z"
-					aria-label="Sort {title} A to Z"
-					onclick={sort}>A–Z</button
-				>
-			{/if}
-			<span class="te-work-count">{rows.length}</span>
 		</div>
 		<ul class="te-work-list te-loose-list te-shelf-list" aria-label={title}>
 			{#each rows as row (row.id)}
@@ -4125,7 +4150,8 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 							aria-label={editor.doomed === row.id
 								? `Press again to close ${row.name}`
 								: `Close ${row.name}`}
-							onclick={row.close}>{editor.doomed === row.id ? 'Sure?' : '×'}</button
+							onclick={row.close}
+							>{#if editor.doomed === row.id}Sure?{:else}{@html CLOSE_SVG}{/if}</button
 						>
 					{/if}
 				</li>
@@ -4341,33 +4367,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						<h2 class="te-work-name" bind:this={workNameEl}>
 							{editor.folderName || 'Folder'}
 						</h2>
-						<!-- The folder's own tally comes LAST, past the keys, because it is one of a
-					     column: every folder row in the tree below carries the same figure at the
-					     same right edge, and this one is the head of that column rather than a
-					     footnote to the name. -->
-						<!-- `+` HERE MEANS THE OS PICKER, and that is a different `+` from the drive's on purpose.
-						     Locally you BRING A FOLDER IN — the documents are already on the machine and what this
-						     section is short of is a way to point at them. On a drive the folder is already there and
-						     what is short is a document, so its `+` makes one.
-						     Making a document locally is what Save on a scratch note does, which is this app's own
-						     order of operations: write it, then decide where it lives. -->
-						<button
-							type="button"
-							class="te-loose-sort te-loose-add"
-							title={store ? 'Open a different folder' : 'Open a folder'}
-							aria-label="Open a folder"
-							onclick={pickFolder}>+</button
-						>
-						<!-- …then the whole tree's twisty, after the key that brings a tree in and before the
-						     tally that heads its column. Only where there is a folder to shut: the tree of a
-						     workspace with no sub-folders is one level deep and already as open as it goes. -->
-						{#if editor.folders.length}
-							{@render twistAll(branchShut('', 'tree'), 'every folder', () =>
-								twistBranch('', 'tree')
-							)}
-						{/if}
 						<!-- DOCUMENTS, not rows — the same count the folder rows carry, for the same
 						     reason. See `countIn`.
+						     AGAINST THE NAME, not at the far right of the row: `Syncthing (14)`. See the
+						     shelf head's snippet for the argument and for what it cost.
 						     NO TALLY WHILE THE GRANT IS PENDING. That folder has not been read, so the
 						     figure would be a hard zero standing for "not known" — and this pane already
 						     has a rule for that: a drive folder that has not been fetched carries no
@@ -4375,9 +4378,35 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 						     nothing and a count nobody has taken must not look alike. -->
 						{#if !editor.folderPending}
 							<span class="te-work-count"
-								>{editor.folder.filter((f) => f.openable !== false).length}</span
+								>({editor.folder.filter((f) => f.openable !== false).length})</span
 							>
 						{/if}
+						<!-- THE KEYS, in the row's standing order: refresh · sort · expand/collapse · `+`.
+						     This head has two of the four. The order is the same on all three heads that
+						     carry keys, so the same key is in the same place whichever list you are looking
+						     at — which is worth more than any per-head reasoning about which verb comes
+						     first. Whatever a head lacks simply leaves a gap in the sequence.
+						     The whole tree's twisty. Only where there is a folder to shut: the tree of a
+						     workspace with no sub-folders is one level deep and already as open as it goes. -->
+						{#if editor.folders.length}
+							{@render twistAll(branchShut('', 'tree'), 'every folder', () =>
+								twistBranch('', 'tree')
+							)}
+						{/if}
+						<!-- `+` HERE MEANS THE OS PICKER, and that is a different `+` from the drive's on purpose.
+						     Locally you BRING A FOLDER IN — the documents are already on the machine and what this
+						     section is short of is a way to point at them. On a drive the folder is already there and
+						     what is short is a document, so its `+` makes one.
+						     Making a document locally is what Save on a scratch note does, which is this app's own
+						     order of operations: write it, then decide where it lives.
+						     LAST IN THE ROW, as it is on every head that has one. -->
+						<button
+							type="button"
+							class="te-loose-sort te-ico-key te-loose-add"
+							title={store ? 'Open a different folder' : 'Open a folder'}
+							aria-label="Open a folder"
+							onclick={pickFolder}>{@html PLUS_SVG}</button
+						>
 						{#if nameClipped}
 							<!-- Drawn only when the name is ACTUALLY clipped — a reveal that repeats a name
 						     you can already read in full is a flicker with no information in it. It
@@ -4484,7 +4513,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 								     changing something, which is why it is a glyph and not a word. -->
 								<button
 									type="button"
-									class="te-loose-sort te-drive-refresh"
+									class="te-loose-sort te-ico-key te-drive-refresh"
 									class:on={busy}
 									disabled={busy}
 									title="Fetch updates from {editor.driveHost || 'the drive'}"
@@ -4499,28 +4528,31 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 									<span class="te-work-bar" aria-hidden="true"></span>
 								{/if}
 							{/if}
-							<!-- `+`, the same key the Scratch head wears and in the same place: the short
-							     road to one more row, at the head of the list it adds to. What it MAKES
-							     differs, and has to — a scratch note has nowhere to be until it is filed,
-							     and a drive is somewhere already. See `newDriveDoc`. -->
-							{#if editor.driveOpen && drive?.writable}
-								<button
-									type="button"
-									class="te-loose-sort te-loose-add"
-									title="Make a document on {editor.driveName || 'the drive'}"
-									aria-label="New document on the drive"
-									onclick={newDriveDoc}>+</button
-								>
-							{/if}
-							<!-- The drive's own, in the same place in the row and saying LESS in its word: this
-							     tree is lazy, so opening it reaches what the drive has revealed rather than all
-							     of it. See `twistAllDrive`. -->
+							<!-- The drive's own twisty, in the row's standing place for one, and saying LESS in
+							     its word: this tree is lazy, so opening it reaches what the drive has revealed
+							     rather than all of it. See `twistAllDrive`. -->
 							{#if editor.driveOpen && editor.driveFolders.length}
 								{@render twistAll(
 									branchShut('', 'cloud'),
 									branchShut('', 'cloud') ? 'every folder read so far' : 'every folder',
 									() => twistBranch('', 'cloud')
 								)}
+							{/if}
+							<!-- `+`, the same key the Scratch head wears and in the same corner: LAST in the row,
+							     the short road to one more row, at the head of the list it adds to. What it MAKES
+							     differs, and has to — a scratch note has nowhere to be until it is filed,
+							     and a drive is somewhere already. See `newDriveDoc`.
+							     This head is the one that spends the whole standing order — refresh · (no sort) ·
+							     expand/collapse · `+` — and it is why the order is worth having: the key that
+							     adds is in the same corner here as on the folder and on Scratch. -->
+							{#if editor.driveOpen && drive?.writable}
+								<button
+									type="button"
+									class="te-loose-sort te-ico-key te-loose-add"
+									title="Make a document on {editor.driveName || 'the drive'}"
+									aria-label="New document on the drive"
+									onclick={newDriveDoc}>{@html PLUS_SVG}</button
+								>
 							{/if}
 							<!-- NO TALLY. The tree arrives one level at a time, so the number of documents
 							     in the drive is not a thing this app knows until every folder has been
@@ -6012,12 +6044,15 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		min-height: 30px;
 		padding: var(--space-4) var(--space-12);
 	}
-	/* The name takes what the keys leave, and no less than nothing: `min-width: 0` is what makes
-	   a flex child agree to be narrower than its own text, and without it the name would push the
-	   keys off the pane instead of ellipsising. */
+	/* THE ROW IS `[mark] [name] (tally) ·········· [refresh] [sort] [expand] [+]`, and the empty
+	   space in the middle is where the give is. The name no longer GROWS into it (`flex: 1 1 auto`
+	   before) — it did while the tally sat at the far right, and a growing name would now push its
+	   own tally away from it, which is the whole of what this arrangement is for. It still SHRINKS,
+	   and `min-width: 0` is what makes a flex child agree to be narrower than its own text; without
+	   it a long name would push the keys off the pane instead of ellipsising. */
 	.te-work-name {
 		margin: 0;
-		flex: 1 1 auto;
+		flex: 0 1 auto;
 		min-width: 0;
 		font-family: var(--font-body, system-ui, sans-serif);
 		font-size: 0.72rem;
@@ -6066,12 +6101,38 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-work-head:has(:focus-visible) .te-work-full {
 		opacity: 1;
 	}
+	/* THE TALLIES ARE SANS, NOT THE BITMAP FACE. This app's standing rule is that the face names the
+	   job and --font-pixel means "a numeral" — section and block numbers, margin marks, the running
+	   foot. These figures stopped being numerals in a column on 2026-08-02: they read as part of the
+	   name they follow (`Scratch (12)`), and a bitmap figure in brackets beside a Plex name is two
+	   voices inside one phrase. The rule is unchanged everywhere it still applies.
+	   The size comes down with the face — 0.9rem was VT323's, which sets small for its em; against
+	   the name's own 0.72rem this is a figure at the name's weight rather than beside it. */
 	.te-work-count {
 		flex: none;
-		font-family: var(--font-pixel, var(--font-mono, monospace));
-		font-size: 0.9rem;
+		/* HALF THE ROW'S GAP, and it is written as the subtraction because that is what it is: the
+		   head lays its children out on --space-8, and a figure that belongs to the name in front of
+		   it should not sit as far from that name as the name sits from the mark before it. One gap
+		   says "these are two things in a row"; half a gap says "this one is part of that one".
+		   Spelled `4 − 8` rather than as −4px so it moves if either rung does — the flex gap and
+		   this cancellation are two numbers that only agree by arithmetic. */
+		margin-inline-start: calc(var(--space-4) - var(--space-8));
+		font-family: var(--font-body, system-ui, sans-serif);
+		font-size: 0.72rem;
 		line-height: 1;
 		color: var(--sub);
+	}
+	/* THE EMPTY SPACE IS AN AUTO MARGIN ON THE FIRST KEY, which pushes it and everything after it
+	   to the far end in one declaration. It is written against the first BUTTON rather than against
+	   any particular key because no head carries all four: the folder has expand and `+`, Scratch
+	   has sort and `+`, the local shelf has none at all, and the drive is the only one with refresh.
+	   Naming a key here would mean four rules and a fifth the day a key moves. Whichever key happens
+	   to be first takes the slack, and the sequence after it keeps the row's standing order.
+	   It also does the right thing where the tally is ABSENT — a folder whose grant has lapsed, and
+	   the drive, which never has one. The old arrangement leaned on the NAME growing, so both of
+	   those cases would have left the keys sitting against the name. */
+	.te-work-head button:first-of-type {
+		margin-inline-start: auto;
 	}
 	.te-work-act {
 		flex: none;
@@ -6152,13 +6213,38 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		color: var(--orange);
 		outline: none;
 	}
-	/* The + is the same key at the same weight, one step up in size: a single glyph set at 0.6rem
-	   beside a two-character word reads as a speck rather than as a control. Its line-height is
-	   stated because a lone `+` sits high in its own box, and the row is 30px of things that all
-	   have to sit on one line. */
-	.te-loose-add {
-		font-size: 0.85rem;
+	/* ── THE HEAD'S KEYS ARE FOUR MARKS AT ONE SIZE ───────────────────────────
+	   Refresh · sort · expand/collapse · `+`. They were a text `+` at 0.85rem, the word `A–Z` at
+	   0.6rem, and two svgs at 0.8 and 0.95rem, each tuned against its neighbours by eye — and
+	   reported, twice: the three glyphs read as three different weights, and the word read as a
+	   different KIND of control from the keys beside it.
+	   THE FIX IS STRUCTURAL, NOT ANOTHER ROUND OF TUNING. All four are reicon-metric marks now
+	   (`A–Z` is hand-cut to the family's own extent — see SORT_AZ_SVG), and reicon draws its filled
+	   set on one 24 grid with a ~2-unit stroke, so ONE box size gives them one stroke weight and
+	   inks within a tenth of each other. Measured at 0.85rem: plus 10.2px of ink, chevrons 10.7,
+	   refresh 9.7, sort 10.2 — against 6.6 / 11.8 / 9.1 before, which is what the eye was seeing.
+	   The old comment here argued the `+` needed to be "one step up in size" because a lone glyph
+	   beside a two-character word read as a speck. True, and the answer was the word, not the size. */
+	.te {
+		--te-key-ico: 0.85rem;
+	}
+	/* NO SIDE PADDING on a key that is a MARK. `.te-loose-sort` gives 0.25rem a side, which a WORD
+	   needs — its ink runs to its box — and which a glyph does not: these marks carry their own
+	   bearing inside the viewBox, so the padding lands on air. This was `.te-twist-all`'s own rule
+	   when it was the only icon key in the row; every key in the row is one now.
+	   A CLASS, NOT `:has(svg)`. The marks arrive through `{@html}`, so the compiler never sees an
+	   `svg` in this file's markup and prunes the selector as unused — silently, and svelte-check
+	   said so. `:global(svg)` inside the rule below survives for the same reason it is needed. */
+	.te-ico-key {
+		display: inline-flex;
+		align-items: center;
+		padding: 0;
 		line-height: 1;
+	}
+	.te-ico-key :global(svg) {
+		display: block;
+		width: var(--te-key-ico);
+		height: var(--te-key-ico);
 	}
 	/* THE SECTION MARK — one reicon glyph per list, at the head of it: a disk for the folder on
 	   this machine, a cloud for the drive, a ghost for notes with no file behind them, a folder of
@@ -6217,45 +6303,16 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	/* OPEN/SHUT EVERYTHING — reicon's chevron-expand-y, sized like the refresh glyph beside it
 	   rather than like the `A-Z` word, because it is a glyph among words and the two sizes are
 	   already settled (see .te-drive-refresh). */
-	.te-twist-all {
-		display: inline-flex;
-		align-items: center;
-		line-height: 1;
-		/* NO SIDE PADDING, unlike the word keys beside it. `.te-loose-sort` gives every key 0.25rem
-		   a side, which a WORD needs — its ink runs to its box. This icon's does not: two chevrons
-		   sit in the middle of a 24-unit viewBox with a quarter of the width empty each side, so
-		   the key's own padding lands on top of air the glyph already brought. On the drive's head,
-		   which is the one head with no tally after its keys, that stacked up as a visible hole
-		   between the last key and the pane's right edge — measured at 20px of box holding 6px of
-		   ink. The head's own 0.4rem gap is what parts this key from the `+`; it needs nothing of
-		   its own. */
-		padding: 0;
-	}
-	.te-twist-all :global(svg) {
-		/* A shade over the 0.8rem the refresh glyph takes, and no more. The chevrons fill about half
-		   their viewBox where the refresh path fills its own, so at a MATCHED box they read at half
-		   the weight — but sizing them so the ink matches exactly (1.15rem, tried) overshoots the
-		   other way and the mark reads as the biggest thing in the row. This is the middle: enough
-		   to stop it looking like a speck between the `+` and the tally, not enough to outrank
-		   either. The ink is what was tuned, by eye, against its neighbours. */
-		width: 0.95rem;
-		height: 0.95rem;
-	}
-	/* WHERE THIS KEY ENDS A HEAD it is pulled out by its own side bearing, so its INK lands on the
-	   right edge every tally in the pane lands on rather than four pixels inside it. The drive's
-	   head is the only one this catches — it is the one head with no tally after its keys (a lazy
-	   tree cannot count itself; see the note in the markup) — and a glyph that stops short of a
-	   column of numbers reads as a gap somebody forgot to close, which is exactly what it was
-	   reported as. The BOX overhangs into the pane's 12px padding, which costs nothing: it is
-	   transparent, and what a reader lines up is ink.
-	   `:last-child` and not a class, because "does anything follow me" is precisely the question.
-	   On the folder's head the tally follows, so this does not apply there. */
-	.te-work-head > .te-twist-all:last-child {
-		/* A PULL, so it is the rung negated rather than a number of its own — the amount it cancels
-		   is the key's own side padding, and the two must move together or the mark stops landing
-		   on the right edge every tally under it lands on. */
-		margin-right: calc(-1 * var(--space-4));
-	}
+	/* Only what is this key's ALONE. The box, the centring and the missing side padding are
+	   `.te-ico-key`'s now, and so is the size — every mark in these heads takes --te-key-ico, which
+	   is what stopped them reading as four different weights. What stood here was a paragraph
+	   arguing 0.95rem against the refresh glyph's 0.8rem by eye; the answer turned out to be that
+	   the refresh glyph was not the set's. */
+	/* THE END-OF-HEAD PULL IS GONE. It existed so this key's ink landed on the right edge every
+	   tally in the pane landed on — and no tally is out there any more: they sit against their
+	   names now (`Notes (12)`), and the key that ends a head is the `+`, not this one. It also
+	   cancelled `.te-loose-sort`'s side padding, which no mark key carries any more either. Two
+	   reasons to exist, both retired on the same day. */
 	/* THE COLLAPSE MARK, made from the expand one — chevrons pointing TOGETHER instead of apart.
 	   reicon has no `chevron-collapse-y` and this is how the pair is got without hand-cutting a
 	   second path: flip each chevron about ITS OWN centre.
@@ -6280,12 +6337,15 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   the row does not reflow under the pointer. */
 	.te-twist-branch {
 		position: absolute;
-		/* THE LIST'S OWN INSET, less this glyph's side bearing — so the ink lands on the same right
-		   edge as the tally it replaces, and as every tally in the column. Written as the
-		   subtraction rather than as the 0.5rem it comes to: those are two independent numbers (the
-		   row's padding and the icon's empty margin), they only agree by arithmetic, and a bare
-		   0.5rem here would silently stop lining up the day either one moved. */
-		right: calc(0.75rem - 0.25rem);
+		/* THE LIST'S OWN INSET, flush — the same rung the heads spend on their side padding, so this
+		   key's right edge is the right edge of the last key in the head above it. Reported: the
+		   parent's controls and the child's were not lining up.
+		   IT WAS `calc(0.75rem - 0.25rem)`, and both halves of that have expired. The subtraction
+		   cancelled `.te-loose-sort`'s side padding, which a mark key no longer carries (see
+		   `.te-ico-key`), and it was aimed at "the same right edge as the tally it replaces" — the
+		   tallies moved to their names on 2026-08-02 and there is no column out here to join. What
+		   is left to line up with is the head, and that is a plain rung. */
+		right: var(--space-12);
 		top: 50%;
 		transform: translateY(-50%);
 		padding: 0;
@@ -6296,17 +6356,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-work-item:focus-within .te-twist-branch {
 		opacity: 1;
 	}
-	/* …and the TALLY steps aside while it shows. The two want the same corner, and the choice
-	   between them is easy: the tally is a standing fact you can come back for, the key is the
-	   thing you reached for just now. Hidden rather than moved — sliding the figure left would
-	   shuffle the one column in this pane that is meant to hold still. */
-	.te-work-item:has(.te-twist-branch):hover .te-work-tally,
-	.te-work-item:has(.te-twist-branch):focus-within .te-work-tally {
-		opacity: 0;
-	}
-	.te-work-tally {
-		transition: opacity 0.12s ease;
-	}
+	/* THE TALLY USED TO STEP ASIDE WHILE THIS KEY SHOWED, and it does not any more — the two wanted
+	   the same corner, and since 2026-08-02 they do not: the tally sits against the folder's NAME
+	   (`Notes (12)`) and the branch key has the row's right end to itself. Two rules and a
+	   transition went with the collision. Anything put in that corner in future has to ask the
+	   question again; nothing else in the row is out there now. */
 	/* The × on a scratch row. Held back until the row is reached for, the way the tree's verbs
 	   once were — but there is only one of it and it is a glyph rather than a word, so it costs
 	   the name nothing. ARMED it stops being a glyph and becomes the question — see `.on` below,
@@ -6316,7 +6370,20 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	}
 	.te-eph-close {
 		position: absolute;
-		right: 0.5rem;
+		/* THE MARKS LINE UP, NOT THE HIT TARGETS, and that is the whole of this expression. Every
+		   other key in the pane is a bare --te-key-ico box sitting a rung in from the edge; this one
+		   keeps an 18px square because it is a hover-revealed target and because the armed state
+		   wears a word inside it. So the rung is pulled back by HALF THE DIFFERENCE between the two
+		   boxes, which puts this glyph's box — and therefore its ink — exactly where the head's `+`
+		   and the tree's branch chevron put theirs. The extra 2px of target overhangs into the
+		   pane's padding, which costs nothing: it is transparent, and what a reader lines up is ink.
+		   Written as the subtraction rather than as the ~9.8px it comes to, because those are two
+		   independent numbers that only agree by arithmetic — the same reason the branch key's own
+		   inset used to be written this way.
+		   It was a flat 0.5rem before any of this: four pixels further out than anything else in the
+		   pane, invisible while it was the only key on a scratch row, and reported the moment the
+		   heads above it lined up with each other. */
+		right: calc(var(--space-12) - (18px - var(--te-key-ico)) / 2);
 		top: 50%;
 		transform: translateY(-50%);
 		width: 18px;
@@ -6332,7 +6399,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		   being centred in the button at all, only in the six pixels the UA had left it. */
 		padding: 0;
 		font-family: var(--font-body, system-ui, sans-serif);
-		font-size: 0.85rem;
+		/* The size is the ARMED word's now — the mark below takes --te-key-ico like every other mark
+		   in the pane. An svg with a viewBox and no width fills its box, which is how this one
+		   shipped for an afternoon at 18px: half again the size of the `+` in the head above it. */
+		font-size: 0.62rem;
 		line-height: 1;
 		color: var(--sub);
 		background: none;
@@ -6346,6 +6416,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-work-item:focus-within .te-eph-close,
 	.te-eph-close.on {
 		opacity: 1;
+	}
+	.te-eph-close :global(svg) {
+		display: block;
+		width: var(--te-key-ico);
+		height: var(--te-key-ico);
 	}
 	.te-eph-close:hover,
 	.te-eph-close:focus-visible {
@@ -6363,6 +6438,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   Width is left to the content. The 18px square is a `min-width` now rather than a width, so
 	   the × keeps its box and the word takes what it needs. */
 	.te-eph-close.on {
+		/* THE RUNG, PLAIN. Armed, this is a WORD in a key and not a mark, so it lines up with the
+		   pane's edge the way every other worded control does — the half-box pull above is about
+		   putting one glyph's ink where the other glyphs' ink is, and there is no glyph here. */
+		right: var(--space-12);
 		width: auto;
 		min-width: 18px;
 		padding: 0 var(--space-4);
@@ -6552,15 +6631,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   is as much a place as the folder is. */
 	/* The refresh is a GLYPH among word keys, so it is sized like the `+` rather than like `A-Z` —
 	   and it spins while it works, which is the one place this pane animates a key. */
-	.te-drive-refresh {
-		display: inline-flex;
-		align-items: center;
-		line-height: 1;
-	}
-	.te-drive-refresh :global(svg) {
-		width: 0.8rem;
-		height: 0.8rem;
-	}
+	/* The box and the size are `.te-ico-key`'s. Only the spin is this key's own. */
 	.te-drive-refresh.on :global(svg) {
 		animation: te-spin 0.9s linear infinite;
 	}
@@ -6755,8 +6826,11 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	   the one place-name it has — the folder at the top — the same way. */
 	/* (A folder row needs no layout of its own — the flex, the gap and the height are the ROW's,
 	   which is what keeps a folder the same height as a document.) */
+	/* `flex: 0 1 auto`, not `1 1 auto` — the same change the heads' names took, for the same reason:
+	   a growing name pushes its own tally away from it, and the tally belongs against the name now.
+	   It still shrinks and still ellipsises. */
 	.te-work-dirname {
-		flex: 1 1 auto;
+		flex: 0 1 auto;
 		min-width: 0;
 		font-size: 0.7rem;
 		color: var(--sub);
@@ -6764,22 +6838,24 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	.te-work-dir:hover .te-work-dirname {
 		color: var(--ink);
 	}
-	/* Drawn rather than set in a character: ▸ and ▾ are different weights and different widths in
-	   every font this theme might fall back to, so the row jumped sideways as it opened. A border
-	   triangle is the same triangle turned. */
+	/* THE DISCLOSURE MARK — reicon's chevron-right and chevron-down, one per state. It was a CSS
+	   border triangle, argued against the CHARACTERS ▸ and ▾ because those are re-cut by every font
+	   fallback and the row jumped sideways as it opened. True of characters, and no reason to hand-
+	   draw once the set has both: these are the same family as every other mark in the pane, in the
+	   same box, and a fallback cannot touch them.
+	   SMALLER THAN THE KEYS AT THE END OF THE ROW (--te-key-ico is 0.85rem). This is not a control
+	   you reach for — it is the row's own state, read at the start of a 0.7rem name, and a mark at
+	   the keys' size would outrank the name it belongs to. Sized to the name instead. */
 	.te-work-twist {
 		flex: none;
-		width: 0;
-		height: 0;
-		border-left: 4px solid currentColor;
-		border-top: 3.5px solid transparent;
-		border-bottom: 3.5px solid transparent;
+		display: inline-flex;
+		align-items: center;
 		color: var(--sub);
-		transform: rotate(90deg);
-		transition: transform 0.12s ease;
 	}
-	.te-work-twist.shut {
-		transform: none;
+	.te-work-twist :global(svg) {
+		display: block;
+		width: 0.7rem;
+		height: 0.7rem;
 	}
 	/* AN INERT ROW — listed so the folder looks like itself, dimmed so it is plainly not a document
 	   you can open. Dimmed rather than struck through or badged: it is not an error and not a
@@ -6798,10 +6874,15 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 
 	/* How many documents are under a shut folder. Set in the pixel voice, like the count in the
 	   header, because it is the same fact about a smaller thing. */
+	/* Sans, with the heads' tallies and for the same reason — see .te-work-count. Sized to the row's
+	   own name (0.7rem) rather than to a column of figures, because it is part of one now. */
 	.te-work-tally {
 		flex: none;
-		font-family: var(--font-pixel, var(--font-mono, monospace));
-		font-size: 0.8rem;
+		/* Half the row's gap, exactly as the heads' tallies take half of theirs — the rows lay out
+		   on the same --space-8. See .te-work-count. */
+		margin-inline-start: calc(var(--space-4) - var(--space-8));
+		font-family: var(--font-body, system-ui, sans-serif);
+		font-size: 0.7rem;
 		line-height: 1;
 		color: var(--sub);
 	}
