@@ -7087,10 +7087,17 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			   third of a short window. Both were a number picked for comfort, and the pixels down
 			   there are not free: THE KEY IS `position: fixed` OVER THIS SHEET, bottom-left, so
 			   the last of a document lands underneath it unless the sheet keeps out of its way.
-			   So the value is DERIVED — --fkey-zone (the key's inset and its own height, published
-			   by $lib/FloatingKey) plus one row, so the last line clears the key rather than
-			   touching it. 88px at this row size. It moves if the key ever does, which a literal
-			   would not.
+			   So the value is DERIVED, and it is EXACTLY the key's footprint: --fkey-zone, published
+			   by $lib/FloatingKey. 60px. It moves if the key ever does, which a literal would not.
+			   NOT 40px, THOUGH THE KEY IS 40px TALL — it floats on a 1.25rem inset, so what it
+			   takes off the bottom of the screen is its height AND the gap it stands on. At 40 the
+			   last line's box would run from 40px to 68px off the bottom and the key's top is at
+			   60, so the line would end BEHIND it: the whole of that line's margin mark (the mark
+			   column is x 16–51 and the key spans x 20–60) and the first few pixels of its text.
+			   NO ROW OF AIR ON TOP OF IT EITHER. That was the previous value and it is what makes
+			   88 read as space rather than as clearance. The last line sits level with the key's
+			   top edge now — the key is a floating thing over the sheet, and a document ending
+			   where it begins is the sheet used up, not the sheet crowded.
 			   `vh` IS THE WRONG UNIT AT THIS WIDTH whatever fraction is chosen. It counts the whole
 			   screen, and on a phone most of the screen is not the sheet — the software keyboard
 			   takes the bottom half the moment the sheet has focus, so a fraction of the screen is
@@ -7099,7 +7106,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			   are also there so a heading JUMPED TO from the contents rail can reach the top of its
 			   pane, and that rail is not drawn below 820px at all. There is nothing here to land,
 			   and no floating key up there to dodge. */
-			--te-tail: calc(var(--fkey-zone) + var(--te-row));
+			--te-tail: var(--fkey-zone);
 		}
 		/* NO GUTTER AND NO GAP. The desk's band of grey is what makes four columns read as four
 		   objects laid on a field — and at this width there are no four columns: there is one pane,
