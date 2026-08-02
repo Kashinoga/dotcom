@@ -5236,6 +5236,14 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		   between two integer stacks. The phone override below keeps the same rule. */
 		--te-row: 26px;
 		--te-pad: var(--space-24);
+		/* THE RUNWAY UNDER THE LAST LINE — typewriter scrolling. Without it the end of a document
+		   sits welded to the bottom edge of the pane, which is the least comfortable place on the
+		   screen to be typing. It is spent by all three sheets (the prose one here, the proof
+		   below, and CodeMirror's scroller in $lib/code-sheet), so it is a token: three copies of
+		   one number is how the three would stop agreeing.
+		   NOT ON THE `--space-*` SCALE — it is a viewport fraction on the desk and a count of rows
+		   on a phone, and neither is rhythm. See the narrow override for why it is not one rule. */
+		--te-tail: 40vh;
 		/* The sheet's measure, in the mono face: ~82 columns once the gutter and the right pad
 		   come out of it. The proof's is narrower because prose sets wider per pixel — 34rem of
 		   IBM Plex is about 68 characters, which is the same reading comfort. */
@@ -5469,7 +5477,7 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		box-sizing: border-box;
 		width: 100%;
 		margin: 0;
-		padding: var(--te-pad) var(--te-pad) 40vh calc(var(--te-pad) + var(--te-margin));
+		padding: var(--te-pad) var(--te-pad) var(--te-tail) calc(var(--te-pad) + var(--te-margin));
 		border: 0;
 		font-family: var(--font-mono, ui-monospace, 'SF Mono', Consolas, monospace);
 		font-size: var(--te-type-size);
@@ -5482,10 +5490,10 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		text-align: left;
 		text-transform: none;
 	}
-	/* The bottom padding above is 40vh on purpose — TYPEWRITER SCROLLING. Without it the last
-	   line of a document sits welded to the bottom edge of the window, which is the least
-	   comfortable place on the screen to be typing. The room lets the caret ride nearer the
-	   middle at the end of a long document, the way it does everywhere else in it. */
+	/* The bottom padding above is --te-tail, the runway (declared on .te with its reasoning). It
+	   lets the caret ride nearer the middle at the end of a long document, the way it does
+	   everywhere else in it. It is the mirror's padding as well as the textarea's, and it has to
+	   be: the two agree to the pixel or the margin marks slide out of true. */
 
 	.te-type {
 		position: absolute;
@@ -5654,10 +5662,12 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		/* Declared TWICE, and the second is the one that counts where `round()` exists: the reading
 		   measure's side inset steps in whole 4px increments instead of sliding through fractional
 		   pixels as the pane is resized. An engine without `round()` drops the second declaration and
-		   keeps a working clamp — the same arrangement the docs shell uses. (40vh is the runway under
-		   the last line so a heading can reach the top of the pane; a viewport fraction, not a rung.) */
-		padding: var(--te-pad) clamp(var(--space-20), 3vw, var(--space-40)) 40vh;
-		padding: var(--te-pad) clamp(var(--space-20), round(3vw, var(--space-4)), var(--space-40)) 40vh;
+		   keeps a working clamp — the same arrangement the docs shell uses. (--te-tail is the runway
+		   under the last line, so a heading jumped to from the contents rail can reach the top of
+		   the pane. That rail is wide-only, which is half the argument for the narrow override.) */
+		padding: var(--te-pad) clamp(var(--space-20), 3vw, var(--space-40)) var(--te-tail);
+		padding: var(--te-pad) clamp(var(--space-20), round(3vw, var(--space-4)), var(--space-40))
+			var(--te-tail);
 		counter-reset: te-sec te-listing;
 		color: var(--ink);
 		font-family: var(--font-body, system-ui, sans-serif);
@@ -7070,6 +7080,20 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 			--te-row: 28px;
 			--te-margin: 2.2rem;
 			--te-pad: var(--space-16);
+			/* THE RUNWAY IS SIX ROWS HERE, NOT 40vh — reported as "a ton of empty space at the
+			   bottom of a sheet", and measured: at 390×844 the tail was 337.6px against a pane of
+			   844, so scrolling to the end of a document put two fifths of the screen of blank
+			   paper under the last line and nothing else on it.
+			   THE UNIT IS THE THING THAT WAS WRONG. `vh` counts the WHOLE screen, and on a phone
+			   most of the screen is not the sheet: the software keyboard takes the bottom half the
+			   moment the sheet has focus, so a fraction of the screen is a fraction of something
+			   the reader cannot see. Rows are what the sheet is actually made of, and six of them
+			   is the clearance the runway was for — the last line is off the bottom edge and in
+			   the text, rather than pinned to it.
+			   The desk keeps 40vh, and the difference is not merely screen size: both wide runways
+			   are also there so a heading JUMPED TO from the contents rail can reach the top of its
+			   pane, and that rail is not drawn below 820px at all. There is nothing here to land. */
+			--te-tail: calc(var(--te-row) * 6);
 		}
 		/* NO GUTTER AND NO GAP. The desk's band of grey is what makes four columns read as four
 		   objects laid on a field — and at this width there are no four columns: there is one pane,

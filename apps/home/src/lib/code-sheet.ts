@@ -184,8 +184,12 @@ export async function makeCodeSheet(
 			lineHeight: 'var(--te-row, 26px)',
 			// The same typewriter room the prose sheet keeps: without it the last line of a
 			// document sits welded to the bottom edge, which is the least comfortable place on the
-			// screen to be typing.
-			paddingBottom: '40vh'
+			// screen to be typing. It READS the sheet's token rather than restating the number —
+			// this is one of three scrollers spending it, and the phone cuts it to six rows (a
+			// `vh` fraction there is a fraction of a screen the software keyboard has taken).
+			// The fallback is the desk's value: this theme is built once, at runtime, and a
+			// declaration whose var() does not resolve paints nothing at all.
+			paddingBottom: 'var(--te-tail, 40vh)'
 		},
 		'.cm-content': { caretColor: 'var(--orange)' },
 		'.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--orange)', borderLeftWidth: '2px' },
