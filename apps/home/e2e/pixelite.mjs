@@ -275,6 +275,80 @@ const desk = async (path, { w = 1500, h = 950 } = {}) => {
 	await ctx.close();
 }
 
+// ── 7b. THE FOOT OF THE SCROLLER CLEARS THE FLOATING KEY ────────────────────
+// The key is fixed at the viewport's bottom-left and the page scrolls UNDER it, so without a
+// reserve the last lines of every page end up behind it — invisible on every page until somebody
+// reaches the bottom of one.
+//
+// The reserve reads --fkey-zone now rather than restating the key's diameter, and the reason to
+// assert it is what happened to the same copy next door: the Text Editor's runway under a document
+// was written as a viewport fraction with nothing tying it to the key, and drifted to two fifths of
+// the screen before anybody noticed what those pixels were for. Both surfaces spend the token; this
+// is the half of the claim that lives on this one.
+//
+// A DIFFERENT PAGE FROM §7, and that is the whole reason this is its own block: /about DOES NOT
+// SCROLL at 390×844 — its copy is seven blocks long and fits. Written there, the sweep would have
+// examined a page with no foot and reported a confident pass. It is /densette because that page is
+// nine thousand pixels of reading, and the fixture is asserted BEFORE the geometry so a page that
+// stops scrolling cannot bring the silence back.
+//
+// LEAVES, NOT `.docs-prose p` — Densette's colophon is not prose markup, and the three lines that
+// land behind the key with the reserve removed (checked, as a negative control) are exactly the
+// ones a prose selector would miss. Anything with text and no element children counts.
+//
+// AND IT WAITS FOR THE ENTRANCE. This is the fault that made the editor's twin of this assertion
+// fail on its first run: the panes arrive on `rise`, which is a TRANSFORM, and
+// getBoundingClientRect reports the animated position — the editor's last line measured 0.835px
+// behind the key mid-flight and exactly level once it landed. Geometry read during an entrance is
+// a reading of the entrance. Infinite animations (the caret's blink) are filtered out, or the wait
+// never returns.
+{
+	const { ctx, page } = await desk('/densette', { w: 390, h: 844 });
+	const foot = await page.evaluate(async () => {
+		await Promise.all(
+			document
+				.getAnimations()
+				.filter((a) => a.effect?.getComputedTiming?.().iterations !== Infinity)
+				.map((a) => a.finished.catch(() => {}))
+		);
+		const sc = document.querySelector('.docs-scroll');
+		sc.scrollTop = sc.scrollHeight;
+		const k = document.querySelector('.docs-fkey .fkey').getBoundingClientRect();
+		const leaves = [...sc.querySelectorAll('*')].filter((el) => {
+			if (el.closest('.docs-fkey') || el.closest('.docs-superbar')) return false;
+			if (el.children.length || !el.textContent.trim()) return false;
+			const r = el.getBoundingClientRect();
+			return r.width > 0 && r.height > 0;
+		});
+		return {
+			scrolls: sc.scrollHeight > sc.clientHeight,
+			leaves: leaves.length,
+			// How far the last of the reading sits off the bottom of the screen. It says the page
+			// really does end near the foot, so the sweep is looking where the key is.
+			lastOffBottom: Math.round(
+				innerHeight - Math.max(...leaves.map((el) => el.getBoundingClientRect().bottom))
+			),
+			behind: leaves
+				.filter((el) => {
+					const r = el.getBoundingClientRect();
+					return r.left < k.right && r.right > k.left && r.top < k.bottom && r.bottom > k.top;
+				})
+				.map((el) => el.textContent.trim().slice(0, 24))
+		};
+	});
+	ok(
+		'a long page scrolls and its reading reaches the foot',
+		foot.scrolls && foot.leaves > 0 && foot.lastOffBottom < 200,
+		JSON.stringify({ scrolls: foot.scrolls, leaves: foot.leaves, off: foot.lastOffBottom })
+	);
+	ok(
+		'and nothing is drawn behind the floating key',
+		foot.behind.length === 0,
+		foot.behind.join(' · ')
+	);
+	await ctx.close();
+}
+
 // ── 8. SPACING LANDS ON WHOLE PIXELS ────────────────────────────────────────
 // The runtime half of the spacing guard. `test/spacing.test.ts` reads the SOURCE and asks that
 // every value came from puhig's `--space-*` scale; it cannot see anything computed, and computed

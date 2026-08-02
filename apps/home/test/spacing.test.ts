@@ -45,9 +45,14 @@ const EXEMPT: Record<string, string> = {
 	auto: 'centring, not spacing',
 	'1px': 'a hairline — a border drawn as padding is still a border',
 	// (42px bar − 28px key) / 2. Derived from two sizes, exact, and meaningless as a rung.
-	'7px': "the search key's own optical centring in the bar",
-	// The floating key's diameter, reserved so the last line of a page clears it.
-	'40px': "the floating key's diameter, reserved at the foot of the scroller"
+	'7px': "the search key's own optical centring in the bar"
+	// `40px` USED TO BE HERE — "the floating key's diameter, reserved at the foot of the
+	// scroller" — and it is gone rather than merely unused. The two rules that reserved room for
+	// that key restated its measurements: the docs scroller's foot, and the editor's runway under
+	// the last line of a document, which drifted to 40vh and then to a count of rows because
+	// nothing tied it to the thing it was clearing. $lib/FloatingKey publishes --fkey-zone now and
+	// both read it, so a literal here would be a permission for the copy to come back. The
+	// exemption's own rule is that every entry had to be argued for once; this one no longer can be.
 };
 
 /**

@@ -1561,11 +1561,16 @@
 		}
 		/* A blank foot at the bottom of the scroll for the floating contents key to rest in — the
 		   key is fixed at the viewport's bottom-left, so without this the last line of a page
-		   scrolled up UNDER it. Clears the key's height (40px) plus its 1.25rem inset and a gap.
+		   scrolled up UNDER it. It is --fkey-zone (the key's own height AND the inset it stands
+		   on, published by $lib/FloatingKey) plus a rung of air, which is the value this rule
+		   always had: it read `calc(40px + var(--space-40))`, where the 40px restated the key's
+		   diameter and the rung stood in for the inset plus the gap. Same 80px, no copies — a
+		   reserve written against a key's measurements has to move when the key does, and this one
+		   could not. The Text Editor's sheet spends the same zone as its runway (--te-tail).
 		   On the scroller (outside Densette's bleeding gutter), so it reads as page background for
 		   every page — sheet or bare paper — rather than fighting a component's own margins. */
 		.docs-scroll {
-			padding-bottom: calc(40px + var(--space-40));
+			padding-bottom: calc(var(--fkey-zone) + var(--space-20));
 		}
 		/* The breadcrumb hides on a phone; the wordmark keeps the bar's left end to itself
 		   (the contents control now floats at the bottom-left instead of riding the bar). Its

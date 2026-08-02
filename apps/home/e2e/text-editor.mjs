@@ -2347,6 +2347,86 @@ await reset('alpha line one here\nbeta line two here\n\ndelta line four here');
 	});
 	ok('the floating key sits at its own inset', keyOff >= 16 && keyOff <= 24, `${keyOff}px`);
 
+	// ── THE RUNWAY UNDER THE LAST LINE IS THE KEY'S CLEARANCE, AND ONLY THAT ───
+	// Two claims, because this value has been wrong in both directions and a one-sided check would
+	// have passed on each of them in turn:
+	//   · TOO SMALL and the end of a document is drawn behind the key, which is fixed over this
+	//     sheet at the bottom-left. It looks like nothing at all until you reach the last page.
+	//   · TOO LARGE and it is a screenful of blank paper. It was `40vh` — 337.6px against an 844px
+	//     pane, two fifths of the screen — and then six rows, and both were numbers picked for
+	//     comfort by somebody who had not noticed the key was down there.
+	// It is --fkey-zone now, so it is derived from the thing it clears. NOT A WHOLE-PIXEL SWEEP:
+	// every one of those wrong values was a whole number of pixels. What is being asserted is a
+	// RELATIONSHIP, the same shape as the search key's containment over in pixelite.mjs §8.
+	//
+	// THE FIXTURE IS ASSERTED FIRST — that the sheet really did scroll to its end and that there
+	// are lines to be behind anything. A geometry check whose selectors match nothing reads exactly
+	// like a passing one, which this repo has now shipped four times.
+	//
+	// AND IT WAITS FOR THE ENTRANCE, which is the fault this assertion failed on when it was first
+	// run. The desk arrives on `rise` — a TRANSFORM — and getBoundingClientRect reports the
+	// ANIMATED position, so the last line measured 0.835px behind the key while the sheet was still
+	// on its way in and exactly level once it landed. Geometry read during an entrance is a reading
+	// of the entrance. Infinite animations are filtered out: the caret's blink never finishes, and
+	// awaiting it would hang here rather than fail.
+	const runway = await p.evaluate(async () => {
+		await Promise.all(
+			document
+				.getAnimations()
+				.filter((a) => a.effect?.getComputedTiming?.().iterations !== Infinity)
+				.map((a) => a.finished.catch(() => {}))
+		);
+		const paper = document.querySelector('.te-paper');
+		paper.scrollTop = paper.scrollHeight;
+		const k = document.querySelector('.fkey').getBoundingClientRect();
+		const lines = [...document.querySelectorAll('.te-mline')].filter((el) => {
+			const r = el.getBoundingClientRect();
+			return r.width && r.height;
+		});
+		const last = lines.at(-1)?.getBoundingClientRect();
+		// Margin marks as well as lines: a mark's box is x 16–51 and the key spans x 20–60, so a
+		// mark goes behind the key WHOLE while the text beside it is only clipped at its first
+		// few pixels. The mark is the thing that disappears first.
+		const behind = [...document.querySelectorAll('.te-mline, .te-margin-mark')]
+			.filter((el) => {
+				const r = el.getBoundingClientRect();
+				return (
+					r.width &&
+					r.height &&
+					r.left < k.right &&
+					r.right > k.left &&
+					r.top < k.bottom &&
+					r.bottom > k.top
+				);
+			})
+			.map((el) => (el.classList.contains('te-margin-mark') ? `mark "${el.textContent}"` : 'line'));
+		return {
+			atEnd: paper.scrollTop >= paper.scrollHeight - paper.clientHeight - 1,
+			lines: lines.length,
+			row: parseFloat(getComputedStyle(document.querySelector('.te')).getPropertyValue('--te-row')),
+			gap: last ? Math.round(k.top - last.bottom) : null,
+			behind
+		};
+	});
+	ok(
+		'the sheet scrolls to the end of a document with lines on it',
+		runway.atEnd && runway.lines > 0,
+		JSON.stringify({ atEnd: runway.atEnd, lines: runway.lines })
+	);
+	ok(
+		'and nothing is drawn behind the floating key',
+		runway.behind.length === 0,
+		runway.behind.join(', ')
+	);
+	// Zero is the shipped value — the last line sits level with the key's top edge. A row of air on
+	// top of it would be a design choice rather than a fault, so the window allows one; 40vh does
+	// not fit through it, which is the regression this exists for.
+	ok(
+		'and the runway is the key it clears, not a screenful of paper',
+		runway.gap !== null && runway.gap >= 0 && runway.gap <= runway.row,
+		`${runway.gap}px of gap, one row is ${runway.row}px`
+	);
+
 	// ── The phone's flyout ─────────────────────────────────────────────────────
 	// Seventeen keys will not sit in a 390px bar without becoming a strip you swipe to reach
 	// anything, so they all go to the shared floating key at the bottom-left where every other app
