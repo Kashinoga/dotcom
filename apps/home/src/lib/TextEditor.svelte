@@ -4223,32 +4223,21 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 	class:te-measured={editor.measured && kind !== 'code'}
 >
 	<div class="te-desk">
-		{#if editor.folderPending}
-			<!-- A folder REMEMBERED from last time, whose permission has lapsed. It is named and
-			     shut, and one click reconnects it: a browser will only re-ask during a gesture,
-			     so the alternative would be a permission dialog thrown at somebody who has just
-			     loaded a page. -->
-			<aside class="te-work te-work-shut" aria-label="Remembered folder">
-				<header class="te-work-head">
-					<h2 class="te-work-name" title={editor.folderName}>{editor.folderName}</h2>
-					<button
-						type="button"
-						class="tb te-work-act"
-						onclick={() => {
-							editor.folderPending = false;
-							editor.folderName = '';
-							heldRest = [];
-							rememberFolders();
-						}}
-						title="Forget this folder">Forget</button
-					>
-				</header>
-				<p class="te-work-note">
-					Opened here last time. Browsers ask again after a reload — one press reconnects it.
-				</p>
-				<button type="button" class="tb te-work-reconnect" onclick={reconnect}>Reconnect</button>
-			</aside>
-		{:else if editor.folderShown}
+		<!-- A REMEMBERED FOLDER WHOSE GRANT HAS LAPSED IS ONE SECTION'S STATE, NOT THE PANE'S.
+		     It stood HERE until 2026-08-02 — an `{#if editor.folderPending}` branch ahead of the
+		     workspace, so a lapsed grant replaced the whole pane with a Reconnect card. Reported,
+		     and the report named the drive: a cloud tree needs no filesystem permission and
+		     vanished anyway. It is worse than that, because SCRATCH and the LOCAL SHELF went with
+		     it — neither needs a grant either, and one of them always has a row in it, which left
+		     the sheet holding a document with nothing behind it. That is the one state this pane
+		     is built not to have.
+		     A permission is a fact about ONE list. The drive next door already knew this and says
+		     so in its own comment: a remembered drive that has not answered yet gets its head and a
+		     line saying so, "rather than nothing at all", because a workspace that vanishes because
+		     a token expired looks exactly like a workspace that was never there. Same argument,
+		     same shape — the folder's section keeps its head and carries the offer to reconnect
+		     where its rows would be. -->
+		{#if editor.folderShown}
 			<!-- THE WORKSPACE — the opened folder, kept alongside the document the way an editor
 			     keeps one, rather than a picker that appears and goes. It is a column of the desk
 			     on a wide window and a sheet over it on a phone, and picking from it does not
@@ -4378,10 +4367,17 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 							)}
 						{/if}
 						<!-- DOCUMENTS, not rows — the same count the folder rows carry, for the same
-						     reason. See `countIn`. -->
-						<span class="te-work-count"
-							>{editor.folder.filter((f) => f.openable !== false).length}</span
-						>
+						     reason. See `countIn`.
+						     NO TALLY WHILE THE GRANT IS PENDING. That folder has not been read, so the
+						     figure would be a hard zero standing for "not known" — and this pane already
+						     has a rule for that: a drive folder that has not been fetched carries no
+						     tally either (`WorkRow.count` is null, and null is not drawn). A count of
+						     nothing and a count nobody has taken must not look alike. -->
+						{#if !editor.folderPending}
+							<span class="te-work-count"
+								>{editor.folder.filter((f) => f.openable !== false).length}</span
+							>
+						{/if}
 						{#if nameClipped}
 							<!-- Drawn only when the name is ACTUALLY clipped — a reveal that repeats a name
 						     you can already read in full is a flicker with no information in it. It
@@ -4394,20 +4390,49 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 				     exactly as nested lists would and lets one `each` draw the whole thing. The
 				     ARIA is the flattened kind — `aria-level` on each item says where it sits, since
 				     the DOM nesting no longer does. -->
-					{@render tree(workRows, 'tree', 'Documents', toggleDir)}
-					{#if !editor.folder.length}
-						<!-- An EMPTY folder still gets its sidebar. It used to be hidden — and once New
-					     existed that meant the one place to make a first document disappeared exactly
-					     when it was needed. -->
-						<!-- It names the KEY, which is the one thing here that cannot be guessed now: New and
-					     Change were two keys in this pane's own head and they are in the bar's Workspace
-					     menu instead. Naming the place, not the gesture — the audience knows what a menu
-					     is; what it cannot know is which key was chosen to hold this one. -->
+					{#if editor.folderPending}
+						<!-- NAMED AND SHUT, waiting for a click. A browser will only re-ask for a
+						     directory grant during a user gesture, so the alternative to a key here is a
+						     permission dialog thrown at somebody who has just loaded a page.
+						     TWO KEYS, both about THIS FOLDER and neither about the pane: reconnect it, or
+						     stop remembering it. Forget is beside Reconnect rather than on the head's
+						     right-click, because the right-click menu is built from the tree and there is
+						     no tree here to open it on. -->
 						<p class="te-work-note">
-							{!editor.folderName
-								? 'No folder open. The Workspace key picks one, and makes scratch notes.'
-								: 'Nothing here this editor can open — it takes Markdown and plain text.'}
+							Opened here last time. Browsers ask again after a reload — one press reconnects it.
 						</p>
+						<div class="te-work-offer">
+							<button type="button" class="tb te-work-reconnect" onclick={reconnect}
+								>Reconnect</button
+							>
+							<button
+								type="button"
+								class="tb te-work-act"
+								onclick={() => {
+									editor.folderPending = false;
+									editor.folderName = '';
+									heldRest = [];
+									rememberFolders();
+								}}
+								title="Forget this folder">Forget</button
+							>
+						</div>
+					{:else}
+						{@render tree(workRows, 'tree', 'Documents', toggleDir)}
+						{#if !editor.folder.length}
+							<!-- An EMPTY folder still gets its sidebar. It used to be hidden — and once New
+						     existed that meant the one place to make a first document disappeared exactly
+						     when it was needed. -->
+							<!-- It names the KEY, which is the one thing here that cannot be guessed now: New and
+						     Change were two keys in this pane's own head and they are in the bar's Workspace
+						     menu instead. Naming the place, not the gesture — the audience knows what a menu
+						     is; what it cannot know is which key was chosen to hold this one. -->
+							<p class="te-work-note">
+								{!editor.folderName
+									? 'No folder open. The Workspace key picks one, and makes scratch notes.'
+									: 'Nothing here this editor can open — it takes Markdown and plain text.'}
+							</p>
+						{/if}
 					{/if}
 				</section>
 				<!-- THE DRIVE — a fourth list, and the LAST one: the pane reads Scratch, Local Files, Local
@@ -6666,13 +6691,32 @@ Everything is kept in this browser as you type. Nothing is sent anywhere.
 		font-size: 0.76rem;
 		color: var(--ink);
 	}
-	/* The remembered-but-shut state: named, explained, one key. */
-	.te-work-shut .te-work-note {
-		border-top: 0;
+	/* THE PANE'S OWN `.tb` OPT-OUT, and it is the THIRD instance of one trap. Pixelite dresses every
+	   key on the site at `html[data-look='pixelite'] .tb` — (0,2,1) — which uppercases and tracks
+	   the label, and this file has exactly two `.tb`s in it: Reconnect and Forget. They were
+	   rendering RECONNECT and FORGET in an app whose own rule is that there is no uppercase left in
+	   it anywhere. Scoped by Svelte to (0,4,0), which is what beats the theme; written as a bare
+	   `.tb` it is (0,2,0) and loses on SPECIFICITY, not on order, and silently does nothing.
+	   IT SURVIVED THE UPPERCASE SWEEP BECAUSE THE SWEEP COULD NOT REACH IT. That walk covers eight
+	   surfaces, and a folder whose grant has lapsed is not one of them — it needs a remembered
+	   handle AND a browser that has forgotten it, which no test can arrange. A state you cannot
+	   render is a state a sweep cannot check.
+	   The rack keeps the same three declarations for the same reason; see $lib/TextEditorRack. */
+	.te-work .tb {
+		font-family: var(--font-body, system-ui, sans-serif);
+		letter-spacing: normal;
+		text-transform: none;
+	}
+	/* The remembered-but-shut state: named, explained, two keys — INSIDE the folder's own section
+	   now rather than in place of the pane (see the markup). The keys share a row because they are
+	   one decision with two answers; the note above them is the question. */
+	.te-work-offer {
+		display: flex;
+		gap: var(--space-8);
+		margin: 0 var(--space-12) var(--space-12);
 	}
 	.te-work-reconnect {
 		align-self: flex-start;
-		margin: 0 var(--space-12) var(--space-12);
 		height: 26px;
 		padding: 0 var(--space-8);
 		font: inherit;
