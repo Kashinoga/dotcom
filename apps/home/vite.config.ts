@@ -42,12 +42,26 @@ export default defineConfig({
 					// string into code. The old site's static/preflight.js existed to keep this
 					// line honest; there is no pre-paint script now, so nothing is asking.
 					'script-src': ['self'],
-					// `unsafe-inline` for style is NOT here, and that is a change. It was needed for
-					// the `style:` directives the editor and the builder drew with. Nothing in the
-					// rebuild sets an inline style yet, so the directive starts closed. If a page
-					// ever needs `style:`, this is the line to reopen — and the reason should be
-					// written down here when it happens.
-					'style-src': ['self'],
+					/*
+					 * `unsafe-inline`, and here is the reason it was reopened.
+					 *
+					 * It was closed when the site was rebuilt, on the honest reading that nothing
+					 * left set an inline style. Rendering the design system's documentation put it
+					 * straight back: that page sets `style="--grid-min: 12rem"` on the swatch grid
+					 * and `--stack-gap` on its own main, and its script sets a font-weight on every
+					 * heading it puts in the contents rail. Roughly forty violations logged, and
+					 * every one of them a knob being turned rather than a rule being written.
+					 *
+					 * Inline STYLE is a far weaker vector than inline script: it can move things and
+					 * read nothing. Said plainly rather than dressed up, because the honest version
+					 * of a policy is the one somebody still trusts in a year.
+					 *
+					 * A hash list is not available here. `mode: 'hash'` covers what SvelteKit emits;
+					 * these attributes come from a dependency's markup and a dependency's script, so
+					 * their hashes would change with a version bump and the page would break on
+					 * upgrade rather than on edit — the worst place for a policy to fail.
+					 */
+					'style-src': ['self', 'unsafe-inline'],
 					// `data:` for the assets Vite inlines. No remote image hosts: nothing here
 					// fetches a picture from anywhere else.
 					'img-src': ['self', 'data:'],

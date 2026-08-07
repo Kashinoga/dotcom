@@ -1,25 +1,32 @@
-/* THE CASCADE, AND THERE IS ALMOST NOTHING LEFT TO SAY ABOUT IT.
+/* THE STYLESHEET OF THE SITE, AND IT IS SOMEBODY ELSE'S.
  *
- * One system, loaded whole. @kashinoga/design-system ships its own six layers — reset, tokens,
- * base, layout, components, utilities — declared in its entry file and ordered there. Importing it
- * is the entire stylesheet of this site.
+ * Two files, and the difference between them is the whole architecture here.
  *
- * WHAT THIS FILE USED TO BE was a seam: KDS arriving underneath an existing site, in a layer of its
- * own so it lost every contest it entered, with puhig and a control sheet unlayered above it. That
- * arrangement was correct for a site being ported and is meaningless for a site being rebuilt.
- * There is no second system to rank against, so there is no ranking to declare.
+ *   @kashinoga/design-system            the SYSTEM. Six layers — reset, tokens, base, layout,
+ *                                       components, utilities — declared and ordered in its own
+ *                                       entry file. This is the framework: type, colour, space and
+ *                                       the layout primitives, and nothing that knows what a page
+ *                                       is about.
  *
- * IT IS NOT WRAPPED IN A LAYER OF OURS. Adding one — `@import … layer(kds)` — would fold KDS's six
- * layers under a single name, which is tidy and wrong: it would make every one of the site's own
- * later rules beat the whole system at once, including its utilities, which are meant to win. KDS's
- * internal order already says who beats whom. Nesting it under one name throws that away.
+ *   @kashinoga/design-system/docs.css   the DOCUMENTATION's own sheet. The superbar, the two rails,
+ *                                       the sheet they sit beside, the callout, the code block with
+ *                                       its header, the foundation tables, the footer.
  *
- * WHAT COMES AFTER IT, when anything does, is this site's own components — and they go in KDS's
- * `components` layer, by name, so the system's utilities still outrank them:
+ * WHY BOTH, when only the first is "the framework". Because the second is what the documentation
+ * LOOKS like, and this site renders the documentation. Importing the system alone and expecting the
+ * design system's own pages to appear is the mistake this file exists to stop being made again: the
+ * two were compared side by side and did not match, and the reason was exactly this — one page was
+ * loading two stylesheets and the other was loading one.
  *
- *     @import './some-part.css' layer(components);
+ * docs.css says of itself that it never ships WITH the system, and that is still true and still
+ * right. It is not in the entry point, it is not in a layer of the system's, and a consumer who
+ * wants the framework and not the documentation simply does not write the second line. Reaching it
+ * by name is not the same as it being part of the system.
  *
- * A component's <style> block in a .svelte file is unlayered and therefore beats all of it. That is
- * the right way round, and it is also the thing to be careful with: a scoped block that fights the
- * system is a sign the system is missing a part, not a sign the block needs more specificity. */
+ * NEITHER IS WRAPPED IN A LAYER OF OURS. Folding the system's six layers under one name is tidy and
+ * wrong: it would let any later rule beat the whole system at once, utilities included. The system's
+ * internal order already says who beats whom, and docs.css is written to sit on top of it exactly as
+ * it does on the design system's own pages. Anything this site adds later goes in the system's
+ * `components` layer by name, so its utilities still win. */
 @import '@kashinoga/design-system';
+@import '@kashinoga/design-system/docs.css';

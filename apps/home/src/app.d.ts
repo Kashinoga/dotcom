@@ -1,10 +1,14 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
-//
-// Emptied with the rest of the site. Every declaration that used to stand here belonged to
-// something the rebuild has not reached yet — the panel router's `PageState`, the Air Traffic
-// board's query params, and the File System Access API the Text Editor needed and TypeScript's
-// DOM library does not carry. They are all in `_TO_MIGRATE/apps/home/src/app.d.ts`, and each one
-// should come back WITH the feature that needs it, not before it.
+
+// Vite `?raw`: pull a file in as a string at build time. Used for the design system's own
+// documentation page — see $lib/docs-content.ts.
+declare module '*.html?raw' {
+	const content: string;
+	export default content;
+}
+
+// The design system's untyped script is declared in src/ambient.d.ts, which has to be a script
+// rather than a module for that declaration to bind — the reason is written there.
 
 declare global {
 	namespace App {
