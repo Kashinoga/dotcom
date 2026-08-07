@@ -136,6 +136,32 @@
 		--row-align: baseline;
 	}
 
+	/* TRIM THE HALF-LEADING, WHICH CHANGES NOTHING ON SCREEN AND ONE THING IN THE INSPECTOR.
+	 *
+	 * This box measured 106 x 18 and sat two pixels above the bar's centre, which is what an
+	 * inspector shows and what it looks like is wrong. It is not: measured off the rendered pixels,
+	 * the GLYPHS run 14→29 in a 42px bar — twelve clear above, twelve clear below — and land on the
+	 * same rows as the wordmark's, to the pixel. The box is off centre precisely BECAUSE the ink is
+	 * centred: a line box is taller than its letters, the leading is split by the face's own metrics
+	 * rather than evenly, and this face carries more ascent than descent. Centring the box would have
+	 * moved the text off centre to make the rectangle look right.
+	 *
+	 * So the fix is to make the box say what the ink already does. Trimmed to the cap band the box
+	 * becomes 11.2 tall and hugs the letters, and not one pixel of rendering moves — measured before
+	 * and after, the ink is 14→29 either way and the baseline still agrees with the wordmark exactly.
+	 *
+	 * This is the system's own rule reaching a place it had not been applied. base.css trims every
+	 * block in the document rhythm, and says why: an untrimmed box makes every spacing value
+	 * understate itself, so measured space stops meaning what it says. A bar is not the rhythm, but
+	 * the reason travels — the moment anything here takes padding or a fill, an untrimmed box would
+	 * put it on unevenly.
+	 *
+	 * Where it belongs is docs.css, beside the rest of .docs-nav. It is here because it was found
+	 * here, and it is the third thing on the list of what should go back to the design system. */
+	.docs-nav a {
+		text-box: trim-both cap alphabetic;
+	}
+
 	/* THE PAGE YOU ARE ON, said with weight. The other two signals are spoken for — the underline
 	   means "hovered" and the ink is already the bar's. Weight is what is left, and it is enough. */
 	.docs-nav a[aria-current='page'] {
