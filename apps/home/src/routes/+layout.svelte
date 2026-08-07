@@ -7,11 +7,6 @@
 
 	// The superbar's destinations. Home is the mark on the left, so it is not repeated here.
 	const NAV = [{ href: '/design-system', title: 'Design System' }];
-
-	// What the bar shows to the right of the rule: the page you are on. On the design system's own
-	// site this is a fixed descriptor, because that site is one document. Here it names the page,
-	// because this site has more than one.
-	const here = $derived(NAV.find((n) => page.url.pathname.startsWith(n.href))?.title ?? '');
 </script>
 
 <!-- EVERY CLASS BELOW IS THE DESIGN SYSTEM'S OWN, and that is the point of this file rather than an
@@ -36,19 +31,29 @@
 				Kashinoga
 			</a>
 
-			{#if here}
-				<!-- A drawn rule, and one of the three places this page draws one. It is the third step
-				     of the escalation used where the third step is actually correct: the boundary here IS
-				     the content. A separator has no other job. -->
-				<span class="docs-sep" aria-hidden="true"></span>
-				<span class="sub">{here}</span>
-			{/if}
+			<!-- NO DESCRIPTOR AFTER THE RULE, and it is the nav that took its job. On the design system's
+			     own page the lockup reads "Kashinoga | Design System", because that site is one document
+			     and the descriptor is the only thing naming it. Here the bar already lists the pages and
+			     marks the one you are on, so a descriptor put "Design System" twice, four centimetres
+			     apart, saying the same thing in two weights.
+
+			     The separator went with it. It is a rule, and a rule is only correct when the boundary IS
+			     the content — with nothing on the far side of it there is no boundary left for it to
+			     be. -->
 		</span>
 
-		<nav class="docs-bar__nav" aria-label="Site">
+		<!-- TEXT, NOT KEYS. A destination is not a control: pressing a key does something to the page
+		     you are on, and following a link replaces it. Dressing the two the same way says they are
+		     the same kind of act, and the bar then reads as a row of buttons with one odd one out.
+		     Plain words beside the wordmark, with the underline arriving on hover.
+
+		     .docs-nav IS THE DESIGN SYSTEM'S OWN, and it was here before this site was — the bar used
+		     to carry the section links this way, until they moved to the left rail and the markup went
+		     with them. The rules stayed. Paired with .row, which is what makes it a flex line, this is
+		     the markup that used to be in index.html, restored rather than reinvented. -->
+		<nav class="row docs-nav" aria-label="Site">
 			{#each NAV as item (item.href)}
 				<a
-					class="docs-key"
 					href={item.href}
 					aria-current={page.url.pathname.startsWith(item.href) ? 'page' : undefined}
 				>
@@ -100,41 +105,40 @@
 </div>
 
 <style>
-	/* EVERY RULE IN THIS BLOCK EXISTS FOR ONE REASON: this bar has navigation in it and the design
-	   system's own bar does not. That site is a single document, so its bar carries a wordmark and one
-	   control, and neither is a link. Put links in the same bar and they meet the system's link rules
-	   — accent ink and an underline — which are right for prose and wrong for chrome.
+	/* THE NAV CLAIMS NO FREE SPACE, and that is the only thing this site changes about it. docs.css
+	   gives .docs-nav an auto margin from the days when the nav was the LAST thing in the bar and the
+	   push had to come from it. The scheme key carries its own auto margin now, so leaving both in
+	   place gives the bar two claims on the slack — flexbox splits it between them, and the nav comes
+	   to rest in the middle of the bar looking deliberate and wrong. Measured, not guessed.
 	 *
-	   So: no new objects, no second look. The nav keys are the same .docs-key the scheme toggle wears,
-	   so the two kinds of control in the bar stay one kind of object, and the rules below only undo
-	   the treatment a link picks up by being a link. */
+	   Beside the wordmark is also where it belongs. The bar reads left to right as: whose site, then
+	   where in it, then the controls at the far edge. */
+	.docs-nav {
+		/* THE BRAND AND THE NAV ARE TWO GROUPS; the nav items are one. So the distance between the
+		   wordmark and the first destination has to be larger than the distance between destinations,
+		   or the wordmark reads as the first item in the list.
+		 *
+		   Both were --space. The bar puts one unit between its children and .docs-nav puts one unit
+		   between its own, so the two boundaries measured the same and the eye had nothing to sort
+		   them with. It does not show with one entry and would have shown badly with three, which is
+		   the kind of fault worth fixing before it is visible.
+		 *
+		   Written as the shortfall rather than as a number, so it stays correct if the bar's own gap
+		   is ever retuned: whatever the bar contributes, this makes the total --gap-between. It also
+		   replaces the auto margin docs.css sets here — from the days when the nav was the LAST thing
+		   in the bar and the push to the far edge had to come from it. The scheme key carries its own
+		   auto now, and leaving both in place gave the bar two claims on the free space, which
+		   flexbox split between them: the nav came to rest mid-bar looking deliberate and wrong. */
+		margin-inline-start: calc(var(--gap-between) - var(--space));
 
-	/* NO AUTO MARGIN HERE, and the reason is that the system already supplies one. docs.css says
-	   `.docs-bar .docs-key { margin-inline-start: auto }` so its single control sits at the far end.
-	   Adding a second auto margin on this nav did not move the nav to the end — it gave the bar TWO
-	   free-space claims, flexbox split the slack between them, and the nav came to rest in the middle
-	   of the bar looking deliberate and wrong.
-	 *
-	   So the nav claims nothing. It sits beside the lockup, where site navigation belongs, and the
-	   scheme key's own auto margin still carries it to the far edge. */
-	.docs-bar__nav {
-		display: flex;
-		align-items: baseline;
-		gap: var(--space-12);
+		/* .row centres its items; the bar sets everything else on the baseline. A word beside a word
+		   should sit on the same line as the word next to it. */
+		--row-align: baseline;
 	}
 
-	/* A KEY IS A CONTROL, NOT A CITATION. .docs-key is worn by a <button> on the design system's own
-	   page, so it never met the link rules; worn by an <a> it picks up the accent and the underline,
-	   and the bar ends up with a key that is also a footnote. The fill and the border already say
-	   "pressable" — an underline inside a button-shaped box says it a third time. */
-	.docs-bar__nav .docs-key {
-		color: var(--ink);
-		text-decoration: none;
-	}
-
-	/* THE PAGE YOU ARE ON, said with weight. Every other signal on this key is already carrying
-	   something: the fill says "hovered", the border says "pressable". Weight is free. */
-	.docs-bar__nav a[aria-current='page'] {
+	/* THE PAGE YOU ARE ON, said with weight. The other two signals are spoken for — the underline
+	   means "hovered" and the ink is already the bar's. Weight is what is left, and it is enough. */
+	.docs-nav a[aria-current='page'] {
 		font-weight: var(--weight-strong);
 	}
 
