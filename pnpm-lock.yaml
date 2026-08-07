@@ -18,8 +18,8 @@ importers:
   apps/home:
     dependencies:
       '@kashinoga/design-system':
-        specifier: github:Kashinoga/design-system#a37297d
-        version: https://codeload.github.com/Kashinoga/design-system/tar.gz/a37297da171173621a5379ccc55b0717c5415d0c
+        specifier: github:Kashinoga/design-system#b036e22
+        version: https://codeload.github.com/Kashinoga/design-system/tar.gz/b036e221bb7bbd36265a418991831557ece64dc4
     devDependencies:
       '@sveltejs/adapter-cloudflare':
         specifier: ^7.2.9
@@ -440,8 +440,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.9':
     resolution: {integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==}
 
-  '@kashinoga/design-system@https://codeload.github.com/Kashinoga/design-system/tar.gz/a37297da171173621a5379ccc55b0717c5415d0c':
-    resolution: {gitHosted: true, integrity: sha512-VxotOz3Q9NgyGnemZjhM7Aw7qEy+l5SaqEEotR8yIX2zPWlIXxKiZi0QAot7+Wch6oH7gfG6nh2FGdbEyuWrng==, tarball: https://codeload.github.com/Kashinoga/design-system/tar.gz/a37297da171173621a5379ccc55b0717c5415d0c}
+  '@kashinoga/design-system@https://codeload.github.com/Kashinoga/design-system/tar.gz/b036e221bb7bbd36265a418991831557ece64dc4':
+    resolution: {gitHosted: true, integrity: sha512-4Oxb26tgBqfkbYQwcKPNr4649lfbGPA+XKIro+r3Inc3JKM+rOlFWQUNICiiwWcBk+OhQY+Cyp9ts+la5fa3pQ==, tarball: https://codeload.github.com/Kashinoga/design-system/tar.gz/b036e221bb7bbd36265a418991831557ece64dc4}
     version: 0.0.1
 
   '@napi-rs/wasm-runtime@1.1.6':
@@ -1273,7 +1273,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@kashinoga/design-system@https://codeload.github.com/Kashinoga/design-system/tar.gz/a37297da171173621a5379ccc55b0717c5415d0c': {}
+  '@kashinoga/design-system@https://codeload.github.com/Kashinoga/design-system/tar.gz/b036e221bb7bbd36265a418991831557ece64dc4': {}
 
   '@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.1)':
     dependencies:

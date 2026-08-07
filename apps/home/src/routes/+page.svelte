@@ -1,41 +1,63 @@
 <svelte:head>
 	<!-- Home is the exception to "page first, site last": here the site name IS the page. -->
 	<title>Kashinoga</title>
-	<meta name="description" content="A hand-built site." />
+	<meta
+		name="description"
+		content="Kashinoga — Andrew Nguyen's virtual home, and the mostly fun things found or made there."
+	/>
 </svelte:head>
 
-<!-- BLANK ON PURPOSE, AND NOT A PLACEHOLDER FOR NOTHING. The site is being rebuilt a page at a time,
-     and this one has not been written yet — so it says one line and stops, rather than standing in
-     with a list of things that do not exist. The way on is the superbar.
+<!-- THE SAME SHELL THE DESIGN SYSTEM PAGE USES, with no rails in it.
+     Every page on this site is a document in the same desk, so every page is built out of the same
+     three elements: .docs-shell inside the frame, .docs-column inside that, <main> inside that. What
+     differs between pages is what is placed BESIDE the column, and here that is nothing.
 
-     No shell and no rails. Those belong to the DESIGN SYSTEM page, which is a document and has
-     sections to list. A blank page wearing a contents rail with nothing in it and an on-this-page
-     rail with nothing to jump to would be furniture pretending to be a document. -->
-<div class="frame home">
-	<main id="main" class="prose">
-		<h1>Kashinoga</h1>
-		<p class="measure">
-			A hand-built site, being rebuilt on its own design system. Start with the
-			<a href="/design-system">design system</a>.
-		</p>
-	</main>
+     This page had a wrapper of its own before, and the wrapper was the whole problem: it carried its
+     own top spacing, its own claim on the leftover height, and its own idea of how wide the page
+     should be — three numbers reinvented next to three that already existed, and they did not agree.
+     The gap under the superbar was visibly different from one page to the next. Structure that is
+     shared has to be the same structure, not a matching one.
+
+     The shell handles a missing rail itself: docs.css spans a lone .docs-column across every track,
+     because the condition is "there is nothing beside it" and :only-child says exactly that. Add a
+     rail here later and the grid takes it with no change to this file.
+
+     THE WORDS ARE FROM Notes/Dotcom/Welcome.md, and they are the page rather than a summary of it.
+     Two things changed on the way in, both markup rather than writing:
+
+     The wiki-links [[About Me]] and [[Digital Community Services]] name pages that do not exist yet,
+     so they are LISTED and not linked. A link that goes nowhere is worse than an entry that says
+     "not yet": the first wastes a click and blames the reader, the second is just true.
+
+     The source's second "# What's Around Here" is a heading of the same rank as the first, which is
+     what a markdown file has to do — it has one level of top heading and no sections. Here it is a
+     real <section>, with the thematic break the design system puts before every section title. -->
+<div class="frame docs-shell">
+	<div class="docs-column">
+		<main id="main" class="stack" style="--stack-gap: var(--gap-section)">
+			<header class="prose">
+				<h1>My Virtual Home</h1>
+				<p class="measure">Hi, my name is Andrew Nguyen.</p>
+				<p class="measure">This is Kashinoga, my virtual home.</p>
+				<p class="measure">Here, you’ll find the (mostly) fun things that I’ve created or found.</p>
+				<p class="measure">I hope you enjoy your time here.</p>
+				<p class="measure">Take care.</p>
+			</header>
+
+			<!-- A thematic break before the section title: the markdown "---". A SIBLING of the section
+			     rather than a child of it, because the break comes BETWEEN two divisions — one living
+			     inside the division it opens would be announcing that division rather than separating it
+			     from the one before. -->
+			<hr />
+
+			<section class="prose">
+				<h1>What’s Around Here</h1>
+				<!-- Items of ONE kind, so what groups them is proximity — which is what .flow does. -->
+				<ul class="flow measure">
+					<li>About Me&nbsp;<span class="sub">— soon</span></li>
+					<li>Digital Community Services&nbsp;<span class="sub">— soon</span></li>
+				</ul>
+			</section>
+		</main>
+	</div>
 </div>
-
-<style>
-	.home {
-		/* The bar and the page are two REGIONS — chrome above, reading below — so the distance between
-		   them is the region tier rather than a rung picked by eye. The design system page gets this
-		   from .docs-shell's own padding; this page has no shell, so it says it itself. */
-		padding-block-start: var(--gap-region);
-
-		/* CLAIM THE SLACK, or the footer comes to rest wherever the text happens to end. .docs-scroll
-		   is a flex column holding the page and then the footer, and docs.css gives the shell
-		   `flex: 1 0 auto` so a short document still pushes the colophon to the bottom edge. This page
-		   is not a shell and inherited none of that: two lines of text left the footer floating a
-		   third of the way down the window with bare page beneath it.
-
-		   Grow, never a fixed basis: a long page must still grow past the region and scroll, and a
-		   ceiling here would clip it. */
-		flex: 1 0 auto;
-	}
-</style>
