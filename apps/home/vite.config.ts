@@ -77,6 +77,20 @@ export default defineConfig({
 		})
 	],
 
+	// THE DESIGN SYSTEM IS NOT PRE-BUNDLED IN DEV, and this is a papercut fix with a real cost
+	// behind it. Vite optimises a dependency once and caches the result under node_modules/.vite. A
+	// git dependency updated in place does not reliably invalidate that cache, so a running dev
+	// server keeps serving the previous copy: the version in package.json is new, the file on disk is
+	// new, and the browser gets the old one. It cost an hour — a feature that worked on the design
+	// system's own page and appeared broken here, with nothing wrong in either.
+	//
+	// Excluding it costs nothing to weigh against that. It is plain ESM with no dependencies of its
+	// own, so pre-bundling saves no request waterfall; Vite just serves the file. The build is
+	// untouched either way — optimizeDeps is a dev-only concern.
+	optimizeDeps: {
+		exclude: ['@kashinoga/design-system']
+	},
+
 	server: {
 		fs: {
 			// SvelteKit narrows Vite's default allow-list to this app's own directories, which leaves
