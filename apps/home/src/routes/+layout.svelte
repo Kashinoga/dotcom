@@ -31,36 +31,45 @@
 				Kashinoga
 			</a>
 
-			<!-- NO DESCRIPTOR AFTER THE RULE, and it is the nav that took its job. On the design system's
-			     own page the lockup reads "Kashinoga | Design System", because that site is one document
-			     and the descriptor is the only thing naming it. Here the bar already lists the pages and
-			     marks the one you are on, so a descriptor put "Design System" twice, four centimetres
-			     apart, saying the same thing in two weights.
+			<!-- THE RULE, AND IT IS THE THING THAT MAKES THIS A LOCKUP. Whose site, then where in it:
+			     a drawn line between the two, which is the third step of the system's escalation used
+			     where the third step is actually correct. The boundary here IS the content — a
+			     separator has no other job, and there is nothing else for it to be made of.
 
-			     The separator went with it. It is a rule, and a rule is only correct when the boundary IS
-			     the content — with nothing on the far side of it there is no boundary left for it to
-			     be. -->
+			     It also does a job space was doing badly. Without it the nav needed a hand-tuned margin
+			     to stop the wordmark reading as the first item in the list, because the bar's own gap
+			     and the gap between menu items were the same number. With the rule there, the boundary
+			     is stated outright and the margin is deleted rather than tuned.
+
+			     Inset from the bar by 12 on all four sides — that is docs.css's number and its reason:
+			     run the line the full 42 and it stops separating two words and starts dividing the bar
+			     into columns. -->
+			<span class="docs-sep" aria-hidden="true"></span>
+
+			<!-- TEXT, NOT KEYS. A destination is not a control: pressing a key does something to the
+			     page you are on, and following a link replaces it. Dressing the two the same way says
+			     they are the same kind of act, and the bar then reads as a row of buttons with one odd
+			     one out. Plain words after the rule, with the underline arriving on hover.
+
+			     INSIDE THE LOCKUP, so the rule is spaced by the lockup's own gap on both sides. Out
+			     here as a sibling it took the bar's gap on one side and the lockup's on the other, and
+			     a separator with different air either side of it reads as belonging to the nearer word.
+
+			     .docs-nav IS THE DESIGN SYSTEM'S OWN, and it was here before this site was — the bar
+			     used to carry the section links this way, until they moved to the left rail and the
+			     markup went with them. The rules stayed. Paired with .row, which is what makes it a
+			     flex line, this is that markup restored rather than reinvented. -->
+			<nav class="row docs-nav" aria-label="Site">
+				{#each NAV as item (item.href)}
+					<a
+						href={item.href}
+						aria-current={page.url.pathname.startsWith(item.href) ? 'page' : undefined}
+					>
+						{item.title}
+					</a>
+				{/each}
+			</nav>
 		</span>
-
-		<!-- TEXT, NOT KEYS. A destination is not a control: pressing a key does something to the page
-		     you are on, and following a link replaces it. Dressing the two the same way says they are
-		     the same kind of act, and the bar then reads as a row of buttons with one odd one out.
-		     Plain words beside the wordmark, with the underline arriving on hover.
-
-		     .docs-nav IS THE DESIGN SYSTEM'S OWN, and it was here before this site was — the bar used
-		     to carry the section links this way, until they moved to the left rail and the markup went
-		     with them. The rules stayed. Paired with .row, which is what makes it a flex line, this is
-		     the markup that used to be in index.html, restored rather than reinvented. -->
-		<nav class="row docs-nav" aria-label="Site">
-			{#each NAV as item (item.href)}
-				<a
-					href={item.href}
-					aria-current={page.url.pathname.startsWith(item.href) ? 'page' : undefined}
-				>
-					{item.title}
-				</a>
-			{/each}
-		</nav>
 
 		<!-- THE SCHEME CONTROL, AND IT IS NOT OPTIONAL FURNITURE. It is wired by the design system's
 		     own script, which reaches for #scheme-toggle at module scope and calls addEventListener on
@@ -114,22 +123,17 @@
 	   Beside the wordmark is also where it belongs. The bar reads left to right as: whose site, then
 	   where in it, then the controls at the far edge. */
 	.docs-nav {
-		/* THE BRAND AND THE NAV ARE TWO GROUPS; the nav items are one. So the distance between the
-		   wordmark and the first destination has to be larger than the distance between destinations,
-		   or the wordmark reads as the first item in the list.
-		 *
-		   Both were --space. The bar puts one unit between its children and .docs-nav puts one unit
-		   between its own, so the two boundaries measured the same and the eye had nothing to sort
-		   them with. It does not show with one entry and would have shown badly with three, which is
-		   the kind of fault worth fixing before it is visible.
-		 *
-		   Written as the shortfall rather than as a number, so it stays correct if the bar's own gap
-		   is ever retuned: whatever the bar contributes, this makes the total --gap-between. It also
-		   replaces the auto margin docs.css sets here — from the days when the nav was the LAST thing
-		   in the bar and the push to the far edge had to come from it. The scheme key carries its own
-		   auto now, and leaving both in place gave the bar two claims on the free space, which
-		   flexbox split between them: the nav came to rest mid-bar looking deliberate and wrong. */
-		margin-inline-start: calc(var(--gap-between) - var(--space));
+		/* NO MARGIN, BECAUSE THE RULE CARRIES THE BOUNDARY NOW. This used to hold a hand-figured
+		   shortfall — the bar's gap and the nav's own gap were both one unit, so the wordmark read as
+		   the first item in the list, and the fix was to widen the space in front of the nav until the
+		   two groups told apart. That is space doing a job it was struggling with. A separator states
+		   the same boundary outright, at any gap, so the number goes rather than gets tuned.
+
+		   The zero is still doing something: it overrides the auto margin docs.css sets here, from the
+		   days when the nav was the LAST thing in the bar and the push to the far edge came from it.
+		   The scheme key carries its own auto now, and two claims on the free space made flexbox split
+		   the slack and park the nav mid-bar. */
+		margin-inline-start: 0;
 
 		/* .row centres its items; the bar sets everything else on the baseline. A word beside a word
 		   should sit on the same line as the word next to it. */
