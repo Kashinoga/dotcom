@@ -1,10 +1,9 @@
 <script lang="ts">
-	import '@kashinoga/puhig/tokens.css';
-	// The control family's own sheet — the hover pop, the press squash, the Bubble style. Plain
-	// CSS rather than a component's <style>, because every rule in it was already :global(): it
-	// dresses controls that live in a dozen different components. Loaded here, after the tokens
-	// it reads and before any component style.
-	import '$lib/styles/controls.css';
+	// ONE import, and it is the whole cascade. $lib/styles/system.css declares the layer order and
+	// pulls in every sheet the site runs on — the incoming design system, the outgoing one, and the
+	// control family's own sheet. Loading them separately from here is what let an unlayered system
+	// silently outrank a layered one; the seam owns that question now, and states its answer.
+	import '$lib/styles/system.css';
 	import { installTapPress } from '$lib/press';
 	import { page } from '$app/state';
 	import { installThemeColor, refreshThemeColor } from '$lib/theme-color';

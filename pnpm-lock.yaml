@@ -71,6 +71,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.43.7
         version: 6.43.7
+      '@kashinoga/design-system':
+        specifier: github:Kashinoga/design-system
+        version: https://codeload.github.com/Kashinoga/design-system/tar.gz/e67d2d4bcd7b276171584fbd9e3b5e398f862f7a
       '@kashinoga/puhig':
         specifier: workspace:*
         version: link:../../packages/puhig
@@ -568,6 +571,10 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.9':
     resolution: {integrity: sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ==}
+
+  '@kashinoga/design-system@https://codeload.github.com/Kashinoga/design-system/tar.gz/e67d2d4bcd7b276171584fbd9e3b5e398f862f7a':
+    resolution: {gitHosted: true, integrity: sha512-8fG9vbN9/5jLXaoBKDLRueMlkko2LR3RZv5J6J+eBuv+Xu1HZJvrn8vm5FRd/3xFCc9ylpBsDijS9PweYRak3A==, tarball: https://codeload.github.com/Kashinoga/design-system/tar.gz/e67d2d4bcd7b276171584fbd9e3b5e398f862f7a}
+    version: 0.0.1
 
   '@lezer/common@1.5.2':
     resolution: {integrity: sha512-sxQE460fPZyU3sdc8lafxiPwJHBzZRy/udNFynGQky1SePYBdhkBl1kOagA9uT3pxR8K09bOrmTUqA9wb/PjSQ==}
@@ -1622,6 +1629,8 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@kashinoga/design-system@https://codeload.github.com/Kashinoga/design-system/tar.gz/e67d2d4bcd7b276171584fbd9e3b5e398f862f7a': {}
 
   '@lezer/common@1.5.2': {}
 
