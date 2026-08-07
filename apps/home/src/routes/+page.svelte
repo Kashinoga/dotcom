@@ -60,7 +60,9 @@
 </header>
 
 <section class="prose">
-	<h2>Where to go</h2>
+	<!-- The id is what the on-this-page rail links to. It is declared alongside the rail's entry in
+	     +page.ts, and the two have to agree by hand — see the note there. -->
+	<h2 id="where-to-go">Where to go</h2>
 	<!-- A plain list, and it is plain on purpose. These are items of ONE kind — places on this site —
 	     so what groups them is proximity, which is what .flow does. A card grid would make them look
 	     like a set of unrelated products, and a table would promise columns of facts that do not
