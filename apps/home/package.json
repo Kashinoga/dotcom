@@ -4,7 +4,7 @@
 	"version": "0.0.1",
 	"type": "module",
 	"dependencies": {
-		"@kashinoga/design-system": "github:Kashinoga/design-system#71ce8c5"
+		"@kashinoga/design-system": "github:Kashinoga/design-system#828228f"
 	},
 	"scripts": {
 		"dev": "vite dev",

@@ -1,21 +1,24 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { DOCS_HTML } from '$lib/docs-content';
+	import { DOCS_HTML, DOCS_CONTENTS } from '$lib/docs-content';
 
 	// The design system's own page script, run against the markup above once it is in the DOM. It
-	// builds the on-this-page rail from the headings, renders the foundation tables and swatches by
-	// reading the LIVE computed tokens, wires the copy buttons on each code block, and offsets anchor
-	// landings so a heading does not come to rest under the superbar.
+	// renders the foundation tables and swatches by reading the LIVE computed tokens, wires the copy
+	// buttons on each code block, and offsets anchor landings so a heading does not come to rest under
+	// the superbar.
+	//
+	// IT NO LONGER BUILDS THE CONTENTS RAIL. That is rendered on the server now — see the rail's own
+	// note below — and the script leaves an already-filled list alone.
 	//
 	// ON MOUNT, AND IT HAS TO BE. The script queries the document as soon as it is evaluated, so it
 	// must not run until this page's markup exists. A module-level import would execute during SSR,
 	// where there is no document at all.
 	//
-	// The tables and the rail are therefore CLIENT-RENDERED, and that is a real cost stated plainly:
-	// a visitor with no JavaScript gets the prose and the code samples — the document — and not the
-	// generated apparatus. That is the same trade the design system's own page makes, for the same
-	// reason: a table of tokens written into the HTML is a second copy of the tokens, and a value
-	// copied is a value that will drift.
+	// WHAT IS STILL CLIENT-RENDERED, said plainly: the swatches and the three foundation tables. A
+	// visitor with no JavaScript gets the prose, the code samples and the contents rail — the document
+	// and the way around it — but not those. That one is not a shortcut: the tables read the tokens as
+	// the BROWSER resolved them, so a wrong value shows up as a wrong swatch. Baking them into the
+	// HTML would make them a second copy of the tokens, which is the thing they exist to avoid.
 	onMount(async () => {
 		await import('@kashinoga/design-system/docs.js');
 	});
@@ -64,13 +67,34 @@
 		</main>
 	</div>
 
-	<!-- LOCAL: this page only, and built from the headings by the design system's own script — a
-	     contents list written by hand is a second copy of the document and will fall out of step with
-	     it. The <ul> is empty until that script fills it. -->
+	<!-- LOCAL: this page only, and read from the headings rather than written by hand — a contents
+	     list typed out separately is a second copy of the document and falls out of step with it.
+
+	     RENDERED HERE, ON THE SERVER, and that is the change worth naming. It used to be built by the
+	     design system's script after the page loaded, which meant the rail was missing from the HTML,
+	     arrived a beat late, and never arrived at all for a reader without JavaScript. That script now
+	     leaves a filled list alone, so this one wins and the two do not both run.
+
+	     `data-depth` is the same attribute the script sets, so docs.css's indent rules apply to these
+	     rows exactly as they do to generated ones. -->
 	<nav class="docs-rail docs-local" aria-label="On this page">
 		<div class="docs-rail__inner">
 			<p class="docs-rail__title">On this page</p>
-			<ul id="docs-toc" role="list"></ul>
+			<ul id="docs-toc" role="list">
+				{#each DOCS_CONTENTS as entry (entry.href)}
+					<li data-depth={entry.depth}>
+						<!-- A section title is an h1 and so is the document's own title; the rail leans on
+						     weight rather than size, because the rail is small everywhere. Same rule the
+						     script applies, and the same reason. -->
+						<a
+							href={entry.href}
+							style:font-weight={entry.depth === 1 ? 'var(--weight-strong)' : null}
+						>
+							{entry.title}
+						</a>
+					</li>
+				{/each}
+			</ul>
 		</div>
 	</nav>
 </div>
