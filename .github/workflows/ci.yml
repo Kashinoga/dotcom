@@ -1,11 +1,18 @@
 # Continuous integration.
 #
-# The gates that were already here, wired to run on their own. `pnpm check` and the unit tests are
-# seconds and run on everything. The browser suites are minutes — they install three engines — so
-# they are a separate job, and on a pull request they run only the suites the diff can affect
-# (`--changed`, whose file→suite map lives in e2e/run.mjs, in the repo, so CI and every clone scope
-# identically). A push to main runs the whole suite: `--changed` may only ever SHRINK a run for
-# changes we have reasoned about, and main is where that assumption must not be load-bearing.
+# CUT BACK WITH THE SITE. This file used to run two jobs: a fast one (format, types, unit tests,
+# build, a chunk audit and a CSP check) and a slow one that installed three browser engines and ran
+# the e2e suites, scoped to the diff on a pull request and run whole on main.
+#
+# The rebuild deleted what those gates were watching. The unit tests covered the URL layer and the
+# place register; the browser suites covered sixteen panels, three themes and a text editor. None of
+# that exists right now, and a gate pointed at nothing does worse than nothing — it goes green and
+# reads as evidence. So each one comes back WITH the thing it protects, and the old file is in
+# `_TO_MIGRATE/` (recover it from git history at 46ca5bc; it is not in the snapshot directory, which
+# holds source only).
+#
+# What is left is what still has something to check: the code is formatted, it typechecks, and it
+# builds. That is the honest floor for a site that is currently three routes.
 
 name: CI
 
@@ -21,7 +28,7 @@ concurrency:
 
 jobs:
   check:
-    name: check · unit · build
+    name: check · build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,82 +50,5 @@ jobs:
       # Then types: the gate most changes trip.
       - run: pnpm check
 
-      # Pure functions — the URL layer, the register, and the board's four query params.
-      - run: pnpm test:unit
-
-      # The build catches what neither of the above can: an adapter that cannot bundle a route.
+      # The build catches what the above cannot: an adapter that cannot bundle a route.
       - run: pnpm build
-
-      # THE TWO HEAVY ENGINES STAY ON DEMAND. Reads the built module graph, so it needs the build
-      # above and no browser at all — which is why it runs before the playwright install below.
-      # The browser suite already counts what a prose visitor FETCHES; this catches the case that
-      # count cannot see, where a static import gets inlined into a chunk the page loads anyway.
-      - run: pnpm --filter home check:chunks
-
-      # THE CONTENT SECURITY POLICY, which only exists in a production build — see
-      # apps/home/scripts/csp-check.mjs for why it cannot live in the browser suites. It runs HERE,
-      # after `pnpm build`, because the build is what it needs and this job already has one.
-      #
-      # It needs one browser and installs one. The full three-engine install belongs to the other
-      # job; a policy is a header and a header is not an engine's opinion.
-      - run: pnpm --filter home exec playwright install --with-deps chromium
-      - run: pnpm --filter home check:csp
-
-  e2e:
-    name: browser suites
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # `--changed` diffs against the base branch, so it needs the history to diff against.
-          fetch-depth: 0
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      # Firefox runs every suite. `cards` additionally runs Chromium and WebKit, and fails loudly
-      # rather than skipping if an engine is missing — a silent pass there once shipped a
-      # half-empty Apps panel to Safari. So all three are installed, always.
-      - run: pnpm --filter home exec playwright install --with-deps firefox chromium webkit
-
-      # The output is teed, not just streamed, because `--changed` can legitimately select NOTHING
-      # — a pull request that only touches CI, config or docs changes no runtime file. That run
-      # exits 0 having tested nothing, and in the checks list a vacuous pass looks exactly like a
-      # real one. It read as evidence once already, which is worse than a failure.
-      #
-      # So the step says what it selected, in the job summary, where the answer is next to the
-      # tick rather than twenty screens into a log.
-      - name: Run suites
-        run: |
-          set -o pipefail
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            pnpm --filter home test:e2e --changed=origin/${{ github.base_ref }} 2>&1 | tee e2e.out
-          else
-            pnpm --filter home test:e2e 2>&1 | tee e2e.out
-          fi
-          status=$?
-          if grep -q "nothing to run" e2e.out; then
-            echo "### Browser suites: SKIPPED" >> "$GITHUB_STEP_SUMMARY"
-            echo "No runtime-affecting file changed, so \`--changed\` selected no suites." >> "$GITHUB_STEP_SUMMARY"
-            echo "**This run tested nothing.** A green tick here is not evidence." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "### Browser suites" >> "$GITHUB_STEP_SUMMARY"
-            sed 's/\x1b\[[0-9;]*m//g' e2e.out | grep -E "e2e would run|suites? failed|^[0-9]+/[0-9]+ passed" \
-              | sed 's/^/- /' >> "$GITHUB_STEP_SUMMARY" || true
-          fi
-          exit $status
-
-      # A failing visual suite is close to unreadable without the screenshot it compared.
-      - uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: e2e-artifacts
-          path: apps/home/e2e/.artifacts/
-          if-no-files-found: ignore
-          retention-days: 7

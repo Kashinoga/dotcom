@@ -1,87 +1,18 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
-// for information about these interfaces
-
-// Vite `?raw` import: pull a file in as a string at build time (used for the
-// bundled demo deck — src/lib/decks/kashinoga-demo.html).
-declare module '*.html?raw' {
-	const content: string;
-	export default content;
-}
+//
+// Emptied with the rest of the site. Every declaration that used to stand here belonged to
+// something the rebuild has not reached yet — the panel router's `PageState`, the Air Traffic
+// board's query params, and the File System Access API the Text Editor needed and TypeScript's
+// DOM library does not carry. They are all in `_TO_MIGRATE/apps/home/src/app.d.ts`, and each one
+// should come back WITH the feature that needs it, not before it.
 
 declare global {
 	namespace App {
 		// interface Error {}
 		// interface Locals {}
 		// interface PageData {}
-		interface PageState {
-			/**
-			 * The panel a shallow-routed history entry stands for — see $lib/views.ts.
-			 * `null` is the overview map; absent means the entry came from a real
-			 * navigation, so the panel is whatever that route's `load` returned.
-			 */
-			view?: import('$lib/views').View | null;
-			/**
-			 * The Air Traffic board's selected field, as an IATA code (`?field=`).
-			 * `null` is the default field. Absent means "whatever `load` resolved".
-			 */
-			field?: string | null;
-			/**
-			 * The Air Traffic board's radius in NM (`?range=`), and its auto-refresh
-			 * cadence in milliseconds (`?refresh=`). `null` is the default; absent means
-			 * "whatever `load` resolved". Both are stored as values, not tokens — the
-			 * board takes numbers, and $lib/scope owns the token spelling.
-			 */
-			range?: number | null;
-			refresh?: number | null;
-			/**
-			 * The Air Traffic board's size (`?expanded=`): true is the full-viewport
-			 * board, false the compact panel (the default, which carries no param).
-			 * Absent means "whatever `load` resolved".
-			 */
-			expanded?: boolean;
-		}
+		// interface PageState {}
 		// interface Platform {}
-	}
-
-	/**
-	 * The FILE SYSTEM ACCESS API, declared here because TypeScript's DOM library does not carry
-	 * it — it is not a settled standard, which is also why the Text Editor gates every use of it
-	 * behind a runtime check rather than assuming it (see `canWrite` in $lib/text-editor-state).
-	 *
-	 * Only the pieces this app actually calls are declared. `showDirectoryPicker` is the one
-	 * honest detect for "can this browser reach the real file system": the handle interfaces below
-	 * it exist in every current engine, but in Safari and Firefox they only ever reach the
-	 * sandboxed Origin Private File System, which is no use for editing a folder of notes.
-	 *
-	 * `showOpenFilePicker` is the single-file twin, and it is optional in the same way — where it
-	 * is missing the editor falls back to a hidden `<input type=file>`. What it buys is a HANDLE
-	 * rather than a File: a document that can be saved back to, and a shelf row that can be
-	 * remembered across a reload.
-	 */
-	interface Window {
-		showDirectoryPicker?: (options?: {
-			mode?: 'read' | 'readwrite';
-			startIn?: string;
-			id?: string;
-		}) => Promise<FileSystemDirectoryHandle>;
-		showOpenFilePicker?: (options?: {
-			multiple?: boolean;
-			types?: { description?: string; accept: Record<string, string[]> }[];
-		}) => Promise<FileSystemFileHandle[]>;
-	}
-	/** The permission pair, on the handle base — how a remembered folder is re-asked for. */
-	interface FileSystemHandle {
-		queryPermission?: (options?: {
-			mode?: 'read' | 'readwrite';
-		}) => Promise<'granted' | 'denied' | 'prompt'>;
-		requestPermission?: (options?: {
-			mode?: 'read' | 'readwrite';
-		}) => Promise<'granted' | 'denied' | 'prompt'>;
-	}
-	interface FileSystemFileHandle {
-		/** Rename, or move to another directory. Chromium only, at the time of writing. */
-		move(name: string): Promise<void>;
-		move(directory: FileSystemDirectoryHandle, name?: string): Promise<void>;
 	}
 }
 

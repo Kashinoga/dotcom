@@ -1,55 +1,25 @@
-/* THE CASCADE SEAM — where the incoming design system is let in, and on what terms.
+/* THE CASCADE, AND THERE IS ALMOST NOTHING LEFT TO SAY ABOUT IT.
  *
- * The site is converging on ONE look: Kashinoga, which is @kashinoga/design-system. This file is
- * where that convergence enters the cascade, and it does one thing — it puts KDS UNDERNEATH the site
- * as it stands, so the system can arrive without moving anything.
+ * One system, loaded whole. @kashinoga/design-system ships its own six layers — reset, tokens,
+ * base, layout, components, utilities — declared in its entry file and ordered there. Importing it
+ * is the entire stylesheet of this site.
  *
- * ONE LAYER, AND ONLY THE NEW SYSTEM IS IN IT. Unlayered CSS beats layered CSS at any specificity —
- * that is the rule, not a tie-break. So a layer is not a way to rank two systems against each other.
- * It is a way to put one of them at the bottom. KDS goes in `kds` and therefore loses every contest
- * it enters, which is exactly right for a system nothing has been ported to yet.
+ * WHAT THIS FILE USED TO BE was a seam: KDS arriving underneath an existing site, in a layer of its
+ * own so it lost every contest it entered, with puhig and a control sheet unlayered above it. That
+ * arrangement was correct for a site being ported and is meaningless for a site being rebuilt.
+ * There is no second system to rank against, so there is no ranking to declare.
  *
- * PUHIG AND CONTROLS.CSS ARE NOT LAYERED, AND MUST NOT BE. Both were, briefly, on the reading that
- * naming an order for all three was tidier than naming one. It cost two regressions and they had the
- * same shape:
+ * IT IS NOT WRAPPED IN A LAYER OF OURS. Adding one — `@import … layer(kds)` — would fold KDS's six
+ * layers under a single name, which is tidy and wrong: it would make every one of the site's own
+ * later rules beat the whole system at once, including its utilities, which are meant to win. KDS's
+ * internal order already says who beats whom. Nesting it under one name throws that away.
  *
- *   - controls.css dresses controls living in a dozen components, and is written to OUTRANK them —
- *     every selector carries `html:root` or `html[data-ui=…]` for that reason. In a layer it fell
- *     below every component <style> block it was built to beat.
- *   - puhig is not a token file. Its base.css is ~800 lines of real rules — the reset, the grid, the
- *     icon button, the sky. In a layer all of it fell below every component <style> block too.
+ * WHAT COMES AFTER IT, when anything does, is this site's own components — and they go in KDS's
+ * `components` layer, by name, so the system's utilities still outrank them:
  *
- * Settings showed both: the segmented keys went mono to sans, two rows to one, and the selected key
- * lost its tint. Nothing about either sheet had changed except the layer it sat in.
+ *     @import './some-part.css' layer(components);
  *
- * The rule this leaves behind is short. Do not relayer what already works. Layer only the thing
- * arriving, and let it sit at the bottom until a page asks for it.
- *
- * TOKENS ONLY, FOR NOW. The first attempt imported the whole of KDS — reset, base, layout and all —
- * and the contents rail and the on-this-page rail rendered with their lines overlapping. A layer
- * decides who wins a CONTEST; it does nothing about a rule with no opponent. KDS's base layer styles
- * bare elements — `:root`, `p`, `:where(p, li, dd, …)` — sets a leading of its own and trims the
- * half-leading off every block in the rhythm. Nothing here declared a line-height on those
- * selectors, so there was no contest to lose: KDS's typography simply applied, to a site not built
- * for it.
- *
- * A CUSTOM PROPERTY CANNOT DO THAT. It paints nothing by itself — it is a value waiting for a rule
- * to read it. So the tokens land site-wide today at no risk, and the page ready for KDS's RULES is
- * the page that has been ported to them. Each page takes more of the system with it as it ports, and
- * this import grows back to the whole. */
-@layer kds;
-
-@import '@kashinoga/design-system/tokens' layer(kds);
-@import '@kashinoga/puhig/tokens.css';
-@import './controls.css';
-
-/* ONE NAME NOW MEANS TWO THINGS, and it is worth knowing before a page is ported.
- *
- * `--accent` is a site-wide semantic token to KDS — the one ink for a condition rather than a
- * result, set once on :root. To this site it is a LOCAL, handed to an element from the register
- * (style:--accent={accent[code]}), so each place carries its own and nothing defines it globally.
- *
- * Nothing breaks today: every rule that reads it sits on an element that was given one, so the :root
- * value is never the one that wins. It is named here because a rule reading var(--accent) on an
- * element with NO local one now gets cobalt where it used to get nothing, and that is a quiet
- * difference to walk into. */
+ * A component's <style> block in a .svelte file is unlayered and therefore beats all of it. That is
+ * the right way round, and it is also the thing to be careful with: a scoped block that fights the
+ * system is a sign the system is missing a part, not a sign the block needs more specificity. */
+@import '@kashinoga/design-system';

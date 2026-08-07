@@ -8,10 +8,7 @@
 		"build": "pnpm -r build",
 		"check": "pnpm -r check",
 		"format": "prettier --write .",
-		"format:check": "prettier --check .",
-		"test": "pnpm test:unit && pnpm --filter home test:e2e",
-		"test:unit": "pnpm --filter home test:unit",
-		"test:e2e": "pnpm --filter home test:e2e"
+		"format:check": "prettier --check ."
 	},
 	"devDependencies": {
 		"prettier": "^3.9.6",
