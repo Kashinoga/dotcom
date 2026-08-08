@@ -9,6 +9,7 @@
 	// left, so it is not repeated here.
 	const NAV = [
 		{ href: '/about-me', title: 'About Me' },
+		{ href: '/digital-community-services', title: 'Digital Community Services' },
 		{ href: '/design-system', title: 'Design System' }
 	];
 
