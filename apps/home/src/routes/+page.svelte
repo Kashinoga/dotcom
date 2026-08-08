@@ -54,7 +54,7 @@
 				<h1>What’s Around Here</h1>
 				<!-- Items of ONE kind, so what groups them is proximity — which is what .flow does. -->
 				<ul class="flow measure">
-					<li>About Me&nbsp;<span class="sub">— soon</span></li>
+					<li><a href="/about-me">About Me</a></li>
 					<li>Digital Community Services&nbsp;<span class="sub">— soon</span></li>
 				</ul>
 			</section>

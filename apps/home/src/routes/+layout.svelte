@@ -5,8 +5,12 @@
 
 	let { children } = $props();
 
-	// The superbar's destinations. Home is the mark on the left, so it is not repeated here.
-	const NAV = [{ href: '/design-system', title: 'Design System' }];
+	// The superbar's destinations, in the order they are meant to be met. Home is the mark on the
+	// left, so it is not repeated here.
+	const NAV = [
+		{ href: '/about-me', title: 'About Me' },
+		{ href: '/design-system', title: 'Design System' }
+	];
 
 	// THE BAR SITS OUTSIDE THE SCROLL REGION, so its frame centres in the full window width while the
 	// page's frame centres in that width MINUS the scrollbar. Left uncorrected the two are offset by
