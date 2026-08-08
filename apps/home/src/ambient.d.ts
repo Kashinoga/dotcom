@@ -10,3 +10,18 @@
 // The design system ships one plain script alongside its CSS. It carries no types and needs none:
 // it is imported for its effect on the document, never for a value.
 declare module '@kashinoga/design-system/docs.js';
+
+// The rail's behaviour, which IS imported for a value, so it gets a real signature rather than the
+// blanket `any` above. Typed here because the package is plain JavaScript and ships no declarations;
+// if it ever grows them, this block is what to delete.
+declare module '@kashinoga/design-system/docs-rail.js' {
+	/**
+	 * Underline the contents entry whose heading is currently being read, and keep it in step as the
+	 * region scrolls. Both arguments default to the design system's own selectors, and the whole
+	 * thing is a no-op if either is missing — so a page may call it without proving it has a rail.
+	 */
+	export function markCurrentEntry(options?: {
+		toc?: Element | null;
+		region?: HTMLElement | null;
+	}): void;
+}

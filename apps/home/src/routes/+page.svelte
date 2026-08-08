@@ -50,8 +50,10 @@
 			     from the one before. -->
 			<hr />
 
+			<!-- h2, because the note writes it as "##" and that is what "##" means: one h1 for the
+			     document, headings under it for its parts. -->
 			<section class="prose">
-				<h1>What’s Around Here</h1>
+				<h2>What’s Around Here</h2>
 				<!-- Items of ONE kind, so what groups them is proximity — which is what .flow does. -->
 				<ul class="flow measure">
 					<li><a href="/about-me">About Me</a></li>

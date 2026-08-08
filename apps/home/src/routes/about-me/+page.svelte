@@ -1,3 +1,35 @@
+<script lang="ts">
+	import { onMount } from 'svelte';
+
+	// ONE LIST, TWO RAILS. The sections are written down once here and both rails are read off it, so
+	// a section cannot appear in one and not the other, and renaming one is one edit. Writing each
+	// rail out by hand would make three copies of the same list — the markup and two navs — and the
+	// two that are not the markup would be the ones to rot.
+	//
+	// The `id`s match the <section id> attributes below. There is no check tying them together; with
+	// five entries in one file a check would be more machinery than the thing it checks. With a
+	// second page like this, write one.
+	const SECTIONS = [
+		{ id: 'work', title: 'Work' },
+		{ id: 'education', title: 'Education' },
+		{ id: 'physical-fun', title: 'Physical Fun' },
+		{ id: 'digital-fun', title: 'Digital Fun' },
+		{ id: 'contact', title: 'Contact' }
+	];
+
+	// The design system's rail behaviour: underline the entry whose heading you are reading. It lives
+	// in a file of its own precisely so a page like this can have it — docs.js would throw here,
+	// because four of the five things it does assume a page with token tables on it.
+	//
+	// ON MOUNT, because it reads the DOM as soon as it runs and there is no document during SSR. The
+	// rail itself is server-rendered, so nothing about the page's CONTENT waits for this; only the
+	// marking does.
+	onMount(async () => {
+		const { markCurrentEntry } = await import('@kashinoga/design-system/docs-rail.js');
+		markCurrentEntry();
+	});
+</script>
+
 <svelte:head>
 	<!-- Page first, site last. A tab strip truncates from the RIGHT, so the word that survives being
 	     one of twenty open tabs is the one naming the page. -->
@@ -8,20 +40,30 @@
 	/>
 </svelte:head>
 
-<!-- THE SAME SHELL EVERY PAGE USES, with no rails in it. See the home page for why that is the whole
-     structure rather than a wrapper of this page's own.
+<!-- THE FULL SHELL: contents on the left, the document, its own contents on the right. The page has
+     five sections now, which is what a rail is for — a flat page with one heading would be wearing
+     apparatus it had no use for.
 
-     THE WORDS ARE FROM Notes/Dotcom/About Me.md, unedited. The note gained sections since it was
-     first brought across — Work, Education, Physical Fun, Digital Fun, Contact — so this page has
-     them too, as real <section>s with a thematic break before each title, which is what the design
-     system puts between two divisions of a document.
-
-     EVERY SECTION CARRIES ITS OWN id. Nothing on this page links to them yet, and that is not a
-     reason to leave them off: an anchor is part of a document, not a decoration added when something
-     happens to point at it. Written now, a link to #work works the day it is written — and if this
-     page ever earns a contents rail, the rail can be built from the markup instead of from a second
-     list kept beside it. -->
+     THE WORDS ARE FROM Notes/Dotcom/About Me.md, unedited. -->
 <div class="frame docs-shell">
+	<!-- GLOBAL: the document's divisions, and the one a reader uses to move about a long page. Sticky,
+	     so it is reachable from anywhere without scrolling back.
+
+	     The BAND is the <nav>; the list inside it is what sticks. The two cannot be the same element —
+	     a sticky box is only as tall as its contents, so a painted band that also sticks stops level
+	     with the last link and reads as a card floating on the page rather than as the stock the sheet
+	     is laid beside. -->
+	<nav class="docs-rail docs-global" aria-label="Sections">
+		<div class="docs-rail__inner">
+			<p class="docs-rail__title">Sections</p>
+			<ul role="list">
+				{#each SECTIONS as section (section.id)}
+					<li><a href="#{section.id}">{section.title}</a></li>
+				{/each}
+			</ul>
+		</div>
+	</nav>
+
 	<div class="docs-column">
 		<main id="main" class="stack" style="--stack-gap: var(--gap-section)">
 			<!-- The document's own banner. KDS sizes a title with `:is(header.prose, …) h1`, so this is
@@ -37,11 +79,16 @@
 			<!-- A thematic break before each section title: the markdown "---". A SIBLING of the sections
 			     rather than a child of one, because the break comes BETWEEN two divisions — one living
 			     inside the division it opens would be announcing that division rather than separating it
-			     from the one before. -->
+			     from the one before.
+
+			     SECTION TITLES ARE h2. The note writes them as "##" and that is what "##" means: one h1
+			     for the document, headings under it for its parts. They were h1 first, on the design
+			     system's own pattern — its sections carry h1 inside <section> — and that reads as one
+			     document made of peer documents rather than one document with parts. -->
 			<hr />
 
 			<section id="work" class="prose">
-				<h1>Work</h1>
+				<h2>Work</h2>
 				<p class="measure">
 					I am a digital infrastructure engineer at multiple Continental U.S. energy companies.
 				</p>
@@ -54,7 +101,7 @@
 			<hr />
 
 			<section id="education" class="prose">
-				<h1>Education</h1>
+				<h2>Education</h2>
 				<p class="measure">
 					I have a Bachelor’s of Science in Computer Science from Iowa State University, with
 					general education from Drake University.
@@ -64,7 +111,7 @@
 			<hr />
 
 			<section id="physical-fun" class="prose">
-				<h1>Physical Fun</h1>
+				<h2>Physical Fun</h2>
 				<p class="measure">
 					I currently reside in the Midwestern United States, occasionally visiting various
 					countries in Southeast Asia for friends and family.
@@ -74,7 +121,7 @@
 			<hr />
 
 			<section id="digital-fun" class="prose">
-				<h1>Digital Fun</h1>
+				<h2>Digital Fun</h2>
 				<p class="measure">I created and/or operate:</p>
 
 				<!-- THE EMOJI IS THE MARKER, so the list does not draw a second one. A bullet says "this is
@@ -114,7 +161,7 @@
 			<hr />
 
 			<section id="contact" class="prose">
-				<h1>Contact</h1>
+				<h2>Contact</h2>
 				<p class="measure">
 					If you have any questions, please feel free to contact me at:
 					<a href="mailto:contact@kashinoga.com">contact@kashinoga.com</a>.
@@ -124,6 +171,23 @@
 			</section>
 		</main>
 	</div>
+
+	<!-- LOCAL: where you are in the page, marked as it scrolls. It carries the same five entries as
+	     the rail on the left and that is not an oversight — this document has no headings beneath its
+	     sections, so its outline IS its section list. On the design system's page the two differ
+	     because that document goes three levels deep.
+	     `data-depth` is what docs.css indents by, so the day a sub-heading is added here it lands
+	     already stepped in. -->
+	<nav class="docs-rail docs-local" aria-label="On this page">
+		<div class="docs-rail__inner">
+			<p class="docs-rail__title">On this page</p>
+			<ul id="docs-toc" role="list">
+				{#each SECTIONS as section (section.id)}
+					<li data-depth="2"><a href="#{section.id}">{section.title}</a></li>
+				{/each}
+			</ul>
+		</div>
+	</nav>
 </div>
 
 <style>
