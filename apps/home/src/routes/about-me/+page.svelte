@@ -4,90 +4,124 @@
 	<title>About Me | Kashinoga</title>
 	<meta
 		name="description"
-		content="Andrew Nguyen — digital infrastructure engineer, and the things he created or operates."
+		content="Andrew Nguyen — work, education, and the things he created or operates."
 	/>
 </svelte:head>
 
 <!-- THE SAME SHELL EVERY PAGE USES, with no rails in it. See the home page for why that is the whole
      structure rather than a wrapper of this page's own.
 
-     THE WORDS ARE FROM Notes/Dotcom/About Me.md. One change was made on the way in and it is markup
-     rather than writing — see the note on the list below. "Hi." keeps its place ahead of the title,
-     because it is a greeting and a greeting comes before a name. -->
+     THE WORDS ARE FROM Notes/Dotcom/About Me.md, unedited. The note gained sections since it was
+     first brought across — Work, Education, Physical Fun, Digital Fun, Contact — so this page has
+     them too, as real <section>s with a thematic break before each title, which is what the design
+     system puts between two divisions of a document.
+
+     EVERY SECTION CARRIES ITS OWN id. Nothing on this page links to them yet, and that is not a
+     reason to leave them off: an anchor is part of a document, not a decoration added when something
+     happens to point at it. Written now, a link to #work works the day it is written — and if this
+     page ever earns a contents rail, the rail can be built from the markup instead of from a second
+     list kept beside it. -->
 <div class="frame docs-shell">
 	<div class="docs-column">
-		<main id="main" class="prose">
-			<!-- THE TITLE BLOCK IS A <header>, and it has to be for the title to be a title. KDS sizes
-			     a document's own heading with `:is(header.prose, …) h1` — a bare h1 in a run of prose
-			     is a SECTION title and takes the body size, which is correct and is not what this is.
-			     Written without the header, "Andrew Nguyen" rendered at the size of the sentence under
-			     it. -->
+		<main id="main" class="stack" style="--stack-gap: var(--gap-section)">
+			<!-- The document's own banner. KDS sizes a title with `:is(header.prose, …) h1`, so this is
+			     what makes "About Me" a title rather than another section heading — written as a bare h1
+			     in a run of prose it came out at the size of the sentence beneath it. -->
 			<header class="prose">
-				<p class="measure">Hi.</p>
-				<h1>Andrew Nguyen</h1>
+				<h1>About Me</h1>
+				<p class="measure">My name is Andrew Nguyen.</p>
+				<p class="measure">I enjoy nature, literature, and video games.</p>
+				<p class="measure">Also heightened experiences.</p>
 			</header>
 
-			<p class="measure">My name is Andrew Nguyen.</p>
-			<p class="measure">I enjoy nature, literature, and video games.</p>
-			<p class="measure">Also heightened experiences.</p>
-			<p class="measure">
-				I am a digital infrastructure engineer at multiple Continental U.S. energy companies.
-			</p>
-			<p class="measure">
-				I was a software engineering consultant for various Midwestern U.S. companies and the State
-				of Iowa.
-			</p>
-			<p class="measure">
-				I have a Bachelor’s of Science in Computer Science from Iowa State University, with general
-				education from Drake University.
-			</p>
-			<p class="measure">
-				I currently reside in the Midwestern United States, occasionally visiting various countries
-				in Southeast Asia for friends and family.
-			</p>
+			<!-- A thematic break before each section title: the markdown "---". A SIBLING of the sections
+			     rather than a child of one, because the break comes BETWEEN two divisions — one living
+			     inside the division it opens would be announcing that division rather than separating it
+			     from the one before. -->
+			<hr />
 
-			<p class="measure">I created and/or operate:</p>
+			<section id="work" class="prose">
+				<h1>Work</h1>
+				<p class="measure">
+					I am a digital infrastructure engineer at multiple Continental U.S. energy companies.
+				</p>
+				<p class="measure">
+					I was a software engineering consultant for various Midwestern U.S. companies and the
+					State of Iowa.
+				</p>
+			</section>
 
-			<!-- THE EMOJI IS THE MARKER, so the list does not draw a second one. A bullet says "this is
-			     an item"; the mark says WHICH item — and a row carrying both states the first fact twice
-			     and puts two symbols in front of every line. The nested lists keep their bullets, because
-			     they have no mark of their own and something has to hold the level.
+			<hr />
 
-			     Marked aria-hidden where it is decoration beside a name that already reads. A screen
-			     reader announcing "sparkling heart, Digital Community Services" is reading furniture. -->
-			<ul class="flow measure ventures">
-				<li>
-					<span aria-hidden="true">💖</span> Digital Community Services: a digital community service
-					project, offering friends and family various digital resources for a better digital
-					well-being
-					<ul class="flow">
-						<li>Matrix, an open communication platform</li>
-						<li>Nextcloud, an open productivity platform</li>
-					</ul>
-				</li>
-				<li>
-					<span aria-hidden="true">🎮</span> Digital Play Services: offering friends various gaming
-					services for casual, community, and competitive play
-					<ul class="flow">
-						<li>Deadlock</li>
-						<li>The Finals</li>
-						<li>Hytale</li>
-						<li>Terraria</li>
-					</ul>
-				</li>
-				<li>
-					<span aria-hidden="true">💾</span> SDKK: a Discord community offering a safe and friendly space
-					for whatever is on our minds
-				</li>
-			</ul>
+			<section id="education" class="prose">
+				<h1>Education</h1>
+				<p class="measure">
+					I have a Bachelor’s of Science in Computer Science from Iowa State University, with
+					general education from Drake University.
+				</p>
+			</section>
 
-			<p class="measure">
-				If you have any questions, please feel free to contact me at:
-				<a href="mailto:contact@kashinoga.com">contact@kashinoga.com</a>.
-			</p>
+			<hr />
 
-			<p class="measure">Take care,</p>
-			<p class="measure">Andrew</p>
+			<section id="physical-fun" class="prose">
+				<h1>Physical Fun</h1>
+				<p class="measure">
+					I currently reside in the Midwestern United States, occasionally visiting various
+					countries in Southeast Asia for friends and family.
+				</p>
+			</section>
+
+			<hr />
+
+			<section id="digital-fun" class="prose">
+				<h1>Digital Fun</h1>
+				<p class="measure">I created and/or operate:</p>
+
+				<!-- THE EMOJI IS THE MARKER, so the list does not draw a second one. A bullet says "this is
+				     an item"; the mark says WHICH item — and a row carrying both states the first fact twice
+				     and puts two symbols in front of every line. The nested lists keep their bullets, because
+				     they have no mark of their own and something has to hold the level.
+
+				     Marked aria-hidden where it is decoration beside a name that already reads. A screen
+				     reader announcing "sparkling heart, Digital Community Services" is reading furniture. -->
+				<ul class="flow measure ventures">
+					<li>
+						<span aria-hidden="true">💖</span> Digital Community Services: a digital community
+						service project, offering friends and family various digital resources for a better
+						digital well-being
+						<ul class="flow">
+							<li>Matrix, an open communication platform</li>
+							<li>Nextcloud, an open productivity platform</li>
+						</ul>
+					</li>
+					<li>
+						<span aria-hidden="true">🎮</span> Digital Play Services: offering friends various
+						gaming services for casual, community, and competitive play
+						<ul class="flow">
+							<li>Deadlock</li>
+							<li>The Finals</li>
+							<li>Hytale</li>
+							<li>Terraria</li>
+						</ul>
+					</li>
+					<li>
+						<span aria-hidden="true">💾</span> SDKK: a Discord community offering a safe and friendly
+						space for whatever is on our minds
+					</li>
+				</ul>
+			</section>
+
+			<hr />
+
+			<section id="contact" class="prose">
+				<h1>Contact</h1>
+				<p class="measure">
+					If you have any questions, please feel free to contact me at:
+					<a href="mailto:contact@kashinoga.com">contact@kashinoga.com</a>.
+				</p>
+				<p class="measure">Take care,</p>
+				<p class="measure">Andrew</p>
+			</section>
 		</main>
 	</div>
 </div>
@@ -121,15 +155,9 @@
 		text-indent: 0;
 	}
 
-	/* THE NESTED LIST STEPS CLEAR OF THE ROW IT HANGS UNDER, and the step is measured against the mark
-	   rather than chosen. Its parent's text begins after the emoji and the space following it, so an
-	   indent smaller than that leaves the child's text starting where the parent's does — level, with
-	   nothing to say one is inside the other. At --space-24 that is exactly what happened.
-	 *
-	   One unit past where the parent's own text begins, which is the one distance that reads as
-	   "under" rather than "beside". It was --space-40 while the row had no indent of its own; the row
-	   has one now, so the child inherits that head start and needs less of its own. Their bullets
-	   stay: these rows carry no mark of their own, and something has to hold the level. */
+	/* One unit past where the parent's own text begins, which is the distance that reads as "under"
+	   rather than "beside". Their bullets stay: these rows carry no mark of their own, and something
+	   has to hold the level. */
 	.ventures ul {
 		margin-block-start: var(--gap-tight);
 		padding-inline-start: var(--space-24);
