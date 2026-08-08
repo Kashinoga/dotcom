@@ -44,14 +44,13 @@
 				<p class="measure">Take care.</p>
 			</header>
 
-			<!-- A thematic break before the section title: the markdown "---". A SIBLING of the section
-			     rather than a child of it, because the break comes BETWEEN two divisions — one living
-			     inside the division it opens would be announcing that division rather than separating it
-			     from the one before. -->
-			<hr />
-
 			<!-- h2, because the note writes it as "##" and that is what "##" means: one h1 for the
-			     document, headings under it for its parts. -->
+			     document, headings under it for its parts.
+
+			     NO RULE ABOVE IT. A thematic break belongs above a top-level division and nowhere else —
+			     drawn above an h2 as well it stops marking the largest boundary on the page and starts
+			     marking every boundary, which is the same as marking none. Space carries this one, which
+			     is what --gap-section is for: "between sections — where a rule used to be". -->
 			<section class="prose">
 				<h2>What’s Around Here</h2>
 				<!-- Items of ONE kind, so what groups them is proximity — which is what .flow does. -->

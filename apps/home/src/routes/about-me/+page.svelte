@@ -76,17 +76,22 @@
 				<p class="measure">Also heightened experiences.</p>
 			</header>
 
-			<!-- A thematic break before each section title: the markdown "---". A SIBLING of the sections
-			     rather than a child of one, because the break comes BETWEEN two divisions — one living
-			     inside the division it opens would be announcing that division rather than separating it
-			     from the one before.
-
-			     SECTION TITLES ARE h2. The note writes them as "##" and that is what "##" means: one h1
+			<!-- SECTION TITLES ARE h2. The note writes them as "##" and that is what "##" means: one h1
 			     for the document, headings under it for its parts. They were h1 first, on the design
 			     system's own pattern — its sections carry h1 inside <section> — and that reads as one
-			     document made of peer documents rather than one document with parts. -->
-			<hr />
+			     document made of peer documents rather than one document with parts.
 
+			     AND SO THERE ARE NO RULES BETWEEN THEM. A thematic break belongs above a TOP-level
+			     division and nowhere else: the design system draws one before each of its h1 sections,
+			     because those are the seams of the document. Drawn above an h2 as well, the line stops
+			     marking the largest boundary on the page and starts marking every boundary, which is
+			     the same as marking none — five rules down a page of five sections, each announcing a
+			     break the heading beneath it had already announced.
+
+			     What separates these is space, which is the answer this system reaches for first. Its
+			     own token says so in as many words: --gap-section is "between sections — where a rule
+			     used to be", and if a section has to reassert itself the answer is more space, not a
+			     line. The stack on <main> is already at that tier. -->
 			<section id="work" class="prose">
 				<h2>Work</h2>
 				<p class="measure">
@@ -98,8 +103,6 @@
 				</p>
 			</section>
 
-			<hr />
-
 			<section id="education" class="prose">
 				<h2>Education</h2>
 				<p class="measure">
@@ -108,8 +111,6 @@
 				</p>
 			</section>
 
-			<hr />
-
 			<section id="physical-fun" class="prose">
 				<h2>Physical Fun</h2>
 				<p class="measure">
@@ -117,8 +118,6 @@
 					countries in Southeast Asia for friends and family.
 				</p>
 			</section>
-
-			<hr />
 
 			<section id="digital-fun" class="prose">
 				<h2>Digital Fun</h2>
@@ -157,8 +156,6 @@
 					</li>
 				</ul>
 			</section>
-
-			<hr />
 
 			<section id="contact" class="prose">
 				<h2>Contact</h2>
