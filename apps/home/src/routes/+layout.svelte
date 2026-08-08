@@ -7,6 +7,40 @@
 
 	// The superbar's destinations. Home is the mark on the left, so it is not repeated here.
 	const NAV = [{ href: '/design-system', title: 'Design System' }];
+
+	// THE BAR SITS OUTSIDE THE SCROLL REGION, so its frame centres in the full window width while the
+	// page's frame centres in that width MINUS the scrollbar. Left uncorrected the two are offset by
+	// half a scrollbar and the wordmark misses the title beneath it. docs.css reserves the difference
+	// on the bar as `padding-inline-end: var(--scrollbar-width)`, and CSS cannot ask how wide a
+	// scrollbar is — so it has to be measured and handed over.
+	//
+	// MEASURED HERE, IN THE LAYOUT, and that placement is the fix rather than an implementation
+	// detail. The design system's own script does this too, but it only runs on the page that loads
+	// it, so the value was set on /design-system and never on /. Landing on Home left the bar
+	// uncorrected; arriving back from the design system left the value stamped from the page that had
+	// a scrollbar, and the bar reserved a gutter this page does not have. The bar belongs to every
+	// page, so the correction does too.
+	//
+	// The value is a constant now — the region reserves its gutter whether or not it is scrolling, as
+	// of the design system's last commit — so this runs once and again only on resize, which is the
+	// one thing that can change a scrollbar's width under you.
+	$effect(() => {
+		// HTMLElement rather than Element, because offsetWidth is on the HTML interface and not the
+		// generic one — querySelector's default return type has clientWidth and not its partner.
+		const region = document.querySelector<HTMLElement>('.docs-scroll');
+		if (!region) return;
+
+		const measure = () => {
+			// offsetWidth minus clientWidth is the reserved gutter. It is 0 on platforms with overlay
+			// scrollbars, which is the right answer there: nothing is taking any width.
+			const width = region.offsetWidth - region.clientWidth;
+			document.documentElement.style.setProperty('--scrollbar-width', `${width}px`);
+		};
+
+		measure();
+		addEventListener('resize', measure);
+		return () => removeEventListener('resize', measure);
+	});
 </script>
 
 <!-- EVERY CLASS BELOW IS THE DESIGN SYSTEM'S OWN, and that is the point of this file rather than an
